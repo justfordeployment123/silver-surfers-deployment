@@ -1,43 +1,32 @@
 # syntax=docker/dockerfile:1
 
-# ────────────────────────────────────────────────────────────────
-# Stage 1: deps
-# ────────────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS deps
+FROM python:3.11-slim-bookworm
 
-# Enable corepack and prepare pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
-
-WORKDIR /usr/src/app
-
-COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-
-# ────────────────────────────────────────────────────────────────
-# Stage 2: scanner — Lighthouse + Playwright + Chromium
-# ────────────────────────────────────────────────────────────────
-FROM node:22-bookworm-slim AS final
-
-ENV NODE_ENV=production \
-    PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_CACHE_DIR=/usr/src/app/.cache/puppeteer \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    TEMP_DIR=/tmp \
+    PORT=8001 \
+    HOST=0.0.0.0 \
+    SCANNER_PORT=8001 \
     CHROME_PATH=/usr/bin/chromium \
     CHROMIUM_PATH=/usr/bin/chromium \
-    PLAYWRIGHT_BROWSERS_PATH=/usr/src/app/.cache/playwright \
-    SCANNER_PORT=8001
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    NODE_ENV=production
 
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Chromium and all required shared libraries for headless browsing
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    chromium \
-    chromium-sandbox \
     ca-certificates \
+    chromium \
+    chromium-driver \
+    curl \
     dumb-init \
     fonts-liberation \
     fonts-noto \
     fonts-noto-cjk \
+    gcc \
+    g++ \
+    gnupg \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -55,6 +44,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
+    libu2f-udev \
+    libvulkan1 \
     libx11-6 \
     libx11-xcb1 \
     libxcomposite1 \
@@ -64,25 +55,37 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxfixes3 \
     libxi6 \
     libxkbcommon0 \
+    libxml2-dev \
     libxrandr2 \
     libxrender1 \
     libxshmfence1 \
     libxss1 \
+    libxslt1-dev \
     libxtst6 \
+    python3-dev \
+    wget \
     xdg-utils \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=deps /usr/src/app/node_modules ./node_modules
-COPY . .
+COPY python-scanner/requirements.txt ./requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Create cache dirs, install Playwright Chromium browser, fix ownership
-RUN mkdir -p $PUPPETEER_CACHE_DIR $PLAYWRIGHT_BROWSERS_PATH && \
-    npx playwright install chromium && \
-    chown -R node:node /usr/src/app
+COPY python-scanner/package.json ./package.json
+RUN npm install --omit=dev && npm cache clean --force
 
-USER node
+COPY python-scanner/scanner_service.py ./scanner_service.py
+COPY python-scanner/lighthouse_integration.py ./lighthouse_integration.py
+COPY python-scanner/lighthouse_runner.js ./lighthouse_runner.js
+COPY python-scanner/lighthouse-configs/ ./lighthouse-configs/
+
+RUN mkdir -p /tmp \
+    && chmod 777 /tmp \
+    && (python -m camoufox fetch || camoufox fetch || true)
 
 EXPOSE 8001
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["node", "--import", "./scripts/register-typescript-loader.mjs", "src/scanner-server.ts"]
+CMD ["python", "-m", "uvicorn", "scanner_service:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1", "--limit-concurrency", "10", "--timeout-keep-alive", "300"]

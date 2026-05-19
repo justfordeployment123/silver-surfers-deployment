@@ -344,7 +344,10 @@ async function auditLinkForDevice(
 function shouldFallbackToLiteScanner(errorCode: string | undefined): boolean {
   return errorCode === 'SERVER_ERROR'
     || errorCode === 'REQUEST_TIMEOUT'
-    || errorCode === 'SCAN_TIMEOUT';
+    || errorCode === 'SCAN_TIMEOUT'
+    || errorCode === 'AUDIT_FAILED'
+    || errorCode === 'SCANNER_SERVICE_ERROR'
+    || errorCode === 'PYTHON_SCANNER_ERROR';
 }
 
 async function requestPageAuditWithFallback(

@@ -99,6 +99,8 @@ export interface AppEnv {
     auditRecoveryBatchSize: number;
     auditRecoveryMaxAttempts: number;
     scannerServiceUrl: string;
+    scannerLiteAuditTimeoutMs: number;
+    scannerFullAuditTimeoutMs: number;
     chromePath?: string;
     requestLogEnabled: boolean;
     queueBackend: QueueBackend;
@@ -160,6 +162,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         auditRecoveryBatchSize: parseBoundedNumber(source.AUDIT_RECOVERY_BATCH_SIZE, 10, 1, 100),
         auditRecoveryMaxAttempts: parseBoundedNumber(source.AUDIT_RECOVERY_MAX_ATTEMPTS, 3, 1, 20),
         scannerServiceUrl: source.SCANNER_SERVICE_URL?.trim() || source.PYTHON_SCANNER_URL?.trim() || `http://localhost:${scannerPort}`,
+        scannerLiteAuditTimeoutMs: parseBoundedNumber(source.SCANNER_LITE_AUDIT_TIMEOUT_MS, 240_000, 60_000, 60 * 60 * 1000),
+        scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 60 * 60 * 1000),
         chromePath: resolveChromePath(source),
         requestLogEnabled: parseBoolean(source.REQUEST_LOG_ENABLED, true),
         queueBackend: resolveQueueBackend(source.QUEUE_BACKEND?.trim().toLowerCase(), redisUrl),

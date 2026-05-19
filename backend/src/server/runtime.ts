@@ -34,7 +34,7 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
   };
 
   const fullAuditQueue = createJobQueue('FullAudit', runFullAuditProcess, {
-    concurrency: 5,
+    concurrency: env.queueFullAuditConcurrency,
     maxRetries: env.queueMaxRetries,
     retryDelay: 10000,
     cleanupInterval: env.queueCleanupIntervalMs,
@@ -44,7 +44,7 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
   }, factoryOptions);
 
   const quickScanQueue = createJobQueue('QuickScan', runQuickScanProcess, {
-    concurrency: 5,
+    concurrency: env.queueQuickScanConcurrency,
     maxRetries: env.queueMaxRetries,
     retryDelay: 5000,
     cleanupInterval: env.queueCleanupIntervalMs,

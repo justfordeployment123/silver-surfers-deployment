@@ -63,6 +63,8 @@ services:
             PORT: 8000
             REDIS_URL: redis://redis:6379
             SCANNER_SERVICE_URL: http://scanner:8001
+            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
+            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
             NODE_ENV: production
         ports:
             - "8000:8000"
@@ -98,6 +100,8 @@ services:
         environment:
             REDIS_URL: redis://redis:6379
             SCANNER_SERVICE_URL: http://scanner:8001
+            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
+            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
             NODE_ENV: production
         networks:
             - ssnet
@@ -118,6 +122,14 @@ services:
             - ./backend/.env
         environment:
             SCANNER_PORT: 8001
+            PORT: 8001
+            TEMP_DIR: /tmp
+            PYTHONUNBUFFERED: 1
+            SCANNER_MAX_CONCURRENT_AUDITS: ${SCANNER_MAX_CONCURRENT_AUDITS:-1}
+            SCANNER_MAX_QUEUED_AUDITS: ${SCANNER_MAX_QUEUED_AUDITS:-8}
+            SCANNER_EXECUTOR_WORKERS: ${SCANNER_EXECUTOR_WORKERS:-2}
+            SCANNER_KEEP_TEMP_REPORTS: ${SCANNER_KEEP_TEMP_REPORTS:-false}
+            SCANNER_LIGHTHOUSE_TIMEOUT_SECONDS: ${SCANNER_LIGHTHOUSE_TIMEOUT_SECONDS:-300}
             REDIS_URL: redis://redis:6379
             CHROME_PATH: /usr/bin/chromium
             CHROMIUM_PATH: /usr/bin/chromium

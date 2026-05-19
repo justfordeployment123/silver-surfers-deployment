@@ -22,6 +22,11 @@ const FULL_AUDIT_IDS = [
   'heading-order',
   'errors-in-console',
   'geolocation-on-start',
+  'image-alt',
+  'focus-traps',
+  'bypass',
+  'line-spacing-audit',
+  'autoplay-audit',
 ];
 
 function buildReport(scoreOverrides: Record<string, number> = {}) {
@@ -123,4 +128,26 @@ test('buildAggregateAuditScorecard averages page scorecards and keeps worst issu
   const contentTrust = aggregate.dimensions.find((dimension) => dimension.key === 'contentTrust');
   assert.ok(contentTrust);
   assert.ok(contentTrust.issueCount >= 1);
+});
+
+test('buildAuditScorecard honors auditRefs embedded in the scanner report', () => {
+  const scorecard = buildAuditScorecard({
+    categories: {
+      'senior-friendly-lite': {
+        auditRefs: [
+          { id: 'color-contrast', weight: 1 },
+        ],
+      },
+    },
+    audits: {
+      'color-contrast': {
+        title: 'Contrast',
+        description: 'Contrast passed.',
+        score: 1,
+      },
+    },
+  }, { isLiteVersion: true });
+
+  assert.equal(scorecard.overallScore, 100);
+  assert.equal(scorecard.topIssues.some((issue) => issue.auditId === 'target-size'), false);
 });

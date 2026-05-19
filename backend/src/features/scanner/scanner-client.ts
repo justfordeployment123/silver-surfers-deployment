@@ -69,7 +69,7 @@ export interface ScannerServiceLoadSnapshot {
 }
 
 function buildTimeoutMs(isLiteVersion: boolean): number {
-  return isLiteVersion ? 240_000 : 300_000;
+  return isLiteVersion ? env.scannerLiteAuditTimeoutMs : env.scannerFullAuditTimeoutMs;
 }
 
 function resolveReportHostname(url: string): string {
@@ -239,7 +239,7 @@ export async function requestScannerAudit(
       version: payload.version === 'Full' ? 'Full' : 'Lite',
       url: payload.url || request.url,
       device: payload.device || body.device,
-      strategy: payload.strategy || 'Node-Lighthouse',
+      strategy: payload.strategy || 'Python-Camoufox',
       attemptNumber: payload.attemptNumber || 1,
       message: payload.message || 'Audit completed using scanner service.',
     };

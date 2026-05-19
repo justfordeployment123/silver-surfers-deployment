@@ -1,3 +1,9 @@
+allowBuilds:
+  msgpackr-extract: true
+  puppeteer: true
+  sharp: true
+  tesseract.js: true
+  unrs-resolver: true
 onlyBuiltDependencies:
   - msgpackr-extract
   - puppeteer

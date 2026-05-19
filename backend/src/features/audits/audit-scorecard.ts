@@ -88,6 +88,7 @@ interface LighthouseAuditResultLike {
 
 interface LighthouseReportLike {
     audits?: Record<string, LighthouseAuditResultLike | undefined>;
+    categories?: Record<string, { auditRefs?: Array<{ id?: string; weight?: number }> } | undefined>;
 }
 
 interface BuildAuditScorecardOptions {
@@ -317,6 +318,20 @@ function getCategoryAuditRefs(categoryId: string): CategoryAuditRef[] {
         .filter((auditRef: any) => auditRef.id && auditRef.weight > 0);
 }
 
+function getReportCategoryAuditRefs(report: LighthouseReportLike, categoryId: string): CategoryAuditRef[] {
+    const category = report?.categories?.[categoryId];
+    if (!category?.auditRefs || !Array.isArray(category.auditRefs)) {
+        return [];
+    }
+
+    return category.auditRefs
+        .map((auditRef: any) => ({
+            id: String(auditRef.id || ""),
+            weight: Number(auditRef.weight) || 0,
+        }))
+        .filter((auditRef: CategoryAuditRef) => auditRef.id && auditRef.weight > 0);
+}
+
 function getEvaluationDimensionKey(auditId: string): AuditEvaluationDimensionKey {
     return AUDIT_EVALUATION_DIMENSION_MAP[auditId] || "technicalAccessibility";
 }
@@ -419,7 +434,8 @@ function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionSc
 
 export function buildAuditScorecard(report: LighthouseReportLike, options: BuildAuditScorecardOptions = {}): AuditScorecard {
     const categoryId = options.isLiteVersion ? LITE_CATEGORY_ID : FULL_CATEGORY_ID;
-    const auditRefs = getCategoryAuditRefs(categoryId);
+    const auditRefs = getReportCategoryAuditRefs(report, categoryId);
+    const resolvedAuditRefs = auditRefs.length > 0 ? auditRefs : getCategoryAuditRefs(categoryId);
     const audits = report?.audits || {};
 
     const evaluationIssues = new Map<AuditEvaluationDimensionKey, AuditIssueSummary[]>();
@@ -434,7 +450,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         evaluationIssueCounts.set(key, 0);
     }
 
-    for (const auditRef of auditRefs) {
+    for (const auditRef of resolvedAuditRefs) {
         const audit = audits[auditRef.id];
         const score = clampAuditScore(audit?.score);
         const evaluationKey = getEvaluationDimensionKey(auditRef.id);
