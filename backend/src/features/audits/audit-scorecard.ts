@@ -101,6 +101,7 @@ interface LighthouseAuditResultLike {
     notApplicable?: boolean;
     notChecked?: boolean;
     scoreDisplayMode?: string;
+    axeImpact?: string;
 }
 
 interface LighthouseReportLike {
@@ -161,12 +162,23 @@ const EVALUATION_DIMENSION_ORDER: AuditEvaluationDimensionKey[] = [
     "mobileOptimization",
 ];
 
+const EVALUATION_DIMENSION_PRD_WEIGHTS: Record<AuditEvaluationDimensionKey, number> = {
+    technicalAccessibility: 6.67,
+    visualClarityDesign: 15,
+    cognitiveLoadComplexity: 8.33,
+    navigationArchitecture: 8.33,
+    contentReadability: 15,
+    interactionForms: 12.5,
+    trustSecuritySignals: 6.67,
+    mobileOptimization: 27.5,
+};
+
 const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey> = {
     "color-contrast": "visualClarityDesign",
     "text-font-audit": "visualClarityDesign",
     viewport: "mobileOptimization",
     "cumulative-layout-shift": "visualClarityDesign",
-    "layout-brittle-audit": "interactionForms",
+    "layout-brittle-audit": "visualClarityDesign",
     "flesch-kincaid-audit": "contentReadability",
     "heading-order": "navigationArchitecture",
     "dom-size": "cognitiveLoadComplexity",
@@ -174,8 +186,8 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     "interactive-color-audit": "visualClarityDesign",
     "target-size": "interactionForms",
     "link-name": "navigationArchitecture",
-    "button-name": "technicalAccessibility",
-    label: "technicalAccessibility",
+    "button-name": "interactionForms",
+    label: "interactionForms",
     "largest-contentful-paint": "mobileOptimization",
     "total-blocking-time": "cognitiveLoadComplexity",
     "is-on-https": "trustSecuritySignals",
@@ -187,11 +199,28 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     "autoplay-audit": "cognitiveLoadComplexity",
 };
 
-const PRIMARY_DIMENSION_CONTRIBUTORS: Record<AuditPrimaryDimensionKey, AuditEvaluationDimensionKey[]> = {
-    visualClarity: ["visualClarityDesign", "mobileOptimization"],
-    cognitiveLoad: ["cognitiveLoadComplexity", "navigationArchitecture", "contentReadability"],
-    motorAccessibility: ["interactionForms", "mobileOptimization"],
-    contentTrust: ["technicalAccessibility", "contentReadability", "trustSecuritySignals"],
+const PRIMARY_DIMENSION_CONTRIBUTORS: Record<
+    AuditPrimaryDimensionKey,
+    Array<{ key: AuditEvaluationDimensionKey; weight: number }>
+> = {
+    visualClarity: [
+        { key: "visualClarityDesign", weight: 15 },
+        { key: "mobileOptimization", weight: 15 },
+    ],
+    cognitiveLoad: [
+        { key: "cognitiveLoadComplexity", weight: 8.33 },
+        { key: "navigationArchitecture", weight: 8.33 },
+        { key: "contentReadability", weight: 8.34 },
+    ],
+    motorAccessibility: [
+        { key: "interactionForms", weight: 12.5 },
+        { key: "mobileOptimization", weight: 12.5 },
+    ],
+    contentTrust: [
+        { key: "technicalAccessibility", weight: 6.67 },
+        { key: "contentReadability", weight: 6.67 },
+        { key: "trustSecuritySignals", weight: 6.66 },
+    ],
 };
 
 const DEFAULT_AUDIT_METADATA: AuditIssueMetadata = {
@@ -219,6 +248,11 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceType: "wcag-aa",
         auditSourceLabel: "WCAG AA",
         wcagCriteria: ["2.4.4"],
+    },
+    "button-name": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["4.1.2", "2.5.3"],
     },
     label: {
         auditSourceType: "wcag-aa",
@@ -349,8 +383,92 @@ function getReportCategoryAuditRefs(report: LighthouseReportLike, categoryId: st
         .filter((auditRef: CategoryAuditRef) => auditRef.id && auditRef.weight > 0);
 }
 
-function getEvaluationDimensionKey(auditId: string): AuditEvaluationDimensionKey {
-    return AUDIT_EVALUATION_DIMENSION_MAP[auditId] || "technicalAccessibility";
+function getAxeAuditWeight(audit: LighthouseAuditResultLike | undefined): number {
+    switch (String(audit?.axeImpact || "").toLowerCase()) {
+        case "critical":
+            return 5;
+        case "serious":
+            return 4;
+        case "moderate":
+            return 3;
+        case "minor":
+            return 1;
+        default:
+            return 3;
+    }
+}
+
+function appendDynamicAxeAuditRefs(auditRefs: CategoryAuditRef[], audits: Record<string, LighthouseAuditResultLike | undefined>): CategoryAuditRef[] {
+    const refsById = new Map(auditRefs.map((auditRef) => [auditRef.id, auditRef]));
+
+    for (const [auditId, audit] of Object.entries(audits)) {
+        if (!auditId.startsWith("axe-") || refsById.has(auditId)) {
+            continue;
+        }
+        if (auditId === "axe-core") {
+            continue;
+        }
+        const canonicalAuditId = auditId.slice("axe-".length);
+        if (refsById.has(canonicalAuditId)) {
+            continue;
+        }
+        if (!audit || audit.notApplicable || audit.notChecked || audit.scoreDisplayMode === "notApplicable" || audit.scoreDisplayMode === "notChecked") {
+            continue;
+        }
+        refsById.set(auditId, {
+            id: auditId,
+            weight: getAxeAuditWeight(audit),
+        });
+    }
+
+    return [...refsById.values()];
+}
+
+function getDimensionFromWcagCriterion(criterion: string): AuditEvaluationDimensionKey | null {
+    if (/^1\.1\./.test(criterion) || /^1\.3\.[1235]/.test(criterion) || /^2\.1\./.test(criterion) || /^4\.1\./.test(criterion)) {
+        return "technicalAccessibility";
+    }
+    if (/^1\.4\.(3|4|11|12|13)$/.test(criterion)) {
+        return "visualClarityDesign";
+    }
+    if (/^1\.3\.4$/.test(criterion) || /^1\.4\.10$/.test(criterion)) {
+        return "mobileOptimization";
+    }
+    if (/^2\.2\./.test(criterion) || /^3\.2\./.test(criterion)) {
+        return "cognitiveLoadComplexity";
+    }
+    if (/^2\.4\./.test(criterion)) {
+        return "navigationArchitecture";
+    }
+    if (/^3\.1\./.test(criterion)) {
+        return "contentReadability";
+    }
+    if (/^2\.5\./.test(criterion) || /^3\.3\./.test(criterion)) {
+        return "interactionForms";
+    }
+
+    return null;
+}
+
+function getEvaluationDimensionKey(auditId: string, audit?: LighthouseAuditResultLike): AuditEvaluationDimensionKey {
+    const staticKey = AUDIT_EVALUATION_DIMENSION_MAP[auditId];
+    if (staticKey) {
+        return staticKey;
+    }
+
+    if (auditId === "axe-button-name") {
+        return "interactionForms";
+    }
+
+    const wcagReferences = resolveWcagReferencesForAudit(auditId, audit);
+    for (const reference of wcagReferences) {
+        const inferred = getDimensionFromWcagCriterion(reference.criterion);
+        if (inferred) {
+            return inferred;
+        }
+    }
+
+    return "technicalAccessibility";
 }
 
 function getAuditMetadata(auditId: string): AuditIssueMetadata {
@@ -419,13 +537,21 @@ function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionSc
 
     const dimensions = PRIMARY_DIMENSION_ORDER.map((primaryKey) => {
         const contributors = PRIMARY_DIMENSION_CONTRIBUTORS[primaryKey]
-            .map((dimensionKey) => evaluationByKey.get(dimensionKey))
-            .filter((dimension): dimension is AuditEvaluationDimensionScore => Boolean(dimension));
+            .map((contributor) => ({
+                ...contributor,
+                dimension: evaluationByKey.get(contributor.key),
+            }))
+            .filter((contributor): contributor is { key: AuditEvaluationDimensionKey; weight: number; dimension: AuditEvaluationDimensionScore } =>
+                Boolean(contributor.dimension) && Number(contributor.dimension.weight) > 0,
+            );
 
-        const contributorWeight = contributors.reduce((sum, dimension) => sum + (Number(dimension.weight) || 0), 0);
+        const contributorWeight = contributors.reduce((sum, contributor) => sum + contributor.weight, 0);
         const score =
             contributorWeight > 0
-                ? roundScore(contributors.reduce((sum, dimension) => sum + dimension.score * dimension.weight, 0) / contributorWeight)
+                ? roundScore(
+                      contributors.reduce((sum, contributor) => sum + contributor.dimension.score * contributor.weight, 0) /
+                          contributorWeight,
+                  )
                 : 0;
 
         if (contributorWeight > 0) {
@@ -438,8 +564,8 @@ function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionSc
             label: PRIMARY_DIMENSION_LABELS[primaryKey],
             score,
             weight: PRIMARY_DIMENSION_WEIGHTS[primaryKey],
-            issueCount: contributors.reduce((sum, dimension) => sum + (dimension.issueCount || 0), 0),
-            topIssues: dedupeIssues(contributors.flatMap((dimension) => dimension.topIssues || [])).slice(0, 3),
+            issueCount: contributors.reduce((sum, contributor) => sum + (contributor.dimension.issueCount || 0), 0),
+            topIssues: dedupeIssues(contributors.flatMap((contributor) => contributor.dimension.topIssues || [])).slice(0, 3),
         };
     });
 
@@ -452,8 +578,8 @@ function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionSc
 export function buildAuditScorecard(report: LighthouseReportLike, options: BuildAuditScorecardOptions = {}): AuditScorecard {
     const categoryId = options.isLiteVersion ? LITE_CATEGORY_ID : FULL_CATEGORY_ID;
     const auditRefs = getReportCategoryAuditRefs(report, categoryId);
-    const resolvedAuditRefs = auditRefs.length > 0 ? auditRefs : getCategoryAuditRefs(categoryId);
     const audits = report?.audits || {};
+    const resolvedAuditRefs = appendDynamicAxeAuditRefs(auditRefs.length > 0 ? auditRefs : getCategoryAuditRefs(categoryId), audits);
 
     const evaluationIssues = new Map<AuditEvaluationDimensionKey, AuditIssueSummary[]>();
     const evaluationWeightedScores = new Map<AuditEvaluationDimensionKey, number>();
@@ -482,7 +608,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         }
 
         const score = clampAuditScore(audit?.score);
-        const evaluationKey = getEvaluationDimensionKey(auditRef.id);
+        const evaluationKey = getEvaluationDimensionKey(auditRef.id, audit);
         const metadata = getAuditMetadata(auditRef.id);
 
         evaluationWeightedScores.set(evaluationKey, (evaluationWeightedScores.get(evaluationKey) || 0) + score * auditRef.weight);
@@ -492,6 +618,10 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
             const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
             const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
             const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];
+            const issueMetadata =
+                auditRef.id.startsWith("axe-") && wcagReferences.length
+                    ? { auditSourceType: "wcag-aa" as const, auditSourceLabel: "WCAG AA" }
+                    : metadata;
 
             evaluationIssueCounts.set(evaluationKey, (evaluationIssueCounts.get(evaluationKey) || 0) + 1);
             evaluationIssues.get(evaluationKey)?.push({
@@ -501,8 +631,8 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
                 score: roundScore(score * 100),
                 weight: auditRef.weight,
                 severity: classifyIssueSeverity(score),
-                auditSourceType: metadata.auditSourceType,
-                auditSourceLabel: metadata.auditSourceLabel,
+                auditSourceType: issueMetadata.auditSourceType,
+                auditSourceLabel: issueMetadata.auditSourceLabel,
                 ...(wcagCriteria.length ? { wcagCriteria } : {}),
                 ...(wcagReferences.length ? { wcagReferences } : {}),
                 ...(wcagPrinciples.length ? { wcagPrinciples } : {}),
@@ -516,12 +646,13 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         const weight = evaluationWeights.get(evaluationKey) || 0;
         const weightedScore = evaluationWeightedScores.get(evaluationKey) || 0;
         const score = weight > 0 ? roundScore((weightedScore / weight) * 100) : 0;
+        const prdWeight = EVALUATION_DIMENSION_PRD_WEIGHTS[evaluationKey];
 
         return {
             key: evaluationKey,
             label: EVALUATION_DIMENSION_LABELS[evaluationKey],
             score,
-            weight,
+            weight: weight > 0 ? prdWeight : 0,
             issueCount: evaluationIssueCounts.get(evaluationKey) || 0,
             topIssues: sortIssues(evaluationIssues.get(evaluationKey) || []).slice(0, 3),
         };

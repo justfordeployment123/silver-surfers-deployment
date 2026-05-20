@@ -173,7 +173,9 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
     await fs.mkdir(userSpecificOutputDir, { recursive: true });
 
     const pdfResult = await generateLiteAccessibilityReport(jsonReportPath, userSpecificOutputDir);
-    const score = Number.parseFloat(String(pdfResult.score));
+    const score = Number.isFinite(liteScorecard.overallScore)
+      ? liteScorecard.overallScore
+      : Number.parseFloat(String(pdfResult.score));
     await generateAuditAiSummaryPdf(aiReport, {
       url: job.url,
       outputPath: path.join(

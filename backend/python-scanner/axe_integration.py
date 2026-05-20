@@ -102,6 +102,13 @@ def merge_axe_results_into_audits(audits: Dict[str, Any], axe_results: Dict[str,
         if rule_id in violation_by_id:
             audits[rule_id] = build_audit_from_axe_rule(violation_by_id[rule_id])
         elif rule_id in pass_ids and rule_id in audits:
+            existing_score = audits[rule_id].get("score")
+            if isinstance(existing_score, (int, float)) and existing_score < 1.0:
+                audits[rule_id] = {
+                    **audits[rule_id],
+                    "description": f"{audits[rule_id].get('description', '')} axe-core did not report this rule as a violation.".strip(),
+                }
+                continue
             audits[rule_id] = {
                 **audits[rule_id],
                 "score": 1.0,

@@ -83,6 +83,56 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 }});
             }}
         """)
+
+        page.add_init_script("""
+            (() => {
+                const ignoredPatterns = [
+                    /ResizeObserver loop limit exceeded/i,
+                    /ResizeObserver loop completed with undelivered notifications/i,
+                ];
+                const shouldIgnore = (message) => ignoredPatterns.some((pattern) => pattern.test(String(message || '')));
+                const store = [];
+                const pushError = (kind, message, source, line, column) => {
+                    const text = String(message || '').slice(0, 500);
+                    if (!text || shouldIgnore(text)) return;
+                    store.push({
+                        kind,
+                        message: text,
+                        source: source ? String(source).slice(0, 250) : '',
+                        line: Number(line) || 0,
+                        column: Number(column) || 0,
+                        timestamp: Date.now(),
+                    });
+                };
+
+                Object.defineProperty(window, '__silverTechnicalErrors', {
+                    get: () => store.slice(0, 100),
+                    configurable: true,
+                });
+
+                const originalConsoleError = console.error;
+                console.error = (...args) => {
+                    try {
+                        pushError('console.error', args.map((arg) => {
+                            if (arg instanceof Error) return arg.message;
+                            if (typeof arg === 'object') return JSON.stringify(arg);
+                            return String(arg);
+                        }).join(' '));
+                    } catch (_) {}
+                    return originalConsoleError.apply(console, args);
+                };
+
+                window.addEventListener('error', (event) => {
+                    pushError('window.error', event.message, event.filename, event.lineno, event.colno);
+                });
+
+                window.addEventListener('unhandledrejection', (event) => {
+                    const reason = event.reason;
+                    const message = reason instanceof Error ? reason.message : String(reason || 'Unhandled promise rejection');
+                    pushError('unhandledrejection', message);
+                });
+            })();
+        """)
         
         try:
             # Navigate to the URL (sync) - use "load" instead of "networkidle" for better reliability
@@ -216,6 +266,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "description": f"This audit checks whether text and background colors have sufficient contrast for readability. Found {failing_count} elements with insufficient contrast out of {total_count} sampled text elements.",
                 "score": contrast_score,
                 "numericValue": contrast_score,
+                "displayValue": f"{failing_count} of {total_count} sampled text elements have insufficient contrast",
                 "scoreDisplayMode": "numeric" if contrast_score < 1.0 else "binary",
             }
             
@@ -258,6 +309,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "description": f"This audit checks if interactive elements (buttons, links) are large enough for easy clicking. Found {target_size_results['small']} small targets out of {target_size_results['total']} total interactive elements.",
                 "score": target_score,
                 "numericValue": target_score,
+                "displayValue": f"{target_size_results['small']} of {target_size_results['total']} interactive elements are below 44x44px",
             }
             
             if target_details_items:
@@ -319,6 +371,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "description": f"This audit checks if all links have descriptive text. Found {link_name_results['failing']} links without text out of {link_name_results['total']} total links.",
                 "score": link_score,
                 "numericValue": link_score,
+                "displayValue": f"{link_name_results['failing']} of {link_name_results['total']} links lack discernible text",
             }
             
             if link_details_items:
@@ -379,6 +432,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "description": f"This audit checks if all buttons have descriptive labels. Found {button_name_results['failing']} buttons without text out of {button_name_results['total']} total buttons.",
                 "score": button_score,
                 "numericValue": button_score,
+                "displayValue": f"{button_name_results['failing']} of {button_name_results['total']} buttons lack a discernible accessible name",
             }
             
             if button_details_items:
@@ -430,6 +484,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "description": f"This audit checks if all form inputs have associated labels. Found {label_results['failing']} inputs without labels out of {label_results['total']} total inputs.",
                 "score": label_score,
                 "numericValue": label_score,
+                "displayValue": f"{label_results['failing']} of {label_results['total']} form controls lack labels",
             }
             
             if label_details_items:
@@ -440,6 +495,57 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         {"key": "selector", "itemType": "code", "text": "Location"}
                     ],
                     "items": label_details_items
+                }
+
+            # Image alt text - technical accessibility foundation
+            image_alt_results = page.evaluate("""
+                () => {
+                    const images = Array.from(document.querySelectorAll('img'))
+                        .filter(img => img.offsetParent !== null && img.getAttribute('aria-hidden') !== 'true');
+                    const failingItems = [];
+                    images.forEach(img => {
+                        const role = (img.getAttribute('role') || '').toLowerCase();
+                        const alt = img.getAttribute('alt');
+                        const ariaLabel = img.getAttribute('aria-label');
+                        const labelledBy = img.getAttribute('aria-labelledby');
+                        const labelledByText = labelledBy
+                            ? labelledBy.split(/\\s+/)
+                                .map(id => document.getElementById(id)?.innerText || document.getElementById(id)?.textContent || '')
+                                .join(' ')
+                                .trim()
+                            : '';
+                        const isDecorative = role === 'presentation' || role === 'none' || alt === '';
+                        const hasName = isDecorative || (alt && alt.trim()) || (ariaLabel && ariaLabel.trim()) || labelledByText;
+                        if (!hasName) {
+                            failingItems.push({
+                                node: {
+                                    nodeLabel: img.getAttribute('src') || 'Image',
+                                    selector: img.tagName.toLowerCase() + (img.id ? '#' + img.id : '') + (img.className ? '.' + String(img.className).split(' ')[0] : ''),
+                                    path: img.tagName.toLowerCase()
+                                }
+                            });
+                        }
+                    });
+                    return { total: images.length, failing: failingItems.length, items: failingItems.slice(0, 50) };
+                }
+            """)
+            image_alt_score = 1.0 if image_alt_results["total"] == 0 else max(0, 1 - (image_alt_results["failing"] / max(image_alt_results["total"], 1)))
+            audits["image-alt"] = {
+                "id": "image-alt",
+                "title": "Images have alternate text",
+                "description": f"This audit checks whether meaningful images have text alternatives. Found {image_alt_results['failing']} images without alt text out of {image_alt_results['total']} visible images.",
+                "score": image_alt_score,
+                "numericValue": image_alt_score,
+                "displayValue": f"{image_alt_results['failing']} of {image_alt_results['total']} visible images lack text alternatives",
+            }
+            if image_alt_results.get("items"):
+                audits["image-alt"]["details"] = {
+                    "type": "table",
+                    "headings": [
+                        {"key": "node", "itemType": "node", "text": "Image"},
+                        {"key": "selector", "itemType": "code", "text": "Location"}
+                    ],
+                    "items": [{"node": item.get("node", {})} for item in image_alt_results.get("items", [])]
                 }
             
             # Heading order - sync eval
@@ -601,24 +707,34 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
             performance_metrics = page.evaluate("""
                 () => {
                     const perf = performance.timing;
-                    const paint = performance.getEntriesByType('paint');
-                    const lcp = paint.find(p => p.name === 'largest-contentful-paint');
+                    const lcpEntries = performance.getEntriesByType('largest-contentful-paint');
+                    const latestLcp = lcpEntries.length ? lcpEntries[lcpEntries.length - 1] : null;
+                    const loadTime = perf.loadEventEnd && perf.navigationStart ? perf.loadEventEnd - perf.navigationStart : 0;
                     return {
-                        loadTime: perf.loadEventEnd - perf.navigationStart,
-                        lcp: lcp ? lcp.startTime : 0
+                        loadTime,
+                        lcp: latestLcp ? latestLcp.startTime : null
                     };
                 }
             """)
             
             # Largest Contentful Paint (LCP)
-            lcp_score = 1.0 if performance_metrics.get("lcp", 0) < 2500 else max(0, 1 - (performance_metrics.get("lcp", 0) - 2500) / 2500)
-            audits["largest-contentful-paint"] = {
-                "id": "largest-contentful-paint",
-                "title": "Largest Contentful Paint",
-                "description": f"This audit measures how long it takes for the main content to load. LCP time: {performance_metrics.get('lcp', 0):.0f}ms. Good if under 2500ms.",
-                "score": lcp_score,
-                "numericValue": performance_metrics.get("lcp", 0),
-            }
+            lcp_value = performance_metrics.get("lcp")
+            if isinstance(lcp_value, (int, float)) and lcp_value > 0:
+                lcp_score = 1.0 if lcp_value < 2500 else max(0, 1 - (lcp_value - 2500) / 2500)
+                audits["largest-contentful-paint"] = {
+                    "id": "largest-contentful-paint",
+                    "title": "Largest Contentful Paint",
+                    "description": f"This audit measures how long it takes for the main content to load. LCP time: {lcp_value:.0f}ms. Good if under 2500ms.",
+                    "score": lcp_score,
+                    "numericValue": lcp_value,
+                    "displayValue": f"LCP {lcp_value:.0f}ms",
+                }
+            else:
+                audits["largest-contentful-paint"] = make_not_checked_audit(
+                    "largest-contentful-paint",
+                    "Largest Contentful Paint",
+                    "LCP was not available from the browser performance timeline for this run, so page loading speed is excluded instead of treated as 0ms.",
+                )
             
             # Cumulative Layout Shift (CLS) - measure actual CLS from performance entries
             # Note: CLS is measured during page load, so we read from existing performance entries
@@ -1184,12 +1300,41 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     } if details_items else None
                 }
                 
-                # Errors in console - check for JavaScript errors
-                audits["errors-in-console"] = make_not_checked_audit(
-                    "errors-in-console",
-                    "No JavaScript errors in console",
-                    "Console error collection must be attached before navigation. This scanner run did not capture console events, so the audit is excluded from scoring.",
-                )
+                # Technical stability - collect console errors, thrown window errors, and unhandled promise rejections.
+                technical_errors = page.evaluate("() => window.__silverTechnicalErrors || []")
+                if not isinstance(technical_errors, list):
+                    technical_errors = []
+                error_count = len(technical_errors)
+                technical_stability_score = max(0, 1 - (min(error_count, 10) / 10))
+                audits["errors-in-console"] = {
+                    "id": "errors-in-console",
+                    "title": "No JavaScript errors in console",
+                    "description": "Checks whether page scripts emit console errors, uncaught errors, or unhandled promise rejections during initial load.",
+                    "score": technical_stability_score,
+                    "numericValue": error_count,
+                    "scoreDisplayMode": "numeric",
+                    "displayValue": "No console or runtime errors captured" if error_count == 0 else f"{error_count} console/runtime error{'s' if error_count != 1 else ''} captured",
+                    "details": {
+                        "type": "table",
+                        "headings": [
+                            {"key": "node", "itemType": "node", "text": "Error"},
+                            {"key": "kind", "itemType": "text", "text": "Type"},
+                            {"key": "source", "itemType": "text", "text": "Source"},
+                        ],
+                        "items": [
+                            {
+                                "node": {
+                                    "nodeLabel": safe_text(error.get("message", "Runtime error"))[:180],
+                                    "selector": safe_text(error.get("source", "browser console"))[:160] or "browser console",
+                                },
+                                "kind": safe_text(error.get("kind", "error"))[:80],
+                                "source": f"{safe_text(error.get('source', ''))[:120]}:{error.get('line', 0)}:{error.get('column', 0)}".strip(":0"),
+                                "explanation": safe_text(error.get("message", "Runtime error"))[:240],
+                            }
+                            for error in technical_errors[:50]
+                        ],
+                    } if error_count else None,
+                }
                 
                 # Geolocation on start - check if page requests geolocation immediately
                 geolocation_requested = page.evaluate("""

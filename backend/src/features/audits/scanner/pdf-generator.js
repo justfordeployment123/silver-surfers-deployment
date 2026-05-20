@@ -139,6 +139,13 @@ const AUDIT_INFO = {
         why: 'Older adults often depend on assistive technologies, and technical errors can make websites completely unusable for them.',
         recommendation: 'Regularly check the browser\'s developer console for errors and fix them promptly to ensure a stable and reliable experience for all users.',
     },
+    'image-alt': {
+        title: 'Image Text Alternatives',
+        category: 'Technical Accessibility',
+        importance: 'Text alternatives let screen readers explain meaningful images to users who cannot see them clearly.',
+        why: 'Older adults with low vision or assistive technology users need meaningful images to be announced in text.',
+        recommendation: 'Add concise alt text for meaningful images and use empty alt text only for purely decorative images.',
+    },
     'font-size': {
         title: 'Overall Font Size Assessment',
         category: 'Vision Accessibility',
@@ -163,38 +170,62 @@ const ROADMAP_BUCKET_STYLES = {
     'high-effort': { label: 'High Effort', color: '#DC3545' },
 };
 
+const PRD_DIMENSION_LABELS = {
+    technicalAccessibility: 'Technical Accessibility',
+    visualClarityDesign: 'Visual Clarity & Design',
+    cognitiveLoadComplexity: 'Cognitive Load & Complexity',
+    navigationArchitecture: 'Navigation & Information Architecture',
+    contentReadability: 'Content Readability & Plain Language',
+    interactionForms: 'Interaction & Forms',
+    trustSecuritySignals: 'Trust & Security Signals',
+    mobileOptimization: 'Mobile & Cross-Platform Optimization',
+};
+
+const PRD_DIMENSION_ORDER = [
+    'technicalAccessibility',
+    'visualClarityDesign',
+    'cognitiveLoadComplexity',
+    'navigationArchitecture',
+    'contentReadability',
+    'interactionForms',
+    'trustSecuritySignals',
+    'mobileOptimization',
+];
+
+const AUDIT_PRD_DIMENSION_MAP = {
+    'image-alt': 'technicalAccessibility',
+    'focus-traps': 'technicalAccessibility',
+    'errors-in-console': 'technicalAccessibility',
+    'color-contrast': 'visualClarityDesign',
+    'text-font-audit': 'visualClarityDesign',
+    'interactive-color-audit': 'visualClarityDesign',
+    'line-spacing-audit': 'visualClarityDesign',
+    'layout-brittle-audit': 'visualClarityDesign',
+    'cumulative-layout-shift': 'visualClarityDesign',
+    'dom-size': 'cognitiveLoadComplexity',
+    'total-blocking-time': 'cognitiveLoadComplexity',
+    'autoplay-audit': 'cognitiveLoadComplexity',
+    'link-name': 'navigationArchitecture',
+    'heading-order': 'navigationArchitecture',
+    bypass: 'navigationArchitecture',
+    'flesch-kincaid-audit': 'contentReadability',
+    'target-size': 'interactionForms',
+    'button-name': 'interactionForms',
+    label: 'interactionForms',
+    'is-on-https': 'trustSecuritySignals',
+    'geolocation-on-start': 'trustSecuritySignals',
+    viewport: 'mobileOptimization',
+    'largest-contentful-paint': 'mobileOptimization',
+};
+
 // Function to calculate the weighted "Senior Friendliness" score
 export function calculateSeniorFriendlinessScore(report) {
     const scorecard = buildAuditScorecard(report);
-    const category = report?.categories?.['senior-friendly'];
-    const auditRefs = Array.isArray(category?.auditRefs) ? category.auditRefs : customConfig.categories['senior-friendly']?.auditRefs || [];
-    const audits = report?.audits || {};
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-
-    for (const ref of auditRefs) {
-        const audit = audits[ref.id];
-        if (
-            !audit
-            || audit.notApplicable === true
-            || audit.notChecked === true
-            || audit.scoreDisplayMode === 'notApplicable'
-            || audit.scoreDisplayMode === 'notChecked'
-            || audit.scoreDisplayMode === 'manual'
-        ) {
-            continue;
-        }
-
-        const score = Number.isFinite(Number(audit.score)) ? Math.max(0, Math.min(1, Number(audit.score))) : 0;
-        totalWeightedScore += score * ref.weight;
-        totalWeight += ref.weight;
-    }
-
-    const finalScore = totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : scorecard.overallScore;
     return {
-        finalScore,
-        totalWeightedScore,
-        totalWeight,
+        finalScore: scorecard.overallScore,
+        totalWeightedScore: scorecard.overallScore,
+        totalWeight: 100,
+        scorecard,
     };
 }
 export class ElderlyAccessibilityPDFGenerator {
@@ -681,27 +712,16 @@ addOverallScoreDisplay(scoreData) {
         );
         this.currentY += 35;
 
-        const auditRefs = reportData.categories?.['senior-friendly']?.auditRefs || customConfig.categories['senior-friendly']?.auditRefs || [];
-        const auditResults = reportData.audits;
-
-        const tableItems = auditRefs
-            .map(ref => {
-                const result = auditResults[ref.id];
-                const excluded = !result
-                    || result.notApplicable === true
-                    || result.notChecked === true
-                    || result.scoreDisplayMode === 'notApplicable'
-                    || result.scoreDisplayMode === 'notChecked'
-                    || result.scoreDisplayMode === 'manual';
-                const score = excluded ? null : ((result && result.score !== null) ? (result.score ?? 0) : 0);
-                const weightedScore = score * ref.weight;
-                return {
-                    name: AUDIT_INFO[ref.id]?.title || ref.id,
-                    score: excluded ? 'N/A' : (score * 100).toFixed(0) + '%',
-                    weight: excluded ? 'Excluded' : ref.weight,
-                    contribution: excluded ? 'N/A' : weightedScore.toFixed(2),
-                };
-            });
+        const scorecard = scoreData.scorecard || buildAuditScorecard(reportData);
+        const tableItems = (scorecard.evaluationDimensions || []).map((dimension) => {
+            const excluded = !dimension.weight;
+            return {
+                name: dimension.label,
+                score: excluded ? 'N/A' : `${Math.round(dimension.score)}%`,
+                weight: excluded ? 'Excluded' : `${dimension.weight}%`,
+                contribution: excluded ? 'N/A' : ((dimension.score * dimension.weight) / 100).toFixed(2),
+            };
+        });
 
         // Draw compact table
         this.drawScoreCalculationTable(tableItems, scoreData);
@@ -1587,54 +1607,78 @@ addOverallScoreDisplay(scoreData) {
         this.addPage();
         
         // Page title
-        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C').text('Performance by Category', this.margin, this.currentY);
+        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C').text('Audit Evidence by PRD Dimension', this.margin, this.currentY);
         this.currentY += 30;
         
         // Description text
         this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50').text(
-            'This overview shows how the website performs across different accessibility dimensions important to digital users.',
+            'This overview groups the concrete scanner evidence under the Eight Dimensions of Silver Web Excellence used for the Silver Score.',
             this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 }
         );
         this.currentY += 30;
         
         const audits = reportData.audits || {};
         const categories = {};
+        const scorecard = buildAuditScorecard(reportData);
+        const auditRefs = reportData.categories?.['senior-friendly']?.auditRefs || customConfig.categories['senior-friendly']?.auditRefs || [];
 
-        // Organize audits by category
-        Object.keys(AUDIT_INFO).forEach(auditId => {
+        // Organize implemented report audits by PRD dimension. Missing legacy AUDIT_INFO entries are not shown as fake failures.
+        auditRefs.forEach(ref => {
+            const auditId = ref.id;
             const info = AUDIT_INFO[auditId];
             const auditData = audits[auditId];
 
-            if (info) {
-                if (!categories[info.category]) {
-                    categories[info.category] = [];
+            if (info && auditData) {
+                const dimensionKey = AUDIT_PRD_DIMENSION_MAP[auditId] || 'technicalAccessibility';
+                const dimensionLabel = PRD_DIMENSION_LABELS[dimensionKey];
+                if (!categories[dimensionLabel]) {
+                    categories[dimensionLabel] = [];
                 }
-                // Use audit data if available, otherwise create placeholder with score 0
-                const auditResult = auditData || { score: 0, numericValue: 0 };
-                // If score is null, treat as 0 to show in summary
-                const score = auditResult.score !== null ? auditResult.score : 0;
-                categories[info.category].push({ 
+                categories[dimensionLabel].push({
                     id: auditId, 
                     info, 
-                    data: { ...auditResult, score } 
+                    data: auditData,
                 });
             }
         });
 
+        const shownAuditIds = new Set(Object.values(categories).flatMap(items => items.map(item => item.id)));
+        for (const dimension of scorecard.evaluationDimensions || []) {
+            const dimensionLabel = dimension.label;
+            for (const issue of dimension.topIssues || []) {
+                const auditId = issue.auditId;
+                if (!auditId?.startsWith('axe-') || auditId === 'axe-core' || shownAuditIds.has(auditId) || !audits[auditId]) {
+                    continue;
+                }
+                const canonicalAuditId = auditId.slice('axe-'.length);
+                if (shownAuditIds.has(canonicalAuditId)) {
+                    continue;
+                }
+                if (!categories[dimensionLabel]) {
+                    categories[dimensionLabel] = [];
+                }
+                categories[dimensionLabel].push({
+                    id: auditId,
+                    info: {
+                        title: issue.title || auditId,
+                        category: dimensionLabel,
+                        importance: issue.description || 'axe-core detected a WCAG accessibility issue.',
+                        why: 'This issue affects the technical accessibility foundation of the experience.',
+                        recommendation: 'Review the failing elements and remediate according to the mapped WCAG criterion.',
+                    },
+                    data: audits[auditId],
+                });
+                shownAuditIds.add(auditId);
+            }
+        }
+
         // Draw each category as a table
-        this.drawCategoryTables(categories, audits);
+        this.drawCategoryTables(categories, audits, scorecard);
     }
     
-    drawCategoryTables(categories, audits) {
-        // Define the order of categories to match the image
-        const categoryOrder = [
-            'Vision Accessibility',
-            'Motor Accessibility',
-            'Cognitive Accessibility',
-            'Performance for Older Adults',
-            'Security for Older Adults',
-            'Technical Accessibility'
-        ];
+    drawCategoryTables(categories, audits, scorecard) {
+        const categoryOrder = PRD_DIMENSION_ORDER.map(key => PRD_DIMENSION_LABELS[key]);
+        const dimensionScoreByLabel = new Map((scorecard?.evaluationDimensions || []).map(dimension => [dimension.label, dimension]));
 
         categoryOrder.forEach((categoryName) => {
             if (!categories[categoryName]) return;
@@ -1651,8 +1695,10 @@ addOverallScoreDisplay(scoreData) {
             this.checkPageBreak(totalHeight);
 
             // Category heading
+            const dimensionScore = dimensionScoreByLabel.get(categoryName);
+            const headingSuffix = dimensionScore ? ` (${Math.round(dimensionScore.score)}%)` : '';
             this.doc.fontSize(14).font('BoldFont').fillColor('#2C5F9C')
-                .text(categoryName, this.margin, this.currentY);
+                .text(`${categoryName}${headingSuffix}`, this.margin, this.currentY);
             this.currentY += 25;
 
             // Table headers - ensure total width doesn't exceed pageWidth (515)
@@ -1697,7 +1743,12 @@ addOverallScoreDisplay(scoreData) {
             // Draw rows for each audit in this category
             categoryAudits.forEach((audit, rowIndex) => {
                 const auditData = audits[audit.id] || {};
-                const score = auditData.score !== null && auditData.score !== undefined ? auditData.score : 0;
+                const excluded = auditData.notApplicable === true
+                    || auditData.notChecked === true
+                    || auditData.scoreDisplayMode === 'notApplicable'
+                    || auditData.scoreDisplayMode === 'notChecked'
+                    || auditData.scoreDisplayMode === 'manual';
+                const score = !excluded && auditData.score !== null && auditData.score !== undefined ? auditData.score : 0;
                 const scorePercent = Math.round(score * 100);
                 
                 // Determine rating and colors based on new thresholds
@@ -1705,8 +1756,13 @@ addOverallScoreDisplay(scoreData) {
                 let ratingColor = '#DC3545'; // Red
                 let actualColor = '#DC3545'; // Red
                 
-                if (scorePercent >= 80) {
-                    rating = 'Pass';
+                if (excluded) {
+                    rating = 'Excluded';
+                    ratingColor = '#6B7280';
+                    actualColor = '#6B7280';
+                } else if (scorePercent >= 80) {
+                    const hasFindings = auditData.details?.items?.length > 0 || /^[1-9]/.test(String(auditData.displayValue || '').trim());
+                    rating = hasFindings && scorePercent < 100 ? 'Pass with Findings' : 'Pass';
                     ratingColor = '#28A745'; // Green
                     actualColor = '#28A745'; // Green
                 } else if (scorePercent >= 70) {
@@ -1716,13 +1772,15 @@ addOverallScoreDisplay(scoreData) {
                 }
                 
                 // Standard is 80% or higher for Pass
-                const standard = scorePercent >= 80 ? '>=80%' : '>=80%';
+                const standard = excluded ? 'N/A' : '>=80%';
                 
                 // Get details from actual audit data
                 let details = '';
                 
-                // Try to use actual audit description or displayValue first
-                if (auditData.description) {
+                // Prefer displayValue because it reflects the final measured result; descriptions often explain methodology.
+                if (auditData.displayValue) {
+                    details = String(auditData.displayValue);
+                } else if (auditData.description) {
                     // Clean markdown links: [text](url) -> text
                     let cleanDesc = auditData.description.replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
                     
@@ -1742,12 +1800,11 @@ addOverallScoreDisplay(scoreData) {
                     if (details.length > 300) {
                         details = details.substring(0, 297) + '...';
                     }
-                } else if (auditData.displayValue) {
-                    // Use displayValue if available
-                    details = auditData.displayValue;
                 } else {
                     // Fallback to score-based generic message
-                    if (scorePercent === 100) {
+                    if (excluded) {
+                        details = 'Excluded from scoring for this run.';
+                    } else if (scorePercent === 100) {
                         details = 'Meets all accessibility standards';
                     } else if (scorePercent === 0) {
                         details = 'Fails to meet accessibility requirements';
@@ -1832,7 +1889,7 @@ addOverallScoreDisplay(scoreData) {
                 currentX += colWidths[1];
 
                 // Actual (colored)
-                const actualText = String(`${scorePercent}%` || '').trim();
+                const actualText = excluded ? 'N/A' : String(`${scorePercent}%` || '').trim();
                 this.doc.fontSize(10).font('BoldFont').fillColor(actualColor)
                     .text(actualText, currentX + 5, tableY + 6, {
                         width: colWidths[2] - 10,

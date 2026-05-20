@@ -62,6 +62,18 @@ test('buildAuditScorecard returns a passing low-risk scorecard when all audits p
     contentTrust: 20,
   });
 
+  const evaluationWeights = Object.fromEntries(scorecard.evaluationDimensions.map((dimension) => [dimension.key, dimension.weight]));
+  assert.deepEqual(evaluationWeights, {
+    technicalAccessibility: 6.67,
+    visualClarityDesign: 15,
+    cognitiveLoadComplexity: 8.33,
+    navigationArchitecture: 8.33,
+    contentReadability: 15,
+    interactionForms: 12.5,
+    trustSecuritySignals: 6.67,
+    mobileOptimization: 27.5,
+  });
+
   for (const dimension of scorecard.dimensions) {
     assert.equal(dimension.score, 100);
     assert.equal(dimension.issueCount, 0);
@@ -75,9 +87,9 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
     'target-size': 0,
   }), { pageUrl: 'https://example.com/page-a' });
 
-  assert.ok(scorecard.overallScore < 80);
-  assert.equal(scorecard.scoreStatus, 'needs-improvement');
-  assert.equal(scorecard.riskTier, 'medium');
+  assert.equal(scorecard.overallScore, 85.77);
+  assert.equal(scorecard.scoreStatus, 'pass');
+  assert.equal(scorecard.riskTier, 'low');
 
   const visualClarityDesign = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'visualClarityDesign');
   assert.ok(visualClarityDesign);
@@ -87,7 +99,7 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
 
   const visualClarity = scorecard.dimensions.find((dimension) => dimension.key === 'visualClarity');
   assert.ok(visualClarity);
-  assert.ok(visualClarity.score < 60);
+  assert.equal(visualClarity.score, 73.41);
   assert.equal(visualClarity.issueCount, 2);
   assert.equal(visualClarity.topIssues[0].auditId, 'text-font-audit');
   assert.equal(visualClarity.topIssues[0].sourceUrl, 'https://example.com/page-a');
@@ -140,6 +152,27 @@ test('buildAuditScorecard maps axe-core tags to structured WCAG references', () 
   assert.equal(scorecard.wcagSummary?.byLevel.A, 1);
 });
 
+test('buildAuditScorecard includes dynamic axe-core violations in Silver Score dimensions', () => {
+  const report = buildReport();
+  report.audits['axe-aria-required-attr'] = {
+    title: 'Required ARIA attributes are present',
+    description: 'ARIA widgets include required attributes.',
+    score: 0,
+    axeImpact: 'serious',
+    axeTags: ['cat.aria', 'wcag2a', 'wcag412'],
+  };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+  const technical = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'technicalAccessibility');
+  assert.ok(technical);
+  assert.ok(technical.score < 100);
+  assert.equal(technical.topIssues[0].auditId, 'axe-aria-required-attr');
+  assert.equal(technical.topIssues[0].weight, 4);
+  assert.equal(technical.topIssues[0].auditSourceType, 'wcag-aa');
+  assert.deepEqual(technical.topIssues[0].wcagCriteria, ['4.1.2']);
+  assert.ok(scorecard.overallScore < 100);
+});
+
 test('buildAggregateAuditScorecard averages page scorecards and keeps worst issues', () => {
   const pageA = buildAuditScorecard(buildReport({
     'color-contrast': 0,
@@ -157,14 +190,14 @@ test('buildAggregateAuditScorecard averages page scorecards and keeps worst issu
 
   assert.equal(aggregate.pageCount, 2);
   assert.equal(aggregate.platforms.length, 1);
-  assert.ok(aggregate.overallScore < 95);
+  assert.ok(aggregate.overallScore < 100);
   assert.equal(aggregate.evaluationDimensions.length, 8);
   assert.ok(aggregate.topIssues.length > 0);
   assert.equal(aggregate.topIssues[0].auditId, 'text-font-audit');
 
-  const contentTrust = aggregate.dimensions.find((dimension) => dimension.key === 'contentTrust');
-  assert.ok(contentTrust);
-  assert.ok(contentTrust.issueCount >= 1);
+  const motorAccessibility = aggregate.dimensions.find((dimension) => dimension.key === 'motorAccessibility');
+  assert.ok(motorAccessibility);
+  assert.ok(motorAccessibility.issueCount >= 1);
 });
 
 test('buildAuditScorecard honors auditRefs embedded in the scanner report', () => {
