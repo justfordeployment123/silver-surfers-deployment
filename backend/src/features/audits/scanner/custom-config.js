@@ -1,36 +1,4 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export default {
-  extends: 'lighthouse:default',
-
-  settings: {
-    onlyCategories: ['senior-friendly'],
-    maxWaitForLoad: 120000,
-    throttlingMethod: 'simulate',
-    disableStorageReset: true,
-  },
-
-  artifacts: [
-    { id: 'PageText', gatherer: path.resolve(__dirname, 'gatherers/text-gatherer.js') },
-    { id: 'PageLinkColors', gatherer: path.resolve(__dirname, 'gatherers/color-gatherer.js') },
-    { id: 'BrittleLayoutElements', gatherer: path.resolve(__dirname, 'gatherers/layout-gatherer.js') },
-    { id: 'PageContentGatherer', gatherer: path.resolve(__dirname, 'gatherers/page-content-gatherer.js') },
-    { id: 'AutoplayMedia', gatherer: path.resolve(__dirname, 'gatherers/autoplay-gatherer.js') },
-  ],
-
-  audits: [
-    { path: path.resolve(__dirname, 'audits/text-audit.js') },
-    { path: path.resolve(__dirname, 'audits/color-audit.js') },
-    { path: path.resolve(__dirname, 'audits/layout-audit.js') },
-    { path: path.resolve(__dirname, 'audits/flesch-kincaid-audit.js') },
-    { path: path.resolve(__dirname, 'audits/line-spacing-audit.js') },
-    { path: path.resolve(__dirname, 'audits/autoplay-audit.js') },
-  ],
-
   categories: {
     'senior-friendly': {
       title: 'Senior Friendliness',

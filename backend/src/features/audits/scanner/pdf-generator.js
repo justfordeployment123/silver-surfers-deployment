@@ -166,10 +166,35 @@ const ROADMAP_BUCKET_STYLES = {
 // Function to calculate the weighted "Senior Friendliness" score
 export function calculateSeniorFriendlinessScore(report) {
     const scorecard = buildAuditScorecard(report);
+    const category = report?.categories?.['senior-friendly'];
+    const auditRefs = Array.isArray(category?.auditRefs) ? category.auditRefs : customConfig.categories['senior-friendly']?.auditRefs || [];
+    const audits = report?.audits || {};
+    let totalWeightedScore = 0;
+    let totalWeight = 0;
+
+    for (const ref of auditRefs) {
+        const audit = audits[ref.id];
+        if (
+            !audit
+            || audit.notApplicable === true
+            || audit.notChecked === true
+            || audit.scoreDisplayMode === 'notApplicable'
+            || audit.scoreDisplayMode === 'notChecked'
+            || audit.scoreDisplayMode === 'manual'
+        ) {
+            continue;
+        }
+
+        const score = Number.isFinite(Number(audit.score)) ? Math.max(0, Math.min(1, Number(audit.score))) : 0;
+        totalWeightedScore += score * ref.weight;
+        totalWeight += ref.weight;
+    }
+
+    const finalScore = totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : scorecard.overallScore;
     return {
-        finalScore: scorecard.overallScore,
-        totalWeightedScore: scorecard.overallScore,
-        totalWeight: 100,
+        finalScore,
+        totalWeightedScore,
+        totalWeight,
     };
 }
 export class ElderlyAccessibilityPDFGenerator {
@@ -656,23 +681,25 @@ addOverallScoreDisplay(scoreData) {
         );
         this.currentY += 35;
 
-        const auditRefs = customConfig.categories['senior-friendly']?.auditRefs || [];
+        const auditRefs = reportData.categories?.['senior-friendly']?.auditRefs || customConfig.categories['senior-friendly']?.auditRefs || [];
         const auditResults = reportData.audits;
 
-        // CRITICAL FIX: Include ALL audits from auditRefs, even if they have null/0 scores
-        // This matches old backend behavior where all audits are shown in the calculation table
-        // Missing audits or null scores are treated as 0 for display
         const tableItems = auditRefs
             .map(ref => {
                 const result = auditResults[ref.id];
-                // Treat missing or null scores as 0 (matching calculation logic)
-                const score = (result && result.score !== null) ? (result.score ?? 0) : 0;
+                const excluded = !result
+                    || result.notApplicable === true
+                    || result.notChecked === true
+                    || result.scoreDisplayMode === 'notApplicable'
+                    || result.scoreDisplayMode === 'notChecked'
+                    || result.scoreDisplayMode === 'manual';
+                const score = excluded ? null : ((result && result.score !== null) ? (result.score ?? 0) : 0);
                 const weightedScore = score * ref.weight;
                 return {
                     name: AUDIT_INFO[ref.id]?.title || ref.id,
-                    score: (score * 100).toFixed(0) + '%',
-                    weight: ref.weight,
-                    contribution: weightedScore.toFixed(2),
+                    score: excluded ? 'N/A' : (score * 100).toFixed(0) + '%',
+                    weight: excluded ? 'Excluded' : ref.weight,
+                    contribution: excluded ? 'N/A' : weightedScore.toFixed(2),
                 };
             });
 
@@ -956,15 +983,32 @@ addOverallScoreDisplay(scoreData) {
     addRoadmapRecommendationItem(item, number) {
         const titleHeight = 18;
         this.doc.fontSize(11);
+        const wcagReferenceLabels = Array.isArray(item.wcagReferences)
+            ? item.wcagReferences
+                .map((reference) => {
+                    const criterion = reference?.criterion ? `WCAG ${reference.criterion}` : '';
+                    const title = reference?.title ? ` ${reference.title}` : '';
+                    const level = reference?.level ? ` (Level ${reference.level})` : '';
+                    const principle = reference?.principle ? ` - ${reference.principle}` : '';
+                    return `${criterion}${title}${level}${principle}`.trim();
+                })
+                .filter(Boolean)
+            : [];
         const metadata = [
             `${item.impact.charAt(0).toUpperCase() + item.impact.slice(1)} impact`,
             `${item.effort.charAt(0).toUpperCase() + item.effort.slice(1)} effort`,
             item.dimensionLabel,
             item.evaluationDimensionLabel,
             item.auditSourceLabel,
-            ...(Array.isArray(item.wcagCriteria) ? item.wcagCriteria.map((criterion) => `WCAG ${criterion}`) : []),
+            ...(wcagReferenceLabels.length === 0 && Array.isArray(item.wcagCriteria)
+                ? item.wcagCriteria.map((criterion) => `WCAG ${criterion}`)
+                : []),
         ].filter(Boolean).join(' | ');
         const metaHeight = this.doc.heightOfString(metadata, { width: this.pageWidth });
+        const wcagText = wcagReferenceLabels.length ? `WCAG mapping: ${wcagReferenceLabels.join('; ')}` : '';
+        const wcagHeight = wcagText
+            ? this.doc.heightOfString(wcagText, { width: this.pageWidth, lineGap: 1 })
+            : 0;
         const actionText = `Recommended action: ${item.action}`;
         const actionHeight = this.doc.heightOfString(actionText, { width: this.pageWidth, lineGap: 2 });
         const whyText = `Why it matters: ${item.whyItMatters}`;
@@ -973,7 +1017,7 @@ addOverallScoreDisplay(scoreData) {
         const sourceHeight = item.sourceUrl
             ? this.doc.heightOfString(sourceText, { width: this.pageWidth, lineGap: 1 })
             : 0;
-        const totalHeight = titleHeight + metaHeight + actionHeight + whyHeight + sourceHeight + 36;
+        const totalHeight = titleHeight + metaHeight + wcagHeight + actionHeight + whyHeight + sourceHeight + 44;
 
         this.checkPageBreak(totalHeight);
 
@@ -984,6 +1028,12 @@ addOverallScoreDisplay(scoreData) {
         this.doc.fontSize(10).font('RegularFont').fillColor('#6B7280')
             .text(metadata, this.margin, this.currentY, { width: this.pageWidth, lineGap: 1 });
         this.currentY += metaHeight + 8;
+
+        if (wcagText) {
+            this.doc.fontSize(9).font('RegularFont').fillColor('#4B5563')
+                .text(wcagText, this.margin, this.currentY, { width: this.pageWidth, lineGap: 1 });
+            this.currentY += wcagHeight + 8;
+        }
 
         this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50')
             .text('Recommended action:', this.margin, this.currentY, { continued: true })

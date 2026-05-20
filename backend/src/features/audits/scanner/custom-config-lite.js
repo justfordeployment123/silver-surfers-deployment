@@ -1,24 +1,4 @@
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 export default {
-  extends: 'lighthouse:default',
-  
-  settings: {
-    onlyCategories: ['senior-friendly-lite'],
-  },
-  
-  artifacts: [
-    { id: 'PageText', gatherer: path.resolve(__dirname, 'gatherers/text-gatherer.js') },
-  ],
-  
-  audits: [
-    { path: path.resolve(__dirname, 'audits/text-audit.js') },
-  ],
-  
   categories: {
     'senior-friendly-lite': {
       title: 'Senior Accessibility (Lite)',

@@ -1,5 +1,16 @@
 import mongoose from 'mongoose';
 
+export const wcagReferenceSchema = new mongoose.Schema({
+  criterion: { type: String },
+  title: { type: String },
+  level: { type: String, enum: ['A', 'AA', 'AAA'] },
+  version: { type: String, enum: ['2.0', '2.1', '2.2'] },
+  principle: { type: String, enum: ['perceivable', 'operable', 'understandable', 'robust'] },
+  guideline: { type: String },
+  url: { type: String },
+  source: { type: String, enum: ['axe-core', 'silver-surfers', 'scanner'] },
+}, { _id: false });
+
 export const auditIssueSchema = new mongoose.Schema({
   auditId: { type: String },
   title: { type: String },
@@ -10,6 +21,8 @@ export const auditIssueSchema = new mongoose.Schema({
   auditSourceType: { type: String, enum: ['wcag-aa', 'aging-heuristic', 'supporting-signal'], default: 'supporting-signal' },
   auditSourceLabel: { type: String, default: 'Supporting Signal' },
   wcagCriteria: { type: [String], default: [] },
+  wcagReferences: { type: [wcagReferenceSchema], default: [] },
+  wcagPrinciples: { type: [String], enum: ['perceivable', 'operable', 'understandable', 'robust'], default: [] },
   displayValue: { type: mongoose.Schema.Types.Mixed },
   sourceUrl: { type: String },
 }, { _id: false });
@@ -28,6 +41,23 @@ export const platformScoreSchema = new mongoose.Schema({
   label: { type: String },
   score: { type: Number, default: 0 },
   pageCount: { type: Number, default: 0 },
+}, { _id: false });
+
+export const wcagSummarySchema = new mongoose.Schema({
+  totalIssues: { type: Number, default: 0 },
+  criteriaCount: { type: Number, default: 0 },
+  byPrinciple: {
+    perceivable: { type: Number, default: 0 },
+    operable: { type: Number, default: 0 },
+    understandable: { type: Number, default: 0 },
+    robust: { type: Number, default: 0 },
+  },
+  byLevel: {
+    A: { type: Number, default: 0 },
+    AA: { type: Number, default: 0 },
+    AAA: { type: Number, default: 0 },
+  },
+  criteria: { type: [wcagReferenceSchema], default: [] },
 }, { _id: false });
 
 export const storedObjectSchema = new mongoose.Schema({
@@ -85,4 +115,5 @@ export const scoreCardSchema = new mongoose.Schema({
   evaluationDimensions: { type: [dimensionScoreSchema], default: [] },
   topIssues: { type: [auditIssueSchema], default: [] },
   platforms: { type: [platformScoreSchema], default: [] },
+  wcagSummary: { type: wcagSummarySchema, default: undefined },
 }, { _id: false });

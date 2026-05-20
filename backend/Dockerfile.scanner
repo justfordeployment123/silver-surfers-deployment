@@ -8,17 +8,12 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8001 \
     HOST=0.0.0.0 \
     SCANNER_PORT=8001 \
-    CHROME_PATH=/usr/bin/chromium \
-    CHROMIUM_PATH=/usr/bin/chromium \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
     NODE_ENV=production
 
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    chromium \
-    chromium-driver \
     curl \
     dumb-init \
     fonts-liberation \
@@ -77,9 +72,6 @@ COPY python-scanner/package.json ./package.json
 RUN npm install --omit=dev && npm cache clean --force
 
 COPY python-scanner/scanner_service.py ./scanner_service.py
-COPY python-scanner/lighthouse_integration.py ./lighthouse_integration.py
-COPY python-scanner/lighthouse_runner.js ./lighthouse_runner.js
-COPY python-scanner/lighthouse-configs/ ./lighthouse-configs/
 
 RUN mkdir -p /tmp \
     && chmod 777 /tmp \

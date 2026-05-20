@@ -9,12 +9,10 @@ import type { Browser, HTTPRequest, Page } from 'puppeteer';
 
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
-import { resolveBackendPath } from '../../config/paths.ts';
 import { AppError } from '../../shared/errors/app-error.ts';
 import { summarizeScannerChildLogs } from './scanner-log-summary.ts';
 
 const scannerLogger = logger.child('feature:scanner');
-const lighthouseRunnerPath = resolveBackendPath('python-scanner', 'lighthouse_runner.js');
 
 puppeteerExtra.use(StealthPlugin());
 
@@ -455,75 +453,9 @@ export async function runPrecheck(input: string): Promise<ScannerPrecheckRespons
 }
 
 export async function runScannerAudit(request: ScannerAuditRequest): Promise<ScannerAuditResponse> {
-  const url = normalizeUrl(request.url);
-  const device = request.device || 'desktop';
-  const isLiteVersion = Boolean(request.isLiteVersion);
-  const includeReport = Boolean(request.includeReport);
-  const version = isLiteVersion ? 'Lite' : 'Full';
-  const reportPath = getReportPath(url, isLiteVersion);
-  const timeoutMs = isLiteVersion ? 4 * 60 * 1000 : 5 * 60 * 1000;
-  const startedAt = Date.now();
-  const slot = await acquireAuditSlot();
-  let browserLease: ScannerBrowserLease | undefined;
-
-  try {
-    browserLease = await acquireBrowserLease();
-
-    scannerLogger.info('Starting scanner audit.', {
-      url,
-      device,
-      version,
-      browserId: browserLease.browserId,
-      activeAudits: slot.activeAudits,
-      queuedAudits: slot.queuedAudits,
-    });
-
-    await spawnProcess(process.execPath, [
-      lighthouseRunnerPath,
-      url,
-      reportPath,
-      device,
-      String(isLiteVersion),
-      browserLease.wsEndpoint,
-    ], timeoutMs);
-
-    let report: Record<string, unknown> | undefined;
-    let score: number | undefined;
-
-    if (includeReport) {
-      report = JSON.parse(await fs.readFile(reportPath, 'utf8')) as Record<string, unknown>;
-      const categoryId = isLiteVersion ? 'senior-friendly-lite' : 'senior-friendly';
-      score = (report as {
-        categories?: Record<string, { score?: number }>;
-      }).categories?.[categoryId]?.score;
-    }
-
-    scannerLogger.info('Scanner audit completed.', {
-      url,
-      device,
-      version,
-      durationMs: Date.now() - startedAt,
-      reportPath,
-      browserId: browserLease.browserId,
-      activeAudits: activeAudits,
-      queuedAudits: auditWaitQueue.length,
-      ...(typeof score === 'number' ? { scorePct: Math.round(score * 10000) / 100 } : {}),
-    });
-
-    return {
-      success: true,
-      reportPath,
-      ...(report ? { report } : {}),
-      isLiteVersion,
-      version,
-      url,
-      device,
-      strategy: 'Node-Lighthouse',
-      attemptNumber: 1,
-      message: `${version} audit completed successfully using Node Lighthouse scanner`,
-    };
-  } finally {
-    browserLease?.release();
-    slot.release();
-  }
+  throw new AppError(
+    'The legacy in-process scanner has been removed. Use the Python Camoufox + axe-core scanner service via SCANNER_SERVICE_URL.',
+    410,
+    'LEGACY_SCANNER_REMOVED',
+  );
 }

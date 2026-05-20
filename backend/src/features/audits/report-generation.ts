@@ -297,8 +297,12 @@ export async function generateAuditAiSummaryPdf(
       : [];
     const normalizedTopIssues = Array.isArray(options.scorecard?.topIssues)
       ? options.scorecard.topIssues
-        .map((issue) => String(issue?.title || '').trim())
-        .filter(Boolean)
+        .map((issue) => ({
+          title: String(issue?.title || '').trim(),
+          wcagReferences: Array.isArray(issue?.wcagReferences) ? issue.wcagReferences : [],
+          wcagCriteria: Array.isArray(issue?.wcagCriteria) ? issue.wcagCriteria : [],
+        }))
+        .filter((issue) => issue.title)
       : [];
 
     const doc = new PDFDocument({
@@ -375,6 +379,9 @@ export async function generateAuditAiSummaryPdf(
         ['Status', scoreStatusRaw.replace(/\b\w/g, (c) => c.toUpperCase())],
         ['Pages audited', String(Number(options.scorecard.pageCount || 0))],
       ];
+      if (options.scorecard.wcagSummary?.criteriaCount) {
+        detailRows.push(['WCAG criteria flagged', String(options.scorecard.wcagSummary.criteriaCount)]);
+      }
       if (weakest) {
         detailRows.push(['Weakest area', `${weakest.label} (${Math.round(weakest.score)}%)`]);
       }
@@ -447,7 +454,13 @@ export async function generateAuditAiSummaryPdf(
       doc.moveDown(0.25);
       doc.font('RegularFont').fontSize(10).fillColor('#475569');
       issues.forEach((issue, idx) => {
-        doc.text(`${idx + 1}. ${issue}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
+        const wcagLabels = issue.wcagReferences.length
+          ? issue.wcagReferences.map((reference) =>
+            `WCAG ${reference.criterion} ${reference.title} (Level ${reference.level}, ${reference.principle})`,
+          )
+          : issue.wcagCriteria.map((criterion) => `WCAG ${criterion}`);
+        const suffix = wcagLabels.length ? ` - ${wcagLabels.join('; ')}` : '';
+        doc.text(`${idx + 1}. ${issue.title}${suffix}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
       });
       doc.moveDown(0.5);
     };

@@ -20,6 +20,7 @@ import {
     type StoredReportFile,
 } from "./report-files.ts";
 import { getCertificationEligibility, type CertificationEligibility } from "./certification-eligibility.ts";
+import type { WcagPourPrinciple, WcagReference } from "./wcag-mapping.ts";
 
 export type AnalysisStatus = "queued" | "processing" | "completed" | "completed_with_warnings" | "failed";
 export type AnalysisEmailStatus = "pending" | "sending" | "sent" | "failed";
@@ -94,6 +95,8 @@ export interface AnalysisRemediationItem {
     auditSourceType: AuditIssueSourceType;
     auditSourceLabel: string;
     wcagCriteria?: string[];
+    wcagReferences?: WcagReference[];
+    wcagPrinciples?: WcagPourPrinciple[];
     bucketKey: RemediationBucketKey;
     bucketLabel: string;
     action: string;
@@ -697,6 +700,8 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
                 auditSourceType: issue.auditSourceType,
                 auditSourceLabel: issue.auditSourceLabel,
                 ...(issue.wcagCriteria?.length ? { wcagCriteria: issue.wcagCriteria } : {}),
+                ...(issue.wcagReferences?.length ? { wcagReferences: issue.wcagReferences } : {}),
+                ...(issue.wcagPrinciples?.length ? { wcagPrinciples: issue.wcagPrinciples } : {}),
                 bucketKey,
                 bucketLabel: ROADMAP_BUCKETS[bucketKey].label,
                 action: template.action,

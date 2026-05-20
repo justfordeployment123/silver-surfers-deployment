@@ -101,6 +101,43 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
   assert.equal(targetSizeIssue.auditSourceType, 'wcag-aa');
   assert.equal(targetSizeIssue.auditSourceLabel, 'WCAG AA');
   assert.deepEqual(targetSizeIssue.wcagCriteria, ['2.5.8']);
+  assert.deepEqual(targetSizeIssue.wcagPrinciples, ['operable']);
+  assert.equal(targetSizeIssue.wcagReferences?.[0]?.title, 'Target Size (Minimum)');
+  assert.equal(targetSizeIssue.wcagReferences?.[0]?.level, 'AA');
+
+  assert.ok(scorecard.wcagSummary);
+  assert.equal(scorecard.wcagSummary.byPrinciple.perceivable, 2);
+  assert.equal(scorecard.wcagSummary.byPrinciple.operable, 1);
+  assert.equal(scorecard.wcagSummary.criteria.some((reference) => reference.criterion === '2.5.8'), true);
+});
+
+test('buildAuditScorecard maps axe-core tags to structured WCAG references', () => {
+  const scorecard = buildAuditScorecard({
+    categories: {
+      'senior-friendly-lite': {
+        auditRefs: [
+          { id: 'axe-aria-allowed-attr', weight: 4 },
+        ],
+      },
+    },
+    audits: {
+      'axe-aria-allowed-attr': {
+        title: 'ARIA attributes are valid',
+        description: 'Elements use ARIA attributes that are allowed for their role.',
+        score: 0,
+        axeTags: ['cat.aria', 'wcag2a', 'wcag412'],
+      },
+    },
+  }, { isLiteVersion: true, pageUrl: 'https://example.com' });
+
+  const issue = scorecard.topIssues[0];
+  assert.equal(issue.auditId, 'axe-aria-allowed-attr');
+  assert.deepEqual(issue.wcagCriteria, ['4.1.2']);
+  assert.deepEqual(issue.wcagPrinciples, ['robust']);
+  assert.equal(issue.wcagReferences?.[0]?.source, 'axe-core');
+  assert.equal(issue.wcagReferences?.[0]?.title, 'Name, Role, Value');
+  assert.equal(scorecard.wcagSummary?.byPrinciple.robust, 1);
+  assert.equal(scorecard.wcagSummary?.byLevel.A, 1);
 });
 
 test('buildAggregateAuditScorecard averages page scorecards and keeps worst issues', () => {

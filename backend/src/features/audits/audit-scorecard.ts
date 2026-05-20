@@ -1,5 +1,12 @@
 import customConfigLite from "./scanner/custom-config-lite.js";
 import customConfig from "./scanner/custom-config.js";
+import {
+    buildWcagSummary,
+    resolveWcagReferencesForAudit,
+    type WcagPourPrinciple,
+    type WcagReference,
+    type WcagSummary,
+} from "./wcag-mapping.ts";
 
 export type AuditRiskTier = "low" | "medium" | "high";
 export type AuditScoreStatus = "pass" | "needs-improvement" | "fail";
@@ -25,6 +32,8 @@ export interface AuditIssueSummary {
     auditSourceType: AuditIssueSourceType;
     auditSourceLabel: string;
     wcagCriteria?: string[];
+    wcagReferences?: WcagReference[];
+    wcagPrinciples?: WcagPourPrinciple[];
     displayValue?: string;
     sourceUrl?: string;
 }
@@ -66,6 +75,7 @@ export interface AuditScorecard {
     evaluationDimensions: AuditEvaluationDimensionScore[];
     topIssues: AuditIssueSummary[];
     platforms: AuditPlatformScore[];
+    wcagSummary?: WcagSummary;
 }
 
 interface CategoryAuditRef {
@@ -84,6 +94,13 @@ interface LighthouseAuditResultLike {
     description?: string;
     score?: number | null;
     displayValue?: string;
+    axeTags?: unknown;
+    details?: {
+        items?: Array<{ axeTags?: unknown }>;
+    };
+    notApplicable?: boolean;
+    notChecked?: boolean;
+    scoreDisplayMode?: string;
 }
 
 interface LighthouseReportLike {
@@ -452,6 +469,18 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
 
     for (const auditRef of resolvedAuditRefs) {
         const audit = audits[auditRef.id];
+        const isExcluded =
+            !audit
+            || audit.notApplicable === true
+            || audit.notChecked === true
+            || audit.scoreDisplayMode === "notApplicable"
+            || audit.scoreDisplayMode === "notChecked"
+            || audit.scoreDisplayMode === "manual";
+
+        if (isExcluded) {
+            continue;
+        }
+
         const score = clampAuditScore(audit?.score);
         const evaluationKey = getEvaluationDimensionKey(auditRef.id);
         const metadata = getAuditMetadata(auditRef.id);
@@ -460,6 +489,10 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         evaluationWeights.set(evaluationKey, (evaluationWeights.get(evaluationKey) || 0) + auditRef.weight);
 
         if (score < 0.999) {
+            const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
+            const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
+            const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];
+
             evaluationIssueCounts.set(evaluationKey, (evaluationIssueCounts.get(evaluationKey) || 0) + 1);
             evaluationIssues.get(evaluationKey)?.push({
                 auditId: auditRef.id,
@@ -470,7 +503,9 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
                 severity: classifyIssueSeverity(score),
                 auditSourceType: metadata.auditSourceType,
                 auditSourceLabel: metadata.auditSourceLabel,
-                ...(metadata.wcagCriteria?.length ? { wcagCriteria: metadata.wcagCriteria } : {}),
+                ...(wcagCriteria.length ? { wcagCriteria } : {}),
+                ...(wcagReferences.length ? { wcagReferences } : {}),
+                ...(wcagPrinciples.length ? { wcagPrinciples } : {}),
                 ...(audit?.displayValue ? { displayValue: audit.displayValue } : {}),
                 ...(options.pageUrl ? { sourceUrl: options.pageUrl } : {}),
             });
@@ -494,6 +529,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
 
     const primaryScores = buildPrimaryDimensions(evaluationDimensions);
     const topIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || [])).slice(0, 5);
+    const allIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || []));
 
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
@@ -507,6 +543,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         evaluationDimensions,
         topIssues,
         platforms: [],
+        wcagSummary: buildWcagSummary(allIssues),
     };
 }
 
@@ -530,6 +567,7 @@ export function buildAggregateAuditScorecard(
             evaluationDimensions: emptyEvaluationDimensions,
             topIssues: [],
             platforms: options.platforms || [],
+            wcagSummary: buildWcagSummary([]),
         };
     }
 
@@ -601,6 +639,9 @@ export function buildAggregateAuditScorecard(
             dimensions.reduce((sum, dimension) => sum + dimension.weight, 0),
     );
 
+    const topIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || [])).slice(0, 5);
+    const allIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || []));
+
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
         categoryId: options.categoryId || scorecards[0].categoryId || FULL_CATEGORY_ID,
@@ -611,7 +652,8 @@ export function buildAggregateAuditScorecard(
         evaluatedAt: new Date().toISOString(),
         dimensions,
         evaluationDimensions,
-        topIssues: dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || [])).slice(0, 5),
+        topIssues,
         platforms: options.platforms || [],
+        wcagSummary: buildWcagSummary(allIssues),
     };
 }

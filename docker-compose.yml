@@ -129,11 +129,7 @@ services:
             SCANNER_MAX_QUEUED_AUDITS: ${SCANNER_MAX_QUEUED_AUDITS:-8}
             SCANNER_EXECUTOR_WORKERS: ${SCANNER_EXECUTOR_WORKERS:-2}
             SCANNER_KEEP_TEMP_REPORTS: ${SCANNER_KEEP_TEMP_REPORTS:-false}
-            SCANNER_LIGHTHOUSE_TIMEOUT_SECONDS: ${SCANNER_LIGHTHOUSE_TIMEOUT_SECONDS:-300}
             REDIS_URL: redis://redis:6379
-            CHROME_PATH: /usr/bin/chromium
-            CHROMIUM_PATH: /usr/bin/chromium
-            PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
             NODE_ENV: production
         security_opt:
             - seccomp:unconfined

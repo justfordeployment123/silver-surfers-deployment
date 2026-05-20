@@ -1,18 +1,13 @@
 {
-  "name": "silversurfers-lighthouse-runner",
+  "name": "silversurfers-python-scanner-assets",
   "version": "1.0.0",
-  "description": "Lighthouse runner for SilverSurfers Python scanner",
+  "description": "JavaScript assets used by the SilverSurfers Python scanner",
   "type": "commonjs",
-  "main": "lighthouse_runner.js",
-  "exports": {
-    ".": "./lighthouse_runner.js"
-  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "lighthouse": "^12.8.2",
-    "chrome-launcher": "^1.1.0",
+    "axe-core": "^4.11.0",
     "compromise": "^14.12.0",
     "dotenv": "^16.4.5"
   },

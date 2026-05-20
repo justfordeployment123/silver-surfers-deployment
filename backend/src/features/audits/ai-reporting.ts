@@ -172,7 +172,15 @@ function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
         severity: issue.severity,
         auditSourceLabel: issue.auditSourceLabel,
         wcagCriteria: issue.wcagCriteria || [],
+        wcagReferences: (issue.wcagReferences || []).map((reference) => ({
+          criterion: reference.criterion,
+          title: reference.title,
+          level: reference.level,
+          version: reference.version,
+          principle: reference.principle,
+        })),
       })),
+      wcagSummary: options.scorecard.wcagSummary,
     },
     roadmap: options.remediationRoadmap.slice(0, 5).map((item) => ({
       title: item.title,

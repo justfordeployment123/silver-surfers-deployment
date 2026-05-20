@@ -149,9 +149,6 @@ services:
             NODE_ENV: production
             SCANNER_PORT: 8001
             REDIS_URL: redis://redis:6379
-            CHROME_PATH: /usr/bin/chromium
-            CHROMIUM_PATH: /usr/bin/chromium
-            PUPPETEER_EXECUTABLE_PATH: /usr/bin/chromium
         security_opt:
             - seccomp:unconfined
         ports:
