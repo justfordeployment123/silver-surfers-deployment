@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
+import { downloadS3Object } from '../storage/report-storage.ts';
 
 const scannerClientLogger = logger.child('feature:scanner:client');
 
@@ -33,6 +34,26 @@ interface ScannerServiceAuditPayload {
     stdout?: string;
     error?: string;
   };
+}
+
+interface ScannerSqsResultPayload {
+  schemaVersion?: number;
+  scannerJobId?: string;
+  success?: boolean;
+  report?: {
+    bucket?: string;
+    region?: string;
+    key?: string;
+  };
+  isLiteVersion?: boolean;
+  version?: 'Lite' | 'Full';
+  url?: string;
+  device?: 'desktop' | 'mobile' | 'tablet';
+  strategy?: string;
+  attemptNumber?: number;
+  message?: string;
+  error?: string;
+  errorCode?: string;
 }
 
 export interface ScannerServiceAuditSuccess {
@@ -70,6 +91,10 @@ export interface ScannerServiceLoadSnapshot {
 
 function buildTimeoutMs(isLiteVersion: boolean): number {
   return isLiteVersion ? env.scannerLiteAuditTimeoutMs : env.scannerFullAuditTimeoutMs;
+}
+
+function createScannerJobId(): string {
+  return `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function resolveReportHostname(url: string): string {
@@ -190,10 +215,170 @@ async function resolveLocalReportPath(
   return tempPath;
 }
 
+async function loadSqsRuntime() {
+  const moduleName = '@aws-sdk/client-sqs';
+  const module = await import(moduleName) as Record<string, any>;
+  return {
+    SQSClient: module.SQSClient,
+    SendMessageCommand: module.SendMessageCommand,
+    ReceiveMessageCommand: module.ReceiveMessageCommand,
+    DeleteMessageCommand: module.DeleteMessageCommand,
+    ChangeMessageVisibilityCommand: module.ChangeMessageVisibilityCommand,
+  };
+}
+
+function parseSqsResultBody(body: string | undefined): ScannerSqsResultPayload | null {
+  if (!body) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(body) as ScannerSqsResultPayload;
+  } catch {
+    return null;
+  }
+}
+
+async function downloadScannerS3Report(
+  payload: ScannerSqsResultPayload,
+  request: ScannerServiceAuditRequest,
+): Promise<string> {
+  const bucket = payload.report?.bucket || env.scannerSqsArtifactBucket;
+  const region = payload.report?.region || env.scannerSqsArtifactRegion;
+  const key = payload.report?.key;
+
+  if (!bucket || !region || !key) {
+    throw new Error('Scanner SQS result did not include a usable S3 artifact reference.');
+  }
+
+  const downloaded = await downloadS3Object({ bucket, region, key });
+  const hostname = resolveReportHostname(request.url);
+  const versionSuffix = request.isLiteVersion ? '-lite' : '';
+  const tempPath = path.join(os.tmpdir(), `scanner-sqs-${hostname}-${Date.now()}${versionSuffix}.json`);
+  await fs.writeFile(tempPath, downloaded.body);
+  return tempPath;
+}
+
+async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): Promise<ScannerServiceAuditResult> {
+  if (!env.scannerSqsJobQueueUrl || !env.scannerSqsResultQueueUrl) {
+    return {
+      success: false,
+      error: 'Scanner SQS mode is enabled but SCANNER_SQS_JOB_QUEUE_URL or SCANNER_SQS_RESULT_QUEUE_URL is missing.',
+      errorCode: 'SCANNER_SQS_NOT_CONFIGURED',
+    };
+  }
+
+  if (!env.scannerSqsArtifactBucket || !env.scannerSqsArtifactRegion) {
+    return {
+      success: false,
+      error: 'Scanner SQS mode requires SCANNER_SQS_ARTIFACT_BUCKET/AWS_S3_BUCKET and SCANNER_SQS_ARTIFACT_REGION/AWS_REGION.',
+      errorCode: 'SCANNER_SQS_ARTIFACTS_NOT_CONFIGURED',
+    };
+  }
+
+  const runtime = await loadSqsRuntime();
+  const client = new runtime.SQSClient({ region: env.scannerSqsArtifactRegion });
+  const scannerJobId = createScannerJobId();
+  const isLiteVersion = Boolean(request.isLiteVersion);
+  const timeoutMs = buildTimeoutMs(isLiteVersion);
+  const timeoutMinutes = Math.floor(timeoutMs / 60_000);
+  const startedAt = Date.now();
+  const body = {
+    schemaVersion: 1,
+    scannerJobId,
+    url: request.url,
+    device: request.device || 'desktop',
+    format: request.format || 'json',
+    isLiteVersion,
+    includeReport: true,
+    requestedAt: new Date().toISOString(),
+    artifact: {
+      bucket: env.scannerSqsArtifactBucket,
+      region: env.scannerSqsArtifactRegion,
+      prefix: env.scannerSqsArtifactPrefix,
+    },
+  };
+
+  scannerClientLogger.info('Queueing scanner-service audit through SQS.', {
+    scannerJobId,
+    url: request.url,
+    device: body.device,
+    isLiteVersion,
+    jobQueueUrl: env.scannerSqsJobQueueUrl,
+    resultQueueUrl: env.scannerSqsResultQueueUrl,
+  });
+
+  await client.send(new runtime.SendMessageCommand({
+    QueueUrl: env.scannerSqsJobQueueUrl,
+    MessageBody: JSON.stringify(body),
+  }));
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const response = await client.send(new runtime.ReceiveMessageCommand({
+      QueueUrl: env.scannerSqsResultQueueUrl,
+      MaxNumberOfMessages: 5,
+      WaitTimeSeconds: env.scannerSqsWaitTimeSeconds,
+      VisibilityTimeout: env.scannerSqsResultVisibilityTimeoutSeconds,
+    }));
+
+    for (const message of response.Messages || []) {
+      const resultPayload = parseSqsResultBody(message.Body);
+      if (resultPayload?.scannerJobId !== scannerJobId) {
+        if (message.ReceiptHandle) {
+          await client.send(new runtime.ChangeMessageVisibilityCommand({
+            QueueUrl: env.scannerSqsResultQueueUrl,
+            ReceiptHandle: message.ReceiptHandle,
+            VisibilityTimeout: 0,
+          })).catch(() => undefined);
+        }
+        continue;
+      }
+
+      if (message.ReceiptHandle) {
+        await client.send(new runtime.DeleteMessageCommand({
+          QueueUrl: env.scannerSqsResultQueueUrl,
+          ReceiptHandle: message.ReceiptHandle,
+        }));
+      }
+
+      if (!resultPayload.success) {
+        return {
+          success: false,
+          error: resultPayload.error || 'Scanner worker failed.',
+          errorCode: resultPayload.errorCode || 'SCANNER_WORKER_FAILED',
+        };
+      }
+
+      const reportPath = await downloadScannerS3Report(resultPayload, request);
+      return {
+        success: true,
+        reportPath,
+        isLiteVersion: resultPayload.isLiteVersion ?? isLiteVersion,
+        version: resultPayload.version === 'Lite' ? 'Lite' : 'Full',
+        url: resultPayload.url || request.url,
+        device: resultPayload.device || body.device,
+        strategy: resultPayload.strategy || 'Python-Camoufox-SQS',
+        attemptNumber: resultPayload.attemptNumber || 1,
+        message: resultPayload.message || 'Audit completed by scanner SQS worker.',
+      };
+    }
+  }
+
+  return {
+    success: false,
+    error: `The scanner SQS job timed out after ${timeoutMinutes} minutes.`,
+    errorCode: 'REQUEST_TIMEOUT',
+  };
+}
+
 export async function requestScannerAudit(
   request: ScannerServiceAuditRequest,
   fetchImpl: typeof fetch = fetch,
 ): Promise<ScannerServiceAuditResult> {
+  if (env.scannerDispatchMode === 'sqs') {
+    return requestScannerAuditViaSqs(request);
+  }
+
   const isLiteVersion = Boolean(request.isLiteVersion);
   const timeoutMs = buildTimeoutMs(isLiteVersion);
   const timeoutMinutes = Math.floor(timeoutMs / 60_000);

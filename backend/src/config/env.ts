@@ -6,6 +6,7 @@ import { backendRoot, resolveBackendPath } from "./paths.ts";
 dotenv.config({ path: resolveBackendPath(".env"), quiet: true });
 
 type Environment = "development" | "test" | "production";
+type ScannerDispatchMode = "http" | "sqs";
 
 const COMMON_CHROME_PATHS = ["/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable"];
 
@@ -67,6 +68,10 @@ function resolveQueueBackend(value: string | undefined, redisUrl: string | undef
     return redisUrl ? "bullmq" : "persistent";
 }
 
+function resolveScannerDispatchMode(value: string | undefined): ScannerDispatchMode {
+    return value?.trim().toLowerCase() === "sqs" ? "sqs" : "http";
+}
+
 function resolveChromePath(source: NodeJS.ProcessEnv): string | undefined {
     const explicitPath =
         source.CHROME_PATH?.trim() || source.CHROMIUM_PATH?.trim() || source.PUPPETEER_EXECUTABLE_PATH?.trim() || undefined;
@@ -99,11 +104,21 @@ export interface AppEnv {
     auditRecoveryBatchSize: number;
     auditRecoveryMaxAttempts: number;
     scannerServiceUrl: string;
+    scannerDispatchMode: ScannerDispatchMode;
+    scannerSqsJobQueueUrl?: string;
+    scannerSqsResultQueueUrl?: string;
+    scannerSqsWaitTimeSeconds: number;
+    scannerSqsResultVisibilityTimeoutSeconds: number;
+    scannerSqsArtifactBucket?: string;
+    scannerSqsArtifactRegion?: string;
+    scannerSqsArtifactPrefix: string;
     scannerLiteAuditTimeoutMs: number;
     scannerFullAuditTimeoutMs: number;
     chromePath?: string;
     requestLogEnabled: boolean;
     queueBackend: QueueBackend;
+    queueFullAuditConcurrency: number;
+    queueQuickScanConcurrency: number;
     queueMaxRetries: number;
     redisUrl?: string;
     bullMqPrefix: string;
@@ -162,11 +177,21 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         auditRecoveryBatchSize: parseBoundedNumber(source.AUDIT_RECOVERY_BATCH_SIZE, 10, 1, 100),
         auditRecoveryMaxAttempts: parseBoundedNumber(source.AUDIT_RECOVERY_MAX_ATTEMPTS, 3, 1, 20),
         scannerServiceUrl: source.SCANNER_SERVICE_URL?.trim() || source.PYTHON_SCANNER_URL?.trim() || `http://localhost:${scannerPort}`,
+        scannerDispatchMode: resolveScannerDispatchMode(source.SCANNER_DISPATCH_MODE),
+        scannerSqsJobQueueUrl: source.SCANNER_SQS_JOB_QUEUE_URL?.trim() || undefined,
+        scannerSqsResultQueueUrl: source.SCANNER_SQS_RESULT_QUEUE_URL?.trim() || undefined,
+        scannerSqsWaitTimeSeconds: parseBoundedNumber(source.SCANNER_SQS_WAIT_TIME_SECONDS, 20, 1, 20),
+        scannerSqsResultVisibilityTimeoutSeconds: parseBoundedNumber(source.SCANNER_SQS_RESULT_VISIBILITY_TIMEOUT_SECONDS, 30, 5, 300),
+        scannerSqsArtifactBucket: source.SCANNER_SQS_ARTIFACT_BUCKET?.trim() || source.AWS_S3_BUCKET?.trim() || undefined,
+        scannerSqsArtifactRegion: source.SCANNER_SQS_ARTIFACT_REGION?.trim() || source.AWS_REGION?.trim() || undefined,
+        scannerSqsArtifactPrefix: source.SCANNER_SQS_ARTIFACT_PREFIX?.trim() || "silver-surfers/scanner-results",
         scannerLiteAuditTimeoutMs: parseBoundedNumber(source.SCANNER_LITE_AUDIT_TIMEOUT_MS, 240_000, 60_000, 60 * 60 * 1000),
-        scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 60 * 60 * 1000),
+        scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 4 * 60 * 60 * 1000),
         chromePath: resolveChromePath(source),
         requestLogEnabled: parseBoolean(source.REQUEST_LOG_ENABLED, true),
         queueBackend: resolveQueueBackend(source.QUEUE_BACKEND?.trim().toLowerCase(), redisUrl),
+        queueFullAuditConcurrency: parseBoundedNumber(source.QUEUE_FULL_AUDIT_CONCURRENCY, 1, 1, 20),
+        queueQuickScanConcurrency: parseBoundedNumber(source.QUEUE_QUICK_SCAN_CONCURRENCY, 1, 1, 20),
         queueMaxRetries: parseBoundedNumber(source.QUEUE_MAX_RETRIES, 1, 1, 20),
         redisUrl,
         bullMqPrefix: source.BULLMQ_PREFIX?.trim() || "silver-surfers",

@@ -71,7 +71,7 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
 COPY python-scanner/package.json ./package.json
 RUN npm install --omit=dev && npm cache clean --force
 
-COPY python-scanner/scanner_service.py ./scanner_service.py
+COPY python-scanner/ ./
 
 RUN mkdir -p /tmp \
     && chmod 777 /tmp \

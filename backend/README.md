@@ -9,7 +9,9 @@ The backend is split into three separate Node processes:
 2. `src/worker.ts`
    Consumes queued audit jobs, runs the full or quick scan processors, stores reports, sends email, and performs cache cleanup.
 3. `src/scanner-server.ts`
-   Runs the scanner service that executes prechecks and Lighthouse-based audits.
+   Runs the local HTTP scanner service for prechecks and development scans.
+4. `python-scanner/sqs_worker.py`
+   Production scanner worker entrypoint for Fargate. It reads scan requests from SQS, runs Camoufox + axe-core, uploads raw JSON to S3, and sends a small result event.
 
 The API process does not perform heavy scans itself. It depends on the worker and scanner services being up.
 
@@ -29,6 +31,17 @@ High-level full audit flow:
 3. The controller validates subscription or one-time credits, normalizes the URL, creates an `AnalysisRecord`, and enqueues a `FullAudit` job.
 4. `src/worker.ts` starts the queue processors.
 5. `src/features/audits/full-audit.processor.ts` calls the scanner client, generates scorecards and reports, stores files, updates MongoDB, and triggers email delivery.
+
+In production, set `SCANNER_DISPATCH_MODE=sqs` on the Node worker. The scanner client then sends page scan requests to `SCANNER_SQS_JOB_QUEUE_URL` instead of holding a long HTTP request open. Python Fargate scanner workers upload raw page JSON to S3 and publish a tiny completion message to `SCANNER_SQS_RESULT_QUEUE_URL`. Node downloads the raw JSON artifact and continues the existing scorecard/PDF/email flow.
+
+Recommended production scanner env:
+
+- `SCANNER_DISPATCH_MODE=sqs` on the Node worker
+- `SCANNER_SQS_JOB_QUEUE_URL` and `SCANNER_SQS_RESULT_QUEUE_URL` on both Node worker and Python scanner workers
+- `SCANNER_SQS_ARTIFACT_BUCKET`/`AWS_S3_BUCKET` and `SCANNER_SQS_ARTIFACT_REGION`/`AWS_REGION`
+- `SCANNER_FULL_AUDIT_TIMEOUT_MS` high enough for the longest single page scan
+
+Keep one small HTTP scanner service available for `/precheck-url` if you want Camoufox-backed immediate prechecks. Heavy full/quick audit page scans should use the SQS worker path.
 
 Quick scan flow is the same shape, but uses `QuickScan` records and `quick-scan.processor.ts`.
 
@@ -167,10 +180,12 @@ This is admin-only and deletes generated report folders through `cleanup.service
 
 ### Scanner integration
 
-- Scanner HTTP client: `src/features/scanner/scanner-client.ts`
+- Scanner client, HTTP mode, and SQS dispatch mode: `src/features/scanner/scanner-client.ts`
 - Scanner service routes: `src/features/scanner/scanner.routes.ts`
 - Scanner implementation: `src/features/scanner/scanner.service.ts`
-- Raw Lighthouse/audit internals: `src/features/audits/scanner/`
+- Python scanner HTTP service: `python-scanner/scanner_service.py`
+- Python scanner SQS worker: `python-scanner/sqs_worker.py`
+- Raw report/PDF internals: `src/features/audits/scanner/`
 
 ### Billing
 

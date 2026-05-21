@@ -347,6 +347,7 @@ function shouldFallbackToLiteScanner(errorCode: string | undefined): boolean {
     || errorCode === 'SCAN_TIMEOUT'
     || errorCode === 'AUDIT_FAILED'
     || errorCode === 'SCANNER_SERVICE_ERROR'
+    || errorCode === 'SCANNER_WORKER_FAILED'
     || errorCode === 'PYTHON_SCANNER_ERROR';
 }
 
