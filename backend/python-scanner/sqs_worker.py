@@ -11,7 +11,9 @@ import logging
 import os
 import signal
 import time
+from contextlib import redirect_stdout
 from typing import Any, Dict, Optional
+from urllib import request as url_request
 from urllib.parse import urlparse
 
 import boto3
@@ -21,7 +23,69 @@ from scanner_config import get_viewport_for_device
 from scanner_utils import run_with_clean_event_loop_context, safe_text, sanitize_report_data
 
 
-logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
+_LOG_CONTEXT: Dict[str, Any] = {}
+_LOG_STANDARD_FIELDS = {
+    "args",
+    "asctime",
+    "created",
+    "exc_info",
+    "exc_text",
+    "filename",
+    "funcName",
+    "levelname",
+    "levelno",
+    "lineno",
+    "module",
+    "msecs",
+    "message",
+    "msg",
+    "name",
+    "pathname",
+    "process",
+    "processName",
+    "relativeCreated",
+    "stack_info",
+    "thread",
+    "threadName",
+}
+
+
+class JsonLogFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        payload: Dict[str, Any] = {
+            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S%z"),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        payload.update(_LOG_CONTEXT)
+
+        for key, value in record.__dict__.items():
+            if key in _LOG_STANDARD_FIELDS or key.startswith("_"):
+                continue
+            payload[key] = value
+
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+
+        return json.dumps(payload, default=str, ensure_ascii=False)
+
+
+def _configure_logging() -> None:
+    handler = logging.StreamHandler()
+    handler.setFormatter(JsonLogFormatter())
+    root_logger = logging.getLogger()
+    root_logger.handlers = [handler]
+    root_logger.setLevel(os.getenv("LOG_LEVEL", "INFO").upper())
+
+
+def _set_log_context(**context: Any) -> None:
+    for key, value in context.items():
+        if value is not None and value != "":
+            _LOG_CONTEXT[key] = value
+
+
+_configure_logging()
 logger = logging.getLogger("scanner-sqs-worker")
 
 _shutdown_requested = False
@@ -55,6 +119,14 @@ def _optional_int(name: str, fallback: int) -> int:
         return fallback
 
 
+def _optional_bool(name: str, fallback: bool) -> bool:
+    raw_value = os.getenv(name, "").strip().lower()
+    if not raw_value:
+        return fallback
+
+    return raw_value in {"1", "true", "yes", "on"}
+
+
 def _sanitize_key_segment(value: str, fallback: str = "scan") -> str:
     cleaned = "".join(char.lower() if char.isalnum() else "-" for char in str(value or ""))
     cleaned = "-".join(part for part in cleaned.split("-") if part)
@@ -71,6 +143,149 @@ def _resolve_hostname(url: str) -> str:
 
 def _normalize_url(url: str) -> str:
     return url if url.startswith(("http://", "https://")) else f"https://{url}"
+
+
+def _last_arn_segment(value: str) -> str:
+    return safe_text(value).rsplit("/", 1)[-1] if value else ""
+
+
+class JobStdoutLogger:
+    def __init__(self, context: Dict[str, Any]):
+        self.context = context
+        self.buffer = ""
+
+    def write(self, value: str) -> int:
+        self.buffer += value
+        while "\n" in self.buffer:
+            line, self.buffer = self.buffer.split("\n", 1)
+            self._log_line(line)
+        return len(value)
+
+    def flush(self) -> None:
+        if self.buffer:
+            self._log_line(self.buffer)
+            self.buffer = ""
+
+    def _log_line(self, line: str) -> None:
+        normalized = line.strip()
+        if normalized:
+            logger.info("Scanner output.", extra={**self.context, "output": normalized})
+
+
+class EcsTaskProtection:
+    def __init__(self, region: str):
+        self.enabled = _optional_bool("SCANNER_ECS_TASK_PROTECTION_ENABLED", True)
+        self.expires_in_minutes = _optional_int("SCANNER_ECS_TASK_PROTECTION_EXPIRES_MINUTES", 180)
+        self.agent_uri = os.getenv("ECS_AGENT_URI", "").strip()
+        self.metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4", "").strip()
+        self.cluster: Optional[str] = None
+        self.task_arn: Optional[str] = None
+        self.ecs = None
+
+        if self.metadata_uri:
+            try:
+                self._load_task_metadata()
+            except Exception as error:
+                logger.warning(
+                    "Failed to load ECS task metadata for logging.",
+                    extra={"error": safe_text(str(error))},
+                )
+
+        if self.enabled and not self.agent_uri and not self.metadata_uri:
+            logger.info("ECS task protection unavailable outside ECS; continuing without it.")
+            self.enabled = False
+
+        if self.enabled and not self.agent_uri:
+            self.ecs = boto3.client("ecs", region_name=region)
+
+    def protect(self, scanner_job_id: str) -> None:
+        self._set_protection(True, scanner_job_id)
+
+    def unprotect(self, scanner_job_id: str) -> None:
+        self._set_protection(False, scanner_job_id)
+
+    def _set_protection(self, protection_enabled: bool, scanner_job_id: str) -> None:
+        if not self.enabled:
+            return
+
+        try:
+            if self.agent_uri:
+                self._set_protection_via_agent(protection_enabled)
+            else:
+                self._set_protection_via_api(protection_enabled)
+            logger.info(
+                "Updated ECS task scale-in protection.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "protectionEnabled": protection_enabled,
+                },
+            )
+        except Exception as error:
+            logger.warning(
+                "Failed to update ECS task scale-in protection; continuing scan.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "protectionEnabled": protection_enabled,
+                    "error": safe_text(str(error)),
+                },
+            )
+
+    def _set_protection_via_agent(self, protection_enabled: bool) -> None:
+        body: Dict[str, Any] = {"ProtectionEnabled": protection_enabled}
+        if protection_enabled:
+            body["ExpiresInMinutes"] = self.expires_in_minutes
+
+        request = url_request.Request(
+            f"{self.agent_uri}/task-protection/v1/state",
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="PUT",
+        )
+        with url_request.urlopen(request, timeout=10) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"ECS task protection endpoint returned HTTP {response.status}.")
+
+    def _set_protection_via_api(self, protection_enabled: bool) -> None:
+        if not self.cluster or not self.task_arn:
+            self._load_task_metadata()
+
+        if not self.cluster or not self.task_arn:
+            raise RuntimeError("ECS task metadata did not include cluster/task ARN.")
+
+        params: Dict[str, Any] = {
+            "cluster": self.cluster,
+            "tasks": [self.task_arn],
+            "protectionEnabled": protection_enabled,
+        }
+        if protection_enabled:
+            params["expiresInMinutes"] = self.expires_in_minutes
+
+        self.ecs.update_task_protection(**params)
+
+    def _load_task_metadata(self) -> None:
+        if not self.metadata_uri:
+            return
+
+        with url_request.urlopen(f"{self.metadata_uri}/task", timeout=10) as response:
+            if response.status >= 400:
+                raise RuntimeError(f"ECS task metadata endpoint returned HTTP {response.status}.")
+            metadata = json.loads(response.read().decode("utf-8"))
+
+        self.cluster = safe_text(metadata.get("Cluster") or "")
+        self.task_arn = safe_text(metadata.get("TaskARN") or "")
+        containers = metadata.get("Containers") if isinstance(metadata, dict) else None
+        container_name = ""
+        if isinstance(containers, list) and containers:
+            first_container = containers[0] if isinstance(containers[0], dict) else {}
+            container_name = safe_text(first_container.get("Name") or "")
+
+        _set_log_context(
+            ecsCluster=_last_arn_segment(self.cluster),
+            ecsTaskArn=self.task_arn,
+            ecsTaskId=_last_arn_segment(self.task_arn),
+            ecsContainerName=container_name,
+            ecsAvailabilityZone=safe_text(metadata.get("AvailabilityZone") or ""),
+        )
 
 
 class ScannerSqsWorker:
@@ -100,6 +315,7 @@ class ScannerSqsWorker:
 
             s3_config["config"] = Config(s3={"addressing_style": "path"})
         self.s3 = boto3.client("s3", **s3_config)
+        self.task_protection = EcsTaskProtection(self.region)
 
     def run_forever(self) -> None:
         logger.info(
@@ -129,8 +345,10 @@ class ScannerSqsWorker:
         receipt_handle = message.get("ReceiptHandle")
         payload = self._parse_payload(message.get("Body"))
         scanner_job_id = safe_text(payload.get("scannerJobId") or f"unknown-{int(time.time() * 1000)}")
+        queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
 
         try:
+            self.task_protection.protect(scanner_job_id)
             result = self._process_scan_job(scanner_job_id, payload)
             self._send_result(result)
             if receipt_handle:
@@ -142,6 +360,7 @@ class ScannerSqsWorker:
                 {
                     "schemaVersion": 1,
                     "scannerJobId": scanner_job_id,
+                    "queueKind": queue_kind,
                     "success": False,
                     "error": error_message,
                     "errorCode": "SCANNER_WORKER_FAILED",
@@ -149,6 +368,8 @@ class ScannerSqsWorker:
             )
             if receipt_handle:
                 self.sqs.delete_message(QueueUrl=self.job_queue_url, ReceiptHandle=receipt_handle)
+        finally:
+            self.task_protection.unprotect(scanner_job_id)
 
     def _parse_payload(self, body: Optional[str]) -> Dict[str, Any]:
         if not body:
@@ -161,12 +382,14 @@ class ScannerSqsWorker:
         return payload
 
     def _process_scan_job(self, scanner_job_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+        started_at = time.time()
         raw_url = safe_text(payload.get("url") or "").strip()
         if not raw_url:
             raise RuntimeError("Scanner job URL is required.")
         url = _normalize_url(raw_url)
 
         device = safe_text(payload.get("device") or "desktop")
+        queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
         is_lite_version = bool(payload.get("isLiteVersion"))
         version = "Lite" if is_lite_version else "Full"
         device_config = get_viewport_for_device(device)
@@ -177,16 +400,27 @@ class ScannerSqsWorker:
                 "scannerJobId": scanner_job_id,
                 "url": url,
                 "device": device,
+                "queueKind": queue_kind,
                 "isLiteVersion": is_lite_version,
+                "version": version,
             },
         )
 
-        result = run_with_clean_event_loop_context(
-            run_camoufox_audit_sync,
-            url,
-            device_config,
-            is_lite_version,
-        )
+        job_log_context = {
+            "scannerJobId": scanner_job_id,
+            "url": url,
+            "device": device,
+            "queueKind": queue_kind,
+            "version": version,
+        }
+
+        with redirect_stdout(JobStdoutLogger(job_log_context)):
+            result = run_with_clean_event_loop_context(
+                run_camoufox_audit_sync,
+                url,
+                device_config,
+                is_lite_version,
+            )
 
         if not result.get("success"):
             raise RuntimeError(result.get("error") or "Audit failed.")
@@ -211,12 +445,17 @@ class ScannerSqsWorker:
                 "url": url,
                 "score": final_score,
                 "s3Key": key,
+                "durationMs": round((time.time() - started_at) * 1000),
+                "queueKind": queue_kind,
+                "device": device,
+                "version": version,
             },
         )
 
         return {
             "schemaVersion": 1,
             "scannerJobId": scanner_job_id,
+            "queueKind": queue_kind,
             "success": True,
             "report": {
                 "bucket": self.bucket,

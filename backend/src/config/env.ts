@@ -107,18 +107,28 @@ export interface AppEnv {
     scannerDispatchMode: ScannerDispatchMode;
     scannerSqsJobQueueUrl?: string;
     scannerSqsResultQueueUrl?: string;
+    scannerSqsQuickJobQueueUrl?: string;
+    scannerSqsQuickResultQueueUrl?: string;
+    scannerSqsFullJobQueueUrl?: string;
+    scannerSqsFullResultQueueUrl?: string;
     scannerSqsWaitTimeSeconds: number;
     scannerSqsResultVisibilityTimeoutSeconds: number;
+    scannerSqsResultWorkerEnabled: boolean;
+    scannerSqsResultWorkerMaxMessages: number;
+    scannerSqsResultWorkerVisibilityTimeoutSeconds: number;
     scannerSqsArtifactBucket?: string;
     scannerSqsArtifactRegion?: string;
     scannerSqsArtifactPrefix: string;
     scannerLiteAuditTimeoutMs: number;
     scannerFullAuditTimeoutMs: number;
+    skipUrlPrecheck: boolean;
     chromePath?: string;
     requestLogEnabled: boolean;
     queueBackend: QueueBackend;
     queueFullAuditConcurrency: number;
     queueQuickScanConcurrency: number;
+    queueFullAuditJobTimeoutMs: number;
+    queueQuickScanJobTimeoutMs: number;
     queueMaxRetries: number;
     redisUrl?: string;
     bullMqPrefix: string;
@@ -155,6 +165,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
     const port = parseNumber(source.PORT, 8000);
     const scannerPort = parseNumber(source.SCANNER_PORT, 8001);
     const redisUrl = source.REDIS_URL?.trim() || source.QUEUE_REDIS_URL?.trim() || undefined;
+    const genericScannerSqsJobQueueUrl = source.SCANNER_SQS_JOB_QUEUE_URL?.trim() || undefined;
+    const genericScannerSqsResultQueueUrl = source.SCANNER_SQS_RESULT_QUEUE_URL?.trim() || undefined;
 
     return {
         backendRoot,
@@ -178,20 +190,30 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         auditRecoveryMaxAttempts: parseBoundedNumber(source.AUDIT_RECOVERY_MAX_ATTEMPTS, 3, 1, 20),
         scannerServiceUrl: source.SCANNER_SERVICE_URL?.trim() || source.PYTHON_SCANNER_URL?.trim() || `http://localhost:${scannerPort}`,
         scannerDispatchMode: resolveScannerDispatchMode(source.SCANNER_DISPATCH_MODE),
-        scannerSqsJobQueueUrl: source.SCANNER_SQS_JOB_QUEUE_URL?.trim() || undefined,
-        scannerSqsResultQueueUrl: source.SCANNER_SQS_RESULT_QUEUE_URL?.trim() || undefined,
+        scannerSqsJobQueueUrl: genericScannerSqsJobQueueUrl,
+        scannerSqsResultQueueUrl: genericScannerSqsResultQueueUrl,
+        scannerSqsQuickJobQueueUrl: source.SCANNER_SQS_QUICK_JOB_QUEUE_URL?.trim() || genericScannerSqsJobQueueUrl,
+        scannerSqsQuickResultQueueUrl: source.SCANNER_SQS_QUICK_RESULT_QUEUE_URL?.trim() || genericScannerSqsResultQueueUrl,
+        scannerSqsFullJobQueueUrl: source.SCANNER_SQS_FULL_JOB_QUEUE_URL?.trim() || genericScannerSqsJobQueueUrl,
+        scannerSqsFullResultQueueUrl: source.SCANNER_SQS_FULL_RESULT_QUEUE_URL?.trim() || genericScannerSqsResultQueueUrl,
         scannerSqsWaitTimeSeconds: parseBoundedNumber(source.SCANNER_SQS_WAIT_TIME_SECONDS, 20, 1, 20),
         scannerSqsResultVisibilityTimeoutSeconds: parseBoundedNumber(source.SCANNER_SQS_RESULT_VISIBILITY_TIMEOUT_SECONDS, 30, 5, 300),
+        scannerSqsResultWorkerEnabled: parseBoolean(source.SCANNER_SQS_RESULT_WORKER_ENABLED, true),
+        scannerSqsResultWorkerMaxMessages: parseBoundedNumber(source.SCANNER_SQS_RESULT_WORKER_MAX_MESSAGES, 1, 1, 10),
+        scannerSqsResultWorkerVisibilityTimeoutSeconds: parseBoundedNumber(source.SCANNER_SQS_RESULT_WORKER_VISIBILITY_TIMEOUT_SECONDS, 900, 30, 3600),
         scannerSqsArtifactBucket: source.SCANNER_SQS_ARTIFACT_BUCKET?.trim() || source.AWS_S3_BUCKET?.trim() || undefined,
         scannerSqsArtifactRegion: source.SCANNER_SQS_ARTIFACT_REGION?.trim() || source.AWS_REGION?.trim() || undefined,
         scannerSqsArtifactPrefix: source.SCANNER_SQS_ARTIFACT_PREFIX?.trim() || "silver-surfers/scanner-results",
         scannerLiteAuditTimeoutMs: parseBoundedNumber(source.SCANNER_LITE_AUDIT_TIMEOUT_MS, 240_000, 60_000, 60 * 60 * 1000),
         scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 4 * 60 * 60 * 1000),
+        skipUrlPrecheck: parseBoolean(source.SKIP_URL_PRECHECK, false),
         chromePath: resolveChromePath(source),
         requestLogEnabled: parseBoolean(source.REQUEST_LOG_ENABLED, true),
         queueBackend: resolveQueueBackend(source.QUEUE_BACKEND?.trim().toLowerCase(), redisUrl),
         queueFullAuditConcurrency: parseBoundedNumber(source.QUEUE_FULL_AUDIT_CONCURRENCY, 1, 1, 20),
         queueQuickScanConcurrency: parseBoundedNumber(source.QUEUE_QUICK_SCAN_CONCURRENCY, 1, 1, 20),
+        queueFullAuditJobTimeoutMs: parseBoundedNumber(source.QUEUE_FULL_AUDIT_JOB_TIMEOUT_MS, 180 * 60 * 1000, 60_000, 6 * 60 * 60 * 1000),
+        queueQuickScanJobTimeoutMs: parseBoundedNumber(source.QUEUE_QUICK_SCAN_JOB_TIMEOUT_MS, 30 * 60 * 1000, 60_000, 2 * 60 * 60 * 1000),
         queueMaxRetries: parseBoundedNumber(source.QUEUE_MAX_RETRIES, 1, 1, 20),
         redisUrl,
         bullMqPrefix: source.BULLMQ_PREFIX?.trim() || "silver-surfers",

@@ -7,6 +7,8 @@ import { recoverAuditRecords } from '../features/audits/audit-recovery.ts';
 import { closeAuditCache } from '../features/audits/audit-cache.ts';
 import { runFullAuditProcess, runQuickScanProcess } from '../features/audits/audit-processors.ts';
 import { setAuditQueues } from '../features/audits/audits.runtime.ts';
+import { QuickScanResultWorker } from '../features/scanner/quick-scan-result-worker.ts';
+import { ScannerResultInboxWorker } from '../features/scanner/scanner-result-inbox-worker.ts';
 import { CacheManager } from '../infrastructure/cache/cache-manager.ts';
 import { createJobQueue } from '../infrastructure/queues/queue-factory.ts';
 import type { JobQueue } from '../infrastructure/queues/job-queue.ts';
@@ -24,6 +26,8 @@ export interface RuntimeDependencies {
   fullAuditQueue: JobQueue;
   quickScanQueue: JobQueue;
   cacheManager?: CacheManager;
+  quickScanResultWorker?: QuickScanResultWorker;
+  fullScannerResultInboxWorker?: ScannerResultInboxWorker;
 }
 
 function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQueue } {
@@ -38,6 +42,7 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
     maxRetries: env.queueMaxRetries,
     retryDelay: 10000,
     cleanupInterval: env.queueCleanupIntervalMs,
+    jobTimeoutMs: env.queueFullAuditJobTimeoutMs,
     maintenanceIntervalMs: env.queueMaintenanceIntervalMs,
     leaseDurationMs: env.queueLeaseDurationMs,
     heartbeatIntervalMs: env.queueHeartbeatIntervalMs,
@@ -48,6 +53,7 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
     maxRetries: env.queueMaxRetries,
     retryDelay: 5000,
     cleanupInterval: env.queueCleanupIntervalMs,
+    jobTimeoutMs: env.queueQuickScanJobTimeoutMs,
     maintenanceIntervalMs: env.queueMaintenanceIntervalMs,
     leaseDurationMs: env.queueLeaseDurationMs,
     heartbeatIntervalMs: env.queueHeartbeatIntervalMs,
@@ -96,6 +102,10 @@ export async function initializeWorkerRuntime(): Promise<RuntimeDependencies> {
 
   const cacheManager = createCacheManager();
   cacheManager.start();
+  const quickScanResultWorker = createQuickScanResultWorker();
+  quickScanResultWorker?.start();
+  const fullScannerResultInboxWorker = createFullScannerResultInboxWorker();
+  fullScannerResultInboxWorker?.start();
   startWatchdog();
   if (env.auditRecoveryEnabled) {
     startAuditRecoveryChecker(fullAuditQueue, quickScanQueue);
@@ -110,6 +120,8 @@ export async function initializeWorkerRuntime(): Promise<RuntimeDependencies> {
     queueBackend: env.queueBackend,
     bullMqPrefix: env.bullMqPrefix,
     scannerServiceUrl: env.scannerServiceUrl,
+    quickScanResultWorkerEnabled: Boolean(quickScanResultWorker),
+    fullScannerResultInboxWorkerEnabled: Boolean(fullScannerResultInboxWorker),
   });
 
   return {
@@ -117,6 +129,8 @@ export async function initializeWorkerRuntime(): Promise<RuntimeDependencies> {
     fullAuditQueue,
     quickScanQueue,
     cacheManager,
+    quickScanResultWorker,
+    fullScannerResultInboxWorker,
   };
 }
 
@@ -165,6 +179,32 @@ function startWatchdog(): void {
   watchdogTimer.unref();
 }
 
+function createQuickScanResultWorker(): QuickScanResultWorker | undefined {
+  if (env.scannerDispatchMode !== 'sqs' || !env.scannerSqsResultWorkerEnabled) {
+    return undefined;
+  }
+
+  if (!env.scannerSqsQuickResultQueueUrl) {
+    runtimeLogger.warn('Quick scanner result worker is enabled but SCANNER_SQS_QUICK_RESULT_QUEUE_URL is missing.');
+    return undefined;
+  }
+
+  return new QuickScanResultWorker();
+}
+
+function createFullScannerResultInboxWorker(): ScannerResultInboxWorker | undefined {
+  if (env.scannerDispatchMode !== 'sqs' || !env.scannerSqsResultWorkerEnabled) {
+    return undefined;
+  }
+
+  if (!env.scannerSqsFullResultQueueUrl) {
+    runtimeLogger.warn('Full scanner result inbox worker is enabled but SCANNER_SQS_FULL_RESULT_QUEUE_URL is missing.');
+    return undefined;
+  }
+
+  return new ScannerResultInboxWorker('full', env.scannerSqsFullResultQueueUrl);
+}
+
 function startAuditRecoveryChecker(fullAuditQueue: JobQueue, quickScanQueue: JobQueue): void {
   if (auditRecoveryTimer) {
     return;
@@ -210,6 +250,8 @@ export async function shutdownRuntime(dependencies: RuntimeDependencies): Promis
   }
 
   dependencies.cacheManager?.stop();
+  await dependencies.quickScanResultWorker?.stop().catch(() => undefined);
+  await dependencies.fullScannerResultInboxWorker?.stop().catch(() => undefined);
   await closeAuditCache().catch(() => undefined);
 
   await Promise.all([

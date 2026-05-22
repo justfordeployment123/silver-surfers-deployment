@@ -8,20 +8,18 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8001 \
     HOST=0.0.0.0 \
     SCANNER_PORT=8001 \
+    AXE_CORE_PATH=/app/axe-core/axe.min.js \
     NODE_ENV=production
 
 WORKDIR /app
 
+ARG AXE_CORE_VERSION=4.11.0
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
-    curl \
     dumb-init \
     fonts-liberation \
     fonts-noto \
-    fonts-noto-cjk \
-    gcc \
-    g++ \
-    gnupg \
     libasound2 \
     libatk-bridge2.0-0 \
     libatk1.0-0 \
@@ -50,26 +48,42 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxfixes3 \
     libxi6 \
     libxkbcommon0 \
-    libxml2-dev \
+    libxml2 \
+    libxslt1.1 \
     libxrandr2 \
     libxrender1 \
     libxshmfence1 \
     libxss1 \
-    libxslt1-dev \
     libxtst6 \
-    python3-dev \
     wget \
     xdg-utils \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 COPY python-scanner/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements.txt
 
-COPY python-scanner/package.json ./package.json
-RUN npm install --omit=dev && npm cache clean --force
+RUN python - <<'PY'
+import os
+import tarfile
+import tempfile
+import urllib.request
+
+version = os.environ.get("AXE_CORE_VERSION", "4.11.0")
+url = f"https://registry.npmjs.org/axe-core/-/axe-core-{version}.tgz"
+target_dir = "/app/axe-core"
+os.makedirs(target_dir, exist_ok=True)
+
+with tempfile.NamedTemporaryFile(suffix=".tgz") as archive:
+    urllib.request.urlretrieve(url, archive.name)
+    with tarfile.open(archive.name, "r:gz") as tar:
+        member = tar.getmember("package/axe.min.js")
+        extracted = tar.extractfile(member)
+        if extracted is None:
+            raise RuntimeError("axe.min.js was not found in axe-core package")
+        with open(os.path.join(target_dir, "axe.min.js"), "wb") as output:
+            output.write(extracted.read())
+PY
 
 COPY python-scanner/ ./
 

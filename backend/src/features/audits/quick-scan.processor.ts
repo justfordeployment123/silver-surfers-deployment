@@ -4,7 +4,12 @@ import path from 'node:path';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import type { QueueJobInput, QueueReportStorage, QueueResult } from '../../infrastructure/queues/job-queue.ts';
-import { requestScannerAudit } from '../scanner/scanner-client.ts';
+import {
+  createScannerJobId,
+  dispatchScannerAuditJob,
+  requestScannerAudit,
+  type ScannerServiceAuditSuccess,
+} from '../scanner/scanner-client.ts';
 import { generateAuditAiReport } from './ai-reporting.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
 import { buildAuditScorecard } from './audit-scorecard.ts';
@@ -16,7 +21,7 @@ import { getQuickScanModel } from './audits.dependencies.ts';
 
 const quickScanLogger = logger.child('feature:audits:quick-scan');
 
-interface QuickScanJobPayload {
+export interface QuickScanJobPayload {
   email: string;
   url: string;
   firstName?: string;
@@ -86,6 +91,10 @@ function buildReportDirectory(reportStorage: QueueReportStorage | undefined, fal
   return fallback;
 }
 
+function shouldUseEventDrivenQuickResults(): boolean {
+  return env.scannerDispatchMode === 'sqs' && env.scannerSqsResultWorkerEnabled;
+}
+
 function toQuickScanJobPayload(payload: QueueJobInput): QuickScanJobPayload {
   return {
     email: requireString(payload.email, 'Quick scan email'),
@@ -97,57 +106,33 @@ function toQuickScanJobPayload(payload: QueueJobInput): QuickScanJobPayload {
   };
 }
 
-export async function runQuickScanProcess(payload: QueueJobInput): Promise<QueueResult> {
-  const job = toQuickScanJobPayload(payload);
+export function buildQuickScanJobFromRecord(record: {
+  _id?: unknown;
+  email?: string;
+  url?: string;
+  firstName?: string;
+  lastName?: string;
+  device?: string | null;
+}): QuickScanJobPayload {
+  return {
+    email: requireString(record.email, 'Quick scan email'),
+    url: requireString(record.url, 'Quick scan URL'),
+    firstName: optionalString(record.firstName),
+    lastName: optionalString(record.lastName),
+    quickScanId: record._id == null ? undefined : String(record._id),
+    selectedDevice: normalizeQuickScanDevice(record.device),
+  };
+}
+
+export async function completeQuickScanFromAuditResult(
+  job: QuickScanJobPayload,
+  auditResult: ScannerServiceAuditSuccess,
+): Promise<QueueResult> {
   const fullName = [job.firstName, job.lastName].filter(Boolean).join(' ') || 'Valued Customer';
   const QuickScan = await getQuickScanModel();
-
-  quickScanLogger.info('Starting quick scan job.', {
-    email: job.email,
-    url: job.url,
-    quickScanId: job.quickScanId,
-    device: job.selectedDevice,
-    fullName,
-  });
-
-  if (job.quickScanId) {
-    await QuickScan.findByIdAndUpdate(job.quickScanId, {
-      status: 'processing',
-      emailStatus: 'sending',
-      emailError: undefined,
-    }).catch((error) => {
-      quickScanLogger.warn('Failed to mark quick scan as processing.', {
-        quickScanId: job.quickScanId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }
-
   let jsonReportPath: string | undefined;
 
   try {
-    const auditResult = await requestScannerAudit({
-      url: job.url,
-      device: normalizeQuickScanDevice(job.selectedDevice),
-      format: 'json',
-      isLiteVersion: true,
-      includeReport: true,
-    });
-
-    if (!auditResult.success) {
-      quickScanLogger.error('Scanner-service audit failed during quick scan.', {
-        email: job.email,
-        url: job.url,
-        quickScanId: job.quickScanId,
-        errorCode: auditResult.errorCode,
-        statusCode: auditResult.statusCode,
-        error: auditResult.error,
-        originalError: auditResult.originalError,
-      });
-
-      throw new Error(mapScannerError(auditResult.errorCode, auditResult.error));
-    }
-
     jsonReportPath = auditResult.reportPath;
     const reportData = JSON.parse(await fs.readFile(jsonReportPath, 'utf8')) as Record<string, unknown>;
     const liteScorecard = buildAuditScorecard(reportData, {
@@ -323,6 +308,133 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
       reportStorage: emailResult.storage,
       scansUsed: 1,
     };
+  } finally {
+    if (jsonReportPath) {
+      await fs.unlink(jsonReportPath).catch((error) => {
+        quickScanLogger.warn('Failed to delete temporary quick scan report.', {
+          reportPath: jsonReportPath,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }
+}
+
+export async function runQuickScanProcess(payload: QueueJobInput): Promise<QueueResult> {
+  const job = toQuickScanJobPayload(payload);
+  const fullName = [job.firstName, job.lastName].filter(Boolean).join(' ') || 'Valued Customer';
+  const QuickScan = await getQuickScanModel();
+
+  quickScanLogger.info('Starting quick scan job.', {
+    email: job.email,
+    url: job.url,
+    quickScanId: job.quickScanId,
+    device: job.selectedDevice,
+    fullName,
+  });
+
+  if (job.quickScanId) {
+    await QuickScan.findByIdAndUpdate(job.quickScanId, {
+      status: 'processing',
+      emailStatus: shouldUseEventDrivenQuickResults() ? 'pending' : 'sending',
+      emailError: undefined,
+      scannerQueueStatus: 'pending',
+      scannerErrorCode: undefined,
+    }).catch((error) => {
+      quickScanLogger.warn('Failed to mark quick scan as processing.', {
+        quickScanId: job.quickScanId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+  }
+
+  try {
+    if (shouldUseEventDrivenQuickResults()) {
+      const scannerJobId = createScannerJobId();
+
+      if (job.quickScanId) {
+        await QuickScan.findByIdAndUpdate(job.quickScanId, {
+          status: 'processing',
+          emailStatus: 'pending',
+          scannerJobId,
+          scannerQueueStatus: 'pending',
+          scannerErrorCode: undefined,
+          scannerArtifact: undefined,
+        }).catch((error) => {
+          quickScanLogger.warn('Failed to persist quick scan scanner job id before dispatch.', {
+            quickScanId: job.quickScanId,
+            scannerJobId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+
+      const dispatchResult = await dispatchScannerAuditJob({
+        url: job.url,
+        device: normalizeQuickScanDevice(job.selectedDevice),
+        format: 'json',
+        isLiteVersion: true,
+        includeReport: true,
+        scannerQueue: 'quick',
+        scannerJobId,
+      });
+
+      if (!dispatchResult.success) {
+        throw new Error(mapScannerError(dispatchResult.errorCode, dispatchResult.error));
+      }
+
+      if (job.quickScanId) {
+        await QuickScan.findByIdAndUpdate(job.quickScanId, {
+          status: 'processing',
+          emailStatus: 'pending',
+          scannerQueueStatus: 'queued',
+          scannerErrorCode: undefined,
+        }).catch((error) => {
+          quickScanLogger.warn('Failed to persist quick scan scanner job id.', {
+            quickScanId: job.quickScanId,
+            scannerJobId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+
+      quickScanLogger.info('Quick scan scanner job dispatched; result worker will finish report delivery.', {
+        email: job.email,
+        url: job.url,
+        quickScanId: job.quickScanId,
+        scannerJobId,
+      });
+
+      return {
+        emailStatus: 'pending',
+        scansUsed: 1,
+      };
+    }
+
+    const auditResult = await requestScannerAudit({
+      url: job.url,
+      device: normalizeQuickScanDevice(job.selectedDevice),
+      format: 'json',
+      isLiteVersion: true,
+      includeReport: true,
+      scannerQueue: 'quick',
+    });
+
+    if (!auditResult.success) {
+      quickScanLogger.error('Scanner-service audit failed during quick scan.', {
+        email: job.email,
+        url: job.url,
+        quickScanId: job.quickScanId,
+        errorCode: auditResult.errorCode,
+        statusCode: auditResult.statusCode,
+        error: auditResult.error,
+        originalError: auditResult.originalError,
+      });
+
+      throw new Error(mapScannerError(auditResult.errorCode, auditResult.error));
+    }
+
+    return await completeQuickScanFromAuditResult(job, auditResult);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -332,6 +444,7 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
         emailStatus: 'failed',
         emailError: message,
         errorMessage: message,
+        scannerQueueStatus: 'failed',
       }).catch((updateError) => {
         quickScanLogger.warn('Failed to persist quick scan failure status.', {
           quickScanId: job.quickScanId,
@@ -348,14 +461,5 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
     });
 
     throw error instanceof Error ? error : new Error(message);
-  } finally {
-    if (jsonReportPath) {
-      await fs.unlink(jsonReportPath).catch((error) => {
-        quickScanLogger.warn('Failed to delete temporary quick scan report.', {
-          reportPath: jsonReportPath,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-    }
   }
 }

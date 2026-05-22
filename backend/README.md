@@ -32,16 +32,34 @@ High-level full audit flow:
 4. `src/worker.ts` starts the queue processors.
 5. `src/features/audits/full-audit.processor.ts` calls the scanner client, generates scorecards and reports, stores files, updates MongoDB, and triggers email delivery.
 
-In production, set `SCANNER_DISPATCH_MODE=sqs` on the Node worker. The scanner client then sends page scan requests to `SCANNER_SQS_JOB_QUEUE_URL` instead of holding a long HTTP request open. Python Fargate scanner workers upload raw page JSON to S3 and publish a tiny completion message to `SCANNER_SQS_RESULT_QUEUE_URL`. Node downloads the raw JSON artifact and continues the existing scorecard/PDF/email flow.
+In production, set `SCANNER_DISPATCH_MODE=sqs` on the Node worker. Quick scans are sent to the quick scanner queue, and full-audit page scans are sent to the full scanner queue, so large full audits do not block short quick scans. Python Fargate scanner workers upload raw page JSON to S3 and publish tiny completion messages back to their matching result queues. Quick scans use a dedicated event-driven result worker, so the quick BullMQ job only dispatches the scanner job and the result worker later generates the PDF, uploads/stores it, updates MongoDB, and sends email. Full-audit page scans use a full result inbox worker: it consumes the full result queue into MongoDB by `scannerJobId`, and the full audit waits for its own stored result instead of polling the shared SQS result queue directly.
 
 Recommended production scanner env:
 
 - `SCANNER_DISPATCH_MODE=sqs` on the Node worker
-- `SCANNER_SQS_JOB_QUEUE_URL` and `SCANNER_SQS_RESULT_QUEUE_URL` on both Node worker and Python scanner workers
+- `SCANNER_SQS_QUICK_JOB_QUEUE_URL` and `SCANNER_SQS_QUICK_RESULT_QUEUE_URL` on the Node worker
+- `SCANNER_SQS_FULL_JOB_QUEUE_URL` and `SCANNER_SQS_FULL_RESULT_QUEUE_URL` on the Node worker
+- `SCANNER_SQS_RESULT_WORKER_ENABLED=true` on the Node worker so quick scanner results and full scanner results are consumed by dedicated result workers instead of many request waiters
+- `SCANNER_SQS_RESULT_WORKER_VISIBILITY_TIMEOUT_SECONDS=900` on the Node worker so a result message stays hidden while PDF/email/S3 finalization runs
+- `SCANNER_SQS_JOB_QUEUE_URL` and `SCANNER_SQS_RESULT_QUEUE_URL` on each Python scanner service, pointing to either the quick or full pair
 - `SCANNER_SQS_ARTIFACT_BUCKET`/`AWS_S3_BUCKET` and `SCANNER_SQS_ARTIFACT_REGION`/`AWS_REGION`
 - `SCANNER_FULL_AUDIT_TIMEOUT_MS` high enough for the longest single page scan
+- `SCANNER_ECS_TASK_PROTECTION_ENABLED=true` on Fargate scanner workers so ECS service scale-in does not stop a task while it is actively scanning
+- `QUEUE_QUICK_SCAN_JOB_TIMEOUT_MS` only needs to cover SQS dispatch in event-driven quick mode, but keeping `3600000` during load tests is harmless.
 
 Keep one small HTTP scanner service available for `/precheck-url` if you want Camoufox-backed immediate prechecks. Heavy full/quick audit page scans should use the SQS worker path.
+
+Fargate scale-in protection:
+
+- The Python SQS worker enables ECS task scale-in protection immediately after it receives a scan job.
+- It releases protection in a `finally` block after the result is sent/deleted or the job fails.
+- Set `SCANNER_ECS_TASK_PROTECTION_EXPIRES_MINUTES` longer than the longest expected scan. Use `30` for quick-only workers and `180` or higher for full-audit workers.
+- The scanner task role must allow `ecs:UpdateTaskProtection` if the task uses the ECS API fallback. The ECS task protection endpoint is used automatically when `ECS_AGENT_URI` is available.
+
+Recommended scanner services:
+
+- Quick scanner ECS service: `SCANNER_QUEUE_KIND=quick`, consumes `silversurfers-scanner-quick-jobs`, writes `silversurfers-scanner-quick-results`, min tasks 1, max tasks based on quick-scan demand.
+- Full scanner ECS service: `SCANNER_QUEUE_KIND=full`, consumes `silversurfers-scanner-full-jobs`, writes `silversurfers-scanner-full-results`, min tasks 0 or 1, max tasks based on full-audit backlog.
 
 Quick scan flow is the same shape, but uses `QuickScan` records and `quick-scan.processor.ts`.
 

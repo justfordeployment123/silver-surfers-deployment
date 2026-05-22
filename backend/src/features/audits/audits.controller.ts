@@ -1,6 +1,7 @@
 /// <reference path="../../shared/types/express.ts" />
 import type { Request, Response } from 'express';
 
+import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import { getAuditQueues } from './audits.runtime.ts';
 import {
@@ -158,6 +159,21 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
   const { candidateUrls, input } = buildCandidateUrls(rawUrl);
   if (!candidateUrls.length) {
     return { input, error: 'Invalid URL' };
+  }
+
+  if (env.skipUrlPrecheck) {
+    const finalUrl = candidateUrls[0];
+    auditsLogger.info('URL precheck skipped; enqueueing normalized URL directly.', {
+      input,
+      finalUrl,
+    });
+
+    return {
+      input,
+      normalizedUrl: finalUrl,
+      finalUrl,
+      redirected: false,
+    };
   }
 
   for (const candidateUrl of candidateUrls) {

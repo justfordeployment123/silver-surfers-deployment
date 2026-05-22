@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
+import ScannerResult from '../../models/scanner-result.model.ts';
 import { downloadS3Object } from '../storage/report-storage.ts';
 
 const scannerClientLogger = logger.child('feature:scanner:client');
@@ -14,6 +15,8 @@ export interface ScannerServiceAuditRequest {
   format?: 'json' | 'html';
   isLiteVersion?: boolean;
   includeReport?: boolean;
+  scannerQueue?: 'quick' | 'full';
+  scannerJobId?: string;
 }
 
 interface ScannerServiceAuditPayload {
@@ -36,7 +39,7 @@ interface ScannerServiceAuditPayload {
   };
 }
 
-interface ScannerSqsResultPayload {
+export interface ScannerSqsResultPayload {
   schemaVersion?: number;
   scannerJobId?: string;
   success?: boolean;
@@ -79,6 +82,16 @@ export interface ScannerServiceAuditFailure {
 
 export type ScannerServiceAuditResult = ScannerServiceAuditSuccess | ScannerServiceAuditFailure;
 
+export interface ScannerSqsDispatchSuccess {
+  success: true;
+  scannerJobId: string;
+  queueKind: 'quick' | 'full';
+  jobQueueUrl: string;
+  resultQueueUrl: string;
+}
+
+export type ScannerSqsDispatchResult = ScannerSqsDispatchSuccess | ScannerServiceAuditFailure;
+
 export interface ScannerServiceLoadSnapshot {
   activeAudits: number;
   queuedAudits: number;
@@ -93,8 +106,16 @@ function buildTimeoutMs(isLiteVersion: boolean): number {
   return isLiteVersion ? env.scannerLiteAuditTimeoutMs : env.scannerFullAuditTimeoutMs;
 }
 
-function createScannerJobId(): string {
+export function createScannerJobId(): string {
   return `scan-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function resolveScannerQueueKind(request: ScannerServiceAuditRequest): 'quick' | 'full' {
+  if (request.scannerQueue === 'quick' || request.scannerQueue === 'full') {
+    return request.scannerQueue;
+  }
+
+  return request.isLiteVersion ? 'quick' : 'full';
 }
 
 function resolveReportHostname(url: string): string {
@@ -215,7 +236,7 @@ async function resolveLocalReportPath(
   return tempPath;
 }
 
-async function loadSqsRuntime() {
+export async function loadSqsRuntime() {
   const moduleName = '@aws-sdk/client-sqs';
   const module = await import(moduleName) as Record<string, any>;
   return {
@@ -227,7 +248,7 @@ async function loadSqsRuntime() {
   };
 }
 
-function parseSqsResultBody(body: string | undefined): ScannerSqsResultPayload | null {
+export function parseSqsResultBody(body: string | undefined): ScannerSqsResultPayload | null {
   if (!body) {
     return null;
   }
@@ -239,7 +260,7 @@ function parseSqsResultBody(body: string | undefined): ScannerSqsResultPayload |
   }
 }
 
-async function downloadScannerS3Report(
+export async function downloadScannerS3Report(
   payload: ScannerSqsResultPayload,
   request: ScannerServiceAuditRequest,
 ): Promise<string> {
@@ -259,11 +280,43 @@ async function downloadScannerS3Report(
   return tempPath;
 }
 
-async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): Promise<ScannerServiceAuditResult> {
-  if (!env.scannerSqsJobQueueUrl || !env.scannerSqsResultQueueUrl) {
+async function buildAuditResultFromSqsPayload(
+  payload: ScannerSqsResultPayload,
+  request: ScannerServiceAuditRequest,
+): Promise<ScannerServiceAuditResult> {
+  const isLiteVersion = Boolean(request.isLiteVersion);
+
+  if (!payload.success) {
     return {
       success: false,
-      error: 'Scanner SQS mode is enabled but SCANNER_SQS_JOB_QUEUE_URL or SCANNER_SQS_RESULT_QUEUE_URL is missing.',
+      error: payload.error || 'Scanner worker failed.',
+      errorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+    };
+  }
+
+  const reportPath = await downloadScannerS3Report(payload, request);
+  return {
+    success: true,
+    reportPath,
+    isLiteVersion: payload.isLiteVersion ?? isLiteVersion,
+    version: payload.version === 'Lite' ? 'Lite' : 'Full',
+    url: payload.url || request.url,
+    device: payload.device || request.device || 'desktop',
+    strategy: payload.strategy || 'Python-Camoufox-SQS',
+    attemptNumber: payload.attemptNumber || 1,
+    message: payload.message || 'Audit completed by scanner SQS worker.',
+  };
+}
+
+export async function dispatchScannerAuditJob(request: ScannerServiceAuditRequest): Promise<ScannerSqsDispatchResult> {
+  const queueKind = resolveScannerQueueKind(request);
+  const jobQueueUrl = queueKind === 'quick' ? env.scannerSqsQuickJobQueueUrl : env.scannerSqsFullJobQueueUrl;
+  const resultQueueUrl = queueKind === 'quick' ? env.scannerSqsQuickResultQueueUrl : env.scannerSqsFullResultQueueUrl;
+
+  if (!jobQueueUrl || !resultQueueUrl) {
+    return {
+      success: false,
+      error: `Scanner SQS ${queueKind} mode is enabled but its job or result queue URL is missing.`,
       errorCode: 'SCANNER_SQS_NOT_CONFIGURED',
     };
   }
@@ -278,11 +331,8 @@ async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): P
 
   const runtime = await loadSqsRuntime();
   const client = new runtime.SQSClient({ region: env.scannerSqsArtifactRegion });
-  const scannerJobId = createScannerJobId();
+  const scannerJobId = request.scannerJobId || createScannerJobId();
   const isLiteVersion = Boolean(request.isLiteVersion);
-  const timeoutMs = buildTimeoutMs(isLiteVersion);
-  const timeoutMinutes = Math.floor(timeoutMs / 60_000);
-  const startedAt = Date.now();
   const body = {
     schemaVersion: 1,
     scannerJobId,
@@ -291,6 +341,7 @@ async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): P
     format: request.format || 'json',
     isLiteVersion,
     includeReport: true,
+    queueKind,
     requestedAt: new Date().toISOString(),
     artifact: {
       bucket: env.scannerSqsArtifactBucket,
@@ -304,18 +355,65 @@ async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): P
     url: request.url,
     device: body.device,
     isLiteVersion,
-    jobQueueUrl: env.scannerSqsJobQueueUrl,
-    resultQueueUrl: env.scannerSqsResultQueueUrl,
+    queueKind,
+    jobQueueUrl,
+    resultQueueUrl,
   });
 
   await client.send(new runtime.SendMessageCommand({
-    QueueUrl: env.scannerSqsJobQueueUrl,
+    QueueUrl: jobQueueUrl,
     MessageBody: JSON.stringify(body),
   }));
 
+  return {
+    success: true,
+    scannerJobId,
+    queueKind,
+    jobQueueUrl,
+    resultQueueUrl,
+  };
+}
+
+async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): Promise<ScannerServiceAuditResult> {
+  const dispatchResult = await dispatchScannerAuditJob(request);
+  if (!dispatchResult.success) {
+    return dispatchResult;
+  }
+
+  const resultQueueUrl = dispatchResult.resultQueueUrl;
+  const scannerJobId = dispatchResult.scannerJobId;
+  const isLiteVersion = Boolean(request.isLiteVersion);
+  const timeoutMs = buildTimeoutMs(isLiteVersion);
+  const timeoutMinutes = Math.floor(timeoutMs / 60_000);
+  const startedAt = Date.now();
+
+  if (dispatchResult.queueKind === 'full' && env.scannerSqsResultWorkerEnabled) {
+    while (Date.now() - startedAt < timeoutMs) {
+      const storedResult = await ScannerResult.findOne({ scannerJobId }).lean() as {
+        payload?: ScannerSqsResultPayload;
+      } | null;
+
+      if (storedResult?.payload) {
+        await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+        return buildAuditResultFromSqsPayload(storedResult.payload, request);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+
+    return {
+      success: false,
+      error: `The scanner SQS job timed out after ${timeoutMinutes} minutes.`,
+      errorCode: 'REQUEST_TIMEOUT',
+    };
+  }
+
+  const runtime = await loadSqsRuntime();
+  const client = new runtime.SQSClient({ region: env.scannerSqsArtifactRegion });
+
   while (Date.now() - startedAt < timeoutMs) {
     const response = await client.send(new runtime.ReceiveMessageCommand({
-      QueueUrl: env.scannerSqsResultQueueUrl,
+      QueueUrl: resultQueueUrl,
       MaxNumberOfMessages: 5,
       WaitTimeSeconds: env.scannerSqsWaitTimeSeconds,
       VisibilityTimeout: env.scannerSqsResultVisibilityTimeoutSeconds,
@@ -326,7 +424,7 @@ async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): P
       if (resultPayload?.scannerJobId !== scannerJobId) {
         if (message.ReceiptHandle) {
           await client.send(new runtime.ChangeMessageVisibilityCommand({
-            QueueUrl: env.scannerSqsResultQueueUrl,
+            QueueUrl: resultQueueUrl,
             ReceiptHandle: message.ReceiptHandle,
             VisibilityTimeout: 0,
           })).catch(() => undefined);
@@ -336,31 +434,12 @@ async function requestScannerAuditViaSqs(request: ScannerServiceAuditRequest): P
 
       if (message.ReceiptHandle) {
         await client.send(new runtime.DeleteMessageCommand({
-          QueueUrl: env.scannerSqsResultQueueUrl,
+          QueueUrl: resultQueueUrl,
           ReceiptHandle: message.ReceiptHandle,
         }));
       }
 
-      if (!resultPayload.success) {
-        return {
-          success: false,
-          error: resultPayload.error || 'Scanner worker failed.',
-          errorCode: resultPayload.errorCode || 'SCANNER_WORKER_FAILED',
-        };
-      }
-
-      const reportPath = await downloadScannerS3Report(resultPayload, request);
-      return {
-        success: true,
-        reportPath,
-        isLiteVersion: resultPayload.isLiteVersion ?? isLiteVersion,
-        version: resultPayload.version === 'Lite' ? 'Lite' : 'Full',
-        url: resultPayload.url || request.url,
-        device: resultPayload.device || body.device,
-        strategy: resultPayload.strategy || 'Python-Camoufox-SQS',
-        attemptNumber: resultPayload.attemptNumber || 1,
-        message: resultPayload.message || 'Audit completed by scanner SQS worker.',
-      };
+      return buildAuditResultFromSqsPayload(resultPayload, request);
     }
   }
 

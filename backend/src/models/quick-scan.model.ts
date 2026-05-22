@@ -55,6 +55,27 @@ const quickScanSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  scannerJobId: {
+    type: String,
+    default: null,
+  },
+  scannerQueueStatus: {
+    type: String,
+    enum: ['pending', 'queued', 'completed', 'failed'],
+    default: 'pending',
+  },
+  scannerResultAt: {
+    type: Date,
+    default: undefined,
+  },
+  scannerErrorCode: {
+    type: String,
+    default: null,
+  },
+  scannerArtifact: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
+  },
   reportGenerated: {
     type: Boolean,
     default: false,
@@ -98,6 +119,7 @@ const quickScanSchema = new mongoose.Schema({
 quickScanSchema.index({ email: 1, scanDate: -1 });
 quickScanSchema.index({ url: 1 });
 quickScanSchema.index({ scanDate: -1 });
+quickScanSchema.index({ scannerJobId: 1 }, { sparse: true });
 
 const QuickScan = (mongoose.models.QuickScan as mongoose.Model<unknown> | undefined)
   || mongoose.model('QuickScan', quickScanSchema);

@@ -92,6 +92,11 @@ export interface QuickScanDocument {
   status?: string;
   emailStatus?: string;
   emailError?: string | null;
+  scannerJobId?: string | null;
+  scannerQueueStatus?: string;
+  scannerResultAt?: Date;
+  scannerErrorCode?: string | null;
+  scannerArtifact?: Record<string, unknown>;
   scanScore?: number | null;
   scoreCard?: AuditScorecard;
   scanDate?: Date;

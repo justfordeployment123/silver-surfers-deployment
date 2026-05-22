@@ -367,6 +367,7 @@ async function requestPageAuditWithFallback(
       format: 'json',
       includeReport: true,
       isLiteVersion: true,
+      scannerQueue: 'full',
     });
 
     return {
@@ -392,6 +393,7 @@ async function requestPageAuditWithFallback(
         format: 'json',
         includeReport: true,
         isLiteVersion: true,
+        scannerQueue: 'full',
       });
 
       return {
@@ -409,6 +411,7 @@ async function requestPageAuditWithFallback(
     device,
     format: 'json',
     includeReport: true,
+    scannerQueue: 'full',
   });
 
   if (firstAttempt.success) {
@@ -451,6 +454,7 @@ async function requestPageAuditWithFallback(
       format: 'json',
       includeReport: true,
       isLiteVersion: true,
+      scannerQueue: 'full',
     });
 
     if (liteAttempt.success) {
@@ -481,6 +485,7 @@ async function requestPageAuditWithFallback(
     device,
     format: 'json',
     includeReport: true,
+    scannerQueue: 'full',
   });
 
   if (secondAttempt.success) {
@@ -521,6 +526,7 @@ async function requestPageAuditWithFallback(
     format: 'json',
     includeReport: true,
     isLiteVersion: true,
+    scannerQueue: 'full',
   });
 
   if (liteAttempt.success) {
