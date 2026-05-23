@@ -1,0 +1,698 @@
+[
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:24.438Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:27.145Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:29.920Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:33.009Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:36.503Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:39.035Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:41.559Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:43.727Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:45.948Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "72",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:48.279Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:50.823Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:53.215Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:42:55.549Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:42:59.375Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:02.410Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:05.896Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:09.392Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:11.888Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "67",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:16.635Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:18.889Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:21.145Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:23.709Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:26.163Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:28.662Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:31.145Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:43:33.198Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:37.129Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:40.647Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:43.652Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:47.031Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:49.755Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:54.037Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:56.370Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:43:58.531Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:44:01.027Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:44:03.336Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:44:05.361Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:44:08.619Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "74",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:44:11.862Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:03.026Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:06.891Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:10.725Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:14.030Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:16.795Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:19.645Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:22.080Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:25.091Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:28.361Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "72",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:30.943Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:33.526Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:35.755Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T21:45:38.039Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:45:42.849Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:45:47.650Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:45:52.908Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:45:57.586Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:01.975Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "67",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:07.534Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:10.572Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:13.507Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:17.169Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:21.048Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:25.292Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:28.915Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T21:46:32.118Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:46:38.161Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:46:43.430Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:46:48.505Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:46:54.008Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:46:58.123Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:02.591Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:05.215Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:07.616Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:10.843Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:13.908Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:16.139Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:18.489Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "74",
+    "device": "tablet",
+    "timestamp": "2026-05-22T21:47:21.204Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:03:50.930Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:03:53.821Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:03:56.888Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:03:59.852Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:02.440Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:04.846Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:07.032Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:09.243Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "72",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:11.418Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:14.365Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:16.499Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-22T22:04:18.057Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:20.514Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:22.317Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:24.146Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:26.088Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:27.877Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "67",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:31.011Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:32.631Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "77",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:35.367Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/subscription",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:37.589Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:40.520Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:43.855Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:46.118Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-22T22:04:47.833Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:04:51.076Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/services",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:04:53.429Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/about",
+    "score": "77",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:04:55.611Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/contact",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:04:57.907Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/faq",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:04:59.892Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/blog",
+    "score": "71",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:03.365Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:07.276Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/register",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:09.417Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/login",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:11.456Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/checkout",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:13.750Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/accessibility-guides",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:15.479Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/privacy",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:17.307Z"
+  },
+  {
+    "Url": "https://silversurfers.ai/terms",
+    "score": "74",
+    "device": "tablet",
+    "timestamp": "2026-05-22T22:05:19.327Z"
+  }
+]

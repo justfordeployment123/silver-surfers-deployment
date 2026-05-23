@@ -10,13 +10,14 @@ import {
   setCachedCompletedFullAuditSnapshot,
   setCachedFullAuditPageReport,
 } from './audit-cache.ts';
-import { requestScannerAudit, requestScannerLoadSnapshot } from '../scanner/scanner-client.ts';
+import { dispatchScannerFullAuditBatch, requestScannerAudit, requestScannerFullAuditBatch, requestScannerLoadSnapshot, type ScannerSqsResultPayload } from '../scanner/scanner-client.ts';
 import { generateAuditAiReport } from './ai-reporting.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import { resolveBackendPath } from '../../config/paths.ts';
-import type { QueueJobInput, QueueResult } from '../../infrastructure/queues/job-queue.ts';
+import type { QueueJobInput, QueueReportStorage, QueueResult } from '../../infrastructure/queues/job-queue.ts';
+import { ACTIVE_REPORT_MARKER_FILE } from '../../infrastructure/cache/cache-manager.ts';
 import { buildAggregateAuditScorecard, buildAuditScorecard, type AuditPlatformScore, type AuditScorecard } from './audit-scorecard.ts';
 import { getAnalysisRecordModel, getSubscriptionModel, type AnalysisRecordDocument } from './audits.dependencies.ts';
 import {
@@ -29,9 +30,11 @@ import {
   type FullAuditEmailResult,
   type FullAuditScannerMode,
 } from './full-audit.helpers.ts';
-import { collectAttachmentsRecursive, sendAuditReportEmail, sendDirectMail, type ReportAttachment } from './report-delivery.ts';
+import { collectAttachmentsRecursive, sendAuditReportEmail, sendDirectMail, sendStoredAuditReportEmail, type ReportAttachment } from './report-delivery.ts';
 import { buildStoredReportFilesFromAttachments, mergeStoredReportFilesWithStorage, type StoredReportFile } from './report-files.ts';
 import { cleanupLocalReportDirectoryWhenStored } from './report-retention.ts';
+import ScannerResult from '../../models/scanner-result.model.ts';
+import { downloadS3Object } from '../storage/report-storage.ts';
 import { checkScoreThreshold } from './threshold-check.ts';
 import {
   planFullAuditTargetPages,
@@ -118,6 +121,18 @@ function optionalNullableString(value: unknown): string | null | undefined {
 
 function sleep(durationMs: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+function buildFullAuditTargetKey(url: string, device: FullAuditDevice): string {
+  return `${url}\n${device}`;
+}
+
+async function markReportDirectoryActive(finalReportFolder: string): Promise<void> {
+  await fs.writeFile(path.join(finalReportFolder, ACTIVE_REPORT_MARKER_FILE), new Date().toISOString(), 'utf8');
+}
+
+async function clearReportDirectoryActive(finalReportFolder: string): Promise<void> {
+  await fs.unlink(path.join(finalReportFolder, ACTIVE_REPORT_MARKER_FILE)).catch(() => undefined);
 }
 
 function buildFullAuditPdfFileName(url: string, device: FullAuditDevice): string {
@@ -295,13 +310,15 @@ async function auditLinkForDevice(
   }
 
   const reportData = JSON.parse(await fs.readFile(auditResult.reportPath, 'utf8')) as Record<string, unknown>;
-  await setCachedFullAuditPageReport({
-    websiteUrl,
-    pageUrl: link,
-    device,
-    isLiteVersion: auditResult.isLiteVersion,
-    report: reportData,
-  });
+  if (env.fullAuditCacheEnabled) {
+    await setCachedFullAuditPageReport({
+      websiteUrl,
+      pageUrl: link,
+      device,
+      isLiteVersion: auditResult.isLiteVersion,
+      report: reportData,
+    });
+  }
 
   let auditScore: number | null = null;
   let auditScoreCard: AuditScorecard | null = null;
@@ -809,6 +826,304 @@ async function sendAuditEmail(
   ]);
 }
 
+interface FullAuditBatchResultTargetPayload {
+  url?: string;
+  device?: FullAuditDevice;
+  success?: boolean;
+  report?: Record<string, unknown>;
+  isLiteVersion?: boolean;
+  scanModeUsed?: FullAuditScannerMode;
+  error?: string;
+  errorCode?: string;
+  statusCode?: number;
+}
+
+async function loadFullAuditBatchAggregate(payload: ScannerSqsResultPayload): Promise<{ targets: FullAuditBatchResultTargetPayload[] }> {
+  const bucket = payload.report?.bucket || env.scannerSqsArtifactBucket;
+  const region = payload.report?.region || env.scannerSqsArtifactRegion;
+  const key = payload.report?.key;
+
+  if (!bucket || !region || !key) {
+    throw new Error('Scanner result did not include a usable full-audit aggregate artifact.');
+  }
+
+  const downloaded = await downloadS3Object({ bucket, region, key });
+  return JSON.parse(downloaded.body.toString('utf8')) as { targets: FullAuditBatchResultTargetPayload[] };
+}
+
+async function failFullAuditFromScannerResult(
+  scannerJobId: string,
+  message: string,
+  errorCode?: string,
+): Promise<void> {
+  const AnalysisRecord = await getAnalysisRecordModel();
+  const record = await AnalysisRecord.findOne({ scannerJobId });
+  if (!record) {
+    fullAuditLogger.warn('Scanner result failure had no matching full-audit record.', {
+      scannerJobId,
+      errorCode,
+      error: message,
+    });
+    return;
+  }
+
+  if (record.status === 'completed' || record.status === 'completed_with_warnings') {
+    return;
+  }
+
+  record.status = 'failed';
+  record.emailStatus = 'failed';
+  record.scannerQueueStatus = 'failed';
+  record.scannerResultAt = new Date();
+  record.failureReason = message;
+  record.emailError = 'Email delivery was skipped because the scanner batch failed.';
+  record.warnings = [
+    ...(record.warnings || []),
+    `Scanner batch failed${errorCode ? ` (${errorCode})` : ''}: ${message}`,
+  ];
+  await updateUsageCounters(record);
+  await record.save();
+}
+
+export async function completeFullAuditFromScannerResult(payload: ScannerSqsResultPayload): Promise<void> {
+  const scannerJobId = payload.scannerJobId || '';
+  if (!scannerJobId) {
+    fullAuditLogger.warn('Ignoring full-audit scanner result without scannerJobId.');
+    return;
+  }
+
+  if (!payload.success) {
+    await failFullAuditFromScannerResult(
+      scannerJobId,
+      payload.error || 'Scanner full-audit batch failed.',
+      payload.errorCode,
+    );
+    await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+    return;
+  }
+
+  const AnalysisRecord = await getAnalysisRecordModel();
+  const record = await AnalysisRecord.findOne({ scannerJobId });
+  if (!record) {
+    fullAuditLogger.warn('Scanner result had no matching full-audit record.', {
+      scannerJobId,
+      success: payload.success,
+    });
+    return;
+  }
+
+  if (record.status === 'completed' || record.status === 'completed_with_warnings') {
+    fullAuditLogger.info('Full-audit scanner result already completed; skipping duplicate result.', {
+      taskId: record.taskId,
+      scannerJobId,
+      status: record.status,
+    });
+    await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+    return;
+  }
+
+  const effectiveTaskId = record.taskId || scannerJobId;
+  const effectivePlanId = record.planId || 'pro';
+  const email = record.email || '';
+  const websiteUrl = record.url || '';
+  const finalReportFolder = resolveBackendPath(
+    'reports-full',
+    sanitizePathSegment(email || 'unknown'),
+    `${effectiveTaskId}-${sanitizePathSegment(websiteUrl || 'full-audit', 50)}`,
+  );
+
+  await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);
+  await fs.mkdir(finalReportFolder, { recursive: true });
+  await markReportDirectoryActive(finalReportFolder);
+
+  try {
+    const aggregate = await loadFullAuditBatchAggregate(payload);
+    const reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>> = {};
+    const scanTargets: FullAuditTargetResult[] = [];
+    const warningSet = new Set<string>(record.warnings || []);
+    let successfulTargetCount = 0;
+    let degradedTargetCount = 0;
+    let failedTargetCount = 0;
+
+    for (const [index, target] of (aggregate.targets || []).entries()) {
+      const device = target.device || 'desktop';
+      const url = target.url || websiteUrl || 'unknown';
+      const scanModeUsed = target.scanModeUsed || (target.isLiteVersion ? 'lite' : 'full');
+
+      if (!target.success || !target.report) {
+        failedTargetCount += 1;
+        scanTargets.push({
+          url,
+          device,
+          scanModeUsed,
+          status: 'failed',
+          failureReason: target.error || 'Scanner target failed.',
+          ...(target.errorCode ? { errorCode: target.errorCode } : {}),
+          ...(typeof target.statusCode === 'number' ? { statusCode: target.statusCode } : {}),
+        });
+        warningSet.add('One or more page/device targets failed and were omitted from the final report package.');
+        continue;
+      }
+
+      const tempReportPath = path.join(finalReportFolder, `scanner-result-${device}-${Date.now()}-${index}.json`);
+      await fs.writeFile(tempReportPath, JSON.stringify(target.report, null, 2), 'utf8');
+
+      const reportEntry = await auditLinkForDevice(websiteUrl, url, device, finalReportFolder, {
+        success: true,
+        reportPath: tempReportPath,
+        isLiteVersion: Boolean(target.isLiteVersion),
+        scanModeUsed,
+      }).catch((error) => {
+        fullAuditLogger.warn('Failed to build score metadata from scanner result target.', {
+          taskId: effectiveTaskId,
+          scannerJobId,
+          url,
+          device,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      });
+
+      if (!reportEntry) {
+        failedTargetCount += 1;
+        scanTargets.push({
+          url,
+          device,
+          scanModeUsed,
+          status: 'failed',
+          failureReason: 'Scanner target succeeded but backend could not build score metadata.',
+        });
+        continue;
+      }
+
+      successfulTargetCount += 1;
+      if (scanModeUsed === 'lite') {
+        degradedTargetCount += 1;
+      }
+
+      scanTargets.push({
+        url,
+        device,
+        scanModeUsed,
+        status: 'completed',
+        score: reportEntry.score,
+      });
+
+      if (!reportsByPlatform[device]) {
+        reportsByPlatform[device] = [];
+      }
+      reportsByPlatform[device]?.push(reportEntry);
+    }
+
+    const executionSummary: FullAuditExecutionSummary = {
+      plannedTargetCount: aggregate.targets?.length || Number(record.plannedTargetCount || 0),
+      successfulTargetCount,
+      degradedTargetCount,
+      failedTargetCount,
+      warnings: [
+        ...warningSet,
+        'Full audit scanner result was processed by the result inbox worker.',
+        'Final PDF reports were generated and uploaded by the scanner Fargate task.',
+      ],
+    };
+    applyExecutionSummary(record, executionSummary, scanTargets);
+
+    if (successfulTargetCount <= 0) {
+      record.status = 'failed';
+      record.emailStatus = 'failed';
+      record.scannerQueueStatus = 'failed';
+      record.scannerResultAt = new Date();
+      record.failureReason = 'Full audit scanner result did not contain any usable page/device results.';
+      await updateUsageCounters(record);
+      await record.save();
+      return;
+    }
+
+    await persistAggregateScorecard(record, reportsByPlatform);
+
+    const reportStorage = payload.reportStorage;
+    if (!reportStorage?.objects?.length) {
+      throw new Error('Scanner result did not include uploaded report links.');
+    }
+
+    record.reportStorage = reportStorage;
+    record.reportDirectory = reportStorage.bucket && reportStorage.prefix
+      ? `s3://${reportStorage.bucket}/${reportStorage.prefix}`
+      : record.reportDirectory;
+    record.reportFiles = mergeStoredReportFilesWithStorage([], reportStorage);
+    record.attachmentCount = reportStorage.objects.length;
+    record.emailStatus = 'sending';
+    record.scannerQueueStatus = 'result_received';
+    record.scannerResultAt = new Date();
+    record.scannerArtifact = payload.report as Record<string, unknown> | undefined;
+    await record.save();
+
+    const emailContent = buildFullAuditEmailContent(effectivePlanId, record.device);
+    const sendResult = await sendStoredAuditReportEmail({
+      to: email,
+      subject: emailContent.subject,
+      text: emailContent.text,
+      storage: reportStorage,
+    }).catch((error) => ({
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+
+    if ('success' in sendResult && sendResult.success) {
+      applyFullAuditEmailResult(record, sendResult as FullAuditEmailResult, finalReportFolder);
+      record.reportFiles = mergeStoredReportFilesWithStorage([], (sendResult as FullAuditEmailResult).storage);
+      record.scannerQueueStatus = 'completed';
+    } else {
+      const emailFailureMessage = (sendResult as { error?: string }).error || 'Email delivery failed';
+      record.emailStatus = 'failed';
+      record.emailError = emailFailureMessage;
+      warningSet.add(`Email delivery failed: ${emailFailureMessage}`);
+    }
+
+    executionSummary.warnings = [...warningSet];
+    applyExecutionSummary(record, executionSummary, scanTargets);
+    record.status = resolveFullAuditCompletionStatus(executionSummary);
+    if (record.status !== 'failed') {
+      record.failureReason = undefined;
+    }
+
+    await updateUsageCounters(record);
+    await record.save();
+    await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+
+    fullAuditLogger.info('Completed full audit from scanner result.', {
+      email,
+      url: websiteUrl,
+      taskId: effectiveTaskId,
+      scannerJobId,
+      status: record.status,
+      attachmentCount: record.attachmentCount,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    fullAuditLogger.error('Failed to complete full audit from scanner result.', {
+      taskId: effectiveTaskId,
+      scannerJobId,
+      error: message,
+    });
+    record.status = 'failed';
+    record.emailStatus = 'failed';
+    record.scannerQueueStatus = 'failed';
+    record.scannerResultAt = new Date();
+    record.failureReason = message;
+    await updateUsageCounters(record);
+    await record.save().catch(() => undefined);
+  } finally {
+    await clearReportDirectoryActive(finalReportFolder);
+    await cleanupLocalReportDirectoryWhenStored({
+      reportDirectory: finalReportFolder,
+      reportStorage: record.reportStorage,
+      taskId: effectiveTaskId,
+      source: 'full-audit',
+    }).catch(() => undefined);
+  }
+}
+
 async function maybeSendSealOfApproval(email: string, url: string, planId: string): Promise<void> {
   if (planId !== 'pro') {
     return;
@@ -931,6 +1246,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
   await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);
   await fs.mkdir(finalReportFolder, { recursive: true });
+  await markReportDirectoryActive(finalReportFolder);
   await fs.mkdir(jobFolder, { recursive: true });
 
   try {
@@ -940,14 +1256,16 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       finalReportFolder,
     );
 
-    const reusableAuditSnapshot = await getCachedCompletedFullAuditSnapshot({
-      websiteUrl: job.url,
-      planId: effectivePlanId,
-      selectedDevice: job.selectedDevice,
-      totalPageLimit: env.fullAuditTotalPageLimit,
-      priorityPageLimit: env.fullAuditPriorityPageLimit,
-      fullModePageLimit: env.fullAuditFullModePageLimit,
-    });
+    const reusableAuditSnapshot = env.fullAuditCacheEnabled
+      ? await getCachedCompletedFullAuditSnapshot({
+        websiteUrl: job.url,
+        planId: effectivePlanId,
+        selectedDevice: job.selectedDevice,
+        totalPageLimit: env.fullAuditTotalPageLimit,
+        priorityPageLimit: env.fullAuditPriorityPageLimit,
+        fullModePageLimit: env.fullAuditFullModePageLimit,
+      })
+      : null;
 
     if (reusableAuditSnapshot) {
       applyCachedCompletedAuditSnapshot(record, reusableAuditSnapshot);
@@ -1040,6 +1358,144 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       );
     }
 
+    const batchPageScanResults = new Map<string, FullAuditPageScanResult>();
+    let batchWorkerReportStorage: QueueReportStorage | undefined;
+    if (env.fullAuditBatchScannerEnabled) {
+      const batchTargets = plannedTargetPages.flatMap((targetPage) => (
+        devicesToAudit.map((device) => ({
+          url: targetPage.url,
+          device,
+          preferredScanMode: targetPage.preferredScanMode === 'lite' ? 'lite' as const : 'full' as const,
+          isHomepage: targetPage.isHomepage,
+          allowFullRetry: targetPage.allowFullRetry,
+        }))
+      ));
+
+      if (env.fullAuditEventDrivenScannerEnabled && env.fullAuditReportsInScannerEnabled) {
+        const dispatchResult = await dispatchScannerFullAuditBatch({
+          targets: batchTargets,
+          reportGeneration: {
+            enabled: true,
+            email: job.email,
+            taskId: effectiveTaskId,
+            url: job.url,
+            planId: effectivePlanId,
+            selectedDevice: job.selectedDevice,
+          },
+        });
+
+        if (!dispatchResult.success) {
+          fullAuditLogger.error('Full-audit batch scanner dispatch failed.', {
+            taskId: effectiveTaskId,
+            errorCode: dispatchResult.errorCode,
+            error: dispatchResult.error,
+          });
+          throw new Error(`Full-audit batch scanner dispatch failed: ${dispatchResult.error}`);
+        }
+
+        applyExecutionSummary(record, {
+          plannedTargetCount: batchTargets.length,
+          successfulTargetCount: 0,
+          degradedTargetCount: 0,
+          failedTargetCount: 0,
+          warnings: [
+            ...warningSet,
+            'Full audit was dispatched to the scanner service and will be completed when the scanner result arrives.',
+          ],
+        }, []);
+        record.scannerJobId = dispatchResult.scannerJobId;
+        record.scannerQueueStatus = 'dispatched';
+        record.scannerDispatchedAt = new Date();
+        record.emailStatus = 'pending';
+        record.status = 'processing';
+        await record.save();
+        await clearReportDirectoryActive(finalReportFolder);
+        await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);
+        await fs.rm(jobFolder, { recursive: true, force: true }).catch(() => undefined);
+
+        fullAuditLogger.info('Full-audit batch dispatched; result worker will complete audit.', {
+          taskId: effectiveTaskId,
+          scannerJobId: dispatchResult.scannerJobId,
+          targetCount: dispatchResult.targetCount,
+          jobQueueUrl: dispatchResult.jobQueueUrl,
+          resultQueueUrl: dispatchResult.resultQueueUrl,
+        });
+
+        return {
+          emailStatus: 'pending',
+          attachmentCount: 0,
+          reportDirectory: record.reportDirectory || finalReportFolder,
+          scansUsed: 1,
+        };
+      }
+
+      const batchResult = await requestScannerFullAuditBatch({
+        targets: batchTargets,
+        reportGeneration: {
+          enabled: env.fullAuditReportsInScannerEnabled,
+          email: job.email,
+          taskId: effectiveTaskId,
+          url: job.url,
+          planId: effectivePlanId,
+          selectedDevice: job.selectedDevice,
+        },
+      }).catch((error) => ({
+        success: false as const,
+        error: error instanceof Error ? error.message : String(error),
+        errorCode: 'SCANNER_BATCH_REQUEST_FAILED',
+      }));
+
+      if (batchResult.success) {
+        batchWorkerReportStorage = batchResult.reportStorage;
+        for (const targetResult of batchResult.targets) {
+          batchPageScanResults.set(
+            buildFullAuditTargetKey(targetResult.url, targetResult.device),
+            targetResult.success
+              ? {
+                success: true,
+                reportPath: targetResult.reportPath,
+                isLiteVersion: targetResult.isLiteVersion,
+                scanModeUsed: targetResult.scanModeUsed,
+                shouldUseLiteForFuture: targetResult.shouldUseLiteForFuture,
+                fullFailureCountDelta: targetResult.fullFailureCountDelta,
+                degradedReason: targetResult.degradedReason,
+              }
+              : {
+                success: false,
+                isLiteVersion: targetResult.isLiteVersion,
+                scanModeUsed: targetResult.scanModeUsed,
+                shouldUseLiteForFuture: targetResult.shouldUseLiteForFuture,
+                fullFailureCountDelta: targetResult.fullFailureCountDelta,
+                degradedReason: targetResult.degradedReason,
+                error: targetResult.error,
+                errorCode: targetResult.errorCode,
+                statusCode: targetResult.statusCode,
+                originalError: targetResult.originalError,
+              },
+          );
+        }
+
+        addAuditWarning(
+          warningSet,
+          'Full audit page/device scans were processed as one scanner batch job.',
+        );
+        fullAuditLogger.info('Full-audit batch scanner completed.', {
+          taskId: effectiveTaskId,
+          scannerJobId: batchResult.scannerJobId,
+          targetCount: batchResult.targets.length,
+          reportsGeneratedInWorker: Boolean(batchResult.reportsGeneratedInWorker),
+          reportObjectCount: batchResult.reportStorage?.objectCount,
+        });
+      } else {
+        fullAuditLogger.error('Full-audit batch scanner failed.', {
+          taskId: effectiveTaskId,
+          errorCode: batchResult.errorCode,
+          error: batchResult.error,
+        });
+        throw new Error(`Full-audit batch scanner failed: ${batchResult.error}`);
+      }
+    }
+
     for (const targetPage of plannedTargetPages) {
       for (const device of devicesToAudit) {
         const preferredMode = targetPage.preferredScanMode === 'lite'
@@ -1047,11 +1503,13 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           : (!targetPage.isHomepage && forceLiteForRemainingNonHomepage)
           ? 'lite'
           : deviceScanModes[device];
-        const cachedPageResult = await getCachedFullAuditPageReport({
-          websiteUrl: job.url,
-          pageUrl: targetPage.url,
-          device,
-        }).catch(() => null);
+        const cachedPageResult = env.fullAuditCacheEnabled
+          ? await getCachedFullAuditPageReport({
+            websiteUrl: job.url,
+            pageUrl: targetPage.url,
+            device,
+          }).catch(() => null)
+          : null;
 
         const pageScanResult = cachedPageResult
           ? await materializeCachedFullAuditPageReport(cachedPageResult)
@@ -1089,30 +1547,42 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
             })
           : null;
 
-        let resolvedPageScanResult = pageScanResult;
+        let resolvedPageScanResult = pageScanResult
+          || batchPageScanResults.get(buildFullAuditTargetKey(targetPage.url, device))
+          || null;
         if (!resolvedPageScanResult) {
+          if (env.fullAuditBatchScannerEnabled) {
+            resolvedPageScanResult = {
+              success: false,
+              isLiteVersion: preferredMode === 'lite',
+              scanModeUsed: preferredMode,
+              error: 'Full-audit batch result did not include this page/device target.',
+              errorCode: 'SCANNER_BATCH_TARGET_MISSING',
+            };
+          } else {
           if (processedTargetCount > 0 && env.fullAuditScannerCooldownMs > 0 && !cachedPageResult) {
             await sleep(env.fullAuditScannerCooldownMs);
           }
 
-          resolvedPageScanResult = await requestPageAuditWithFallback(targetPage.url, device, preferredMode, {
-            isHomepage: targetPage.isHomepage,
-            allowFullRetry: targetPage.allowFullRetry,
-          }).catch((error) => {
-            fullAuditLogger.error('Unexpected error while auditing page.', {
-              url: targetPage.url,
-              device,
-              mode: preferredMode,
-              taskId: effectiveTaskId,
-              error: error instanceof Error ? error.message : String(error),
+            resolvedPageScanResult = await requestPageAuditWithFallback(targetPage.url, device, preferredMode, {
+              isHomepage: targetPage.isHomepage,
+              allowFullRetry: targetPage.allowFullRetry,
+            }).catch((error) => {
+              fullAuditLogger.error('Unexpected error while auditing page.', {
+                url: targetPage.url,
+                device,
+                mode: preferredMode,
+                taskId: effectiveTaskId,
+                error: error instanceof Error ? error.message : String(error),
+              });
+              return {
+                success: false,
+                isLiteVersion: preferredMode === 'lite',
+                scanModeUsed: preferredMode,
+                error: error instanceof Error ? error.message : String(error),
+              } satisfies FullAuditPageScanResult;
             });
-            return {
-              success: false,
-              isLiteVersion: preferredMode === 'lite',
-              scanModeUsed: preferredMode,
-              error: error instanceof Error ? error.message : String(error),
-            } satisfies FullAuditPageScanResult;
-          });
+          }
         }
 
         processedTargetCount += 1;
@@ -1238,10 +1708,17 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       };
     }
 
-    await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder);
+    if (!batchWorkerReportStorage) {
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder);
+    } else {
+      addAuditWarning(
+        warningSet,
+        'Final PDF reports were generated and uploaded by the scanner Fargate task.',
+      );
+    }
     await persistAggregateScorecard(record, reportsByPlatform);
 
-    if (record.scoreCard) {
+    if (record.scoreCard && !batchWorkerReportStorage) {
       const remediationRoadmap = buildRemediationRoadmap(record.scoreCard);
       const aiReport = await generateAuditAiReport({
         url: job.url,
@@ -1277,7 +1754,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     }
 
     const platformSummary = buildPlatformSummary(reportsByPlatform);
-    if (platformSummary.length > 0) {
+    if (platformSummary.length > 0 && !batchWorkerReportStorage) {
       const summaryPdfPath = path.join(finalReportFolder, 'audit-summary.pdf');
       await generateSummaryPDF(platformSummary, summaryPdfPath).catch((error) => {
         fullAuditLogger.warn('Failed to generate full-audit summary PDF.', {
@@ -1287,16 +1764,24 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       });
     }
 
-    const attachmentsPreview = await collectAttachmentsRecursive(finalReportFolder).catch((error) => {
-      fullAuditLogger.warn('Failed to collect full-audit attachments preview.', {
-        taskId: effectiveTaskId,
-        error: error instanceof Error ? error.message : String(error),
+    const attachmentsPreview = batchWorkerReportStorage
+      ? [] as ReportAttachment[]
+      : await collectAttachmentsRecursive(finalReportFolder).catch((error) => {
+        fullAuditLogger.warn('Failed to collect full-audit attachments preview.', {
+          taskId: effectiveTaskId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return [] as ReportAttachment[];
       });
-      return [] as ReportAttachment[];
-    });
 
-    record.attachmentCount = Array.isArray(attachmentsPreview) ? attachmentsPreview.length : 0;
-    record.reportFiles = buildStoredReportFilesFromAttachments(Array.isArray(attachmentsPreview) ? attachmentsPreview : []);
+    record.attachmentCount = batchWorkerReportStorage?.objects?.length || (Array.isArray(attachmentsPreview) ? attachmentsPreview.length : 0);
+    record.reportStorage = batchWorkerReportStorage || record.reportStorage;
+    record.reportDirectory = batchWorkerReportStorage?.bucket && batchWorkerReportStorage?.prefix
+      ? `s3://${batchWorkerReportStorage.bucket}/${batchWorkerReportStorage.prefix}`
+      : record.reportDirectory;
+    record.reportFiles = batchWorkerReportStorage
+      ? mergeStoredReportFilesWithStorage([], batchWorkerReportStorage)
+      : buildStoredReportFilesFromAttachments(Array.isArray(attachmentsPreview) ? attachmentsPreview : []);
     const baseStatus = resolveFullAuditCompletionStatus(executionSummary);
 
     if (record.attachmentCount > 0) {
@@ -1308,7 +1793,17 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         });
       });
 
-      const sendResult = await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder)
+      const sendResult = batchWorkerReportStorage
+        ? await sendStoredAuditReportEmail({
+          to: job.email,
+          subject: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).subject,
+          text: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).text,
+          storage: batchWorkerReportStorage,
+        }).catch((error) => ({
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }))
+        : await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder)
         .catch((error) => ({
           success: false,
           error: error instanceof Error ? error.message : String(error),
@@ -1356,7 +1851,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       });
     });
 
-    if (record.status === 'completed' || record.status === 'completed_with_warnings') {
+    if (env.fullAuditCacheEnabled && (record.status === 'completed' || record.status === 'completed_with_warnings')) {
       await setCachedCompletedFullAuditSnapshot({
         websiteUrl: job.url,
         planId: effectivePlanId,
@@ -1445,6 +1940,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
     throw error instanceof Error ? error : new Error(message);
   } finally {
+    await clearReportDirectoryActive(finalReportFolder);
     await fs.rm(jobFolder, { recursive: true, force: true }).catch(() => undefined);
   }
 }

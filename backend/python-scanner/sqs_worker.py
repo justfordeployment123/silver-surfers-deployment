@@ -10,8 +10,12 @@ import json
 import logging
 import os
 import signal
+import subprocess
+import tempfile
 import time
 from contextlib import redirect_stdout
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib import request as url_request
 from urllib.parse import urlparse
@@ -145,6 +149,10 @@ def _normalize_url(url: str) -> str:
     return url if url.startswith(("http://", "https://")) else f"https://{url}"
 
 
+def _format_size_mb(size: int) -> str:
+    return f"{size / (1024 * 1024):.2f}"
+
+
 def _last_arn_segment(value: str) -> str:
     return safe_text(value).rsplit("/", 1)[-1] if value else ""
 
@@ -206,18 +214,50 @@ class EcsTaskProtection:
 
     def _set_protection(self, protection_enabled: bool, scanner_job_id: str) -> None:
         if not self.enabled:
+            logger.info(
+                "ECS task scale-in protection skipped because it is disabled or unavailable.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "protectionEnabled": protection_enabled,
+                },
+            )
             return
+
+        requested_expires_at = (
+            datetime.now(timezone.utc) + timedelta(minutes=self.expires_in_minutes)
+            if protection_enabled
+            else None
+        )
+        protection_method = "agent" if self.agent_uri else "ecs-api"
+
+        logger.info(
+            "Requesting ECS task scale-in protection update.",
+            extra={
+                "scannerJobId": scanner_job_id,
+                "protectionEnabled": protection_enabled,
+                "protectionMethod": protection_method,
+                "expiresInMinutes": self.expires_in_minutes if protection_enabled else None,
+                "requestedExpiresAt": requested_expires_at.isoformat() if requested_expires_at else None,
+                "ecsCluster": _last_arn_segment(self.cluster or ""),
+                "ecsTaskId": _last_arn_segment(self.task_arn or ""),
+            },
+        )
 
         try:
             if self.agent_uri:
-                self._set_protection_via_agent(protection_enabled)
+                protection_details = self._set_protection_via_agent(protection_enabled)
             else:
-                self._set_protection_via_api(protection_enabled)
+                protection_details = self._set_protection_via_api(protection_enabled)
+
             logger.info(
                 "Updated ECS task scale-in protection.",
                 extra={
                     "scannerJobId": scanner_job_id,
                     "protectionEnabled": protection_enabled,
+                    "protectionMethod": protection_method,
+                    "expiresInMinutes": self.expires_in_minutes if protection_enabled else None,
+                    "requestedExpiresAt": requested_expires_at.isoformat() if requested_expires_at else None,
+                    **protection_details,
                 },
             )
         except Exception as error:
@@ -226,11 +266,14 @@ class EcsTaskProtection:
                 extra={
                     "scannerJobId": scanner_job_id,
                     "protectionEnabled": protection_enabled,
+                    "protectionMethod": protection_method,
+                    "expiresInMinutes": self.expires_in_minutes if protection_enabled else None,
+                    "requestedExpiresAt": requested_expires_at.isoformat() if requested_expires_at else None,
                     "error": safe_text(str(error)),
                 },
             )
 
-    def _set_protection_via_agent(self, protection_enabled: bool) -> None:
+    def _set_protection_via_agent(self, protection_enabled: bool) -> Dict[str, Any]:
         body: Dict[str, Any] = {"ProtectionEnabled": protection_enabled}
         if protection_enabled:
             body["ExpiresInMinutes"] = self.expires_in_minutes
@@ -244,8 +287,22 @@ class EcsTaskProtection:
         with url_request.urlopen(request, timeout=10) as response:
             if response.status >= 400:
                 raise RuntimeError(f"ECS task protection endpoint returned HTTP {response.status}.")
+            response_body = response.read().decode("utf-8").strip()
 
-    def _set_protection_via_api(self, protection_enabled: bool) -> None:
+        details: Dict[str, Any] = {
+            "taskProtectionHttpStatus": response.status,
+        }
+        if response_body:
+            try:
+                parsed_response = json.loads(response_body)
+                if isinstance(parsed_response, dict):
+                    details["taskProtectionResponse"] = parsed_response
+            except Exception:
+                details["taskProtectionResponseText"] = response_body[:1000]
+
+        return details
+
+    def _set_protection_via_api(self, protection_enabled: bool) -> Dict[str, Any]:
         if not self.cluster or not self.task_arn:
             self._load_task_metadata()
 
@@ -260,7 +317,17 @@ class EcsTaskProtection:
         if protection_enabled:
             params["expiresInMinutes"] = self.expires_in_minutes
 
-        self.ecs.update_task_protection(**params)
+        response = self.ecs.update_task_protection(**params)
+        protections = response.get("protectedTasks") if isinstance(response, dict) else None
+        failures = response.get("failures") if isinstance(response, dict) else None
+
+        details: Dict[str, Any] = {}
+        if protections:
+            details["taskProtectionResponse"] = protections
+        if failures:
+            details["taskProtectionFailures"] = failures
+
+        return details
 
     def _load_task_metadata(self) -> None:
         if not self.metadata_uri:
@@ -301,6 +368,10 @@ class ScannerSqsWorker:
         self.prefix = os.getenv("SCANNER_SQS_ARTIFACT_PREFIX", "silver-surfers/scanner-results").strip("/")
         self.wait_time_seconds = _optional_int("SCANNER_SQS_WAIT_TIME_SECONDS", 20)
         self.visibility_timeout_seconds = _optional_int("SCANNER_SQS_JOB_VISIBILITY_TIMEOUT_SECONDS", 900)
+        self.generate_full_audit_reports = _optional_bool("SCANNER_FULL_AUDIT_GENERATE_REPORTS_ENABLED", False)
+        self.final_report_prefix = os.getenv("SCANNER_SQS_FINAL_REPORT_PREFIX", "silver-surfers/audit-reports").strip("/")
+        self.s3_url_mode = os.getenv("AWS_S3_URL_MODE", "signed").strip().lower()
+        self.signed_url_expires_seconds = _optional_int("AWS_S3_SIGNED_URL_EXPIRES_SECONDS", 7 * 24 * 60 * 60)
 
         sqs_endpoint_url = os.getenv("AWS_SQS_ENDPOINT_URL", "").strip() or None
         s3_endpoint_url = os.getenv("AWS_S3_ENDPOINT", "").strip() or None
@@ -349,7 +420,7 @@ class ScannerSqsWorker:
 
         try:
             self.task_protection.protect(scanner_job_id)
-            result = self._process_scan_job(scanner_job_id, payload)
+            result = self._process_scan_job(scanner_job_id, payload, receipt_handle)
             self._send_result(result)
             if receipt_handle:
                 self.sqs.delete_message(QueueUrl=self.job_queue_url, ReceiptHandle=receipt_handle)
@@ -381,7 +452,15 @@ class ScannerSqsWorker:
 
         return payload
 
-    def _process_scan_job(self, scanner_job_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def _process_scan_job(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        receipt_handle: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        if safe_text(payload.get("jobType")) == "fullAuditBatch":
+            return self._process_full_audit_batch_job(scanner_job_id, payload, receipt_handle)
+
         started_at = time.time()
         raw_url = safe_text(payload.get("url") or "").strip()
         if not raw_url:
@@ -471,6 +550,399 @@ class ScannerSqsWorker:
             "message": f"{version} audit completed successfully by scanner SQS worker.",
         }
 
+    def _refresh_job_visibility(self, scanner_job_id: str, receipt_handle: Optional[str]) -> None:
+        if not receipt_handle:
+            return
+
+        try:
+            self.sqs.change_message_visibility(
+                QueueUrl=self.job_queue_url,
+                ReceiptHandle=receipt_handle,
+                VisibilityTimeout=self.visibility_timeout_seconds,
+            )
+        except Exception as error:
+            logger.warning(
+                "Failed to refresh SQS job visibility timeout.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "error": safe_text(str(error)),
+                },
+            )
+
+    def _process_full_audit_batch_job(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        receipt_handle: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        started_at = time.time()
+        queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "full"))
+        targets = payload.get("targets")
+        if not isinstance(targets, list) or not targets:
+            raise RuntimeError("Full-audit batch job requires at least one target.")
+
+        logger.info(
+            "Starting scanner SQS full-audit batch.",
+            extra={
+                "scannerJobId": scanner_job_id,
+                "queueKind": queue_kind,
+                "targetCount": len(targets),
+            },
+        )
+
+        target_results = []
+        for index, target in enumerate(targets):
+            self._refresh_job_visibility(scanner_job_id, receipt_handle)
+            if not isinstance(target, dict):
+                target_results.append({
+                    "success": False,
+                    "url": "",
+                    "device": "desktop",
+                    "isLiteVersion": False,
+                    "scanModeUsed": "full",
+                    "error": "Batch target must be a JSON object.",
+                    "errorCode": "INVALID_BATCH_TARGET",
+                })
+                continue
+
+            target_results.append(self._process_full_audit_batch_target(scanner_job_id, queue_kind, target, index))
+
+        successful_count = sum(1 for target in target_results if target.get("success"))
+        aggregate_report = {
+            "schemaVersion": 1,
+            "jobType": "fullAuditBatch",
+            "scannerJobId": scanner_job_id,
+            "queueKind": queue_kind,
+            "targetCount": len(target_results),
+            "successfulTargetCount": successful_count,
+            "failedTargetCount": len(target_results) - successful_count,
+            "targets": target_results,
+        }
+        key = self._build_batch_artifact_key(scanner_job_id)
+        self.s3.put_object(
+            Bucket=self.bucket,
+            Key=key,
+            Body=json.dumps(aggregate_report, ensure_ascii=False, indent=2).encode("utf-8"),
+            ContentType="application/json",
+        )
+        report_storage = None
+        if self.generate_full_audit_reports:
+            report_storage = self._generate_and_upload_full_audit_reports(scanner_job_id, payload, aggregate_report)
+
+        logger.info(
+            "Scanner SQS full-audit batch completed.",
+            extra={
+                "scannerJobId": scanner_job_id,
+                "queueKind": queue_kind,
+                "targetCount": len(target_results),
+                "successfulTargetCount": successful_count,
+                "failedTargetCount": len(target_results) - successful_count,
+                "s3Key": key,
+                "finalReportObjectCount": report_storage.get("objectCount") if report_storage else None,
+                "durationMs": round((time.time() - started_at) * 1000),
+            },
+        )
+
+        result = {
+            "schemaVersion": 1,
+            "jobType": "fullAuditBatch",
+            "scannerJobId": scanner_job_id,
+            "queueKind": queue_kind,
+            "success": successful_count > 0,
+            "report": {
+                "bucket": self.bucket,
+                "region": self.region,
+                "key": key,
+            },
+            "message": "Full-audit batch completed by scanner SQS worker.",
+        }
+        if report_storage:
+            result["reportStorage"] = report_storage
+            result["reportsGeneratedInWorker"] = True
+        return result
+
+    def _process_full_audit_batch_target(
+        self,
+        scanner_job_id: str,
+        queue_kind: str,
+        target: Dict[str, Any],
+        index: int,
+    ) -> Dict[str, Any]:
+        raw_url = safe_text(target.get("url") or "").strip()
+        if not raw_url:
+            return {
+                "success": False,
+                "url": "",
+                "device": "desktop",
+                "isLiteVersion": False,
+                "scanModeUsed": "full",
+                "error": "Target URL is required.",
+                "errorCode": "INVALID_BATCH_TARGET",
+            }
+
+        url = _normalize_url(raw_url)
+        device = safe_text(target.get("device") or "desktop")
+        preferred_scan_mode = safe_text(target.get("preferredScanMode") or "").lower()
+        if preferred_scan_mode not in {"full", "lite"}:
+            preferred_scan_mode = "lite" if bool(target.get("isLiteVersion")) else "full"
+
+        allow_full_retry = bool(target.get("allowFullRetry"))
+
+        if preferred_scan_mode == "lite":
+            return self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite")
+
+        first_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full")
+        if first_attempt.get("success"):
+            return first_attempt
+
+        if allow_full_retry:
+            time.sleep(1.5)
+            second_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full")
+            if second_attempt.get("success"):
+                return second_attempt
+
+        lite_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite")
+        lite_attempt["fullFailureCountDelta"] = 1
+        lite_attempt["shouldUseLiteForFuture"] = allow_full_retry
+        lite_attempt["degradedReason"] = (
+            "Full scanner failed, so this target fell back to lite mode."
+            if lite_attempt.get("success")
+            else "Full scanner failed, and lite fallback also failed."
+        )
+        return lite_attempt
+
+    def _run_batch_target_attempt(
+        self,
+        scanner_job_id: str,
+        queue_kind: str,
+        url: str,
+        device: str,
+        is_lite_version: bool,
+        index: int,
+        scan_mode_used: str,
+    ) -> Dict[str, Any]:
+        started_at = time.time()
+        version = "Lite" if is_lite_version else "Full"
+        device_config = get_viewport_for_device(device)
+        job_log_context = {
+            "scannerJobId": scanner_job_id,
+            "url": url,
+            "device": device,
+            "queueKind": queue_kind,
+            "version": version,
+            "batchTargetIndex": index,
+        }
+
+        logger.info(
+            "Starting scanner SQS batch target.",
+            extra={
+                **job_log_context,
+                "isLiteVersion": is_lite_version,
+                "scanModeUsed": scan_mode_used,
+            },
+        )
+
+        try:
+            with redirect_stdout(JobStdoutLogger(job_log_context)):
+                result = run_with_clean_event_loop_context(
+                    run_camoufox_audit_sync,
+                    url,
+                    device_config,
+                    is_lite_version,
+                )
+
+            if not result.get("success"):
+                raise RuntimeError(result.get("error") or "Audit failed.")
+
+            final_score = result.get("score")
+            if final_score == 0:
+                raise RuntimeError("Audit score is 0, indicating a failed audit.")
+
+            logger.info(
+                "Scanner SQS batch target completed.",
+                extra={
+                    **job_log_context,
+                    "score": final_score,
+                    "durationMs": round((time.time() - started_at) * 1000),
+                },
+            )
+            return {
+                "success": True,
+                "url": url,
+                "device": device,
+                "isLiteVersion": is_lite_version,
+                "scanModeUsed": scan_mode_used,
+                "report": sanitize_report_data(result.get("report") or {}),
+            }
+        except Exception as error:
+            error_message = safe_text(str(error))
+            logger.warning(
+                "Scanner SQS batch target failed.",
+                extra={
+                    **job_log_context,
+                    "error": error_message,
+                    "durationMs": round((time.time() - started_at) * 1000),
+                },
+            )
+            return {
+                "success": False,
+                "url": url,
+                "device": device,
+                "isLiteVersion": is_lite_version,
+                "scanModeUsed": scan_mode_used,
+                "error": error_message,
+                "errorCode": "SCANNER_WORKER_FAILED",
+            }
+
+    def _generate_and_upload_full_audit_reports(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        aggregate_report: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        report_metadata = payload.get("reportGeneration") if isinstance(payload.get("reportGeneration"), dict) else {}
+        email = safe_text(report_metadata.get("email") or payload.get("email") or "unknown-client")
+        plan_id = safe_text(report_metadata.get("planId") or "pro")
+        task_id = safe_text(report_metadata.get("taskId") or scanner_job_id)
+        website_url = safe_text(report_metadata.get("url") or payload.get("url") or "full-audit")
+
+        with tempfile.TemporaryDirectory(prefix=f"scanner-report-{_sanitize_key_segment(scanner_job_id)}-") as temp_dir:
+            temp_path = Path(temp_dir)
+            aggregate_path = temp_path / "aggregate.json"
+            output_dir = temp_path / "reports"
+            manifest_path = temp_path / "manifest.json"
+            aggregate_path.write_text(json.dumps(aggregate_report, ensure_ascii=False), encoding="utf-8")
+
+            command = [
+                "node",
+                "--import",
+                "/app/reporting/scripts/register-typescript-loader.mjs",
+                "/app/reporting/generate-full-audit-report.mjs",
+                "--aggregate",
+                str(aggregate_path),
+                "--output-dir",
+                str(output_dir),
+                "--manifest",
+                str(manifest_path),
+                "--email",
+                email,
+                "--plan-id",
+                plan_id,
+            ]
+
+            logger.info(
+                "Generating full-audit report PDFs in scanner worker.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "taskId": task_id,
+                    "planId": plan_id,
+                },
+            )
+            completed = subprocess.run(
+                command,
+                cwd="/app/reporting",
+                text=True,
+                capture_output=True,
+                timeout=_optional_int("SCANNER_FULL_AUDIT_REPORT_GENERATION_TIMEOUT_SECONDS", 1800),
+            )
+            if completed.stdout:
+                logger.info(
+                    "Full-audit report generator output.",
+                    extra={"scannerJobId": scanner_job_id, "output": completed.stdout[-4000:]},
+                )
+            if completed.stderr:
+                logger.warning(
+                    "Full-audit report generator stderr.",
+                    extra={"scannerJobId": scanner_job_id, "output": completed.stderr[-4000:]},
+                )
+            if completed.returncode != 0:
+                raise RuntimeError(f"Full-audit report generator exited with code {completed.returncode}.")
+
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not manifest.get("success"):
+                raise RuntimeError(safe_text(manifest.get("error") or "Full-audit report generation produced no files."))
+
+            report_prefix = self._build_final_report_prefix(email, task_id, website_url)
+            uploaded_objects = []
+            for file_info in manifest.get("files") or []:
+                file_path = Path(safe_text(file_info.get("path")))
+                if not file_path.is_file():
+                    continue
+
+                filename = safe_text(file_info.get("filename") or file_path.name)
+                key = f"{report_prefix}/{self._sanitize_storage_object_name(filename)}"
+                size = file_path.stat().st_size
+                self.s3.upload_file(
+                    str(file_path),
+                    self.bucket,
+                    key,
+                    ExtraArgs={"ContentType": "application/pdf"},
+                )
+                uploaded_objects.append({
+                    "filename": filename,
+                    "key": key,
+                    "size": size,
+                    "sizeMB": _format_size_mb(size),
+                    "providerUrl": self._build_object_access_url(key),
+                })
+
+            if not uploaded_objects:
+                raise RuntimeError("Full-audit report generation completed but no PDF files were uploaded.")
+
+            logger.info(
+                "Uploaded full-audit report PDFs from scanner worker.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "taskId": task_id,
+                    "prefix": report_prefix,
+                    "uploadedCount": len(uploaded_objects),
+                },
+            )
+
+            return {
+                "provider": "s3",
+                "bucket": self.bucket,
+                "region": self.region,
+                "prefix": report_prefix,
+                "objectCount": len(uploaded_objects),
+                "signedUrlExpiresInSeconds": self.signed_url_expires_seconds,
+                "objects": uploaded_objects,
+            }
+
+    def _build_final_report_prefix(self, email: str, task_id: str, website_url: str) -> str:
+        now = datetime.now(timezone.utc)
+        email_segment = _sanitize_key_segment(email.replace("@", "-at-"), "anonymous")
+        website_segment = _sanitize_key_segment(website_url, "full-audit")
+        task_segment = _sanitize_key_segment(task_id, "task")
+        return (
+            f"{self.final_report_prefix}/"
+            f"{now.strftime('%Y/%m/%d')}/"
+            f"{email_segment}/"
+            f"{task_segment}-{website_segment}"
+        )
+
+    def _sanitize_storage_object_name(self, value: str) -> str:
+        sanitized_segments = []
+        for segment in str(value).replace("\\", "/").split("/"):
+            if not segment:
+                continue
+            stem, extension = os.path.splitext(segment)
+            cleaned_stem = _sanitize_key_segment(stem, "file")
+            cleaned_extension = "".join(char.lower() for char in extension if char.isalnum() or char == ".")[:16]
+            sanitized_segments.append(f"{cleaned_stem}{cleaned_extension}")
+
+        return "/".join(sanitized_segments) or "file.pdf"
+
+    def _build_object_access_url(self, key: str) -> str:
+        if self.s3_url_mode == "object":
+            return f"https://{self.bucket}.s3.{self.region}.amazonaws.com/{key}"
+
+        return self.s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": self.bucket, "Key": key},
+            ExpiresIn=self.signed_url_expires_seconds,
+        )
+
     def _build_artifact_key(self, scanner_job_id: str, url: str, is_lite_version: bool) -> str:
         version = "lite" if is_lite_version else "full"
         hostname = _resolve_hostname(url)
@@ -479,6 +951,14 @@ class ScannerSqsWorker:
             f"{self.prefix}/{time.strftime('%Y/%m/%d')}/"
             f"{_sanitize_key_segment(scanner_job_id)}/"
             f"report-{hostname}-{timestamp}-{version}.json"
+        )
+
+    def _build_batch_artifact_key(self, scanner_job_id: str) -> str:
+        timestamp = int(time.time() * 1000)
+        return (
+            f"{self.prefix}/{time.strftime('%Y/%m/%d')}/"
+            f"{_sanitize_key_segment(scanner_job_id)}/"
+            f"full-audit-batch-{timestamp}.json"
         )
 
     def _send_result(self, result: Dict[str, Any]) -> None:

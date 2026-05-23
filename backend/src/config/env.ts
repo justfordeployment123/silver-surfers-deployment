@@ -149,11 +149,20 @@ export interface AppEnv {
     fullAuditMaxFullFailuresPerDevice: number;
     fullAuditMaxFullFailuresPerAudit: number;
     fullAuditScannerCooldownMs: number;
+    fullAuditBatchScannerEnabled: boolean;
+    fullAuditEventDrivenScannerEnabled: boolean;
+    fullAuditReportsInScannerEnabled: boolean;
+    fullAuditCacheEnabled: boolean;
     fullAuditCacheTtlMs: number;
     queueCleanupIntervalMs: number;
     queueMaintenanceIntervalMs: number;
     queueLeaseDurationMs: number;
     queueHeartbeatIntervalMs: number;
+    queueBullMqLockDurationMs: number;
+    queueBullMqLockRenewTimeMs: number;
+    queueBullMqStalledIntervalMs: number;
+    queueBullMqMaxStalledCount: number;
+    queueRecoverProcessingJobs: boolean;
     cacheCleanupIntervalMs: number;
     tempReportTtlMs: number;
     reportDirectoryTtlMs: number;
@@ -234,11 +243,20 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         fullAuditMaxFullFailuresPerDevice: parseBoundedNumber(source.FULL_AUDIT_MAX_FULL_FAILURES_PER_DEVICE, 2, 1, 20),
         fullAuditMaxFullFailuresPerAudit: parseBoundedNumber(source.FULL_AUDIT_MAX_FULL_FAILURES_PER_AUDIT, 3, 1, 50),
         fullAuditScannerCooldownMs: parseBoundedNumber(source.FULL_AUDIT_SCANNER_COOLDOWN_MS, 250, 0, 60000),
+        fullAuditBatchScannerEnabled: parseBoolean(source.FULL_AUDIT_BATCH_SCANNER_ENABLED, false),
+        fullAuditEventDrivenScannerEnabled: parseBoolean(source.FULL_AUDIT_EVENT_DRIVEN_SCANNER_ENABLED, true),
+        fullAuditReportsInScannerEnabled: parseBoolean(source.FULL_AUDIT_REPORTS_IN_SCANNER_ENABLED, false),
+        fullAuditCacheEnabled: parseBoolean(source.FULL_AUDIT_CACHE_ENABLED, true),
         fullAuditCacheTtlMs: parseBoundedNumber(source.FULL_AUDIT_CACHE_TTL_MS, 24 * 60 * 60 * 1000, 60_000, 7 * 24 * 60 * 60 * 1000),
         queueCleanupIntervalMs: parseNumber(source.QUEUE_CLEANUP_INTERVAL_MS, 5 * 60 * 1000),
         queueMaintenanceIntervalMs: parseNumber(source.QUEUE_MAINTENANCE_INTERVAL_MS, 30 * 1000),
         queueLeaseDurationMs: parseNumber(source.QUEUE_LEASE_DURATION_MS, 60 * 1000),
         queueHeartbeatIntervalMs: parseNumber(source.QUEUE_HEARTBEAT_INTERVAL_MS, 15 * 1000),
+        queueBullMqLockDurationMs: parseBoundedNumber(source.QUEUE_BULLMQ_LOCK_DURATION_MS, 30 * 60 * 1000, 30_000, 6 * 60 * 60 * 1000),
+        queueBullMqLockRenewTimeMs: parseBoundedNumber(source.QUEUE_BULLMQ_LOCK_RENEW_TIME_MS, 15 * 60 * 1000, 5_000, 3 * 60 * 60 * 1000),
+        queueBullMqStalledIntervalMs: parseBoundedNumber(source.QUEUE_BULLMQ_STALLED_INTERVAL_MS, 5 * 60 * 1000, 30_000, 60 * 60 * 1000),
+        queueBullMqMaxStalledCount: parseBoundedNumber(source.QUEUE_BULLMQ_MAX_STALLED_COUNT, 0, 0, 10),
+        queueRecoverProcessingJobs: parseBoolean(source.QUEUE_RECOVER_PROCESSING_JOBS, false),
         cacheCleanupIntervalMs: parseNumber(source.CACHE_CLEANUP_INTERVAL_MS, 15 * 60 * 1000),
         tempReportTtlMs: parseNumber(source.TEMP_REPORT_TTL_MS, 6 * 60 * 60 * 1000),
         reportDirectoryTtlMs: parseNumber(source.REPORT_DIRECTORY_TTL_MS, 24 * 60 * 60 * 1000),

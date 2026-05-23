@@ -20,6 +20,7 @@ interface CacheManagerOptions {
 
 const cacheLogger = logger.child('cache');
 const managedTempReportPattern = /^report-[a-z0-9.-]+-\d+(?:-lite)?\.(?:json|html)$/i;
+export const ACTIVE_REPORT_MARKER_FILE = '.active-audit';
 
 async function pathExists(targetPath: string): Promise<boolean> {
   try {
@@ -82,6 +83,10 @@ async function collectExpiredDirectories(
     }
 
     const targetPath = path.join(rootPath, entry.name);
+    if (await pathExists(path.join(targetPath, ACTIVE_REPORT_MARKER_FILE))) {
+      continue;
+    }
+
     const stats = await fs.stat(targetPath);
     const childEntries = await fs.readdir(targetPath, { withFileTypes: true });
     const childDirectories = childEntries.filter((childEntry) => childEntry.isDirectory());
@@ -145,6 +150,10 @@ async function removeEmptyDirectories(rootPath: string, maxDepth: number, depth 
     removed.push(...await removeEmptyDirectories(targetPath, maxDepth, depth + 1));
 
     try {
+      if (await pathExists(path.join(targetPath, ACTIVE_REPORT_MARKER_FILE))) {
+        continue;
+      }
+
       const remainingEntries = await fs.readdir(targetPath);
       if (remainingEntries.length === 0) {
         await fs.rmdir(targetPath);

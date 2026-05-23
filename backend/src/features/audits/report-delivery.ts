@@ -47,6 +47,15 @@ export interface AuditReportEmailOptions {
     deviceFilter?: string | null;
 }
 
+export interface StoredAuditReportEmailOptions {
+    to: string;
+    subject: string;
+    text: string;
+    storage: QueueReportStorage;
+    isQuickScan?: boolean;
+    quickScanScore?: string | number | null;
+}
+
 export interface AuditReportEmailResult {
     success?: boolean;
     error?: string;
@@ -815,6 +824,93 @@ export async function sendAuditReportEmail(options: AuditReportEmailOptions): Pr
             error: getErrorMessage(error),
         });
         return { success: false, error: getErrorMessage(error) };
+    }
+}
+
+export async function sendStoredAuditReportEmail(options: StoredAuditReportEmailOptions): Promise<AuditReportEmailResult> {
+    const { reason } = buildTransport();
+    if (reason && !cachedTransporter) {
+        reportDeliveryLogger.warn("Stored audit report email skipped.", {
+            reason,
+            to: options.to,
+            subject: options.subject,
+        });
+        return { success: false, error: reason };
+    }
+
+    const uploadedFiles: UploadedReportFile[] = (options.storage.objects || []).map((object) => ({
+        filename: object.filename,
+        size: object.size,
+        sizeMB: object.sizeMB,
+        downloadUrl: object.providerUrl || "",
+        providerUrl: object.providerUrl,
+        key: object.key,
+    })).filter((file) => Boolean(file.filename && file.downloadUrl));
+    const totalSize = uploadedFiles.reduce((sum, file) => sum + (file.size || 0), 0);
+
+    reportDeliveryLogger.info("Preparing stored audit report email.", {
+        to: options.to,
+        subject: options.subject,
+        fileCount: uploadedFiles.length,
+        totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+        provider: options.storage.provider,
+        bucket: options.storage.bucket,
+        prefix: options.storage.prefix,
+    });
+
+    if (uploadedFiles.length === 0) {
+        return {
+            success: false,
+            error: "No stored report links were available to send.",
+            totalFiles: 0,
+            totalSizeMB: "0.00",
+            storage: options.storage,
+        };
+    }
+
+    const emailBody = buildAuditReportEmailBody({
+        baseText: options.text,
+        uploadedFiles,
+        storage: options.storage,
+        isQuickScan: options.isQuickScan,
+        quickScanScore: options.quickScanScore,
+    });
+
+    try {
+        const info = await sendMailWithRetry(
+            {
+                from: buildFromAddress(),
+                to: options.to,
+                subject: options.subject,
+                html: emailBody,
+            },
+            {
+                to: options.to,
+                subject: options.subject,
+                kind: "audit-report",
+            },
+        );
+
+        return {
+            success: true,
+            attachmentCount: uploadedFiles.length,
+            uploadedCount: uploadedFiles.length,
+            totalFiles: uploadedFiles.length,
+            totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+            uploadedFiles: uploadedFiles.map((file) => file.filename),
+            storage: options.storage,
+            accepted: normalizeAddressList(info.accepted),
+            rejected: normalizeAddressList(info.rejected),
+            response: info.response,
+            messageId: info.messageId,
+        };
+    } catch (error) {
+        reportDeliveryLogger.error("Stored audit report email send failed.", {
+            to: options.to,
+            subject: options.subject,
+            error: getErrorMessage(error),
+        });
+        return { success: false, error: getErrorMessage(error), storage: options.storage };
     }
 }
 

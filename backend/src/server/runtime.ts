@@ -46,6 +46,11 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
     maintenanceIntervalMs: env.queueMaintenanceIntervalMs,
     leaseDurationMs: env.queueLeaseDurationMs,
     heartbeatIntervalMs: env.queueHeartbeatIntervalMs,
+    lockDurationMs: env.queueBullMqLockDurationMs,
+    lockRenewTimeMs: env.queueBullMqLockRenewTimeMs,
+    stalledIntervalMs: env.queueBullMqStalledIntervalMs,
+    maxStalledCount: env.queueBullMqMaxStalledCount,
+    recoverProcessingJobs: env.queueRecoverProcessingJobs,
   }, factoryOptions);
 
   const quickScanQueue = createJobQueue('QuickScan', runQuickScanProcess, {
@@ -57,6 +62,11 @@ function createAuditQueues(): { fullAuditQueue: JobQueue; quickScanQueue: JobQue
     maintenanceIntervalMs: env.queueMaintenanceIntervalMs,
     leaseDurationMs: env.queueLeaseDurationMs,
     heartbeatIntervalMs: env.queueHeartbeatIntervalMs,
+    lockDurationMs: env.queueBullMqLockDurationMs,
+    lockRenewTimeMs: env.queueBullMqLockRenewTimeMs,
+    stalledIntervalMs: env.queueBullMqStalledIntervalMs,
+    maxStalledCount: env.queueBullMqMaxStalledCount,
+    recoverProcessingJobs: env.queueRecoverProcessingJobs,
   }, factoryOptions);
 
   return { fullAuditQueue, quickScanQueue };

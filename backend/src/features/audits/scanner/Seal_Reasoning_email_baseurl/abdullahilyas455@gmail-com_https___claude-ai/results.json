@@ -1,0 +1,56 @@
+[
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:09:54.185Z"
+  },
+  {
+    "Url": "https://claude.com/download",
+    "score": "73",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:10:00.758Z"
+  },
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:10:06.726Z"
+  },
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:10:18.220Z"
+  },
+  {
+    "Url": "https://claude.com/download",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:10:29.279Z"
+  },
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:10:39.755Z"
+  },
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:11:02.676Z"
+  },
+  {
+    "Url": "https://claude.com/download",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:11:14.333Z"
+  },
+  {
+    "Url": "https://claude.ai/login",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:11:27.248Z"
+  }
+]

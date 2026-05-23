@@ -111,6 +111,11 @@ export interface QueueOptions {
   leaseDurationMs?: number;
   heartbeatIntervalMs?: number;
   recoveryBatchSize?: number;
+  lockDurationMs?: number;
+  lockRenewTimeMs?: number;
+  stalledIntervalMs?: number;
+  maxStalledCount?: number;
+  recoverProcessingJobs?: boolean;
 }
 
 export interface JobQueue {

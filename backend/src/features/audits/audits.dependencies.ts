@@ -42,6 +42,11 @@ export interface AnalysisRecordDocument {
   aiReport?: AuditAiReport;
   status?: string;
   emailStatus?: string;
+  scannerJobId?: string | null;
+  scannerQueueStatus?: string | null;
+  scannerDispatchedAt?: Date;
+  scannerResultAt?: Date;
+  scannerArtifact?: Record<string, unknown>;
   emailAccepted?: string[];
   emailRejected?: string[];
   attachmentCount?: number;

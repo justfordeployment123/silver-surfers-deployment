@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
+import type { QueueReportStorage } from '../../infrastructure/queues/job-queue.ts';
 import ScannerResult from '../../models/scanner-result.model.ts';
 import { downloadS3Object } from '../storage/report-storage.ts';
 
@@ -17,6 +18,27 @@ export interface ScannerServiceAuditRequest {
   includeReport?: boolean;
   scannerQueue?: 'quick' | 'full';
   scannerJobId?: string;
+}
+
+export interface ScannerFullAuditBatchTarget {
+  url: string;
+  device: 'desktop' | 'mobile' | 'tablet';
+  preferredScanMode: 'full' | 'lite';
+  isHomepage?: boolean;
+  allowFullRetry?: boolean;
+}
+
+export interface ScannerFullAuditBatchRequest {
+  scannerJobId?: string;
+  targets: ScannerFullAuditBatchTarget[];
+  reportGeneration?: {
+    enabled?: boolean;
+    email?: string;
+    taskId?: string;
+    url?: string;
+    planId?: string;
+    selectedDevice?: string | null;
+  };
 }
 
 interface ScannerServiceAuditPayload {
@@ -41,6 +63,7 @@ interface ScannerServiceAuditPayload {
 
 export interface ScannerSqsResultPayload {
   schemaVersion?: number;
+  jobType?: string;
   scannerJobId?: string;
   success?: boolean;
   report?: {
@@ -57,6 +80,31 @@ export interface ScannerSqsResultPayload {
   message?: string;
   error?: string;
   errorCode?: string;
+  reportStorage?: QueueReportStorage;
+  reportsGeneratedInWorker?: boolean;
+}
+
+interface ScannerFullAuditBatchArtifactTarget {
+  url?: string;
+  device?: 'desktop' | 'mobile' | 'tablet';
+  success?: boolean;
+  report?: Record<string, unknown>;
+  isLiteVersion?: boolean;
+  scanModeUsed?: 'full' | 'lite';
+  shouldUseLiteForFuture?: boolean;
+  fullFailureCountDelta?: number;
+  degradedReason?: string;
+  error?: string;
+  errorCode?: string;
+  statusCode?: number;
+  originalError?: string;
+}
+
+interface ScannerFullAuditBatchArtifact {
+  schemaVersion?: number;
+  jobType?: string;
+  scannerJobId?: string;
+  targets?: ScannerFullAuditBatchArtifactTarget[];
 }
 
 export interface ScannerServiceAuditSuccess {
@@ -91,6 +139,51 @@ export interface ScannerSqsDispatchSuccess {
 }
 
 export type ScannerSqsDispatchResult = ScannerSqsDispatchSuccess | ScannerServiceAuditFailure;
+
+export interface ScannerFullAuditBatchTargetSuccess {
+  success: true;
+  url: string;
+  device: 'desktop' | 'mobile' | 'tablet';
+  reportPath: string;
+  isLiteVersion: boolean;
+  scanModeUsed: 'full' | 'lite';
+  shouldUseLiteForFuture?: boolean;
+  fullFailureCountDelta?: number;
+  degradedReason?: string;
+}
+
+export interface ScannerFullAuditBatchTargetFailure {
+  success: false;
+  url: string;
+  device: 'desktop' | 'mobile' | 'tablet';
+  isLiteVersion: boolean;
+  scanModeUsed: 'full' | 'lite';
+  shouldUseLiteForFuture?: boolean;
+  fullFailureCountDelta?: number;
+  degradedReason?: string;
+  error: string;
+  errorCode?: string;
+  statusCode?: number;
+  originalError?: string;
+}
+
+export type ScannerFullAuditBatchTargetResult = ScannerFullAuditBatchTargetSuccess | ScannerFullAuditBatchTargetFailure;
+
+export type ScannerFullAuditBatchResult = {
+  success: true;
+  scannerJobId: string;
+  targets: ScannerFullAuditBatchTargetResult[];
+  reportStorage?: QueueReportStorage;
+  reportsGeneratedInWorker?: boolean;
+} | ScannerServiceAuditFailure;
+
+export type ScannerFullAuditBatchDispatchResult = {
+  success: true;
+  scannerJobId: string;
+  jobQueueUrl: string;
+  resultQueueUrl: string;
+  targetCount: number;
+} | ScannerServiceAuditFailure;
 
 export interface ScannerServiceLoadSnapshot {
   activeAudits: number;
@@ -371,6 +464,193 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
     queueKind,
     jobQueueUrl,
     resultQueueUrl,
+  };
+}
+
+export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBatchRequest): Promise<ScannerFullAuditBatchDispatchResult> {
+  if (env.scannerDispatchMode !== 'sqs') {
+    return {
+      success: false,
+      error: 'Full-audit batch scanning requires SCANNER_DISPATCH_MODE=sqs.',
+      errorCode: 'SCANNER_SQS_NOT_ENABLED',
+    };
+  }
+
+  const jobQueueUrl = env.scannerSqsFullJobQueueUrl;
+  const resultQueueUrl = env.scannerSqsFullResultQueueUrl;
+  if (!jobQueueUrl || !resultQueueUrl) {
+    return {
+      success: false,
+      error: 'Full-audit batch scanning requires full scanner SQS job and result queue URLs.',
+      errorCode: 'SCANNER_SQS_NOT_CONFIGURED',
+    };
+  }
+
+  if (!env.scannerSqsResultWorkerEnabled) {
+    return {
+      success: false,
+      error: 'Full-audit batch scanning requires SCANNER_SQS_RESULT_WORKER_ENABLED=true.',
+      errorCode: 'SCANNER_RESULT_WORKER_NOT_ENABLED',
+    };
+  }
+
+  if (!env.scannerSqsArtifactBucket || !env.scannerSqsArtifactRegion) {
+    return {
+      success: false,
+      error: 'Scanner SQS mode requires SCANNER_SQS_ARTIFACT_BUCKET/AWS_S3_BUCKET and SCANNER_SQS_ARTIFACT_REGION/AWS_REGION.',
+      errorCode: 'SCANNER_SQS_ARTIFACTS_NOT_CONFIGURED',
+    };
+  }
+
+  const runtime = await loadSqsRuntime();
+  const client = new runtime.SQSClient({ region: env.scannerSqsArtifactRegion });
+  const scannerJobId = request.scannerJobId || createScannerJobId();
+  const body = {
+    schemaVersion: 1,
+    jobType: 'fullAuditBatch',
+    scannerJobId,
+    queueKind: 'full',
+    requestedAt: new Date().toISOString(),
+    artifact: {
+      bucket: env.scannerSqsArtifactBucket,
+      region: env.scannerSqsArtifactRegion,
+      prefix: env.scannerSqsArtifactPrefix,
+    },
+    ...(request.reportGeneration ? {
+      reportGeneration: {
+        enabled: Boolean(request.reportGeneration.enabled),
+        email: request.reportGeneration.email,
+        taskId: request.reportGeneration.taskId,
+        url: request.reportGeneration.url,
+        planId: request.reportGeneration.planId,
+        selectedDevice: request.reportGeneration.selectedDevice,
+      },
+    } : {}),
+    targets: request.targets.map((target) => ({
+      url: target.url,
+      device: target.device,
+      preferredScanMode: target.preferredScanMode,
+      isLiteVersion: target.preferredScanMode === 'lite',
+      isHomepage: Boolean(target.isHomepage),
+      allowFullRetry: Boolean(target.allowFullRetry),
+    })),
+  };
+
+  scannerClientLogger.info('Queueing full-audit batch through scanner SQS.', {
+    scannerJobId,
+    targetCount: body.targets.length,
+    jobQueueUrl,
+    resultQueueUrl,
+  });
+
+  await client.send(new runtime.SendMessageCommand({
+    QueueUrl: jobQueueUrl,
+    MessageBody: JSON.stringify(body),
+  }));
+
+  return {
+    success: true,
+    scannerJobId,
+    jobQueueUrl,
+    resultQueueUrl,
+    targetCount: body.targets.length,
+  };
+}
+
+export async function requestScannerFullAuditBatch(request: ScannerFullAuditBatchRequest): Promise<ScannerFullAuditBatchResult> {
+  const dispatchResult = await dispatchScannerFullAuditBatch(request);
+  if (!dispatchResult.success) {
+    return dispatchResult;
+  }
+
+  const scannerJobId = dispatchResult.scannerJobId;
+  const startedAt = Date.now();
+  const timeoutMs = env.queueFullAuditJobTimeoutMs;
+  const timeoutMinutes = Math.floor(timeoutMs / 60_000);
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const storedResult = await ScannerResult.findOne({ scannerJobId }).lean() as {
+      payload?: ScannerSqsResultPayload;
+    } | null;
+
+    if (!storedResult?.payload) {
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+      continue;
+    }
+
+    await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+
+    if (!storedResult.payload.success) {
+      return {
+        success: false,
+        error: storedResult.payload.error || 'Scanner full-audit batch failed.',
+        errorCode: storedResult.payload.errorCode || 'SCANNER_WORKER_FAILED',
+      };
+    }
+
+    const aggregatePath = await downloadScannerS3Report(storedResult.payload, {
+      url: request.targets[0]?.url || 'full-audit-batch',
+      device: 'desktop',
+      isLiteVersion: false,
+      scannerQueue: 'full',
+    });
+    const aggregate = JSON.parse(await fs.readFile(aggregatePath, 'utf8')) as ScannerFullAuditBatchArtifact;
+    await fs.unlink(aggregatePath).catch(() => undefined);
+
+    const targets = await Promise.all((aggregate.targets || []).map(async (target, index): Promise<ScannerFullAuditBatchTargetResult> => {
+      const fallbackTarget = request.targets[index];
+      const url = target.url || fallbackTarget?.url || 'unknown';
+      const device = target.device || fallbackTarget?.device || 'desktop';
+      const isLiteVersion = Boolean(target.isLiteVersion);
+      const scanModeUsed = target.scanModeUsed === 'lite' || isLiteVersion ? 'lite' : 'full';
+
+      if (!target.success || !target.report) {
+        return {
+          success: false,
+          url,
+          device,
+          isLiteVersion,
+          scanModeUsed,
+          shouldUseLiteForFuture: target.shouldUseLiteForFuture,
+          fullFailureCountDelta: target.fullFailureCountDelta,
+          degradedReason: target.degradedReason,
+          error: target.error || 'Scanner target failed.',
+          errorCode: target.errorCode,
+          statusCode: target.statusCode,
+          originalError: target.originalError,
+        };
+      }
+
+      const hostname = resolveReportHostname(url);
+      const tempPath = path.join(os.tmpdir(), `scanner-sqs-batch-${hostname}-${device}-${Date.now()}-${index}.json`);
+      await fs.writeFile(tempPath, JSON.stringify(target.report, null, 2), 'utf8');
+
+      return {
+        success: true,
+        url,
+        device,
+        reportPath: tempPath,
+        isLiteVersion,
+        scanModeUsed,
+        shouldUseLiteForFuture: target.shouldUseLiteForFuture,
+        fullFailureCountDelta: target.fullFailureCountDelta,
+        degradedReason: target.degradedReason,
+      };
+    }));
+
+    return {
+      success: true,
+      scannerJobId,
+      targets,
+      ...(storedResult.payload.reportStorage ? { reportStorage: storedResult.payload.reportStorage } : {}),
+      ...(storedResult.payload.reportsGeneratedInWorker ? { reportsGeneratedInWorker: true } : {}),
+    };
+  }
+
+  return {
+    success: false,
+    error: `The scanner full-audit batch timed out after ${timeoutMinutes} minutes.`,
+    errorCode: 'REQUEST_TIMEOUT',
   };
 }
 

@@ -1,5 +1,6 @@
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
+import { completeFullAuditFromScannerResult } from '../audits/full-audit.processor.ts';
 import ScannerResult from '../../models/scanner-result.model.ts';
 import {
   loadSqsRuntime,
@@ -134,5 +135,14 @@ export class ScannerResultInboxWorker {
       success: payload.success,
       url: payload.url,
     });
+
+    if (this.queueKind === 'full' && payload.jobType === 'fullAuditBatch') {
+      await completeFullAuditFromScannerResult(payload).catch((error) => {
+        inboxLogger.error('Full scanner result completion failed after inbox storage.', {
+          scannerJobId: payload.scannerJobId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
   }
 }

@@ -145,6 +145,11 @@ export class BullMqQueue implements JobQueue {
       leaseDurationMs: options.leaseDurationMs ?? 60000,
       heartbeatIntervalMs: options.heartbeatIntervalMs ?? 15000,
       recoveryBatchSize: options.recoveryBatchSize ?? 100,
+      lockDurationMs: options.lockDurationMs ?? 30 * 60 * 1000,
+      lockRenewTimeMs: options.lockRenewTimeMs ?? 15 * 60 * 1000,
+      stalledIntervalMs: options.stalledIntervalMs ?? 5 * 60 * 1000,
+      maxStalledCount: options.maxStalledCount ?? 0,
+      recoverProcessingJobs: options.recoverProcessingJobs ?? false,
     };
     this.#logger = bullLogger.child(queueName);
     this.#redisUrl = connectionOptions.redisUrl;
@@ -166,6 +171,10 @@ export class BullMqQueue implements JobQueue {
         connection: this.createConnection(),
         concurrency: this.#options.concurrency,
         prefix: this.#prefix,
+        lockDuration: this.#options.lockDurationMs,
+        lockRenewTime: this.#options.lockRenewTimeMs,
+        stalledInterval: this.#options.stalledIntervalMs,
+        maxStalledCount: this.#options.maxStalledCount,
       },
     );
 
@@ -197,6 +206,12 @@ export class BullMqQueue implements JobQueue {
       redisUrl: this.maskRedisUrl(this.#redisUrl),
       prefix: this.#prefix,
       workerId: this.#workerId,
+      lockDurationMs: this.#options.lockDurationMs,
+      lockRenewTimeMs: this.#options.lockRenewTimeMs,
+      stalledIntervalMs: this.#options.stalledIntervalMs,
+      maxStalledCount: this.#options.maxStalledCount,
+      jobTimeoutMs: this.#options.jobTimeoutMs,
+      recoverProcessingJobs: this.#options.recoverProcessingJobs,
     });
   }
 
@@ -309,9 +324,12 @@ export class BullMqQueue implements JobQueue {
     await this.ensureRuntime();
 
     const AuditJob = await getQueueModel();
+    const recoverableStatuses = this.#options.recoverProcessingJobs
+      ? ['queued', 'processing', 'failed']
+      : ['queued', 'failed'];
     const recoverableJobs = await AuditJob.find({
       jobType: this.#jobType,
-      status: { $in: ['queued', 'processing', 'failed'] },
+      status: { $in: recoverableStatuses },
     }).sort({ priority: -1, queuedAt: 1 });
 
     const now = Date.now();

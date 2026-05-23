@@ -1,0 +1,38 @@
+[
+  {
+    "Url": "https://www.bestbuy.com/",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-23T06:13:39.772Z"
+  },
+  {
+    "Url": "https://www.bestbuy.com/site/help-topics/international-orders/pcmcat204400050019.c",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-23T06:13:40.973Z"
+  },
+  {
+    "Url": "https://www.bestbuy.com/",
+    "score": "76",
+    "device": "mobile",
+    "timestamp": "2026-05-23T06:13:42.516Z"
+  },
+  {
+    "Url": "https://www.bestbuy.com/site/help-topics/international-orders/pcmcat204400050019.c",
+    "score": "78",
+    "device": "mobile",
+    "timestamp": "2026-05-23T06:13:43.988Z"
+  },
+  {
+    "Url": "https://www.bestbuy.com/",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-23T06:13:45.551Z"
+  },
+  {
+    "Url": "https://www.bestbuy.com/site/help-topics/international-orders/pcmcat204400050019.c",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-23T06:13:46.729Z"
+  }
+]

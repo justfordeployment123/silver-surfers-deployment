@@ -1,0 +1,452 @@
+[
+  {
+    "Url": "https://aws.amazon.com/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:14.473Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/fortinet-nova-case-study/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:19.541Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:24.592Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/blue-origin/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:29.597Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/pinterest/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:34.765Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/mercedes-benz/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:39.645Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/writer/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:44.772Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/conde-nast-data-case-study/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:50.359Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/siemens/",
+    "score": "62",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:50:55.344Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/kone/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:00.178Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/financial-services/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:05.524Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/contact-us/",
+    "score": "68",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:10.209Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/legal/cookies/",
+    "score": "66",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:14.952Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/privacy/",
+    "score": "57",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:19.605Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/marketplace",
+    "score": "61",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:23.994Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/quick/",
+    "score": "69",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:29.718Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/ai/implementation/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:34.878Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/industries/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:39.624Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/health/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:44.531Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/government-education/government/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:49.715Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/telecom/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:54.857Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/advertising-marketing/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:51:59.463Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/manufacturing/",
+    "score": "64",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:52:04.613Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/media/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:52:09.333Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/gametech/",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:52:14.127Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:20.728Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/fortinet-nova-case-study/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:25.742Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:30.563Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/blue-origin/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:35.709Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/pinterest/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:40.470Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/mercedes-benz/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:45.457Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/writer/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:50.602Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/conde-nast-data-case-study/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:52:55.886Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/siemens/",
+    "score": "62",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:01.441Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/kone/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:06.688Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/financial-services/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:11.388Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/contact-us/",
+    "score": "68",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:15.899Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/legal/cookies/",
+    "score": "66",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:20.673Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/privacy/",
+    "score": "57",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:25.533Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/marketplace",
+    "score": "61",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:29.974Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/quick/",
+    "score": "69",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:34.918Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/ai/implementation/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:39.778Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/industries/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:44.824Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/health/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:49.913Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/government-education/government/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:53:54.918Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/telecom/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:54:00.163Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/advertising-marketing/",
+    "score": "66",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:54:05.020Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/manufacturing/",
+    "score": "64",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:54:09.912Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/media/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:54:14.900Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/gametech/",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:54:19.845Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:26.458Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/fortinet-nova-case-study/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:31.290Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:35.854Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/blue-origin/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:40.557Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/pinterest/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:45.543Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/mercedes-benz/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:50.292Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/writer/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:54:55.255Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/conde-nast-data-case-study/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:00.688Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/siemens/",
+    "score": "62",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:06.284Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/solutions/case-studies/innovators/kone/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:11.186Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/financial-services/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:16.210Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/contact-us/",
+    "score": "68",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:20.988Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/legal/cookies/",
+    "score": "67",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:25.567Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/privacy/",
+    "score": "57",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:30.432Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/marketplace",
+    "score": "61",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:34.961Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/quick/",
+    "score": "69",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:39.851Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/ai/implementation/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:44.380Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/industries/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:49.342Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/health/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:54.483Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/government-education/government/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:55:59.581Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/telecom/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:56:05.037Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/advertising-marketing/",
+    "score": "66",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:56:10.162Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/manufacturing/",
+    "score": "64",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:56:15.141Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/media/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:56:20.124Z"
+  },
+  {
+    "Url": "https://aws.amazon.com/gametech/",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:56:25.504Z"
+  }
+]

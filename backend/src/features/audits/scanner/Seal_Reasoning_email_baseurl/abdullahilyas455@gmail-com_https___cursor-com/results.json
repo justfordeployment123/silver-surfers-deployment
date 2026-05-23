@@ -1,0 +1,452 @@
+[
+  {
+    "Url": "https://cursor.com/",
+    "score": "73",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:22:49.178Z"
+  },
+  {
+    "Url": "https://cursor.com/product",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:22:56.441Z"
+  },
+  {
+    "Url": "https://cursor.com/pricing",
+    "score": "81",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:02.578Z"
+  },
+  {
+    "Url": "https://cursor.com/help",
+    "score": "79",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:07.498Z"
+  },
+  {
+    "Url": "https://cursor.com/contact-sales",
+    "score": "67",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:13.462Z"
+  },
+  {
+    "Url": "https://cursor.com/home",
+    "score": "73",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:22.160Z"
+  },
+  {
+    "Url": "https://cursor.com/bugbot",
+    "score": "78",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:31.073Z"
+  },
+  {
+    "Url": "https://cursor.com/cloud",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:38.323Z"
+  },
+  {
+    "Url": "https://cursor.com/tab",
+    "score": "83",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:45.027Z"
+  },
+  {
+    "Url": "https://cursor.com/cli",
+    "score": "76",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:51.520Z"
+  },
+  {
+    "Url": "https://cursor.com/marketplace",
+    "score": "79",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:23:58.098Z"
+  },
+  {
+    "Url": "https://cursor.com/enterprise",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:05.147Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog",
+    "score": "74",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:11.625Z"
+  },
+  {
+    "Url": "https://cursor.com/blog",
+    "score": "67",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:18.456Z"
+  },
+  {
+    "Url": "https://cursor.com/docs",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:24.874Z"
+  },
+  {
+    "Url": "https://cursor.com/community",
+    "score": "65",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:30.868Z"
+  },
+  {
+    "Url": "https://cursor.com/workshops",
+    "score": "86",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:37.840Z"
+  },
+  {
+    "Url": "https://cursor.com/careers",
+    "score": "82",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:43.799Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fdashboard%2522%252C%2522nonce%2522%253A%2522339efa03-620d-4fde-93af-4c538c76c014%2522%257D&authorization_session_id=01KS9V102ZRFDMMZN4P79H2JJY",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:45.526Z"
+  },
+  {
+    "Url": "https://cursor.com/download",
+    "score": "86",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:51.326Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fagents%2522%252C%2522nonce%2522%253A%25228c7f3b32-d108-4de5-a67f-ee9ae4098536%2522%257D&authorization_session_id=01KS9V4476BBMAQWRY68Q07KAA",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:52.983Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/cloud-agent",
+    "score": "79",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:24:59.411Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/models-and-pricing",
+    "score": "95",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:25:00.349Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/agent/tools/search",
+    "score": "75",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:25:06.813Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog/05-20-26",
+    "score": "73",
+    "device": "desktop",
+    "timestamp": "2026-05-23T07:25:12.469Z"
+  },
+  {
+    "Url": "https://cursor.com/",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:19.939Z"
+  },
+  {
+    "Url": "https://cursor.com/product",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:26.658Z"
+  },
+  {
+    "Url": "https://cursor.com/pricing",
+    "score": "81",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:30.916Z"
+  },
+  {
+    "Url": "https://cursor.com/help",
+    "score": "82",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:35.619Z"
+  },
+  {
+    "Url": "https://cursor.com/contact-sales",
+    "score": "67",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:43.914Z"
+  },
+  {
+    "Url": "https://cursor.com/home",
+    "score": "72",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:25:52.756Z"
+  },
+  {
+    "Url": "https://cursor.com/bugbot",
+    "score": "78",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:00.109Z"
+  },
+  {
+    "Url": "https://cursor.com/cloud",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:09.899Z"
+  },
+  {
+    "Url": "https://cursor.com/tab",
+    "score": "83",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:17.253Z"
+  },
+  {
+    "Url": "https://cursor.com/cli",
+    "score": "76",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:26.658Z"
+  },
+  {
+    "Url": "https://cursor.com/marketplace",
+    "score": "79",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:35.889Z"
+  },
+  {
+    "Url": "https://cursor.com/enterprise",
+    "score": "76",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:44.079Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog",
+    "score": "78",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:26:52.493Z"
+  },
+  {
+    "Url": "https://cursor.com/blog",
+    "score": "71",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:10.493Z"
+  },
+  {
+    "Url": "https://cursor.com/docs",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:24.594Z"
+  },
+  {
+    "Url": "https://cursor.com/community",
+    "score": "65",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:30.445Z"
+  },
+  {
+    "Url": "https://cursor.com/workshops",
+    "score": "86",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:37.390Z"
+  },
+  {
+    "Url": "https://cursor.com/careers",
+    "score": "82",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:43.653Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fdashboard%2522%252C%2522nonce%2522%253A%25223fcccda2-9c54-44a4-b7e3-1bbe582171db%2522%257D&authorization_session_id=01KS9V1D45EC7A31X1NTR5RG52",
+    "score": "76",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:47.469Z"
+  },
+  {
+    "Url": "https://cursor.com/download",
+    "score": "89",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:53.177Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fagents%2522%252C%2522nonce%2522%253A%2522934d6d50-38fc-432d-8eeb-f4c0bdbf53bc%2522%257D&authorization_session_id=01KS9V4NN9HH0P5G3XVD5GDDWS",
+    "score": "74",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:27:56.975Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/cloud-agent",
+    "score": "79",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:28:03.420Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/models-and-pricing",
+    "score": "75",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:28:09.773Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/agent/tools/search",
+    "score": "95",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:28:13.533Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog/05-20-26",
+    "score": "73",
+    "device": "mobile",
+    "timestamp": "2026-05-23T07:28:19.736Z"
+  },
+  {
+    "Url": "https://cursor.com/",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:28:51.762Z"
+  },
+  {
+    "Url": "https://cursor.com/product",
+    "score": "75",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:28:58.978Z"
+  },
+  {
+    "Url": "https://cursor.com/pricing",
+    "score": "81",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:05.350Z"
+  },
+  {
+    "Url": "https://cursor.com/help",
+    "score": "82",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:10.589Z"
+  },
+  {
+    "Url": "https://cursor.com/contact-sales",
+    "score": "67",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:14.772Z"
+  },
+  {
+    "Url": "https://cursor.com/home",
+    "score": "73",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:18.899Z"
+  },
+  {
+    "Url": "https://cursor.com/bugbot",
+    "score": "78",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:22.743Z"
+  },
+  {
+    "Url": "https://cursor.com/cloud",
+    "score": "74",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:27.900Z"
+  },
+  {
+    "Url": "https://cursor.com/tab",
+    "score": "83",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:31.577Z"
+  },
+  {
+    "Url": "https://cursor.com/cli",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:35.810Z"
+  },
+  {
+    "Url": "https://cursor.com/marketplace",
+    "score": "79",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:40.635Z"
+  },
+  {
+    "Url": "https://cursor.com/enterprise",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:44.605Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog",
+    "score": "74",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:48.186Z"
+  },
+  {
+    "Url": "https://cursor.com/blog",
+    "score": "67",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:29:54.717Z"
+  },
+  {
+    "Url": "https://cursor.com/docs",
+    "score": "75",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:01.249Z"
+  },
+  {
+    "Url": "https://cursor.com/community",
+    "score": "65",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:07.968Z"
+  },
+  {
+    "Url": "https://cursor.com/workshops",
+    "score": "86",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:15.184Z"
+  },
+  {
+    "Url": "https://cursor.com/careers",
+    "score": "82",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:23.215Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fdashboard%2522%252C%2522nonce%2522%253A%2522d87befbc-8bc0-4e6c-bd4b-a475d82baa00%2522%257D&authorization_session_id=01KS9V1VKRM701PEJ323YEVMAJ",
+    "score": "76",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:28.011Z"
+  },
+  {
+    "Url": "https://cursor.com/download",
+    "score": "89",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:39.617Z"
+  },
+  {
+    "Url": "https://authenticator.cursor.sh/?client_id=client_01GS6W3C96KW4WRS6Z93JCE2RJ&redirect_uri=https%3A%2F%2Fcursor.com%2Fapi%2Fauth%2Fcallback&state=%257B%2522returnTo%2522%253A%2522https%253A%252F%252Fcursor.com%252Fagents%2522%252C%2522nonce%2522%253A%252255f50048-38e2-4a07-8ed2-7678ba8b334a%2522%257D&authorization_session_id=01KS9V565CDWG2FW64XM9880CF",
+    "score": "75",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:48.159Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/cloud-agent",
+    "score": "79",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:30:59.756Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/models-and-pricing",
+    "score": "75",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:31:10.547Z"
+  },
+  {
+    "Url": "https://cursor.com/docs/agent/tools/search",
+    "score": "75",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:31:24.996Z"
+  },
+  {
+    "Url": "https://cursor.com/changelog/05-20-26",
+    "score": "78",
+    "device": "tablet",
+    "timestamp": "2026-05-23T07:31:39.540Z"
+  }
+]
