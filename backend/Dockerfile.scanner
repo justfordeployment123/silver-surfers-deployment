@@ -71,8 +71,10 @@ WORKDIR /app/reporting
 COPY python-scanner/reporting/package.json ./package.json
 RUN npm install --omit=dev
 COPY scripts/ ./scripts/
+COPY assets/ ./assets/
 COPY src/config/ ./src/config/
 COPY src/features/audits/ ./src/features/audits/
+COPY assets/ ./src/assets/
 COPY python-scanner/reporting/generate-full-audit-report.mjs ./generate-full-audit-report.mjs
 
 WORKDIR /app

@@ -6,8 +6,8 @@ WORKDIR /app
 ARG REACT_APP_API_BASE_URL=http://localhost:8000
 ENV REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL}
 
-# Enable pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install a pinned pnpm version. Avoid pnpm@latest/Corepack drift in Coolify builds.
+RUN npm install -g pnpm@10.14.0
 
 # Install dependencies first
 COPY package.json pnpm-lock.yaml* ./

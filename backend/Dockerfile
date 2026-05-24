@@ -5,8 +5,8 @@
 # ────────────────────────────────────────────────────────────────
 FROM node:22-bookworm-slim AS deps
 
-# Enable corepack and prepare pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Install a pinned pnpm version. Avoid pnpm@latest/Corepack drift in Coolify builds.
+RUN npm install -g pnpm@10.14.0
 
 WORKDIR /usr/src/app
 
