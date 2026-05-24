@@ -89,6 +89,9 @@ importers:
       tesseract.js:
         specifier: ^6.0.1
         version: 6.0.1
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
     devDependencies:
       '@types/cors':
         specifier: ^2.8.19
@@ -108,9 +111,6 @@ importers:
       supertest:
         specifier: ^7.1.4
         version: 7.2.2
-      typescript:
-        specifier: ^5.7.3
-        version: 5.9.3
 
 packages:
 

@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Backend service for Silver Surfers",
   "type": "module",
+  "packageManager": "pnpm@10.14.0",
   "main": "src/server.ts",
   "scripts": {
     "start": "node --import ./scripts/register-typescript-loader.mjs src/server.ts",
@@ -49,7 +50,8 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "sharp": "^0.34.3",
     "stripe": "^18.5.0",
-    "tesseract.js": "^6.0.1"
+    "tesseract.js": "^6.0.1",
+    "typescript": "^5.7.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
@@ -57,7 +59,14 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pdfkit": "^0.17.5",
     "jest": "^30.1.3",
-    "supertest": "^7.1.4",
-    "typescript": "^5.7.3"
+    "supertest": "^7.1.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "msgpackr-extract",
+      "puppeteer",
+      "sharp",
+      "tesseract.js"
+    ]
   }
 }
