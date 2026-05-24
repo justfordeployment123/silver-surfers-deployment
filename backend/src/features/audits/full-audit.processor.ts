@@ -1295,6 +1295,99 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       };
     }
 
+    if (env.fullAuditOrchestrationInScannerEnabled) {
+      if (!env.fullAuditBatchScannerEnabled || !env.fullAuditEventDrivenScannerEnabled || !env.fullAuditReportsInScannerEnabled) {
+        throw new Error(
+          'Scanner-owned full-audit orchestration requires FULL_AUDIT_BATCH_SCANNER_ENABLED=true, '
+          + 'FULL_AUDIT_EVENT_DRIVEN_SCANNER_ENABLED=true, and FULL_AUDIT_REPORTS_IN_SCANNER_ENABLED=true.',
+        );
+      }
+
+      const devicesToAudit = resolveDevicesToAudit(effectivePlanId, job.selectedDevice);
+      const fullModePageLimit = effectivePlanId === 'pro' || effectivePlanId === 'onetime'
+        ? env.fullAuditTotalPageLimit
+        : env.fullAuditFullModePageLimit;
+      const expectedTargetCount = env.fullAuditTotalPageLimit * devicesToAudit.length;
+      const dispatchResult = await dispatchScannerFullAuditBatch({
+        orchestration: {
+          url: job.url,
+          devices: devicesToAudit,
+          crawlScope: {
+            maxPages: env.fullAuditMaxPages,
+            maxDepth: env.fullAuditMaxDepth,
+            delayMs: env.fullAuditCrawlDelayMs,
+            timeoutMs: env.fullAuditCrawlTimeoutMs,
+            maxRetries: env.fullAuditCrawlMaxRetries,
+            totalPageLimit: env.fullAuditTotalPageLimit,
+            priorityPageLimit: env.fullAuditPriorityPageLimit,
+            fullModePageLimit,
+          },
+        },
+        reportGeneration: {
+          enabled: true,
+          email: job.email,
+          taskId: effectiveTaskId,
+          url: job.url,
+          planId: effectivePlanId,
+          selectedDevice: job.selectedDevice,
+        },
+      });
+
+      if (!dispatchResult.success) {
+        fullAuditLogger.error('Full-audit orchestration dispatch failed.', {
+          taskId: effectiveTaskId,
+          errorCode: dispatchResult.errorCode,
+          error: dispatchResult.error,
+        });
+        throw new Error(`Full-audit orchestration dispatch failed: ${dispatchResult.error}`);
+      }
+
+      applyExecutionSummary(record, {
+        plannedTargetCount: expectedTargetCount,
+        successfulTargetCount: 0,
+        degradedTargetCount: 0,
+        failedTargetCount: 0,
+        warnings: [
+          'Full audit orchestration was dispatched to the scanner service; link extraction, page selection, scanning, and report upload will complete there.',
+        ],
+      }, []);
+      record.scannerJobId = dispatchResult.scannerJobId;
+      record.scannerQueueStatus = 'dispatched';
+      record.scannerDispatchedAt = new Date();
+      record.emailStatus = 'pending';
+      record.status = 'processing';
+      await record.save();
+      await clearReportDirectoryActive(finalReportFolder);
+      await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);
+      await fs.rm(jobFolder, { recursive: true, force: true }).catch(() => undefined);
+
+      fullAuditLogger.info('Full-audit orchestration dispatched; scanner will discover pages and complete audit.', {
+        taskId: effectiveTaskId,
+        scannerJobId: dispatchResult.scannerJobId,
+        expectedTargetCount,
+        devices: devicesToAudit,
+        crawlScope: {
+          maxPages: env.fullAuditMaxPages,
+          maxDepth: env.fullAuditMaxDepth,
+          delayMs: env.fullAuditCrawlDelayMs,
+          timeoutMs: env.fullAuditCrawlTimeoutMs,
+          maxRetries: env.fullAuditCrawlMaxRetries,
+          totalPageLimit: env.fullAuditTotalPageLimit,
+          priorityPageLimit: env.fullAuditPriorityPageLimit,
+          fullModePageLimit,
+        },
+        jobQueueUrl: dispatchResult.jobQueueUrl,
+        resultQueueUrl: dispatchResult.resultQueueUrl,
+      });
+
+      return {
+        emailStatus: 'pending',
+        attachmentCount: 0,
+        reportDirectory: record.reportDirectory || finalReportFolder,
+        scansUsed: 1,
+      };
+    }
+
     const linksToAudit = await extractLinksToAudit(job.url);
     const targetPages = selectFullAuditTargetPages(job.url, linksToAudit, {
       totalPageLimit: env.fullAuditTotalPageLimit,

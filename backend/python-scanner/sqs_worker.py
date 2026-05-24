@@ -2,13 +2,14 @@
 SQS scanner worker for production/Fargate deployments.
 
 The Node backend owns users, DB updates, PDF generation, and email delivery.
-This worker only does browser scanning, stores raw JSON in S3, and emits a
-small completion message back to the result queue.
+This worker owns scanner-side browser work, stores raw JSON/PDF artifacts in S3,
+and emits a small completion message back to the result queue.
 """
 
 import json
 import logging
 import os
+import re
 import signal
 import subprocess
 import tempfile
@@ -24,6 +25,7 @@ import boto3
 
 from camoufox_auditor import run_camoufox_audit_sync
 from scanner_config import get_viewport_for_device
+from scanner_service import _extract_links_sync
 from scanner_utils import run_with_clean_event_loop_context, safe_text, sanitize_report_data
 
 
@@ -123,6 +125,15 @@ def _optional_int(name: str, fallback: int) -> int:
         return fallback
 
 
+def _optional_int_from_value(value: Any, fallback: int) -> int:
+    try:
+        if value is None or value == "":
+            return fallback
+        return int(value)
+    except (TypeError, ValueError):
+        return fallback
+
+
 def _optional_bool(name: str, fallback: bool) -> bool:
     raw_value = os.getenv(name, "").strip().lower()
     if not raw_value:
@@ -147,6 +158,103 @@ def _resolve_hostname(url: str) -> str:
 
 def _normalize_url(url: str) -> str:
     return url if url.startswith(("http://", "https://")) else f"https://{url}"
+
+
+_LANGUAGE_CODE_SEGMENTS = {
+    "am", "ar", "bg", "bn", "bs", "ca", "cs", "da", "de", "el", "es", "et", "fa", "fi", "fr", "gu",
+    "hi", "hr", "hu", "hy", "id", "is", "it", "ja", "ka", "kk", "kn", "ko", "lt", "lv", "mk", "ml",
+    "mn", "mr", "ms", "my", "nb", "nl", "pa", "pl", "pt", "ro", "ru", "sk", "sl", "so", "sq", "sr",
+    "sv", "sw", "ta", "te", "th", "tl", "tr", "uk", "ur", "vi", "zh",
+}
+
+
+def _canonical_page_url(url: str) -> Optional[Dict[str, str]]:
+    try:
+        parsed = urlparse(_normalize_url(url))
+        if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+            return None
+
+        path = re.sub(r"/{2,}", "/", parsed.path or "/")
+        if path != "/" and path.endswith("/"):
+            path = path[:-1]
+
+        normalized_host = (parsed.hostname or parsed.netloc).lower()
+        comparable_host = normalized_host[4:] if normalized_host.startswith("www.") else normalized_host
+        comparable_path = path.lower()
+        if comparable_path in {"", "/", "/home"}:
+            comparable_path = "/"
+
+        return {
+            "url": f"{parsed.scheme}://{normalized_host}{path if path != '/' else ''}",
+            "host": comparable_host,
+            "path": path,
+            "key": f"{comparable_host}{comparable_path}",
+        }
+    except Exception:
+        return None
+
+
+def _is_locale_path(path: str) -> bool:
+    first = path.strip("/").split("/", 1)[0]
+    if not first:
+        return False
+
+    normalized = first.replace("_", "-")
+    language = normalized.split("-", 1)[0].lower()
+    return language in _LANGUAGE_CODE_SEGMENTS and bool(re.fullmatch(r"[a-z]{2,3}(?:-[a-z]{2,4})?", normalized, re.I))
+
+
+def _is_orchestration_candidate(url: str, home_key: str) -> bool:
+    canonical = _canonical_page_url(url)
+    if not canonical:
+        return False
+    path = canonical["path"].lower()
+    if canonical["key"] == home_key:
+        return True
+    if _is_locale_path(path):
+        return False
+    if re.search(r"/(api|_next|static|assets|cdn-cgi)(/|$)", path):
+        return False
+    if re.search(r"\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3)$", path):
+        return False
+    if re.search(r"/(translate|writing)/", path) or path.startswith("/translate") or path.startswith("/writing"):
+        return False
+    if path.startswith("/images/i/"):
+        return False
+    if re.search(r"/(cart|checkout|identity|login|signin|sign-in|register|profile|account|orderlookup|searchpage)", path):
+        return False
+    return True
+
+
+def _orchestration_page_score(url: str, home_key: str) -> int:
+    canonical = _canonical_page_url(url)
+    if not canonical:
+        return -100
+    if canonical["key"] == home_key:
+        return 100
+
+    path = canonical["path"].lower().strip("/")
+    first = path.split("/", 1)[0]
+    score = 20
+
+    primary_keywords = {
+        "pricing", "plans", "services", "service", "products", "product", "features", "solutions",
+        "business", "enterprise", "industries", "platform", "codex",
+    }
+    secondary_keywords = {"about", "contact", "support", "help", "company", "faq", "faqs"}
+
+    if first in primary_keywords or any(f"/{keyword}/" in f"/{path}/" for keyword in primary_keywords):
+        score += 50
+    if first in secondary_keywords or any(f"/{keyword}" in f"/{path}" for keyword in secondary_keywords):
+        score += 35
+    if re.search(r"/(privacy|terms|legal|cookie|accessibility)(/|$)", f"/{path}/"):
+        score -= 20
+    if re.search(r"(pcmcat|pcmid|abcat|cat[0-9]{3,})", path):
+        score -= 18
+    if len(path.split("/")) > 2:
+        score -= min(24, (len(path.split("/")) - 2) * 8)
+
+    return score
 
 
 def _format_size_mb(size: int) -> str:
@@ -578,6 +686,14 @@ class ScannerSqsWorker:
         started_at = time.time()
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "full"))
         targets = payload.get("targets")
+        selected_pages = payload.get("selectedPages") if isinstance(payload.get("selectedPages"), list) else []
+        orchestration = payload.get("orchestration") if isinstance(payload.get("orchestration"), dict) else None
+        if (not isinstance(targets, list) or not targets) and orchestration:
+            selected_pages, targets = self._build_orchestrated_full_audit_targets(scanner_job_id, payload, orchestration, receipt_handle)
+            payload = dict(payload)
+            payload["targets"] = targets
+            payload["selectedPages"] = selected_pages
+
         if not isinstance(targets, list) or not targets:
             raise RuntimeError("Full-audit batch job requires at least one target.")
 
@@ -587,6 +703,7 @@ class ScannerSqsWorker:
                 "scannerJobId": scanner_job_id,
                 "queueKind": queue_kind,
                 "targetCount": len(targets),
+                "orchestratedInScanner": bool(orchestration),
             },
         )
 
@@ -616,6 +733,8 @@ class ScannerSqsWorker:
             "targetCount": len(target_results),
             "successfulTargetCount": successful_count,
             "failedTargetCount": len(target_results) - successful_count,
+            "orchestratedInScanner": bool(orchestration),
+            "selectedPages": selected_pages,
             "targets": target_results,
         }
         key = self._build_batch_artifact_key(scanner_job_id)
@@ -660,6 +779,120 @@ class ScannerSqsWorker:
             result["reportStorage"] = report_storage
             result["reportsGeneratedInWorker"] = True
         return result
+
+    def _build_orchestrated_full_audit_targets(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        orchestration: Dict[str, Any],
+        receipt_handle: Optional[str] = None,
+    ) -> tuple[list[Dict[str, Any]], list[Dict[str, Any]]]:
+        root_url = safe_text(orchestration.get("url") or payload.get("url") or "").strip()
+        if not root_url:
+            raise RuntimeError("Scanner full-audit orchestration requires a root URL.")
+
+        crawl_scope = orchestration.get("crawlScope") if isinstance(orchestration.get("crawlScope"), dict) else {}
+        total_page_limit = max(1, min(_optional_int_from_value(crawl_scope.get("totalPageLimit"), 25), 100))
+        max_pages = max(total_page_limit, min(_optional_int_from_value(crawl_scope.get("maxPages"), total_page_limit), 500))
+        max_depth = max(0, min(_optional_int_from_value(crawl_scope.get("maxDepth"), 1), 5))
+        delay_ms = max(0, min(_optional_int_from_value(crawl_scope.get("delayMs"), 500), 10000))
+        priority_page_limit = max(0, min(_optional_int_from_value(crawl_scope.get("priorityPageLimit"), 3), 20))
+        full_mode_page_limit = max(0, min(_optional_int_from_value(crawl_scope.get("fullModePageLimit"), total_page_limit), total_page_limit))
+        raw_link_limit = max(total_page_limit * 5, max_pages, 100)
+
+        requested_devices = orchestration.get("devices") if isinstance(orchestration.get("devices"), list) else ["desktop"]
+        devices = [
+            safe_text(device).lower()
+            for device in requested_devices
+            if safe_text(device).lower() in {"desktop", "mobile", "tablet"}
+        ] or ["desktop"]
+
+        self._refresh_job_visibility(scanner_job_id, receipt_handle)
+        extraction = run_with_clean_event_loop_context(
+            _extract_links_sync,
+            root_url,
+            raw_link_limit,
+            max_depth,
+            delay_ms,
+        )
+        if not extraction.get("success") and not extraction.get("links"):
+            raise RuntimeError(safe_text(extraction.get("error") or "Scanner link extraction failed."))
+
+        root_canonical = _canonical_page_url(safe_text(extraction.get("finalUrl") or root_url)) or _canonical_page_url(root_url)
+        if not root_canonical:
+            raise RuntimeError("Scanner could not normalize the full-audit root URL.")
+
+        home_key = root_canonical["key"]
+        candidates: list[str] = [root_canonical["url"]]
+        candidates.extend([safe_text(link) for link in extraction.get("links") or [] if safe_text(link)])
+
+        by_key: Dict[str, Dict[str, Any]] = {}
+        for candidate in candidates:
+            canonical = _canonical_page_url(candidate)
+            if not canonical or not _is_orchestration_candidate(canonical["url"], home_key):
+                continue
+            score = _orchestration_page_score(canonical["url"], home_key)
+            existing = by_key.get(canonical["key"])
+            if not existing or score > existing["score"]:
+                by_key[canonical["key"]] = {
+                    "url": canonical["url"],
+                    "score": score,
+                    "isHomepage": canonical["key"] == home_key,
+                }
+
+        ranked_pages = sorted(
+            by_key.values(),
+            key=lambda page: (
+                0 if page["isHomepage"] else 1,
+                -int(page["score"]),
+                len(safe_text(page["url"])),
+                safe_text(page["url"]),
+            ),
+        )[:total_page_limit]
+
+        if not ranked_pages:
+            ranked_pages = [{"url": root_canonical["url"], "score": 100, "isHomepage": True}]
+
+        selected_pages: list[Dict[str, Any]] = []
+        targets: list[Dict[str, Any]] = []
+        for page_index, page in enumerate(ranked_pages):
+            preferred_scan_mode = "full" if page_index < max(1, full_mode_page_limit) else "lite"
+            priority_bucket = "homepage" if page["isHomepage"] else (
+                "primary" if page_index <= priority_page_limit else "secondary" if int(page["score"]) >= 55 else "other"
+            )
+            selected_page = {
+                "url": page["url"],
+                "priorityBucket": priority_bucket,
+                "preferredScanMode": preferred_scan_mode,
+                "isHomepage": bool(page["isHomepage"]),
+                "score": int(page["score"]),
+            }
+            selected_pages.append(selected_page)
+            for device in devices:
+                targets.append({
+                    "url": page["url"],
+                    "device": device,
+                    "preferredScanMode": preferred_scan_mode,
+                    "isLiteVersion": preferred_scan_mode == "lite",
+                    "isHomepage": bool(page["isHomepage"]),
+                    "allowFullRetry": bool(page["isHomepage"]),
+                })
+
+        logger.info(
+            "Scanner built full-audit orchestration target plan.",
+            extra={
+                "scannerJobId": scanner_job_id,
+                "rootUrl": root_url,
+                "finalUrl": root_canonical["url"],
+                "selectedPageCount": len(selected_pages),
+                "targetCount": len(targets),
+                "devices": devices,
+                "linkCount": len(extraction.get("links") or []),
+                "extractionWarning": extraction.get("error"),
+            },
+        )
+
+        return selected_pages, targets
 
     def _process_full_audit_batch_target(
         self,

@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -39,7 +40,8 @@ logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 app = FastAPI(title="SilverSurfers Python Scanner", version="1.0.0")
 
 # Thread-safe lock for synchronous Camoufox operations
-_precheck_lock = threading.Lock()  # Thread-safe lock for synchronous code
+_precheck_lock = threading.Lock()        # one precheck at a time
+_link_extraction_lock = threading.Lock() # one link-extraction at a time (independent of precheck)
 _audit_condition = asyncio.Condition()
 _active_audits = 0
 _queued_audits = 0
@@ -110,6 +112,20 @@ class PrecheckResponse(BaseModel):
     finalUrl: Optional[str] = None
     status: Optional[int] = None
     redirected: bool = False
+    error: Optional[str] = None
+
+
+class LinkExtractionRequest(BaseModel):
+    url: str
+    maxDepth: int = 1
+    delayMs: int = 500
+    maxLinks: int = 50  # 2× the caller's limit so scoring/filtering has room
+
+
+class LinkExtractionResponse(BaseModel):
+    success: bool
+    links: list[str] = []
+    finalUrl: Optional[str] = None
     error: Optional[str] = None
 
 
@@ -364,4 +380,378 @@ def _precheck_url_sync(url: str) -> Dict[str, Any]:
                 "success": False,
                 "error": f"Precheck failed: {str(e)}"
             }
+
+
+_HOMEPAGE_ALIAS_PATHS = {"/", "/home", "/index", "/index.html", "/index.htm", "/default", "/default.aspx"}
+_NON_HTML_ASSET_RE = re.compile(
+    r"\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$",
+    re.I,
+)
+_BLOCKED_AUDIT_PATH_RE = re.compile(
+    r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty)(/|$)",
+    re.I,
+)
+_CATALOGUE_ID_SEGMENT_RE = re.compile(r"^(pcm(?:cat|id)\d{4,}.*|(?:ab)?cat\d{4,}\.c)$", re.I)
+_DEFAULT_LANDING_FALLBACK_PATHS = ["/home", "/shop", "/browse", "/main", "/us", "/en-us"]
+
+
+def _scanner_int_env(name: str, default: int, minimum: int, maximum: int) -> int:
+    try:
+        value = int(os.getenv(name, str(default)))
+    except Exception:
+        value = default
+    return max(minimum, min(value, maximum))
+
+
+def _scanner_normalize_host(hostname: str) -> str:
+    return (hostname or "").lower().removeprefix("www.")
+
+
+def _scanner_canonicalize_url(raw_url: str) -> Optional[Dict[str, str]]:
+    try:
+        parsed = urlparse(str(raw_url or "").strip())
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            return None
+
+        raw_path = re.sub(r"/{2,}", "/", parsed.path or "/").rstrip("/") or "/"
+        path = raw_path
+        if raw_path.lower() in _HOMEPAGE_ALIAS_PATHS:
+            path = "/"
+
+        netloc = parsed.netloc.lower()
+        display_url = f"{parsed.scheme}://{netloc}" if path == "/" else f"{parsed.scheme}://{netloc}{path}"
+        key = f"{parsed.scheme}://{_scanner_normalize_host(parsed.hostname or parsed.netloc)}{path.lower()}"
+        return {"url": display_url, "key": key, "path": path, "rawPath": raw_path}
+    except Exception:
+        return None
+
+
+def _scanner_is_auditable_url(raw_url: str, home_key: str) -> bool:
+    canonical = _scanner_canonicalize_url(raw_url)
+    if not canonical:
+        return False
+    path = canonical["path"]
+    path_lower = path.lower()
+    if canonical["key"] == home_key:
+        return False
+    if _NON_HTML_ASSET_RE.search(path_lower):
+        return False
+    if _BLOCKED_AUDIT_PATH_RE.search(path_lower):
+        return False
+    if any(_CATALOGUE_ID_SEGMENT_RE.match(segment) for segment in path_lower.split("/") if segment):
+        return False
+    return True
+
+
+def _scanner_landing_candidate_score(raw_url: str, home_key: str) -> int:
+    canonical = _scanner_canonicalize_url(raw_url)
+    if not canonical:
+        return -1
+
+    path = canonical["path"].lower()
+    raw_path = canonical["rawPath"].lower()
+    segments = [segment for segment in raw_path.split("/") if segment]
+
+    if _NON_HTML_ASSET_RE.search(raw_path) or _BLOCKED_AUDIT_PATH_RE.search(raw_path):
+        return -1
+    if any(_CATALOGUE_ID_SEGMENT_RE.match(segment) for segment in segments):
+        return -1
+    if len(segments) > 2:
+        return -1
+
+    if canonical["key"] == home_key and raw_path != "/":
+        return 100
+    if path in {"/shop", "/main", "/browse"}:
+        return 80
+    if any(token in raw_path for token in ("home", "shop", "browse")):
+        return 60
+    return 20 if len(segments) <= 1 else 0
+
+
+def _scanner_landing_fallback_paths() -> list[str]:
+    configured = os.getenv("SCANNER_LINK_EXTRACTION_FALLBACK_PATHS", "")
+    paths = [path.strip() for path in configured.split(",") if path.strip()]
+    if not paths:
+        paths = _DEFAULT_LANDING_FALLBACK_PATHS
+    return [path if path.startswith("/") else f"/{path}" for path in paths]
+
+
+def _scanner_build_landing_fallback_urls(
+    final_url: str,
+    discovered_links: list[str],
+    visited_keys: set[str],
+    queued_keys: set[str],
+) -> list[str]:
+    parsed = urlparse(final_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return []
+
+    origin = f"{parsed.scheme}://{parsed.netloc.lower()}"
+    home_key = (_scanner_canonicalize_url(final_url) or {}).get("key", "")
+    scored: list[tuple[int, str, str]] = []
+
+    for link in discovered_links:
+        canonical = _scanner_canonicalize_url(link)
+        if not canonical or canonical["key"] in visited_keys or canonical["key"] in queued_keys:
+            continue
+        score = _scanner_landing_candidate_score(link, home_key)
+        if score > 0:
+            scored.append((score, canonical["rawPath"], link))
+
+    for path in _scanner_landing_fallback_paths():
+        candidate = f"{origin}{path}"
+        canonical = _scanner_canonicalize_url(candidate)
+        if not canonical or canonical["key"] in visited_keys or canonical["key"] in queued_keys:
+            continue
+        score = _scanner_landing_candidate_score(candidate, home_key)
+        if score > 0:
+            scored.append((score - 5, canonical["rawPath"], candidate))
+
+    seen_keys: set[str] = set()
+    result: list[str] = []
+    for _score, _path, candidate in sorted(scored, key=lambda item: (-item[0], len(item[1]))):
+        canonical = _scanner_canonicalize_url(candidate)
+        if not canonical or canonical["key"] in seen_keys:
+            continue
+        seen_keys.add(canonical["key"])
+        result.append(candidate)
+    return result
+
+
+def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay_ms: int = 500) -> Dict[str, Any]:
+    """
+    Navigate to a URL using Camoufox and return all same-origin internal links.
+
+    Camoufox uses Firefox with randomised fingerprints, which bypasses bot-detection
+    mechanisms that block headless Chromium (Puppeteer) and plain HTTP clients.
+
+    Thread-safe via its own lock so it never blocks audits or prechecks.
+    """
+    with _link_extraction_lock:
+        try:
+            with Camoufox(headless=True) as browser:
+                page = browser.new_page()
+                page.set_viewport_size({"width": 1920, "height": 1080})
+
+                # Realistic desktop user-agent
+                page.context.set_extra_http_headers({
+                    "User-Agent": (
+                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                        "Chrome/131.0.0.0 Safari/537.36"
+                    )
+                })
+
+                try:
+                    max_depth = max(0, min(int(max_depth or 1), 3))
+                    max_links = max(1, min(int(max_links or 50), 200))
+                    delay_ms = max(0, min(int(delay_ms or 0), 10_000))
+                    max_pages = _scanner_int_env("SCANNER_LINK_EXTRACTION_MAX_PAGES", 3, 1, 10)
+                    timeout_ms = _scanner_int_env("SCANNER_LINK_EXTRACTION_TIMEOUT_MS", 90_000, 15_000, 300_000)
+                    navigation_timeout_ms = _scanner_int_env("SCANNER_LINK_EXTRACTION_NAV_TIMEOUT_MS", 20_000, 5_000, 60_000)
+                    selector_timeout_ms = _scanner_int_env("SCANNER_LINK_EXTRACTION_SELECTOR_TIMEOUT_MS", 3_000, 500, 10_000)
+                    deadline = time.monotonic() + timeout_ms / 1000
+
+                    visited = set()
+                    visited_keys = set()
+                    queue = [(url, 0)]
+                    queued = {url}
+                    queued_keys = {(_scanner_canonicalize_url(url) or {"key": url})["key"]}
+                    seen_links = set()
+                    links = []
+                    final_url = url
+                    home_key = ""
+                    landing_recovery_enqueued = False
+                    warnings = []
+
+                    while queue and len(links) < max_links:
+                        if len(visited_keys) >= max_pages:
+                            break
+                        remaining_ms = int((deadline - time.monotonic()) * 1000)
+                        if remaining_ms <= 0:
+                            return {
+                                "success": True,
+                                "links": links[:max_links],
+                                "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
+                                "error": f"Link extraction stopped after {timeout_ms}ms timeout with partial results",
+                            }
+
+                        current_url, depth = queue.pop(0)
+                        current_key = (_scanner_canonicalize_url(current_url) or {"key": current_url})["key"]
+                        if current_key in visited_keys:
+                            continue
+                        visited.add(current_url)
+                        visited_keys.add(current_key)
+
+                        if len(visited) > 1 and delay_ms > 0:
+                            page.wait_for_timeout(delay_ms)
+
+                        try:
+                            page.goto(current_url, wait_until="domcontentloaded", timeout=min(navigation_timeout_ms, max(1_000, remaining_ms)))
+                        except Exception as page_error:
+                            warnings.append(f"Skipped {current_url}: {str(page_error)}")
+                            if current_url == url and not links:
+                                return {"success": False, "links": [], "finalUrl": final_url, "error": f"Navigation failed: {str(page_error)}"}
+                            continue
+
+                        try:
+                            page.wait_for_selector(
+                                "nav a[href], header a[href], main a[href], footer a[href], [role='navigation'] a[href]",
+                                timeout=min(selector_timeout_ms, max(500, int((deadline - time.monotonic()) * 1000))),
+                            )
+                        except Exception:
+                            page.wait_for_timeout(min(1_000, max(0, int((deadline - time.monotonic()) * 1000))))
+
+                        if current_url == url:
+                            final_url = page.url
+                            home_key = (_scanner_canonicalize_url(final_url) or {}).get("key", "")
+
+                        parsed = urlparse(final_url)
+                        base_scheme = parsed.scheme
+                        base_host = parsed.hostname or parsed.netloc
+
+                        page_links = page.evaluate(
+                            """
+                            ({ baseScheme, baseHost }) => {
+                                const result = [];
+                                const seen = new Set();
+                                const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
+                                const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
+                                const expectedHost = normalizeHost(baseHost);
+                                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi)(\\/|$)/i;
+
+                                const addCandidate = (raw) => {
+                                    const href = String(raw || '').trim();
+                                    if (!href || /^(javascript|mailto|tel):/i.test(href)) return;
+                                    try {
+                                        const u = new URL(href, window.location.href);
+                                        if (u.protocol.replace(':', '') !== baseScheme) return;
+                                        if (normalizeHost(u.hostname) !== expectedHost) return;
+                                        if (NON_HTML.test(u.pathname)) return;
+                                        if (blockedPath.test(u.pathname)) return;
+                                        u.hash = '';
+                                        u.search = '';
+                                        const clean = u.href.replace(/\\/$/, '');
+                                        if (clean && clean !== u.origin && !seen.has(clean)) {
+                                            seen.add(clean);
+                                            result.push(clean);
+                                        }
+                                    } catch (_) {}
+                                };
+
+                                document.querySelectorAll('a[href], [href], [to], [data-href]').forEach(el => {
+                                    addCandidate(el.getAttribute('href') || el.href);
+                                    addCandidate(el.getAttribute('to'));
+                                    addCandidate(el.getAttribute('data-href'));
+                                });
+
+                                // Many modern SPAs keep route paths in JSON hydration payloads
+                                // rather than rendered anchors. Pull shallow internal paths from
+                                // those payloads so sites like chatgpt.com expose their nav pages.
+                                document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__').forEach(script => {
+                                    const text = script.textContent || '';
+                                    const matches = text.matchAll(/["'](\\/(?!\\/)[A-Za-z0-9][^"'<>\\s?#]{1,160})["']/g);
+                                    for (const match of matches) {
+                                        addCandidate(match[1]);
+                                        if (result.length >= 250) break;
+                                    }
+                                });
+                                return result;
+                            }
+                            """,
+                            {"baseScheme": base_scheme, "baseHost": base_host},
+                        )
+
+                        if not isinstance(page_links, list):
+                            page_links = []
+
+                        for link in page_links:
+                            canonical = _scanner_canonicalize_url(link)
+                            if not canonical or not _scanner_is_auditable_url(canonical["url"], home_key):
+                                continue
+                            clean_link = canonical["url"]
+                            clean_key = canonical["key"]
+
+                            if clean_key not in seen_links:
+                                seen_links.add(clean_key)
+                                links.append(clean_link)
+                                if len(links) >= max_links:
+                                    break
+                            if (
+                                depth < max_depth
+                                and len(queued_keys) < max_pages
+                                and clean_key not in visited_keys
+                                and clean_key not in queued_keys
+                            ):
+                                queue.append((clean_link, depth + 1))
+                                queued.add(clean_link)
+                                queued_keys.add(clean_key)
+
+                        if not queue and len(links) < 3 and not landing_recovery_enqueued:
+                            for fallback_url in _scanner_build_landing_fallback_urls(final_url, page_links, visited_keys, queued_keys):
+                                if len(queued_keys) >= max_pages:
+                                    break
+                                fallback_key = (_scanner_canonicalize_url(fallback_url) or {}).get("key")
+                                if not fallback_key:
+                                    continue
+                                queue.append((fallback_url, 0))
+                                queued.add(fallback_url)
+                                queued_keys.add(fallback_key)
+                            landing_recovery_enqueued = True
+
+                    return {
+                        "success": True,
+                        "links": links[:max_links],
+                        "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
+                        "error": "; ".join(warnings[:3]) if warnings else None,
+                    }
+
+
+                except Exception as nav_error:
+                    if links:
+                        return {
+                            "success": True,
+                            "links": links[:max_links],
+                            "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
+                            "error": f"Link extraction returned partial results after error: {str(nav_error)}",
+                        }
+                    return {"success": False, "links": [], "finalUrl": final_url, "error": f"Navigation failed: {str(nav_error)}"}
+                finally:
+                    page.close()
+
+        except Exception as e:
+            return {"success": False, "error": f"Browser error: {str(e)}"}
+
+
+@app.post("/extract-links", response_model=LinkExtractionResponse)
+async def extract_links_endpoint(request: LinkExtractionRequest):
+    """
+    Extract internal navigation links from a page using Camoufox.
+
+    Called by the Node.js backend as Strategy 3 in the internal-links pipeline
+    when Cheerio (plain HTTP) fails to find useful links (e.g., bot-protected or
+    JS-heavy sites).  Does NOT consume an audit slot.
+    """
+    try:
+        loop = asyncio.get_running_loop()
+        result = await loop.run_in_executor(
+            _scanner_executor,
+            run_with_clean_event_loop_context,
+            _extract_links_sync,
+            request.url,
+            request.maxLinks,
+            request.maxDepth,
+            request.delayMs,
+        )
+        return LinkExtractionResponse(
+            success=result.get("success", False),
+            links=result.get("links", []),
+            finalUrl=result.get("finalUrl"),
+            error=result.get("error"),
+        )
+    except Exception as e:
+        return LinkExtractionResponse(
+            success=False,
+            error=f"Link extraction failed: {str(e)}",
+        )
 

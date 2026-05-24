@@ -143,6 +143,7 @@ export interface AppEnv {
     fullAuditCrawlDelayMs: number;
     fullAuditCrawlTimeoutMs: number;
     fullAuditCrawlMaxRetries: number;
+    fullAuditLinkExtractionCamoufoxFirst: boolean;
     fullAuditTotalPageLimit: number;
     fullAuditPriorityPageLimit: number;
     fullAuditFullModePageLimit: number;
@@ -152,6 +153,7 @@ export interface AppEnv {
     fullAuditBatchScannerEnabled: boolean;
     fullAuditEventDrivenScannerEnabled: boolean;
     fullAuditReportsInScannerEnabled: boolean;
+    fullAuditOrchestrationInScannerEnabled: boolean;
     fullAuditCacheEnabled: boolean;
     fullAuditCacheTtlMs: number;
     queueCleanupIntervalMs: number;
@@ -237,6 +239,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         fullAuditCrawlDelayMs: parseBoundedNumber(source.FULL_AUDIT_CRAWL_DELAY_MS, 2000, 0, 10000),
         fullAuditCrawlTimeoutMs: parseBoundedNumber(source.FULL_AUDIT_CRAWL_TIMEOUT_MS, 15000, 1000, 120000),
         fullAuditCrawlMaxRetries: parseBoundedNumber(source.FULL_AUDIT_CRAWL_MAX_RETRIES, 3, 1, 5),
+        fullAuditLinkExtractionCamoufoxFirst: parseBoolean(source.FULL_AUDIT_LINK_EXTRACTION_CAMOUFOX_FIRST, true),
         fullAuditTotalPageLimit: parseBoundedNumber(source.FULL_AUDIT_TOTAL_PAGE_LIMIT, 25, 1, 100),
         fullAuditPriorityPageLimit: parseBoundedNumber(source.FULL_AUDIT_PRIORITY_PAGE_LIMIT, 3, 0, 20),
         fullAuditFullModePageLimit: parseBoundedNumber(source.FULL_AUDIT_FULL_MODE_PAGE_LIMIT, 2, 0, 20),
@@ -246,6 +249,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         fullAuditBatchScannerEnabled: parseBoolean(source.FULL_AUDIT_BATCH_SCANNER_ENABLED, false),
         fullAuditEventDrivenScannerEnabled: parseBoolean(source.FULL_AUDIT_EVENT_DRIVEN_SCANNER_ENABLED, true),
         fullAuditReportsInScannerEnabled: parseBoolean(source.FULL_AUDIT_REPORTS_IN_SCANNER_ENABLED, false),
+        fullAuditOrchestrationInScannerEnabled: parseBoolean(source.FULL_AUDIT_ORCHESTRATION_IN_SCANNER_ENABLED, false),
         fullAuditCacheEnabled: parseBoolean(source.FULL_AUDIT_CACHE_ENABLED, true),
         fullAuditCacheTtlMs: parseBoundedNumber(source.FULL_AUDIT_CACHE_TTL_MS, 24 * 60 * 60 * 1000, 60_000, 7 * 24 * 60 * 60 * 1000),
         queueCleanupIntervalMs: parseNumber(source.QUEUE_CLEANUP_INTERVAL_MS, 5 * 60 * 1000),

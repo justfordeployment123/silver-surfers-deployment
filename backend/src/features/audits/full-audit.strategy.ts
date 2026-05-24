@@ -64,10 +64,16 @@ const SECONDARY_PAGE_KEYWORDS = [
 function normalizeComparableUrl(input: string): string {
   try {
     const parsed = new URL(input.startsWith('http') ? input : `https://${input}`);
-    const normalizedPath = parsed.pathname.replace(/\/+$/, '') || '/';
-    return `${parsed.origin}${normalizedPath}`.toLowerCase();
+    const normalizedHost = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const collapsedPath = parsed.pathname.replace(/\/{2,}/g, '/').replace(/\/+$/, '') || '/';
+    const normalizedPath = ['/', '/home', '/index', '/index.html', '/index.htm', '/default', '/default.aspx'].includes(collapsedPath.toLowerCase())
+      ? '/'
+      : collapsedPath.toLowerCase();
+    const port = parsed.port ? `:${parsed.port}` : '';
+    return `${parsed.protocol}//${normalizedHost}${port}${normalizedPath}`;
   } catch {
-    return String(input || '').trim().replace(/\/+$/, '').toLowerCase();
+    const fallback = String(input || '').trim().replace(/\/+$/, '').toLowerCase();
+    return fallback.replace(/^https?:\/\/www\./, (prefix) => prefix.replace('www.', ''));
   }
 }
 

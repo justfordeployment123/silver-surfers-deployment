@@ -28,9 +28,25 @@ export interface ScannerFullAuditBatchTarget {
   allowFullRetry?: boolean;
 }
 
+export interface ScannerFullAuditOrchestrationRequest {
+  url: string;
+  devices: Array<'desktop' | 'mobile' | 'tablet'>;
+  crawlScope: {
+    maxPages: number;
+    maxDepth: number;
+    delayMs: number;
+    timeoutMs: number;
+    maxRetries: number;
+    totalPageLimit: number;
+    priorityPageLimit: number;
+    fullModePageLimit: number;
+  };
+}
+
 export interface ScannerFullAuditBatchRequest {
   scannerJobId?: string;
-  targets: ScannerFullAuditBatchTarget[];
+  targets?: ScannerFullAuditBatchTarget[];
+  orchestration?: ScannerFullAuditOrchestrationRequest;
   reportGeneration?: {
     enabled?: boolean;
     email?: string;
@@ -505,6 +521,15 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
   const runtime = await loadSqsRuntime();
   const client = new runtime.SQSClient({ region: env.scannerSqsArtifactRegion });
   const scannerJobId = request.scannerJobId || createScannerJobId();
+  const targets = request.targets ?? [];
+  if (targets.length === 0 && !request.orchestration) {
+    return {
+      success: false,
+      error: 'Full-audit batch scanning requires targets or scanner orchestration metadata.',
+      errorCode: 'SCANNER_BATCH_TARGETS_REQUIRED',
+    };
+  }
+
   const body = {
     schemaVersion: 1,
     jobType: 'fullAuditBatch',
@@ -526,7 +551,14 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
         selectedDevice: request.reportGeneration.selectedDevice,
       },
     } : {}),
-    targets: request.targets.map((target) => ({
+    ...(request.orchestration ? {
+      orchestration: {
+        url: request.orchestration.url,
+        devices: request.orchestration.devices,
+        crawlScope: request.orchestration.crawlScope,
+      },
+    } : {}),
+    targets: targets.map((target) => ({
       url: target.url,
       device: target.device,
       preferredScanMode: target.preferredScanMode,
@@ -539,6 +571,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
   scannerClientLogger.info('Queueing full-audit batch through scanner SQS.', {
     scannerJobId,
     targetCount: body.targets.length,
+    orchestrationInScanner: Boolean(request.orchestration),
     jobQueueUrl,
     resultQueueUrl,
   });
@@ -589,7 +622,7 @@ export async function requestScannerFullAuditBatch(request: ScannerFullAuditBatc
     }
 
     const aggregatePath = await downloadScannerS3Report(storedResult.payload, {
-      url: request.targets[0]?.url || 'full-audit-batch',
+      url: request.targets?.[0]?.url || request.orchestration?.url || 'full-audit-batch',
       device: 'desktop',
       isLiteVersion: false,
       scannerQueue: 'full',
@@ -598,7 +631,7 @@ export async function requestScannerFullAuditBatch(request: ScannerFullAuditBatc
     await fs.unlink(aggregatePath).catch(() => undefined);
 
     const targets = await Promise.all((aggregate.targets || []).map(async (target, index): Promise<ScannerFullAuditBatchTargetResult> => {
-      const fallbackTarget = request.targets[index];
+      const fallbackTarget = request.targets?.[index];
       const url = target.url || fallbackTarget?.url || 'unknown';
       const device = target.device || fallbackTarget?.device || 'desktop';
       const isLiteVersion = Boolean(target.isLiteVersion);
