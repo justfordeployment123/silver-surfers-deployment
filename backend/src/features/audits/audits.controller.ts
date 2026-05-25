@@ -154,6 +154,10 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
   finalUrl?: string;
   status?: number;
   redirected?: boolean;
+  checkStatus?: string;
+  finalState?: string;
+  health?: string;
+  reason?: string;
   error?: string;
 }> {
   const { candidateUrls, input } = buildCandidateUrls(rawUrl);
@@ -178,13 +182,27 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
 
   for (const candidateUrl of candidateUrls) {
     const result = await precheckCandidateUrl(candidateUrl);
-    if (result.ok) {
+    if (result.ok && result.accessible) {
       return {
         input,
         normalizedUrl: candidateUrl,
         finalUrl: result.finalUrl,
         status: result.status,
         redirected: result.redirected,
+        checkStatus: result.checkStatus,
+        finalState: result.finalState,
+        health: result.health,
+        reason: result.reason,
+      };
+    }
+    if (result.ok && !result.accessible) {
+      return {
+        input,
+        error: result.reason || 'Website host is reachable, but the page is not accessible enough to audit.',
+        checkStatus: result.checkStatus,
+        finalState: result.finalState,
+        health: result.health,
+        reason: result.reason,
       };
     }
   }
@@ -204,6 +222,10 @@ export async function precheckUrl(request: Request, response: Response): Promise
       success: false,
       input: result.input,
       error: result.error || 'URL not reachable. Please check the domain and try again.',
+      checkStatus: result.checkStatus,
+      finalState: result.finalState,
+      health: result.health,
+      reason: result.reason,
     });
     return;
   }
@@ -215,6 +237,10 @@ export async function precheckUrl(request: Request, response: Response): Promise
     finalUrl: result.finalUrl,
     status: result.status,
     redirected: Boolean(result.redirected),
+    checkStatus: result.checkStatus,
+    finalState: result.finalState,
+    health: result.health,
+    reason: result.reason,
   });
 }
 
