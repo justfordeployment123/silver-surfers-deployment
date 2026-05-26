@@ -121,6 +121,8 @@ export interface AppEnv {
     scannerSqsArtifactPrefix: string;
     scannerLiteAuditTimeoutMs: number;
     scannerFullAuditTimeoutMs: number;
+    scannerPrecheckFallbackEnabled: boolean;
+    scannerPrecheckFallbackTimeoutMs: number;
     skipUrlPrecheck: boolean;
     chromePath?: string;
     requestLogEnabled: boolean;
@@ -217,6 +219,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         scannerSqsArtifactPrefix: source.SCANNER_SQS_ARTIFACT_PREFIX?.trim() || "silver-surfers/scanner-results",
         scannerLiteAuditTimeoutMs: parseBoundedNumber(source.SCANNER_LITE_AUDIT_TIMEOUT_MS, 240_000, 60_000, 60 * 60 * 1000),
         scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 4 * 60 * 60 * 1000),
+        scannerPrecheckFallbackEnabled: parseBoolean(source.SCANNER_PRECHECK_FALLBACK_ENABLED, true),
+        scannerPrecheckFallbackTimeoutMs: parseBoundedNumber(source.SCANNER_PRECHECK_FALLBACK_TIMEOUT_MS, 20_000, 3_000, 60_000),
         skipUrlPrecheck: parseBoolean(source.SKIP_URL_PRECHECK, false),
         chromePath: resolveChromePath(source),
         requestLogEnabled: parseBoolean(source.REQUEST_LOG_ENABLED, true),

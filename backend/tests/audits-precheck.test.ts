@@ -116,6 +116,28 @@ test('precheckCandidateUrl falls back to GET when HEAD returns 405', async () =>
   assert.equal(calls[1].method, 'GET');
 });
 
+test('precheckCandidateUrl falls back to GET when HEAD returns 400', async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method });
+    return new Response('', {
+      status: init?.method === 'HEAD' ? 400 : 200,
+    });
+  };
+
+  const result = await precheckCandidateUrl('https://facebook.com', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.status, 200);
+    assert.equal(result.checkStatus, 'HEALTHY');
+  }
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].method, 'HEAD');
+  assert.equal(calls[1].method, 'GET');
+});
+
 test('precheckCandidateUrl classifies 502 Bad Gateway as a failure', async () => {
   const fetchImpl: typeof fetch = async (_input, init) => {
     // HEAD → 502 triggers GET retry; GET also 502
@@ -139,6 +161,7 @@ test('precheckCandidateUrl falls back to TCP reachability when HTTP check fails'
 
   const result = await precheckCandidateUrl('https://example.com', fetchImpl, {
     tcpProbe: async () => true,
+    scannerFallback: false,
   });
 
   assert.deepEqual(result, {
@@ -165,6 +188,7 @@ test('precheckCandidateUrl returns failure when both HTTP and TCP checks fail', 
 
   const result = await precheckCandidateUrl('https://example.com', fetchImpl, {
     tcpProbe: async () => false,
+    scannerFallback: false,
   });
 
   assert.equal(result.ok, false);
@@ -225,6 +249,7 @@ test('precheckCandidateUrl marks SSL failures with TCP reachability as partial',
 
   const result = await precheckCandidateUrl('https://expired.badssl.com', fetchImpl, {
     tcpProbe: async () => true,
+    scannerFallback: false,
   });
 
   assert.equal(result.ok, true);
@@ -234,6 +259,38 @@ test('precheckCandidateUrl marks SSL failures with TCP reachability as partial',
     assert.equal(result.checkStatus, 'SSL_ERROR');
     assert.equal(result.health, 'SSL_ERROR');
   }
+});
+
+test('precheckCandidateUrl accepts scanner browser precheck fallback after HTTP/TCP partial', async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method });
+    if (init?.method === 'POST') {
+      return Response.json({
+        success: true,
+        finalUrl: 'https://www.example.com/',
+        status: 200,
+        redirected: true,
+      });
+    }
+
+    throw Object.assign(new Error('fetch failed'), { code: 'ECONNRESET' });
+  };
+
+  const result = await precheckCandidateUrl('https://example.com', fetchImpl, {
+    tcpProbe: async () => true,
+  });
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.finalUrl, 'https://www.example.com/');
+    assert.equal(result.status, 200);
+    assert.equal(result.checkStatus, 'HEALTHY');
+    assert.equal(result.reason, 'Website was verified by scanner browser precheck.');
+  }
+  assert.equal(calls.some((call) => call.method === 'POST' && call.url.endsWith('/precheck')), true);
 });
 
 test('precheckCandidateUrl rejects redirects to a different domain', async () => {

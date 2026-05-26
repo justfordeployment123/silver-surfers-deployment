@@ -107,6 +107,10 @@ signal.signal(signal.SIGINT, _request_shutdown)
 signal.signal(signal.SIGTERM, _request_shutdown)
 
 
+class RetryableJobError(RuntimeError):
+    """Raised when the job should become visible in SQS for another worker."""
+
+
 def _required_env(name: str) -> str:
     value = os.getenv(name, "").strip()
     if not value:
@@ -265,6 +269,29 @@ def _last_arn_segment(value: str) -> str:
     return safe_text(value).rsplit("/", 1)[-1] if value else ""
 
 
+def _is_retryable_processing_error(error: Exception) -> bool:
+    if isinstance(error, RetryableJobError):
+        return True
+
+    if _shutdown_requested:
+        return True
+
+    message = safe_text(str(error)).lower()
+    retryable_fragments = (
+        "target page, context or browser has been closed",
+        "targetclosederror",
+        "browser has been closed",
+        "page has been closed",
+        "context has been closed",
+        "browser.new_page",
+        "econnreset",
+        "connection reset",
+        "temporarily unavailable",
+        "service unavailable",
+    )
+    return any(fragment in message for fragment in retryable_fragments)
+
+
 class JobStdoutLogger:
     def __init__(self, context: Dict[str, Any]):
         self.context = context
@@ -314,13 +341,13 @@ class EcsTaskProtection:
         if self.enabled and not self.agent_uri:
             self.ecs = boto3.client("ecs", region_name=region)
 
-    def protect(self, scanner_job_id: str) -> None:
-        self._set_protection(True, scanner_job_id)
+    def protect(self, scanner_job_id: str) -> bool:
+        return self._set_protection(True, scanner_job_id)
 
-    def unprotect(self, scanner_job_id: str) -> None:
-        self._set_protection(False, scanner_job_id)
+    def unprotect(self, scanner_job_id: str) -> bool:
+        return self._set_protection(False, scanner_job_id)
 
-    def _set_protection(self, protection_enabled: bool, scanner_job_id: str) -> None:
+    def _set_protection(self, protection_enabled: bool, scanner_job_id: str) -> bool:
         if not self.enabled:
             logger.info(
                 "ECS task scale-in protection skipped because it is disabled or unavailable.",
@@ -329,7 +356,7 @@ class EcsTaskProtection:
                     "protectionEnabled": protection_enabled,
                 },
             )
-            return
+            return True
 
         requested_expires_at = (
             datetime.now(timezone.utc) + timedelta(minutes=self.expires_in_minutes)
@@ -368,9 +395,21 @@ class EcsTaskProtection:
                     **protection_details,
                 },
             )
+            if protection_enabled and protection_details.get("taskProtectionFailed"):
+                logger.warning(
+                    "ECS task scale-in protection was not applied; refusing to start scan on this task.",
+                    extra={
+                        "scannerJobId": scanner_job_id,
+                        "protectionMethod": protection_method,
+                        **protection_details,
+                    },
+                )
+                return False
+
+            return True
         except Exception as error:
             logger.warning(
-                "Failed to update ECS task scale-in protection; continuing scan.",
+                "Failed to update ECS task scale-in protection.",
                 extra={
                     "scannerJobId": scanner_job_id,
                     "protectionEnabled": protection_enabled,
@@ -380,6 +419,7 @@ class EcsTaskProtection:
                     "error": safe_text(str(error)),
                 },
             )
+            return not protection_enabled
 
     def _set_protection_via_agent(self, protection_enabled: bool) -> Dict[str, Any]:
         body: Dict[str, Any] = {"ProtectionEnabled": protection_enabled}
@@ -405,6 +445,8 @@ class EcsTaskProtection:
                 parsed_response = json.loads(response_body)
                 if isinstance(parsed_response, dict):
                     details["taskProtectionResponse"] = parsed_response
+                    if parsed_response.get("failure") or parsed_response.get("failures"):
+                        details["taskProtectionFailed"] = True
             except Exception:
                 details["taskProtectionResponseText"] = response_body[:1000]
 
@@ -434,6 +476,7 @@ class EcsTaskProtection:
             details["taskProtectionResponse"] = protections
         if failures:
             details["taskProtectionFailures"] = failures
+            details["taskProtectionFailed"] = True
 
         return details
 
@@ -516,24 +559,77 @@ class ScannerSqsWorker:
             )
 
             for message in response.get("Messages", []):
+                if _shutdown_requested:
+                    self._release_message(message, "shutdown requested before scan started")
+                    continue
                 self._handle_message(message)
 
         logger.info("Scanner SQS worker stopped.")
+
+    def _release_message(self, message: Dict[str, Any], reason: str, scanner_job_id: Optional[str] = None) -> None:
+        receipt_handle = message.get("ReceiptHandle")
+        if not receipt_handle:
+            return
+
+        try:
+            self.sqs.change_message_visibility(
+                QueueUrl=self.job_queue_url,
+                ReceiptHandle=receipt_handle,
+                VisibilityTimeout=0,
+            )
+            logger.warning(
+                "Released scanner SQS job back to queue.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "reason": reason,
+                },
+            )
+        except Exception as error:
+            logger.warning(
+                "Failed to release scanner SQS job back to queue.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "reason": reason,
+                    "error": safe_text(str(error)),
+                },
+            )
 
     def _handle_message(self, message: Dict[str, Any]) -> None:
         receipt_handle = message.get("ReceiptHandle")
         payload = self._parse_payload(message.get("Body"))
         scanner_job_id = safe_text(payload.get("scannerJobId") or f"unknown-{int(time.time() * 1000)}")
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
+        protected = False
 
         try:
-            self.task_protection.protect(scanner_job_id)
+            if _shutdown_requested:
+                raise RetryableJobError("Shutdown requested before scan started.")
+
+            protected = self.task_protection.protect(scanner_job_id)
+            if not protected:
+                raise RetryableJobError("ECS task scale-in protection was not applied.")
+
+            if _shutdown_requested:
+                raise RetryableJobError("Shutdown requested after task protection was applied.")
+
             result = self._process_scan_job(scanner_job_id, payload, receipt_handle)
             self._send_result(result)
             if receipt_handle:
                 self.sqs.delete_message(QueueUrl=self.job_queue_url, ReceiptHandle=receipt_handle)
         except Exception as error:
             error_message = safe_text(str(error))
+            if _is_retryable_processing_error(error if isinstance(error, Exception) else Exception(error_message)):
+                logger.warning(
+                    "Scanner SQS job will be retried by another worker.",
+                    extra={
+                        "scannerJobId": scanner_job_id,
+                        "queueKind": queue_kind,
+                        "error": error_message,
+                    },
+                )
+                self._release_message(message, error_message, scanner_job_id)
+                return
+
             logger.exception("Scanner SQS job failed.", extra={"scannerJobId": scanner_job_id})
             self._send_result(
                 {
@@ -548,7 +644,8 @@ class ScannerSqsWorker:
             if receipt_handle:
                 self.sqs.delete_message(QueueUrl=self.job_queue_url, ReceiptHandle=receipt_handle)
         finally:
-            self.task_protection.unprotect(scanner_job_id)
+            if protected:
+                self.task_protection.unprotect(scanner_job_id)
 
     def _parse_payload(self, body: Optional[str]) -> Dict[str, Any]:
         if not body:

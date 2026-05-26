@@ -1,6 +1,7 @@
 import { lookup } from 'node:dns/promises';
 import net from 'node:net';
 
+import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 
 const precheckLogger = logger.child('feature:audits:precheck');
@@ -35,6 +36,7 @@ type TcpProbe = (url: string, timeoutMs: number) => Promise<boolean>;
 
 interface PrecheckOptions {
   tcpProbe?: TcpProbe;
+  scannerFallback?: boolean;
 }
 
 function timeoutSignal(timeoutMs: number): { signal: AbortSignal; cancel: () => void } {
@@ -327,7 +329,7 @@ async function runHttpPrecheck(
       headers: buildBrowserLikeHeaders(),
     });
 
-    if (response.status === 405 || response.status >= 500) {
+    if (response.status === 400 || response.status === 405 || response.status >= 500) {
       response = await fetchImpl(url, {
         method: 'GET',
         redirect: 'follow',
@@ -348,6 +350,14 @@ function isDefinitiveHttpFailure(result: PrecheckResult): boolean {
   return !result.ok && result.checkStatus !== 'NOT_REACHABLE';
 }
 
+function shouldTryScannerFallback(result: PrecheckResult): boolean {
+  if (result.ok) {
+    return !result.accessible;
+  }
+
+  return result.checkStatus !== 'NOT_FOUND' && result.checkStatus !== 'REDIRECTED_DOMAIN_MISMATCH';
+}
+
 function classifyPartialHealth(error: string): { checkStatus: 'SSL_ERROR' | 'TCP_REACHABLE'; health: 'SSL_ERROR' | 'HTTP_ERROR'; reason: string } {
   if (/certificate|cert|ssl|tls|self.signed|expired|hostname|altname|unable to verify/i.test(error)) {
     return {
@@ -364,6 +374,73 @@ function classifyPartialHealth(error: string): { checkStatus: 'SSL_ERROR' | 'TCP
   };
 }
 
+async function runScannerPrecheckFallback(url: string, fetchImpl: FetchLike): Promise<PrecheckResult | undefined> {
+  if (!env.scannerPrecheckFallbackEnabled || !env.scannerServiceUrl) {
+    return undefined;
+  }
+
+  const { signal, cancel } = timeoutSignal(env.scannerPrecheckFallbackTimeoutMs);
+
+  try {
+    precheckLogger.info('Trying scanner browser precheck fallback.', {
+      url,
+      scannerServiceUrl: env.scannerServiceUrl,
+    });
+
+    const response = await fetchImpl(`${env.scannerServiceUrl}/precheck`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url }),
+      signal,
+    });
+    const payload = await response.json().catch(() => undefined) as {
+      success?: boolean;
+      finalUrl?: string;
+      status?: number;
+      redirected?: boolean;
+      error?: string;
+    } | undefined;
+
+    if (!response.ok || !payload) {
+      precheckLogger.warn('Scanner browser precheck fallback returned an invalid response.', {
+        url,
+        status: response.status,
+      });
+      return undefined;
+    }
+
+    if (payload.success) {
+      return {
+        ok: true,
+        accessible: true,
+        finalUrl: payload.finalUrl || url,
+        status: payload.status,
+        redirected: Boolean(payload.redirected),
+        finalState: 'PASS',
+        checkStatus: 'HEALTHY',
+        health: 'OK',
+        reason: 'Website was verified by scanner browser precheck.',
+      };
+    }
+
+    precheckLogger.info('Scanner browser precheck fallback could not verify URL.', {
+      url,
+      error: payload.error,
+    });
+    return undefined;
+  } catch (error) {
+    precheckLogger.warn('Scanner browser precheck fallback failed.', {
+      url,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return undefined;
+  } finally {
+    cancel();
+  }
+}
+
 // Checks whether a URL is reachable enough to enqueue an audit.
 // The AWS scanner performs the real browser validation later.
 export async function precheckCandidateUrl(
@@ -373,10 +450,24 @@ export async function precheckCandidateUrl(
 ): Promise<PrecheckResult> {
   const httpResult = await runHttpPrecheck(url, fetchImpl);
   if (httpResult.ok) {
+    if (!httpResult.accessible && (options.scannerFallback ?? true)) {
+      const scannerResult = await runScannerPrecheckFallback(url, fetchImpl);
+      if (scannerResult?.ok) {
+        return scannerResult;
+      }
+    }
+
     return httpResult;
   }
 
   if (isDefinitiveHttpFailure(httpResult)) {
+    if ((options.scannerFallback ?? true) && shouldTryScannerFallback(httpResult)) {
+      const scannerResult = await runScannerPrecheckFallback(url, fetchImpl);
+      if (scannerResult?.ok) {
+        return scannerResult;
+      }
+    }
+
     return httpResult;
   }
 
@@ -387,6 +478,13 @@ export async function precheckCandidateUrl(
 
   const tcpResult = await runTcpPrecheck(url, options.tcpProbe ?? defaultTcpProbe);
   if (tcpResult.ok) {
+    if (options.scannerFallback ?? true) {
+      const scannerResult = await runScannerPrecheckFallback(url, fetchImpl);
+      if (scannerResult?.ok) {
+        return scannerResult;
+      }
+    }
+
     const partial = classifyPartialHealth(httpResult.error);
     return {
       ok: true,

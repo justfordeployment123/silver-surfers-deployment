@@ -1,10 +1,12 @@
 import type { Request, Response } from 'express';
 
+import { env } from '../../config/env.ts';
 import AnalysisRecord from '../../models/analysis-record.model.ts';
 import ContactMessage from '../../models/contact-message.model.ts';
 import QuickScan from '../../models/quick-scan.model.ts';
 import Subscription from '../../models/subscription.model.ts';
 import User from '../../models/user.model.ts';
+import { buildCandidateUrls, precheckCandidateUrl } from '../audits/precheck.service.ts';
 import { getAuditQueues } from '../audits/audits.runtime.ts';
 import { getPlanById } from '../billing/subscription-plans.ts';
 import { getStripeClient } from '../billing/stripe-client.ts';
@@ -23,6 +25,66 @@ function normalizeAdminManagedSubscriptionStatus(status: unknown): string {
 
 function createTaskId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function resolveBulkQuickScanUrl(rawUrl: string): Promise<{
+  input: string;
+  normalizedUrl?: string;
+  finalUrl?: string;
+  status?: number;
+  redirected?: boolean;
+  checkStatus?: string;
+  finalState?: string;
+  health?: string;
+  reason?: string;
+  error?: string;
+}> {
+  const { candidateUrls, input } = buildCandidateUrls(rawUrl);
+  if (!candidateUrls.length) {
+    return { input, error: 'Invalid URL' };
+  }
+
+  if (env.skipUrlPrecheck) {
+    return {
+      input,
+      normalizedUrl: candidateUrls[0],
+      finalUrl: candidateUrls[0],
+      redirected: false,
+    };
+  }
+
+  for (const candidateUrl of candidateUrls) {
+    const result = await precheckCandidateUrl(candidateUrl);
+    if (result.ok && result.accessible) {
+      return {
+        input,
+        normalizedUrl: candidateUrl,
+        finalUrl: result.finalUrl,
+        status: result.status,
+        redirected: result.redirected,
+        checkStatus: result.checkStatus,
+        finalState: result.finalState,
+        health: result.health,
+        reason: result.reason,
+      };
+    }
+
+    if (result.ok && !result.accessible) {
+      return {
+        input,
+        error: result.reason || 'Website host is reachable, but the page is not accessible enough to audit.',
+        checkStatus: result.checkStatus,
+        finalState: result.finalState,
+        health: result.health,
+        reason: result.reason,
+      };
+    }
+  }
+
+  return {
+    input,
+    error: 'URL not reachable. Please check the domain and try again.',
+  };
 }
 
 function getStripePeriodDate(unixTimestamp: unknown, fallbackValue: Date | null = null): Date | null {
@@ -173,14 +235,30 @@ export async function bulkQuickScans(request: Request, response: Response): Prom
 
     const { quickScanQueue } = getAuditQueues();
     const results: Array<Record<string, unknown>> = [];
+    const normalizedEmail = String(email).trim().toLowerCase();
 
     for (const rawUrl of urls) {
       try {
+        const reachableUrl = await resolveBulkQuickScanUrl(String(rawUrl));
+        if (!reachableUrl.finalUrl) {
+          results.push({
+            url: rawUrl,
+            success: false,
+            error: reachableUrl.error || 'URL not reachable. Please check the domain and try again.',
+            checkStatus: reachableUrl.checkStatus,
+            finalState: reachableUrl.finalState,
+            health: reachableUrl.health,
+            reason: reachableUrl.reason,
+          });
+          continue;
+        }
+
         const quickScanRecord = await QuickScan.create({
-          url: String(rawUrl).trim(),
-          email: String(email).toLowerCase(),
+          url: reachableUrl.finalUrl,
+          email: normalizedEmail,
           firstName: firstName || '',
           lastName: lastName || '',
+          device: 'desktop',
           status: 'queued',
           emailStatus: 'pending',
           scanDate: new Date(),
@@ -188,8 +266,8 @@ export async function bulkQuickScans(request: Request, response: Response): Prom
 
         const taskId = createTaskId();
         await quickScanQueue.addJob({
-          email,
-          url: String(rawUrl).trim(),
+          email: normalizedEmail,
+          url: reachableUrl.finalUrl,
           firstName: firstName || '',
           lastName: lastName || '',
           userId: null,
@@ -198,9 +276,20 @@ export async function bulkQuickScans(request: Request, response: Response): Prom
           subscriptionId: null,
           priority: 2,
           quickScanId: quickScanRecord._id,
+          selectedDevice: 'desktop',
         });
 
-        results.push({ url: rawUrl, success: true, taskId, quickScanId: quickScanRecord._id });
+        results.push({
+          url: rawUrl,
+          normalizedUrl: reachableUrl.normalizedUrl,
+          finalUrl: reachableUrl.finalUrl,
+          success: true,
+          taskId,
+          quickScanId: quickScanRecord._id,
+          checkStatus: reachableUrl.checkStatus,
+          finalState: reachableUrl.finalState,
+          health: reachableUrl.health,
+        });
       } catch (error) {
         console.error(`Failed to queue quick scan for ${rawUrl}:`, error);
         results.push({
