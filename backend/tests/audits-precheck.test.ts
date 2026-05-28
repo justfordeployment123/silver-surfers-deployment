@@ -138,7 +138,29 @@ test('precheckCandidateUrl falls back to GET when HEAD returns 400', async () =>
   assert.equal(calls[1].method, 'GET');
 });
 
-test('precheckCandidateUrl classifies 502 Bad Gateway as a failure', async () => {
+test('precheckCandidateUrl falls back to GET when HEAD returns 404', async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method });
+    return new Response('', {
+      status: init?.method === 'HEAD' ? 404 : 200,
+    });
+  };
+
+  const result = await precheckCandidateUrl('https://www.delwebb.com/homes/arizona/phoenix', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.status, 200);
+    assert.equal(result.checkStatus, 'HEALTHY');
+  }
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].method, 'HEAD');
+  assert.equal(calls[1].method, 'GET');
+});
+
+test('precheckCandidateUrl treats 502 Bad Gateway as reachable but inconclusive', async () => {
   const fetchImpl: typeof fetch = async (_input, init) => {
     // HEAD → 502 triggers GET retry; GET also 502
     return new Response('', { status: init?.method === 'POST' ? 503 : 502 });
@@ -146,9 +168,15 @@ test('precheckCandidateUrl classifies 502 Bad Gateway as a failure', async () =>
 
   const result = await precheckCandidateUrl('https://example.com', fetchImpl);
 
-  assert.equal(result.ok, false);
-  assert.ok((result as { error: string }).error.includes('502'));
-  assert.equal((result as { checkStatus: string }).checkStatus, 'SERVER_ERROR');
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, false);
+    assert.equal(result.status, 502);
+    assert.equal(result.finalState, 'PARTIAL');
+    assert.equal(result.checkStatus, 'SERVER_ERROR');
+    assert.equal(result.health, 'HTTP_ERROR');
+    assert.match(result.reason || '', /HTTP 502/);
+  }
 });
 
 test('precheckCandidateUrl falls back to TCP reachability when HTTP check fails', async () => {
@@ -176,6 +204,25 @@ test('precheckCandidateUrl falls back to TCP reachability when HTTP check fails'
   });
   assert.equal(calls[0].method, 'HEAD');
   assert.equal(calls.length, 1);
+});
+
+test('precheckCandidateUrl does not enqueue TCP-only exact page URLs without scanner confirmation', async () => {
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    if (init?.method === 'HEAD' || init?.method === 'GET') {
+      throw Object.assign(new Error('fetch failed'), { code: 'ECONNRESET' });
+    }
+
+    throw new Error('unexpected call');
+  };
+
+  const result = await precheckCandidateUrl('https://example.com/missing?utm_source=test', fetchImpl, {
+    tcpProbe: async () => true,
+    scannerFallback: false,
+  });
+
+  assert.equal(result.ok, false);
+  assert.equal((result as { checkStatus: string }).checkStatus, 'NOT_REACHABLE');
+  assert.match((result as { error: string }).error, /No usable HTTP response/);
 });
 
 test('precheckCandidateUrl returns failure when both HTTP and TCP checks fail', async () => {
@@ -224,6 +271,36 @@ test('precheckCandidateUrl rejects 404 pages as not auditable', async () => {
 
   assert.equal(result.ok, false);
   assert.equal((result as { checkStatus: string }).checkStatus, 'NOT_FOUND');
+});
+
+test('precheckCandidateUrl lets scanner browser fallback rescue a false 404', async () => {
+  const calls: Array<{ url: string; method?: string }> = [];
+
+  const fetchImpl: typeof fetch = async (input, init) => {
+    calls.push({ url: String(input), method: init?.method });
+    if (init?.method === 'POST') {
+      return Response.json({
+        success: true,
+        finalUrl: 'https://www.example.com/protected-page',
+        status: 200,
+        redirected: false,
+      });
+    }
+
+    return new Response('', { status: 404 });
+  };
+
+  const result = await precheckCandidateUrl('https://www.example.com/protected-page', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.finalUrl, 'https://www.example.com/protected-page');
+    assert.equal(result.status, 200);
+    assert.equal(result.checkStatus, 'HEALTHY');
+    assert.equal(result.reason, 'Website was verified by scanner browser precheck.');
+  }
+  assert.deepEqual(calls.map((call) => call.method), ['HEAD', 'GET', 'POST']);
 });
 
 test('precheckCandidateUrl allows 503 only when bot-protection signals are present', async () => {

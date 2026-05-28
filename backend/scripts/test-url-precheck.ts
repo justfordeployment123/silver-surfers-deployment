@@ -82,6 +82,7 @@ async function runPrecheck(rawUrl: string): Promise<void> {
 
   const outcomes: CandidateOutcome[] = [];
   let selected: CandidateOutcome | undefined;
+  let partial: CandidateOutcome | undefined;
 
   for (const candidateUrl of candidateUrls) {
     const outcome = await checkCandidate(candidateUrl);
@@ -91,7 +92,7 @@ async function runPrecheck(rawUrl: string): Promise<void> {
       break;
     }
     if (outcome.ok && !outcome.accessible) {
-      break;
+      partial ??= outcome;
     }
   }
 
@@ -112,7 +113,6 @@ async function runPrecheck(rawUrl: string): Promise<void> {
   });
 
   console.log('');
-  const partial = outcomes.find((outcome) => outcome.ok && !outcome.accessible);
   if (selected) {
     console.log('Final      : PASS');
     console.log(`Normalized : ${selected.candidateUrl}`);
@@ -120,12 +120,13 @@ async function runPrecheck(rawUrl: string): Promise<void> {
     console.log(`Status     : ${selected.status ?? 'unknown'}`);
     console.log(`Redirected : ${Boolean(selected.redirected)}`);
   } else if (partial) {
-    console.log('Final      : PARTIAL');
+    console.log('Final      : PARTIAL (enqueueable)');
     console.log(`Normalized : ${partial.candidateUrl}`);
     console.log(`Final URL  : ${partial.finalUrl}`);
     console.log(`Check      : ${partial.checkStatus ?? 'unknown'}`);
     console.log(`Health     : ${partial.health ?? 'unknown'}`);
     if (partial.reason) console.log(`Reason     : ${partial.reason}`);
+    console.log('Note       : Production will enqueue this because the host is reachable.');
   } else {
     console.log('Final      : FAIL');
     console.log('Reason     : URL not reachable. Please check the domain and try again.');

@@ -18,7 +18,7 @@ export interface PrecheckSuccessResult {
   finalUrl: string;
   redirected: boolean;
   finalState?: 'PASS' | 'PROTECTED' | 'PARTIAL';
-  checkStatus?: 'HEALTHY' | 'PROTECTED' | 'TCP_REACHABLE' | 'SSL_ERROR';
+  checkStatus?: 'HEALTHY' | 'PROTECTED' | 'TCP_REACHABLE' | 'SSL_ERROR' | 'SERVER_ERROR' | 'UNKNOWN_HTTP_RESPONSE';
   health?: 'OK' | 'PROTECTED' | 'SSL_ERROR' | 'HTTP_ERROR';
   reason?: string;
 }
@@ -158,6 +158,15 @@ function hasSameRedirectHostname(inputUrl: string, finalUrl: string): boolean {
   }
 }
 
+function isRootCandidateUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.pathname === '/' && !parsed.search && !parsed.hash;
+  } catch {
+    return false;
+  }
+}
+
 async function readResponsePreview(response: Response): Promise<string> {
   try {
     return (await response.clone().text()).slice(0, 20_000).toLowerCase();
@@ -246,16 +255,24 @@ async function classifyHttpResponse(response: Response, url: string): Promise<Pr
 
   if (response.status >= 500) {
     return {
-      ok: false,
-      error: `Server error (${response.status}). The website is reachable but currently unhealthy.`,
+      ok: true,
+      accessible: false,
+      ...base,
+      finalState: 'PARTIAL',
       checkStatus: 'SERVER_ERROR',
+      health: 'HTTP_ERROR',
+      reason: `Server returned HTTP ${response.status}. The scanner will still try to process the website.`,
     };
   }
 
   return {
-    ok: false,
-    error: `Received HTTP ${response.status}. The website did not return an auditable page.`,
+    ok: true,
+    accessible: false,
+    ...base,
+    finalState: 'PARTIAL',
     checkStatus: 'UNKNOWN_HTTP_RESPONSE',
+    health: 'HTTP_ERROR',
+    reason: `Received HTTP ${response.status}. The scanner will still try to process the website.`,
   };
 }
 
@@ -329,7 +346,7 @@ async function runHttpPrecheck(
       headers: buildBrowserLikeHeaders(),
     });
 
-    if (response.status === 400 || response.status === 405 || response.status >= 500) {
+    if (response.status === 400 || response.status === 404 || response.status === 405 || response.status >= 500) {
       response = await fetchImpl(url, {
         method: 'GET',
         redirect: 'follow',
@@ -355,7 +372,7 @@ function shouldTryScannerFallback(result: PrecheckResult): boolean {
     return !result.accessible;
   }
 
-  return result.checkStatus !== 'NOT_FOUND' && result.checkStatus !== 'REDIRECTED_DOMAIN_MISMATCH';
+  return result.checkStatus !== 'REDIRECTED_DOMAIN_MISMATCH';
 }
 
 function classifyPartialHealth(error: string): { checkStatus: 'SSL_ERROR' | 'TCP_REACHABLE'; health: 'SSL_ERROR' | 'HTTP_ERROR'; reason: string } {
@@ -483,6 +500,14 @@ export async function precheckCandidateUrl(
       if (scannerResult?.ok) {
         return scannerResult;
       }
+    }
+
+    if (!isRootCandidateUrl(url)) {
+      return {
+        ok: false,
+        error: 'No usable HTTP response was received for this page. Please check the URL or try the website homepage.',
+        checkStatus: 'NOT_REACHABLE',
+      };
     }
 
     const partial = classifyPartialHealth(httpResult.error);

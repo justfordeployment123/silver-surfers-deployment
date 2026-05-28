@@ -180,6 +180,18 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
     };
   }
 
+  let fallbackReachableUrl: {
+    input: string;
+    normalizedUrl?: string;
+    finalUrl?: string;
+    status?: number;
+    redirected?: boolean;
+    checkStatus?: string;
+    finalState?: string;
+    health?: string;
+    reason?: string;
+  } | undefined;
+
   for (const candidateUrl of candidateUrls) {
     const result = await precheckCandidateUrl(candidateUrl);
     if (result.ok && result.accessible) {
@@ -196,15 +208,31 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
       };
     }
     if (result.ok && !result.accessible) {
-      return {
+      fallbackReachableUrl ??= {
         input,
-        error: result.reason || 'Website host is reachable, but the page is not accessible enough to audit.',
+        normalizedUrl: candidateUrl,
+        finalUrl: result.finalUrl,
+        status: result.status,
+        redirected: result.redirected,
         checkStatus: result.checkStatus,
         finalState: result.finalState,
         health: result.health,
         reason: result.reason,
       };
     }
+  }
+
+  if (fallbackReachableUrl?.finalUrl) {
+    auditsLogger.warn('URL precheck was inconclusive; enqueueing because host is reachable.', {
+      input,
+      normalizedUrl: fallbackReachableUrl.normalizedUrl,
+      finalUrl: fallbackReachableUrl.finalUrl,
+      checkStatus: fallbackReachableUrl.checkStatus,
+      finalState: fallbackReachableUrl.finalState,
+      health: fallbackReachableUrl.health,
+      reason: fallbackReachableUrl.reason,
+    });
+    return fallbackReachableUrl;
   }
 
   return {
