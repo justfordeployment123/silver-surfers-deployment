@@ -80,6 +80,7 @@ test('buildAuditReportEmailBody formats quick scan cloud links with score and ex
         {
           filename: 'reports-lite/example.pdf',
           downloadUrl: 'https://downloads.example.com/example.pdf',
+          providerUrl: 'https://downloads.example.com/example.pdf',
         },
       ],
       storage: {
@@ -92,7 +93,40 @@ test('buildAuditReportEmailBody formats quick scan cloud links with score and ex
     assert.match(body, /Base quick scan text\./);
     assert.match(body, /Website Results for: example\.pdf \(82%\)/);
     assert.match(body, /https:\/\/downloads\.example\.com\/example\.pdf/);
-    assert.match(body, /Download links expire in/);
+    assert.match(body, /Links expire in/);
+  } finally {
+    if (previousUrlMode === undefined) {
+      delete process.env.AWS_S3_URL_MODE;
+    } else {
+      process.env.AWS_S3_URL_MODE = previousUrlMode;
+    }
+  }
+});
+
+test('buildAuditReportEmailBody can use backend token links instead of expiring signed URLs', () => {
+  const previousUrlMode = process.env.AWS_S3_URL_MODE;
+  process.env.AWS_S3_URL_MODE = 'signed';
+
+  try {
+    const body = buildAuditReportEmailBody({
+      baseText: 'Base quick scan text.',
+      uploadedFiles: [
+        {
+          filename: 'reports-lite/example.pdf',
+          downloadUrl: 'https://api.silversurfers.ai/report-download/token123',
+          providerUrl: 'https://downloads.example.com/example.pdf',
+        },
+      ],
+      storage: {
+        provider: 's3',
+      },
+      isQuickScan: true,
+      quickScanScore: 82,
+    });
+
+    assert.match(body, /https:\/\/api\.silversurfers\.ai\/report-download\/token123/);
+    assert.doesNotMatch(body, /https:\/\/downloads\.example\.com\/example\.pdf/);
+    assert.doesNotMatch(body, /Links expire in/);
   } finally {
     if (previousUrlMode === undefined) {
       delete process.env.AWS_S3_URL_MODE;
@@ -113,6 +147,6 @@ test('buildAuditReportEmailBody appends storage errors for partial upload failur
   });
 
   assert.match(body, /Full audit results\./);
-  assert.match(body, /SOME FILES COULD NOT BE UPLOADED/);
+  assert.match(body, /Some files could not be uploaded/);
   assert.match(body, /combined-desktop-report\.pdf: upload failed/);
 });

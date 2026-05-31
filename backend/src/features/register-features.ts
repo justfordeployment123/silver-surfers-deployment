@@ -11,6 +11,7 @@ import contentRouter from './content/content.routes.ts';
 import healthRouter from './health/health.routes.ts';
 import legalRouter from './legal/legal.routes.ts';
 import recordsRouter from './records/records.routes.ts';
+import reportDownloadRouter from './report-download/report-download.routes.ts';
 
 export async function registerFeatures(app: Express): Promise<void> {
   app.use(healthRouter);
@@ -24,4 +25,5 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', contentRouter);
   app.use('/', legalRouter);
   app.use('/', recordsRouter);
+  app.use('/', reportDownloadRouter);
 }

@@ -120,6 +120,7 @@ quickScanSchema.index({ email: 1, scanDate: -1 });
 quickScanSchema.index({ url: 1 });
 quickScanSchema.index({ scanDate: -1 });
 quickScanSchema.index({ scannerJobId: 1 }, { sparse: true });
+quickScanSchema.index({ 'reportStorage.objects.downloadTokenHash': 1 }, { sparse: true });
 
 const QuickScan = (mongoose.models.QuickScan as mongoose.Model<unknown> | undefined)
   || mongoose.model('QuickScan', quickScanSchema);

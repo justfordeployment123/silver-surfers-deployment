@@ -7,6 +7,9 @@ export interface QueueStoredObject {
   sizeMB?: string;
   fileId?: string;
   providerUrl?: string;
+  downloadUrl?: string;
+  downloadTokenHash?: string;
+  downloadTokenExpiresAt?: Date;
 }
 
 export interface QueueReportStorage {

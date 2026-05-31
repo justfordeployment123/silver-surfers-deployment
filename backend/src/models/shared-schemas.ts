@@ -67,6 +67,9 @@ export const storedObjectSchema = new mongoose.Schema({
   sizeMB: { type: String },
   fileId: { type: String },
   providerUrl: { type: String },
+  downloadUrl: { type: String },
+  downloadTokenHash: { type: String },
+  downloadTokenExpiresAt: { type: Date },
 }, { _id: false });
 
 export const reportFileSchema = new mongoose.Schema({

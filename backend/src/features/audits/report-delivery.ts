@@ -3,10 +3,10 @@ import type { Dirent } from "node:fs";
 import path from "node:path";
 import nodemailer from "nodemailer";
 
-import "../../config/env.ts";
 import { logger } from "../../config/logger.ts";
 import type { QueueReportStorage, QueueStoredObject } from "../../infrastructure/queues/job-queue.ts";
 import { buildS3Uri, isS3Configured, uploadFilesToS3 } from "../storage/report-storage.ts";
+import { attachDownloadTokensToReportStorage, type QueueStoredObjectWithToken } from "./report-download-tokens.ts";
 
 const reportDeliveryLogger = logger.child("feature:audits:report-delivery");
 let cachedTransporter: nodemailer.Transporter | null = null;
@@ -265,31 +265,38 @@ async function uploadFilesToConfiguredStorage(
         kind: options.kind,
     });
 
+    const storageWithTokens = attachDownloadTokensToReportStorage({
+        provider: result.provider,
+        bucket: result.bucket,
+        region: result.region,
+        prefix: result.prefix,
+        objectCount: result.objectCount,
+        signedUrlExpiresInSeconds: result.signedUrlExpiresInSeconds,
+        objects: result.uploadedFiles.map(
+            (file): QueueStoredObject => ({
+                filename: file.filename,
+                size: file.size,
+                sizeMB: file.sizeMB,
+                key: file.key,
+                providerUrl: file.downloadUrl,
+            }),
+        ),
+    });
+    const objectsByKey = new Map(
+        ((storageWithTokens.objects || []) as QueueStoredObjectWithToken[])
+            .filter((object) => object.key)
+            .map((object) => [object.key as string, object]),
+    );
+
     return {
         providerLabel: "AWS S3",
-        linksExpire: result.urlMode === "signed",
-        storage: {
-            provider: result.provider,
-            bucket: result.bucket,
-            region: result.region,
-            prefix: result.prefix,
-            objectCount: result.objectCount,
-            signedUrlExpiresInSeconds: result.signedUrlExpiresInSeconds,
-            objects: result.uploadedFiles.map(
-                (file): QueueStoredObject => ({
-                    filename: file.filename,
-                    size: file.size,
-                    sizeMB: file.sizeMB,
-                    key: file.key,
-                    providerUrl: file.downloadUrl,
-                }),
-            ),
-        },
+        linksExpire: false,
+        storage: storageWithTokens,
         uploadedFiles: result.uploadedFiles.map((file) => ({
             filename: file.filename,
             size: file.size,
             sizeMB: file.sizeMB,
-            downloadUrl: file.downloadUrl,
+            downloadUrl: objectsByKey.get(file.key)?.downloadUrl || file.downloadUrl,
             providerUrl: file.providerUrl,
             key: file.key,
         })),
@@ -389,7 +396,8 @@ export function buildAuditReportEmailBody(options: {
 }): string {
     const hasFiles = options.uploadedFiles.length > 0;
     const hasErrors = options.storageErrors && options.storageErrors.length > 0;
-    const usesSignedUrls = options.storage?.provider === "s3" && usesSignedS3Urls();
+    const usesSignedUrls = options.storage?.provider === "s3" && usesSignedS3Urls()
+        && options.uploadedFiles.some((file) => file.downloadUrl === file.providerUrl);
 
     const styles = {
         body: `
@@ -582,11 +590,11 @@ export function buildAuditReportEmailBody(options: {
                         <span style="${styles.fileIcon}">${fileIcon}</span>
                         <div style="flex:1; min-width:0;">
                             <p style="${styles.fileName}">${displayName}</p>
-                            <a href="${file.downloadUrl}" 
+                            <a href="${file.downloadUrl}"
                                style="${styles.downloadButton}" 
                                target="_blank" 
                                rel="noopener noreferrer">
-                                ↓ Download File
+                                Download File
                             </a>
                         </div>
                     </div>
@@ -838,11 +846,13 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
         return { success: false, error: reason };
     }
 
-    const uploadedFiles: UploadedReportFile[] = (options.storage.objects || []).map((object) => ({
+    const storageWithTokens = attachDownloadTokensToReportStorage(options.storage);
+
+    const uploadedFiles: UploadedReportFile[] = (storageWithTokens.objects || []).map((object) => ({
         filename: object.filename,
         size: object.size,
         sizeMB: object.sizeMB,
-        downloadUrl: object.providerUrl || "",
+        downloadUrl: object.downloadUrl || object.providerUrl || "",
         providerUrl: object.providerUrl,
         key: object.key,
     })).filter((file) => Boolean(file.filename && file.downloadUrl));
@@ -853,9 +863,9 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
         subject: options.subject,
         fileCount: uploadedFiles.length,
         totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
-        provider: options.storage.provider,
-        bucket: options.storage.bucket,
-        prefix: options.storage.prefix,
+        provider: storageWithTokens.provider,
+        bucket: storageWithTokens.bucket,
+        prefix: storageWithTokens.prefix,
     });
 
     if (uploadedFiles.length === 0) {
@@ -864,14 +874,14 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
             error: "No stored report links were available to send.",
             totalFiles: 0,
             totalSizeMB: "0.00",
-            storage: options.storage,
+            storage: storageWithTokens,
         };
     }
 
     const emailBody = buildAuditReportEmailBody({
         baseText: options.text,
         uploadedFiles,
-        storage: options.storage,
+        storage: storageWithTokens,
         isQuickScan: options.isQuickScan,
         quickScanScore: options.quickScanScore,
     });
@@ -898,7 +908,7 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
             totalFiles: uploadedFiles.length,
             totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
             uploadedFiles: uploadedFiles.map((file) => file.filename),
-            storage: options.storage,
+            storage: storageWithTokens,
             accepted: normalizeAddressList(info.accepted),
             rejected: normalizeAddressList(info.rejected),
             response: info.response,
@@ -910,7 +920,7 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
             subject: options.subject,
             error: getErrorMessage(error),
         });
-        return { success: false, error: getErrorMessage(error), storage: options.storage };
+        return { success: false, error: getErrorMessage(error), storage: storageWithTokens };
     }
 }
 

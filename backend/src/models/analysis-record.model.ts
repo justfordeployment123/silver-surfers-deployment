@@ -56,6 +56,7 @@ const analysisRecordSchema = new mongoose.Schema({
 
 analysisRecordSchema.index({ email: 1, createdAt: -1 });
 analysisRecordSchema.index({ user: 1, createdAt: -1 });
+analysisRecordSchema.index({ 'reportStorage.objects.downloadTokenHash': 1 }, { sparse: true });
 
 analysisRecordSchema.pre('save', function (next: (error?: Error) => void) {
   (this as { updatedAt?: Date }).updatedAt = new Date();
