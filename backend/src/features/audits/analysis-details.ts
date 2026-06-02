@@ -554,6 +554,19 @@ function normalizeAiReport(report: AuditAiReport | undefined): AuditAiReport | u
         topRecommendations: Array.isArray(report.topRecommendations)
             ? report.topRecommendations.map((item) => String(item || "").trim()).filter(Boolean)
             : [],
+        perFindingGuidance: Array.isArray(report.perFindingGuidance)
+            ? report.perFindingGuidance
+                  .map((item) => ({
+                      auditId: String(item?.auditId || "").trim(),
+                      title: String(item?.title || "").trim(),
+                      explanation: String(item?.explanation || "").trim(),
+                      remediation: String(item?.remediation || "").trim(),
+                      wcagCriteria: Array.isArray(item?.wcagCriteria)
+                          ? item.wcagCriteria.map((criterion) => String(criterion || "").trim()).filter(Boolean)
+                          : [],
+                  }))
+                  .filter((item) => item.auditId && item.title && item.explanation && item.remediation)
+            : [],
     };
 }
 
@@ -729,7 +742,7 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
 
             return left.currentScore - right.currentScore;
         })
-        .slice(0, 8);
+        .slice(0, 20);
 }
 
 export function buildRemediationBuckets(items: AnalysisRemediationItem[]): AnalysisRemediationBucket[] {

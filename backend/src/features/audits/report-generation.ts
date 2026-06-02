@@ -287,6 +287,19 @@ export async function generateAuditAiSummaryPdf(
     const normalizedRecommendations = Array.isArray(aiReport?.topRecommendations)
       ? aiReport.topRecommendations.map((item) => String(item || '').trim()).filter(Boolean)
       : [];
+    const normalizedFindingGuidance = Array.isArray(aiReport?.perFindingGuidance)
+      ? aiReport.perFindingGuidance
+        .map((item) => ({
+          auditId: String(item?.auditId || '').trim(),
+          title: String(item?.title || '').trim(),
+          explanation: String(item?.explanation || '').trim(),
+          remediation: String(item?.remediation || '').trim(),
+          wcagCriteria: Array.isArray(item?.wcagCriteria)
+            ? item.wcagCriteria.map((criterion) => String(criterion || '').trim()).filter(Boolean)
+            : [],
+        }))
+        .filter((item) => item.auditId && item.title && item.explanation && item.remediation)
+      : [];
     const normalizedDimensions = Array.isArray(options.scorecard?.dimensions)
       ? options.scorecard.dimensions
         .map((dimension) => ({
@@ -485,6 +498,20 @@ export async function generateAuditAiSummaryPdf(
       null,
       normalizedRecommendations.map((rec, i) => `${i + 1}. ${rec}`),
     );
+
+    renderSectionCard(
+      'Finding-Specific AI Guidance',
+      '#14B8A6',
+      null,
+      normalizedFindingGuidance.slice(0, 20).flatMap((item, index) => {
+        const wcag = item.wcagCriteria.length ? ` WCAG: ${item.wcagCriteria.join(', ')}.` : '';
+        return [
+          `${index + 1}. ${item.title}.${wcag} ${item.explanation}`,
+          `Fix: ${item.remediation}`,
+        ];
+      }),
+    );
+
     renderSectionCard('Stakeholder Note', sectionPalette.stakeholder, normalizedStakeholderNote, null);
 
     doc.end();
@@ -862,7 +889,7 @@ export async function generateCombinedPlatformReport(options: {
     ? reports.reduce((sum, report) => sum + (report.score || 0), 0) / reports.length
     : 0;
   doc.fontSize(16).font('BoldFont').fillColor('#3498DB')
-    .text(`Average Score: ${avgScore.toFixed(1)}%`, margin, currentY, { width: pageWidth, align: 'center' });
+    .text(`Average Score: ${Math.round(avgScore)}%`, margin, currentY, { width: pageWidth, align: 'center' });
   currentY += 40;
 
   doc.fontSize(11).font('RegularFont').fillColor('#95A5A6')

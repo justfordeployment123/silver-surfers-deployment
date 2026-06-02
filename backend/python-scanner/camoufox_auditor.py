@@ -10,6 +10,46 @@ from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score
 from scanner_utils import safe_text
 
 
+def navigate_for_audit(page, url: str) -> None:
+    """
+    Prefer a complete page load, but do not fail a scan just because a site keeps
+    late scripts, ads, or analytics requests open. Accessibility checks can run
+    once the DOM is available.
+    """
+    try:
+        page.goto(url, wait_until="load", timeout=120000)
+        return
+    except Exception as first_error:
+        first_message = safe_text(str(first_error)).lower()
+        recoverable = (
+            "timeout" in first_message
+            or "ns_error_net_reset" in first_message
+            or "econnreset" in first_message
+            or "connection reset" in first_message
+        )
+        if not recoverable:
+            raise
+
+        try:
+            page.wait_for_load_state("domcontentloaded", timeout=10000)
+            return
+        except Exception:
+            pass
+
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
+            return
+        except Exception as second_error:
+            second_message = safe_text(str(second_error)).lower()
+            if "timeout" in second_message:
+                try:
+                    if safe_text(page.content()):
+                        return
+                except Exception:
+                    pass
+            raise first_error
+
+
 def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bool) -> Dict[str, Any]:
     """
     Synchronous wrapper for Camoufox audit.
@@ -135,9 +175,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
         """)
         
         try:
-            # Navigate to the URL (sync) - use "load" instead of "networkidle" for better reliability
-            # "networkidle" can timeout on sites with continuous network activity
-            page.goto(url, wait_until="load", timeout=120000)  # 2 minutes timeout
+            navigate_for_audit(page, url)
             
             # Wait a bit for dynamic content (sync)
             page.wait_for_timeout(2000)

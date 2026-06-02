@@ -1,9 +1,9 @@
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
 import { env } from '../src/config/env.ts';
 import { resolveBackendPath } from '../src/config/paths.ts';
-import { requestScannerAudit } from '../src/features/scanner/scanner-client.ts';
 import { buildAuditScorecard } from '../src/features/audits/audit-scorecard.ts';
 import {
   calculateSeniorFriendlinessScore,
@@ -24,6 +24,7 @@ interface CliOptions {
   device: FullAuditDevice;
   pages: string[];
   outDir: string;
+  scannerUrl: string;
 }
 
 interface GeneratedFile {
@@ -97,6 +98,7 @@ function buildOptions(): CliOptions {
     device: parseDevice(getArg('device')),
     pages: parsePages(getArg('pages'), url),
     outDir: path.resolve(getArg('out') || defaultOutDir),
+    scannerUrl: (getArg('scanner-url') || env.scannerServiceUrl).replace(/\/+$/, ''),
   };
 }
 
@@ -108,29 +110,67 @@ async function copyJsonReport(sourcePath: string, targetPath: string): Promise<R
   return JSON.parse(raw) as Record<string, unknown>;
 }
 
-async function assertScannerReachable(): Promise<void> {
-  const response = await fetch(`${env.scannerServiceUrl}/healthz`).catch((error) => {
-    throw new Error(`Scanner is not reachable at ${env.scannerServiceUrl}: ${error instanceof Error ? error.message : String(error)}`);
+async function assertScannerReachable(scannerUrl: string): Promise<void> {
+  const response = await fetch(`${scannerUrl}/healthz`).catch((error) => {
+    throw new Error(`Scanner is not reachable at ${scannerUrl}: ${error instanceof Error ? error.message : String(error)}`);
   });
 
   if (!response.ok) {
-    throw new Error(`Scanner health check failed at ${env.scannerServiceUrl}/healthz with HTTP ${response.status}`);
+    throw new Error(`Scanner health check failed at ${scannerUrl}/healthz with HTTP ${response.status}`);
   }
+}
+
+async function requestLocalScannerAudit(options: {
+  scannerUrl: string;
+  url: string;
+  device: FullAuditDevice;
+  isLiteVersion: boolean;
+}): Promise<{ reportPath: string; report?: Record<string, unknown> }> {
+  const response = await fetch(`${options.scannerUrl}/audit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: options.url,
+      device: options.device,
+      format: 'json',
+      isLiteVersion: options.isLiteVersion,
+      includeReport: true,
+    }),
+    signal: AbortSignal.timeout(options.isLiteVersion ? env.scannerLiteAuditTimeoutMs : env.scannerFullAuditTimeoutMs),
+  });
+  const payload = await response.json().catch(() => undefined) as {
+    success?: boolean;
+    reportPath?: string;
+    report?: Record<string, unknown>;
+    error?: string;
+    errorCode?: string;
+  } | undefined;
+
+  if (!response.ok || !payload?.success) {
+    throw new Error(`Scanner HTTP audit failed: ${payload?.errorCode || response.status} ${payload?.error || response.statusText}`);
+  }
+
+  if (payload.reportPath && await fs.access(payload.reportPath).then(() => true).catch(() => false)) {
+    return { reportPath: payload.reportPath, report: payload.report };
+  }
+
+  if (!payload.report) {
+    throw new Error('Scanner HTTP audit did not return reportPath or inline report JSON.');
+  }
+
+  const tempPath = path.join(os.tmpdir(), `local-scanner-report-${Date.now()}.json`);
+  await fs.writeFile(tempPath, JSON.stringify(payload.report, null, 2), 'utf8');
+  return { reportPath: tempPath, report: payload.report };
 }
 
 async function generateQuickReport(options: CliOptions): Promise<GeneratedFile[]> {
   console.log(`Running quick scan for ${options.url} (${options.device})`);
-  const result = await requestScannerAudit({
+  const result = await requestLocalScannerAudit({
+    scannerUrl: options.scannerUrl,
     url: options.url,
     device: options.device,
-    format: 'json',
     isLiteVersion: true,
-    includeReport: true,
   });
-
-  if (!result.success) {
-    throw new Error(`Quick scan failed: ${result.errorCode} ${result.error}`);
-  }
 
   const quickDir = path.join(options.outDir, 'quick-scan');
   const jsonPath = path.join(quickDir, `quick-${options.device}.json`);
@@ -159,17 +199,12 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
 
   for (const [index, pageUrl] of options.pages.entries()) {
     console.log(`Full audit page ${index + 1}/${options.pages.length}: ${pageUrl}`);
-    const result = await requestScannerAudit({
+    const result = await requestLocalScannerAudit({
+      scannerUrl: options.scannerUrl,
       url: pageUrl,
       device: options.device,
-      format: 'json',
       isLiteVersion: false,
-      includeReport: true,
     });
-
-    if (!result.success) {
-      throw new Error(`Full audit failed for ${pageUrl}: ${result.errorCode} ${result.error}`);
-    }
 
     const pageDir = path.join(fullDir, `page-${index + 1}-${sanitizePathSegment(pageUrl)}`);
     const jsonPath = path.join(pageDir, `full-${options.device}.json`);
@@ -231,7 +266,7 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
 async function main(): Promise<void> {
   const options = buildOptions();
   await fs.mkdir(options.outDir, { recursive: true });
-  await assertScannerReachable();
+  await assertScannerReachable(options.scannerUrl);
 
   const generatedFiles: GeneratedFile[] = [];
   if (options.mode === 'quick' || options.mode === 'both') {
@@ -245,7 +280,7 @@ async function main(): Promise<void> {
   const manifestPath = path.join(options.outDir, 'manifest.json');
   await fs.writeFile(manifestPath, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    scannerServiceUrl: env.scannerServiceUrl,
+    scannerServiceUrl: options.scannerUrl,
     url: options.url,
     pages: options.pages,
     mode: options.mode,

@@ -289,6 +289,12 @@ def _is_retryable_processing_error(error: Exception) -> bool:
         "temporarily unavailable",
         "service unavailable",
     )
+    non_retryable_navigation_fragments = (
+        "page.goto: timeout",
+        "ns_error_net_reset",
+    )
+    if any(fragment in message for fragment in non_retryable_navigation_fragments):
+        return False
     return any(fragment in message for fragment in retryable_fragments)
 
 
@@ -822,11 +828,16 @@ class ScannerSqsWorker:
             target_results.append(self._process_full_audit_batch_target(scanner_job_id, queue_kind, target, index))
 
         successful_count = sum(1 for target in target_results if target.get("success"))
+        orchestration_url = ""
+        if isinstance(payload.get("orchestration"), dict):
+            orchestration_url = safe_text(payload.get("orchestration", {}).get("url") or "")
+
         aggregate_report = {
             "schemaVersion": 1,
             "jobType": "fullAuditBatch",
             "scannerJobId": scanner_job_id,
             "queueKind": queue_kind,
+            "url": safe_text(payload.get("url") or orchestration_url),
             "targetCount": len(target_results),
             "successfulTargetCount": successful_count,
             "failedTargetCount": len(target_results) - successful_count,
@@ -842,8 +853,11 @@ class ScannerSqsWorker:
             ContentType="application/json",
         )
         report_storage = None
+        ai_report = None
         if self.generate_full_audit_reports:
-            report_storage = self._generate_and_upload_full_audit_reports(scanner_job_id, payload, aggregate_report)
+            generated_report_package = self._generate_and_upload_full_audit_reports(scanner_job_id, payload, aggregate_report)
+            report_storage = generated_report_package.get("reportStorage")
+            ai_report = generated_report_package.get("aiReport")
 
         logger.info(
             "Scanner SQS full-audit batch completed.",
@@ -875,6 +889,8 @@ class ScannerSqsWorker:
         if report_storage:
             result["reportStorage"] = report_storage
             result["reportsGeneratedInWorker"] = True
+        if ai_report:
+            result["aiReport"] = ai_report
         return result
 
     def _build_orchestrated_full_audit_targets(
@@ -1135,6 +1151,7 @@ class ScannerSqsWorker:
         plan_id = safe_text(report_metadata.get("planId") or "pro")
         task_id = safe_text(report_metadata.get("taskId") or scanner_job_id)
         website_url = safe_text(report_metadata.get("url") or payload.get("url") or "full-audit")
+        full_name = safe_text(report_metadata.get("fullName") or payload.get("fullName") or "Valued Customer")
 
         with tempfile.TemporaryDirectory(prefix=f"scanner-report-{_sanitize_key_segment(scanner_job_id)}-") as temp_dir:
             temp_path = Path(temp_dir)
@@ -1158,6 +1175,8 @@ class ScannerSqsWorker:
                 email,
                 "--plan-id",
                 plan_id,
+                "--full-name",
+                full_name,
             ]
 
             logger.info(
@@ -1229,7 +1248,7 @@ class ScannerSqsWorker:
                 },
             )
 
-            return {
+            report_storage = {
                 "provider": "s3",
                 "bucket": self.bucket,
                 "region": self.region,
@@ -1237,6 +1256,10 @@ class ScannerSqsWorker:
                 "objectCount": len(uploaded_objects),
                 "signedUrlExpiresInSeconds": self.signed_url_expires_seconds,
                 "objects": uploaded_objects,
+            }
+            return {
+                "reportStorage": report_storage,
+                "aiReport": manifest.get("aiReport") if isinstance(manifest.get("aiReport"), dict) else None,
             }
 
     def _build_final_report_prefix(self, email: str, task_id: str, website_url: str) -> str:

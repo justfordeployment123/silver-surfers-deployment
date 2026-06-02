@@ -5,6 +5,7 @@ import path from 'node:path';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import type { QueueReportStorage } from '../../infrastructure/queues/job-queue.ts';
+import type { AuditAiReport } from '../audits/ai-reporting.ts';
 import ScannerResult from '../../models/scanner-result.model.ts';
 import { downloadS3Object } from '../storage/report-storage.ts';
 
@@ -54,6 +55,7 @@ export interface ScannerFullAuditBatchRequest {
     url?: string;
     planId?: string;
     selectedDevice?: string | null;
+    fullName?: string;
   };
 }
 
@@ -98,6 +100,7 @@ export interface ScannerSqsResultPayload {
   errorCode?: string;
   reportStorage?: QueueReportStorage;
   reportsGeneratedInWorker?: boolean;
+  aiReport?: AuditAiReport;
 }
 
 interface ScannerFullAuditBatchArtifactTarget {
@@ -191,6 +194,7 @@ export type ScannerFullAuditBatchResult = {
   targets: ScannerFullAuditBatchTargetResult[];
   reportStorage?: QueueReportStorage;
   reportsGeneratedInWorker?: boolean;
+  aiReport?: AuditAiReport;
 } | ScannerServiceAuditFailure;
 
 export type ScannerFullAuditBatchDispatchResult = {
@@ -549,6 +553,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
         url: request.reportGeneration.url,
         planId: request.reportGeneration.planId,
         selectedDevice: request.reportGeneration.selectedDevice,
+        fullName: request.reportGeneration.fullName,
       },
     } : {}),
     ...(request.orchestration ? {
@@ -677,6 +682,7 @@ export async function requestScannerFullAuditBatch(request: ScannerFullAuditBatc
       targets,
       ...(storedResult.payload.reportStorage ? { reportStorage: storedResult.payload.reportStorage } : {}),
       ...(storedResult.payload.reportsGeneratedInWorker ? { reportsGeneratedInWorker: true } : {}),
+      ...(storedResult.payload.aiReport ? { aiReport: storedResult.payload.aiReport } : {}),
     };
   }
 

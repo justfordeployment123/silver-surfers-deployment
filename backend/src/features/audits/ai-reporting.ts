@@ -4,6 +4,7 @@ import type { AuditScorecard } from './audit-scorecard.ts';
 import type { AnalysisRemediationItem } from './analysis-details.ts';
 
 const aiReportingLogger = logger.child('feature:audits:ai-reporting');
+const MAX_AI_FINDING_GUIDANCE = 20;
 
 export type AuditAiReportStatus = 'generated' | 'fallback';
 export type AuditAiReportProvider = 'openai' | 'local';
@@ -18,7 +19,16 @@ export interface AuditAiReport {
   businessImpact: string;
   prioritySummary: string;
   topRecommendations: string[];
+  perFindingGuidance: AuditAiFindingGuidance[];
   stakeholderNote: string;
+}
+
+export interface AuditAiFindingGuidance {
+  auditId: string;
+  title: string;
+  explanation: string;
+  remediation: string;
+  wcagCriteria?: string[];
 }
 
 export interface GenerateAuditAiReportOptions {
@@ -35,6 +45,7 @@ interface OpenAiAuditReportPayload {
   businessImpact?: string;
   prioritySummary?: string;
   topRecommendations?: unknown;
+  perFindingGuidance?: unknown;
   stakeholderNote?: string;
 }
 
@@ -75,6 +86,40 @@ function limitRecommendationList(values: unknown): string[] {
     .map((value) => String(value || '').trim())
     .filter(Boolean)
     .slice(0, 5);
+}
+
+function limitFindingGuidanceList(values: unknown, fallback: AuditAiFindingGuidance[]): AuditAiFindingGuidance[] {
+  if (!Array.isArray(values)) {
+    return fallback;
+  }
+
+  const normalized = values
+    .map((value) => {
+      const item = value as Partial<AuditAiFindingGuidance> | undefined;
+      const auditId = String(item?.auditId || '').trim();
+      const title = String(item?.title || '').trim();
+      const explanation = String(item?.explanation || '').trim();
+      const remediation = String(item?.remediation || '').trim();
+      const wcagCriteria = Array.isArray(item?.wcagCriteria)
+        ? item.wcagCriteria.map((criterion) => String(criterion || '').trim()).filter(Boolean)
+        : [];
+
+      if (!auditId || !title || !explanation || !remediation) {
+        return null;
+      }
+
+      return {
+        auditId,
+        title,
+        explanation,
+        remediation,
+        ...(wcagCriteria.length ? { wcagCriteria } : {}),
+      };
+    })
+    .filter((item): item is AuditAiFindingGuidance => Boolean(item))
+    .slice(0, MAX_AI_FINDING_GUIDANCE);
+
+  return normalized.length > 0 ? normalized : fallback;
 }
 
 function sanitizeSentence(value: unknown, fallback: string): string {
@@ -132,6 +177,13 @@ export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions
       'Prioritize issues that affect core tasks before expanding into longer-term refinements.',
       'Retest after remediation to confirm that score improvements translate into a clearer user experience for older adults.',
     ];
+  const perFindingGuidance = remediationRoadmap.slice(0, MAX_AI_FINDING_GUIDANCE).map((item) => ({
+    auditId: item.auditId,
+    title: item.title,
+    explanation: item.whyItMatters,
+    remediation: item.action,
+    ...(item.wcagCriteria?.length ? { wcagCriteria: item.wcagCriteria } : {}),
+  }));
 
   return {
     status: 'fallback',
@@ -142,6 +194,7 @@ export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions
     businessImpact,
     prioritySummary: buildPrioritySummaryText(remediationRoadmap),
     topRecommendations,
+    perFindingGuidance,
     stakeholderNote: 'This summary is intended to support prioritization and reporting. It does not by itself certify compliance, legal coverage, or accessibility conformance.',
   };
 }
@@ -182,14 +235,17 @@ function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
       })),
       wcagSummary: options.scorecard.wcagSummary,
     },
-    roadmap: options.remediationRoadmap.slice(0, 5).map((item) => ({
+    roadmap: options.remediationRoadmap.slice(0, MAX_AI_FINDING_GUIDANCE).map((item) => ({
+      auditId: item.auditId,
       title: item.title,
       bucket: item.bucketLabel,
       impact: item.impact,
       effort: item.effort,
       dimension: item.dimensionLabel,
       evaluationDimension: item.evaluationDimensionLabel,
+      wcagCriteria: item.wcagCriteria || [],
       action: item.action,
+      whyItMatters: item.whyItMatters,
     })),
   };
 
@@ -239,6 +295,7 @@ function normalizeOpenAiReport(
   fallback: AuditAiReport,
 ): AuditAiReport {
   const topRecommendations = limitRecommendationList(payload.topRecommendations);
+  const perFindingGuidance = limitFindingGuidanceList(payload.perFindingGuidance, fallback.perFindingGuidance);
 
   return {
     status: 'generated',
@@ -250,6 +307,7 @@ function normalizeOpenAiReport(
     businessImpact: sanitizeSentence(payload.businessImpact, fallback.businessImpact),
     prioritySummary: sanitizeSentence(payload.prioritySummary, fallback.prioritySummary),
     topRecommendations: topRecommendations.length > 0 ? topRecommendations : fallback.topRecommendations,
+    perFindingGuidance,
     stakeholderNote: sanitizeSentence(payload.stakeholderNote, fallback.stakeholderNote),
   };
 }
@@ -271,6 +329,7 @@ async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, f
       '  - "businessImpact": 3-4 full sentences. Connect the issues to concrete business outcomes — trust, task completion, conversion, brand perception, support load. Be specific to this site.',
       '  - "prioritySummary": 3-4 full sentences explaining HOW to sequence remediation (quick wins first, then medium, then heavy). Reference the roadmap balance.',
       '  - "topRecommendations": array of 4 to 6 strings. Each item is ONE complete actionable sentence (12-25 words) starting with a verb. Tie each recommendation to a real issue from the scan.',
+      `  - "perFindingGuidance": array of up to ${MAX_AI_FINDING_GUIDANCE} objects, one for each roadmap item. Each object must include "auditId", "title", "explanation", "remediation", and optional "wcagCriteria". Keep explanation/remediation plain-language and specific to that finding.`,
       '  - "stakeholderNote": 2-3 sentences for sharing with non-technical stakeholders, including a clear next step.',
     ].join('\n');
 
@@ -374,6 +433,17 @@ export function buildAuditAiReportMarkdown(aiReport: AuditAiReport, options: { u
     '',
     ...aiReport.topRecommendations.map((recommendation) => `- ${recommendation}`),
     '',
+    '## Per-Finding Guidance',
+    '',
+    ...(aiReport.perFindingGuidance || []).flatMap((item) => [
+      `### ${item.title}`,
+      '',
+      `- Audit ID: ${item.auditId}`,
+      ...(item.wcagCriteria?.length ? [`- WCAG: ${item.wcagCriteria.join(', ')}`] : []),
+      `- Explanation: ${item.explanation}`,
+      `- Remediation: ${item.remediation}`,
+      '',
+    ]),
     '## Stakeholder Note',
     '',
     aiReport.stakeholderNote,

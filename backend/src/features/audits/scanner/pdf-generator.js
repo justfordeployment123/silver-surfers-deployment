@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import { buildAuditScorecard } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
+import { getWcagReference } from '../wcag-mapping.ts';
 import customConfig from './custom-config.js';
 
 // Helper to get __dirname in ES Modules
@@ -718,13 +719,178 @@ addOverallScoreDisplay(scoreData) {
             return {
                 name: dimension.label,
                 score: excluded ? 'N/A' : `${Math.round(dimension.score)}%`,
-                weight: excluded ? 'Excluded' : `${dimension.weight}%`,
-                contribution: excluded ? 'N/A' : ((dimension.score * dimension.weight) / 100).toFixed(2),
+                weight: excluded ? 'Excluded' : `${Math.round(dimension.weight)}%`,
+                contribution: excluded ? 'N/A' : String(Math.round((dimension.score * dimension.weight) / 100)),
             };
         });
 
         // Draw compact table
         this.drawScoreCalculationTable(tableItems, scoreData);
+    }
+
+    addAutomatedWcagResultsPage(reportData) {
+        const wcagSummary = reportData?.audits?.['axe-core']?.wcagSummary;
+        const criteria = Array.isArray(wcagSummary?.criteria) ? wcagSummary.criteria : [];
+
+        this.addPage();
+
+        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C')
+            .text('Automated WCAG Results', this.margin, this.currentY);
+        this.currentY += 28;
+
+        const pageUrl = reportData.finalUrl || reportData.requestedUrl || reportData.url || 'This page';
+        const intro = 'This page-specific section includes only WCAG success criteria that axe-core automatically tested and returned as passed, failed, or needing review. It is not a complete manual WCAG conformance claim.';
+        this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
+            .text(intro, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(intro, { width: this.pageWidth, lineGap: 2 }) + 14;
+
+        this.doc.fontSize(9).font('RegularFont').fillColor('#6B7280')
+            .text(`Page tested: ${pageUrl}`, this.margin, this.currentY, { width: this.pageWidth });
+        this.currentY += 22;
+
+        if (!criteria.length) {
+            this.doc.fontSize(11).font('RegularFont').fillColor('#6B7280')
+                .text('axe-core did not return WCAG-tagged pass, violation, or incomplete results for this page.', this.margin, this.currentY, {
+                    width: this.pageWidth,
+                    lineGap: 2,
+                });
+            return;
+        }
+
+        const passRate = typeof wcagSummary.passRate === 'number' ? `${Math.round(wcagSummary.passRate)}%` : 'N/A';
+        const summaryCards = [
+            { label: 'WCAG Criteria Tested', value: String(wcagSummary.criteriaCount || criteria.length), color: '#2C5F9C' },
+            { label: 'Automated Pass Rate', value: passRate, color: '#10B981' },
+            { label: 'Passed Rules', value: String(wcagSummary.passedRuleCount || 0), color: '#10B981' },
+            { label: 'Failed Rules', value: String(wcagSummary.failedRuleCount || 0), color: '#EF4444' },
+        ];
+
+        const cardWidth = (this.pageWidth - 18) / 4;
+        summaryCards.forEach((card, index) => {
+            const x = this.margin + index * (cardWidth + 6);
+            this.doc.roundedRect(x, this.currentY, cardWidth, 54, 6).fill('#F8FAFC').stroke('#E5E7EB');
+            this.doc.fontSize(16).font('BoldFont').fillColor(card.color)
+                .text(card.value, x + 8, this.currentY + 9, { width: cardWidth - 16, align: 'center' });
+            this.doc.fontSize(7).font('BoldFont').fillColor('#6B7280')
+                .text(card.label.toUpperCase(), x + 6, this.currentY + 34, { width: cardWidth - 12, align: 'center' });
+        });
+        this.currentY += 72;
+
+        this.drawAutomatedWcagCriteriaTable(criteria);
+    }
+
+    drawAutomatedWcagCriteriaTable(criteria) {
+        const tableItems = criteria
+            .slice()
+            .sort((left, right) => String(left.criterion).localeCompare(String(right.criterion), undefined, { numeric: true }))
+            .map((criterionResult) => {
+                const reference = getWcagReference(String(criterionResult.criterion || ''), 'axe-core');
+                const title = reference
+                    ? `${reference.criterion} ${reference.title}`
+                    : `WCAG ${criterionResult.criterion}`;
+                const level = reference?.level || 'Unmapped';
+                const failedRules = Number(criterionResult.failedRules) || 0;
+                const incompleteRules = Number(criterionResult.incompleteRules) || 0;
+                const passedRules = Number(criterionResult.passedRules) || 0;
+                const testedRules = Number(criterionResult.testedRules) || (passedRules + failedRules + incompleteRules);
+                const passRate = typeof criterionResult.passRate === 'number' ? `${Math.round(criterionResult.passRate)}%` : 'N/A';
+                const result = failedRules > 0 ? 'Fail' : incompleteRules > 0 ? 'Review' : 'Pass';
+                const rulesText = `${passedRules}/${testedRules} passed (${passRate})`;
+                const elementsText = failedRules > 0
+                    ? `${criterionResult.failedElementCount || 0} failing`
+                    : incompleteRules > 0
+                        ? `${criterionResult.incompleteElementCount || 0} review`
+                        : '0 failing';
+                return { title, level, result, rulesText, elementsText };
+            });
+
+        this.drawWcagComponentStyleTable(tableItems);
+
+        this.currentY += 14;
+        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+            .text('Pass rate is based on axe-core rules mapped to each WCAG criterion for this page. Some WCAG criteria require manual review and are not included unless axe-core returned an incomplete result.', this.margin, this.currentY, {
+                width: this.pageWidth,
+                lineGap: 1,
+            });
+    }
+
+    drawWcagComponentStyleTable(items) {
+        if (!items || items.length === 0) return;
+
+        const headers = ['WCAG Requirement', 'Level', 'Result', 'Rules', 'Elements'];
+        const colWidths = [200, 55, 70, 95, 95];
+        const headerHeight = 40;
+        const pageBottom = () => this.doc.page.height - 50;
+
+        const drawHeader = () => {
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, headerHeight).fill('#3D5A80');
+            this.doc.font('BoldFont').fontSize(11).fillColor('#FFFFFF');
+            let x = this.margin;
+            headers.forEach((header, index) => {
+                this.doc.text(header, x + 10, this.currentY + 14, {
+                    width: colWidths[index] - 20,
+                    align: index === 0 || index === 4 ? 'left' : 'center',
+                });
+                x += colWidths[index];
+            });
+            this.currentY += headerHeight;
+        };
+
+        drawHeader();
+
+        items.forEach((item, index) => {
+            const rowValues = [
+                item.title,
+                item.level,
+                item.result,
+                item.rulesText,
+                item.elementsText,
+            ];
+            this.doc.font('RegularFont').fontSize(10);
+            const rowHeights = rowValues.map((value, colIndex) => this.doc.heightOfString(String(value || ''), {
+                width: colWidths[colIndex] - 20,
+                lineGap: 2,
+            }));
+            const rowHeight = Math.max(40, Math.max(...rowHeights) + 20);
+
+            if (this.currentY + rowHeight > pageBottom()) {
+                this.addPage();
+                drawHeader();
+            }
+
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, rowHeight)
+                .fill(index % 2 === 0 ? '#FFFFFF' : '#F8F9FA');
+
+            let x = this.margin;
+            rowValues.forEach((value, colIndex) => {
+                const text = String(value || '').trim();
+                const statusColor = item.result === 'Pass'
+                    ? '#28A745'
+                    : item.result === 'Review'
+                        ? '#FD7E14'
+                        : '#DC3545';
+                const color = colIndex === 2
+                    ? statusColor
+                    : '#2C3E50';
+                const font = colIndex === 1 || colIndex === 2 ? 'BoldFont' : 'RegularFont';
+
+                this.doc.font(font).fontSize(10).fillColor(color).text(text, x + 10, this.currentY + 10, {
+                    width: colWidths[colIndex] - 20,
+                    lineGap: 2,
+                    align: colIndex === 0 || colIndex === 4 ? 'left' : 'center',
+                    ellipsis: false,
+                });
+                x += colWidths[colIndex];
+            });
+
+            this.doc.moveTo(this.margin, this.currentY + rowHeight)
+                .lineTo(this.margin + this.pageWidth, this.currentY + rowHeight)
+                .strokeColor('#DEE2E6')
+                .lineWidth(0.5)
+                .stroke();
+
+            this.currentY += rowHeight;
+        });
     }
 
     addExecutiveSummary(reportData, scoreData) {
@@ -2328,7 +2494,7 @@ addOverallScoreDisplay(scoreData) {
                     headers: ['Element', 'Location', 'Accessibility Issue'],
                     widths: [150, 200, 165], // Total: 515
                     extractors: [
-                        item => String(item.node?.nodeLabel || item.nodeLabel || 'Page Element').trim(),
+                        item => String(this.extractElementLabel(item) || 'Page Element').trim(),
                         item => String(item.node?.selector || item.selector || 'N/A').trim(),
                         item => String(item.node?.explanation || item.explanation || 'May impact older adult users').trim()
                     ]
@@ -2344,6 +2510,16 @@ addOverallScoreDisplay(scoreData) {
     extractNodeLabel(node) {
         if (!node) return null;
         return node.nodeLabel || node.snippet || null;
+    }
+
+    extractElementLabel(item) {
+        if (!item) return null;
+        const issueText = String(item.node?.explanation || item.explanation || '').trim();
+        const nodeLabel = String(item.node?.nodeLabel || item.nodeLabel || '').trim();
+        if (nodeLabel && nodeLabel !== issueText) return nodeLabel;
+        const html = String(item.html || item.node?.html || '').replace(/\s+/g, ' ').trim();
+        if (html) return html.slice(0, 220);
+        return nodeLabel || null;
     }
     
     drawScoreCalculationTable(items, scoreData) {
@@ -2527,7 +2703,7 @@ addOverallScoreDisplay(scoreData) {
         currentX += colWidths[2];
         
         // Total Weighted
-        const totalWeightedText = String(scoreData.totalWeightedScore.toFixed(2) || '').trim();
+        const totalWeightedText = String(Math.round(scoreData.totalWeightedScore) || '').trim();
         this.doc.fontSize(10).text(totalWeightedText, currentX + 10, tableY + 7, {
             width: colWidths[3] - 20,
             align: 'center'
@@ -2540,12 +2716,12 @@ addOverallScoreDisplay(scoreData) {
         
         // Check if final score text would exceed page bottom margin
         this.doc.fontSize(11);
-        const finalScoreTextHeight = this.doc.heightOfString('Final Score: 100.00 ÷ 100 = 100%');
+        const finalScoreTextHeight = this.doc.heightOfString('Final Score: 100 ÷ 100 = 100%');
         if (this.currentY + finalScoreTextHeight > pageBottom) {
             this.addPage();
         }
         
-        const finalScoreText = `Final Score: ${scoreData.totalWeightedScore.toFixed(2)} ÷ ${scoreData.totalWeight} = ${Math.round(scoreData.finalScore)}%`;
+        const finalScoreText = `Final Score: ${Math.round(scoreData.totalWeightedScore)} ÷ ${Math.round(scoreData.totalWeight)} = ${Math.round(scoreData.finalScore)}%`;
         this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50').text(
             finalScoreText,
             this.margin,
@@ -2772,6 +2948,7 @@ addOverallScoreDisplay(scoreData) {
             this.addIntroPage(reportData, scoreData, options.planType || 'pro');
             this.addExecutiveSummary(reportData, scoreData);
             this.addScoreCalculationPage(reportData, scoreData);
+            this.addAutomatedWcagResultsPage(reportData);
             this.addSummaryPage(reportData);
             this.addPriorityRecommendations(reportData);
             this.addAreasOfStrength(reportData);

@@ -1,4 +1,5 @@
 import os
+import re
 from typing import Any, Dict, List, Optional
 
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS
@@ -35,17 +36,34 @@ def selector_from_axe_node(node: Dict[str, Any]) -> str:
     return "unknown"
 
 
-def axe_nodes_to_table_items(nodes: List[Dict[str, Any]], limit: int = 50) -> List[Dict[str, Any]]:
+def element_label_from_axe_node(node: Dict[str, Any], selector: str) -> str:
+    html = node.get("html")
+    if isinstance(html, str) and html.strip():
+        return re.sub(r"\s+", " ", html.strip())[:220]
+    return selector or "Page Element"
+
+
+def axe_nodes_to_table_items(rule: Dict[str, Any], limit: int = 50) -> List[Dict[str, Any]]:
+    nodes = rule.get("nodes", []) if isinstance(rule.get("nodes"), list) else []
+    rule_id = rule.get("id", "axe-violation")
+    impact = rule.get("impact") or "unknown"
+    tags = rule.get("tags", []) if isinstance(rule.get("tags"), list) else []
     items = []
     for node in nodes[:limit]:
         selector = selector_from_axe_node(node)
+        element_label = element_label_from_axe_node(node, selector)
         items.append({
+            "ruleId": rule_id,
+            "impact": impact,
+            "axeTags": tags,
             "node": {
-                "nodeLabel": node.get("failureSummary") or node.get("html") or selector,
+                "nodeLabel": element_label,
                 "selector": selector,
                 "path": selector,
             },
             "selector": selector,
+            "html": node.get("html"),
+            "target": node.get("target"),
             "explanation": node.get("failureSummary") or "Element failed axe-core accessibility rule.",
         })
     return items
@@ -64,14 +82,107 @@ def build_audit_from_axe_rule(rule: Dict[str, Any]) -> Dict[str, Any]:
             "type": "table",
             "headings": [
                 {"key": "node", "itemType": "node", "text": "Element"},
+                {"key": "ruleId", "itemType": "text", "text": "Rule ID"},
+                {"key": "impact", "itemType": "text", "text": "Impact"},
                 {"key": "selector", "itemType": "code", "text": "Selector"},
                 {"key": "explanation", "itemType": "text", "text": "Failure"},
             ],
-            "items": axe_nodes_to_table_items(nodes),
+            "items": axe_nodes_to_table_items(rule),
         } if nodes else None,
         "axeImpact": rule.get("impact"),
         "axeTags": rule.get("tags", []),
         "helpUrl": rule.get("helpUrl"),
+    }
+
+
+def criterion_from_axe_tag(tag: str) -> Optional[str]:
+    match = re.match(r"^wcag(\d)(\d)(\d{1,2})$", tag)
+    if not match:
+        return None
+
+    return f"{match.group(1)}.{match.group(2)}.{int(match.group(3))}"
+
+
+def wcag_criteria_from_rule(rule: Dict[str, Any]) -> List[str]:
+    tags = rule.get("tags", []) if isinstance(rule.get("tags"), list) else []
+    criteria = []
+    for tag in tags:
+        criterion = criterion_from_axe_tag(str(tag))
+        if criterion and criterion not in criteria:
+            criteria.append(criterion)
+    return criteria
+
+
+def build_wcag_rule_entry(rule: Dict[str, Any], status: str) -> Dict[str, Any]:
+    nodes = rule.get("nodes", []) if isinstance(rule.get("nodes"), list) else []
+    return {
+        "id": rule.get("id"),
+        "help": rule.get("help") or rule.get("description") or rule.get("id"),
+        "description": rule.get("description"),
+        "impact": rule.get("impact") or "none",
+        "helpUrl": rule.get("helpUrl"),
+        "status": status,
+        "nodeCount": len(nodes),
+    }
+
+
+def build_axe_wcag_summary(axe_results: Dict[str, Any]) -> Dict[str, Any]:
+    result_groups = {
+        "passed": axe_results.get("passes", []) if isinstance(axe_results.get("passes"), list) else [],
+        "failed": axe_results.get("violations", []) if isinstance(axe_results.get("violations"), list) else [],
+        "incomplete": axe_results.get("incomplete", []) if isinstance(axe_results.get("incomplete"), list) else [],
+    }
+    criteria: Dict[str, Dict[str, Any]] = {}
+
+    for status, rules in result_groups.items():
+        for rule in rules:
+            for criterion in wcag_criteria_from_rule(rule):
+                if criterion not in criteria:
+                    criteria[criterion] = {
+                        "criterion": criterion,
+                        "passedRules": 0,
+                        "failedRules": 0,
+                        "incompleteRules": 0,
+                        "failedElementCount": 0,
+                        "incompleteElementCount": 0,
+                        "rules": [],
+                    }
+
+                entry = criteria[criterion]
+                rule_entry = build_wcag_rule_entry(rule, status)
+                entry["rules"].append(rule_entry)
+
+                if status == "passed":
+                    entry["passedRules"] += 1
+                elif status == "failed":
+                    entry["failedRules"] += 1
+                    entry["failedElementCount"] += rule_entry["nodeCount"]
+                elif status == "incomplete":
+                    entry["incompleteRules"] += 1
+                    entry["incompleteElementCount"] += rule_entry["nodeCount"]
+
+    for entry in criteria.values():
+        tested_rules = entry["passedRules"] + entry["failedRules"] + entry["incompleteRules"]
+        entry["testedRules"] = tested_rules
+        entry["passRate"] = round((entry["passedRules"] / tested_rules) * 100, 1) if tested_rules else None
+
+    criteria_list = sorted(criteria.values(), key=lambda item: [int(part) for part in item["criterion"].split(".")])
+    total_rules = sum(item["testedRules"] for item in criteria_list)
+    passed_rules = sum(item["passedRules"] for item in criteria_list)
+    failed_rules = sum(item["failedRules"] for item in criteria_list)
+    incomplete_rules = sum(item["incompleteRules"] for item in criteria_list)
+
+    return {
+        "engine": "axe-core",
+        "scope": "automated",
+        "note": "Includes only WCAG success criteria that axe-core returned as passed, failed, or incomplete for this page.",
+        "criteriaCount": len(criteria_list),
+        "testedRuleCount": total_rules,
+        "passedRuleCount": passed_rules,
+        "failedRuleCount": failed_rules,
+        "incompleteRuleCount": incomplete_rules,
+        "passRate": round((passed_rules / total_rules) * 100, 1) if total_rules else None,
+        "criteria": criteria_list,
     }
 
 
@@ -149,6 +260,7 @@ def merge_axe_results_into_audits(audits: Dict[str, Any], axe_results: Dict[str,
                 for rule in violations
             ],
         },
+        "wcagSummary": build_axe_wcag_summary(axe_results),
     }
 
 

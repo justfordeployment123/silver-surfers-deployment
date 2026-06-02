@@ -103,6 +103,16 @@ export const aiReportSchema = new mongoose.Schema({
   businessImpact: { type: String },
   prioritySummary: { type: String },
   topRecommendations: { type: [String], default: [] },
+  perFindingGuidance: {
+    type: [{
+      auditId: { type: String },
+      title: { type: String },
+      explanation: { type: String },
+      remediation: { type: String },
+      wcagCriteria: { type: [String], default: [] },
+    }],
+    default: [],
+  },
   stakeholderNote: { type: String },
 }, { _id: false });
 
@@ -117,6 +127,7 @@ export const scoreCardSchema = new mongoose.Schema({
   dimensions: { type: [dimensionScoreSchema], default: [] },
   evaluationDimensions: { type: [dimensionScoreSchema], default: [] },
   topIssues: { type: [auditIssueSchema], default: [] },
+  issues: { type: [auditIssueSchema], default: [] },
   platforms: { type: [platformScoreSchema], default: [] },
   wcagSummary: { type: wcagSummarySchema, default: undefined },
 }, { _id: false });

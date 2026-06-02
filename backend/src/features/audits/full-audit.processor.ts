@@ -1052,6 +1052,7 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
       : record.reportDirectory;
     record.reportFiles = mergeStoredReportFilesWithStorage([], reportStorage);
     record.attachmentCount = reportStorage.objects.length;
+    record.aiReport = payload.aiReport;
     record.emailStatus = 'sending';
     record.scannerQueueStatus = 'result_received';
     record.scannerResultAt = new Date();
@@ -1330,6 +1331,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           url: job.url,
           planId: effectivePlanId,
           selectedDevice: job.selectedDevice,
+          fullName,
         },
       });
 
@@ -1531,6 +1533,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           url: job.url,
           planId: effectivePlanId,
           selectedDevice: job.selectedDevice,
+          fullName,
         },
       }).catch((error) => ({
         success: false as const,
@@ -1540,6 +1543,9 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
       if (batchResult.success) {
         batchWorkerReportStorage = batchResult.reportStorage;
+        if (batchResult.aiReport) {
+          record.aiReport = batchResult.aiReport;
+        }
         for (const targetResult of batchResult.targets) {
           batchPageScanResults.set(
             buildFullAuditTargetKey(targetResult.url, targetResult.device),

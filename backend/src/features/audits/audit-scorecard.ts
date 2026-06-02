@@ -74,6 +74,7 @@ export interface AuditScorecard {
     dimensions: AuditPrimaryDimensionScore[];
     evaluationDimensions: AuditEvaluationDimensionScore[];
     topIssues: AuditIssueSummary[];
+    issues: AuditIssueSummary[];
     platforms: AuditPlatformScore[];
     wcagSummary?: WcagSummary;
 }
@@ -659,8 +660,8 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
     });
 
     const primaryScores = buildPrimaryDimensions(evaluationDimensions);
-    const topIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || [])).slice(0, 5);
-    const allIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || []));
+    const allIssues = dedupeIssues([...evaluationIssues.values()].flat());
+    const topIssues = sortIssues(allIssues).slice(0, 5);
 
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
@@ -673,6 +674,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         dimensions: primaryScores.dimensions,
         evaluationDimensions,
         topIssues,
+        issues: allIssues,
         platforms: [],
         wcagSummary: buildWcagSummary(allIssues),
     };
@@ -697,6 +699,7 @@ export function buildAggregateAuditScorecard(
             dimensions: primaryScores.dimensions,
             evaluationDimensions: emptyEvaluationDimensions,
             topIssues: [],
+            issues: [],
             platforms: options.platforms || [],
             wcagSummary: buildWcagSummary([]),
         };
@@ -770,8 +773,8 @@ export function buildAggregateAuditScorecard(
             dimensions.reduce((sum, dimension) => sum + dimension.weight, 0),
     );
 
-    const topIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || [])).slice(0, 5);
-    const allIssues = dedupeIssues(evaluationDimensions.flatMap((dimension) => dimension.topIssues || []));
+    const allIssues = dedupeIssues([...evaluationDimensionIssues.values()].flat());
+    const topIssues = sortIssues(allIssues).slice(0, 5);
 
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
@@ -784,6 +787,7 @@ export function buildAggregateAuditScorecard(
         dimensions,
         evaluationDimensions,
         topIssues,
+        issues: allIssues,
         platforms: options.platforms || [],
         wcagSummary: buildWcagSummary(allIssues),
     };

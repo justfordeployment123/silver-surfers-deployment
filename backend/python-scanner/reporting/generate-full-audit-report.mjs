@@ -4,11 +4,18 @@ import { fileURLToPath } from 'node:url';
 
 import {
   calculateSeniorFriendlinessScore,
+  generateAuditAiSummaryPdf,
   generateLiteAccessibilityReport,
   generateSeniorAccessibilityReport,
   generateSummaryPDF,
   mergePDFsByPlatform,
 } from './src/features/audits/report-generation.ts';
+import {
+  buildAggregateAuditScorecard,
+  buildAuditScorecard,
+} from './src/features/audits/audit-scorecard.ts';
+import { buildRemediationRoadmap } from './src/features/audits/analysis-details.ts';
+import { generateAuditAiReport } from './src/features/audits/ai-reporting.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 
@@ -60,6 +67,21 @@ function buildPlatformSummary(reportsByPlatform) {
   });
 }
 
+function buildPlatformScores(reportsByPlatform) {
+  return Object.entries(reportsByPlatform).map(([device, reports]) => {
+    const scores = reports
+      .map((report) => report.score)
+      .filter((score) => typeof score === 'number' && Number.isFinite(score));
+
+    return {
+      key: device,
+      label: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
+      score: scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
+      pageCount: reports.length,
+    };
+  });
+}
+
 async function listPdfFiles(rootDir) {
   const files = [];
 
@@ -94,6 +116,7 @@ async function main() {
   const manifestPath = readArg('manifest');
   const email = readArg('email', 'unknown-client');
   const planId = readArg('plan-id', 'pro');
+  const fullName = readArg('full-name', 'Valued Customer');
 
   if (!aggregatePath || !outputDir || !manifestPath) {
     throw new Error('--aggregate, --output-dir, and --manifest are required.');
@@ -103,6 +126,7 @@ async function main() {
 
   const aggregate = JSON.parse(await fs.readFile(aggregatePath, 'utf8'));
   const reportsByPlatform = {};
+  const scorecards = [];
 
   for (const [index, target] of (aggregate.targets || []).entries()) {
     if (!target?.success || !target.report) {
@@ -114,11 +138,17 @@ async function main() {
     const isLiteVersion = Boolean(target.isLiteVersion);
     const jsonReportPath = await writeJsonReport(target.report, outputDir, index, device);
     const scoreData = await calculateSeniorFriendlinessScore(target.report, { isLiteVersion });
+    const scorecard = buildAuditScorecard(target.report, {
+      pageUrl: url,
+      isLiteVersion,
+    });
+    scorecards.push(scorecard);
     const reportEntry = {
       jsonReportPath,
       url,
       imagePaths: {},
       score: typeof scoreData?.finalScore === 'number' ? scoreData.finalScore : null,
+      scoreCard: scorecard,
     };
 
     reportsByPlatform[device] ||= [];
@@ -174,6 +204,29 @@ async function main() {
     });
   }
 
+  let aiReport;
+  if (scorecards.length > 0) {
+    const aggregateScorecard = buildAggregateAuditScorecard(scorecards, {
+      pageCount: scorecards.length,
+      platforms: buildPlatformScores(reportsByPlatform),
+    });
+    aiReport = await generateAuditAiReport({
+      url: safeText(aggregate.url, 'full-audit'),
+      fullName,
+      scorecard: aggregateScorecard,
+      remediationRoadmap: buildRemediationRoadmap(aggregateScorecard),
+    });
+
+    await generateAuditAiSummaryPdf(aiReport, {
+      url: safeText(aggregate.url, 'full-audit'),
+      outputPath: path.join(outputDir, 'ai-executive-summary.pdf'),
+      title: 'AI Executive Summary',
+      scorecard: aggregateScorecard,
+    }).catch((error) => {
+      console.warn(`AI executive summary PDF generation failed: ${error?.message || error}`);
+    });
+  }
+
   for (const file of await fs.readdir(outputDir)) {
     if (file.toLowerCase().endsWith('.json')) {
       await fs.unlink(path.join(outputDir, file)).catch(() => undefined);
@@ -185,6 +238,7 @@ async function main() {
     success: files.length > 0,
     outputDir,
     files,
+    ...(aiReport ? { aiReport } : {}),
   }, null, 2), 'utf8');
 }
 

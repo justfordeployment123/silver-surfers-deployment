@@ -57,7 +57,7 @@ export function getCertificationEligibility(score: number): CertificationEligibi
       score: normalizedScore,
       threshold: SILVER_CERTIFIED_THRESHOLD,
       improvementNeeded: gap,
-      message: `This site is ${gap.toFixed(1)} points below the Silver Certified threshold. Addressing the Quick Wins in this report could close the gap significantly.`,
+      message: `This site is ${Math.round(gap)} points below the Silver Certified threshold. Addressing the Quick Wins in this report could close the gap significantly.`,
       validForDays: 0,
       evaluatedAt,
     };
@@ -70,7 +70,7 @@ export function getCertificationEligibility(score: number): CertificationEligibi
     score: normalizedScore,
     threshold: SILVER_CERTIFIED_THRESHOLD,
     improvementNeeded: gap,
-    message: `This site requires a score improvement of ${gap.toFixed(1)} points to reach the Silver Certified standard. Begin with the Quick Wins in the remediation roadmap.`,
+    message: `This site requires a score improvement of ${Math.round(gap)} points to reach the Silver Certified standard. Begin with the Quick Wins in the remediation roadmap.`,
     validForDays: 0,
     evaluatedAt,
   };
