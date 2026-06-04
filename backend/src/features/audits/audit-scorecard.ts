@@ -306,7 +306,7 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
 };
 
 function roundScore(value: number): number {
-    return Math.round(value * 100) / 100;
+    return Math.round(value);
 }
 
 function clampAuditScore(value: number | null | undefined): number {

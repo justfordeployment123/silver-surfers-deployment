@@ -515,19 +515,6 @@ export function buildAuditReportEmailBody(options: {
             line-height: 1.6;
             margin: 0;
         `,
-        archiveBanner: `
-            background-color: #dcfce7;
-            border: 1px solid #86efac;
-            border-radius: 10px;
-            padding: 16px 20px;
-            margin-top: 20px;
-        `,
-        archiveText: `
-            font-size: 13px;
-            color: #166534;
-            line-height: 1.6;
-            margin: 0;
-        `,
         errorBox: `
             background-color: #fee2e2;
             border: 1px solid #fca5a5;
@@ -616,15 +603,7 @@ export function buildAuditReportEmailBody(options: {
                     </p>
                 </div>
             `
-            : `
-                <div style="${styles.archiveBanner}">
-                    <span style="font-size:20px;">☁️</span>
-                    <p style="${styles.archiveText}">
-                        <strong>Securely archived.</strong> These files are stored in your 
-                        cloud report archive and can be retrieved at any time.
-                    </p>
-                </div>
-            `
+            : ""
         : "";
 
     // ─── Error Box ────────────────────────────────────────────────────────────

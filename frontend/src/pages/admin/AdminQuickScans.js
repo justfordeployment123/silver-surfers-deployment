@@ -82,7 +82,7 @@ const AdminQuickScans = () => {
     const headers = ['URL', 'Email', 'Name', 'Score (%)', 'Scan Date', 'Status', 'Report Generated', 'Created At'];
     const csvData = quickScans.map(scan => {
       const fullName = [scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A';
-      const score = scan.scanScore !== null && scan.scanScore !== undefined ? scan.scanScore : 'N/A';
+      const score = scan.scanScore !== null && scan.scanScore !== undefined ? Math.round(scan.scanScore) : 'N/A';
       
       return [
         scan.url || '',
@@ -325,7 +325,7 @@ const AdminQuickScans = () => {
                             scan.scanScore >= 60 ? 'text-yellow-600' :
                             'text-red-600'
                           }`}>
-                            {scan.scanScore}%
+                            {Math.round(scan.scanScore)}%
                           </span>
                         </div>
                       ) : (

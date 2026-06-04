@@ -159,7 +159,7 @@ export async function completeQuickScanFromAuditResult(
 
     const pdfResult = await generateLiteAccessibilityReport(jsonReportPath, userSpecificOutputDir);
     const score = Number.isFinite(liteScorecard.overallScore)
-      ? liteScorecard.overallScore
+      ? Math.round(liteScorecard.overallScore)
       : Number.parseFloat(String(pdfResult.score));
     await generateAuditAiSummaryPdf(aiReport, {
       url: job.url,
@@ -180,7 +180,7 @@ export async function completeQuickScanFromAuditResult(
       const attachmentsPreview = await collectAttachmentsRecursive(userSpecificOutputDir).catch(() => []);
       await QuickScan.findByIdAndUpdate(job.quickScanId, {
         device: normalizeQuickScanDevice(job.selectedDevice),
-        scanScore: Number.isFinite(score) ? score : undefined,
+        scanScore: Number.isFinite(score) ? Math.round(score) : undefined,
         scoreCard: liteScorecard,
         aiReport,
         status: 'completed',

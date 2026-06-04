@@ -327,7 +327,7 @@ async function auditLinkForDevice(
     const scoreData = await calculateSeniorFriendlinessScore(reportData, {
       isLiteVersion: auditResult.isLiteVersion,
     });
-    auditScore = Number.isFinite(scoreData.finalScore) ? scoreData.finalScore : null;
+    auditScore = Number.isFinite(scoreData.finalScore) ? Math.round(scoreData.finalScore) : null;
     auditScoreCard = buildAuditScorecard(reportData, {
       pageUrl: link,
       isLiteVersion: auditResult.isLiteVersion,
@@ -746,7 +746,7 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
       .filter((score): score is number => score !== null && score !== undefined);
 
     const averageScore = scores.length > 0
-      ? scores.reduce((sum, score) => sum + score, 0) / scores.length
+      ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length)
       : null;
 
     return {

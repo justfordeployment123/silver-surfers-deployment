@@ -147,7 +147,7 @@ async function main() {
       jsonReportPath,
       url,
       imagePaths: {},
-      score: typeof scoreData?.finalScore === 'number' ? scoreData.finalScore : null,
+      score: typeof scoreData?.finalScore === 'number' ? Math.round(scoreData.finalScore) : null,
       scoreCard: scorecard,
     };
 

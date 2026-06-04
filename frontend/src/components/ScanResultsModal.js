@@ -52,6 +52,8 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
 
   if (!isVisible) return null;
 
+  const displayScore = Number.isFinite(Number(scanData?.score)) ? Math.round(Number(scanData.score)) : 0;
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
@@ -109,29 +111,29 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                     <path
                       d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                       fill="none"
-                      stroke={`url(#gradient-${scanData.score})`}
+                      stroke={`url(#gradient-${displayScore})`}
                       strokeWidth="2"
-                      strokeDasharray={`${scanData.score}, 100`}
+                      strokeDasharray={`${displayScore}, 100`}
                       className="transition-all duration-1000 ease-out"
                     />
                     <defs>
-                      <linearGradient id={`gradient-${scanData.score}`} x1="0%" y1="0%" x2="100%" y2="0%">
+                      <linearGradient id={`gradient-${displayScore}`} x1="0%" y1="0%" x2="100%" y2="0%">
                         <stop offset="0%" stopColor={getScoreGradientColors(scanData.score).start} />
                         <stop offset="100%" stopColor={getScoreGradientColors(scanData.score).end} />
                       </linearGradient>
                     </defs>
                   </svg>
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className={`text-2xl font-bold ${getScoreTextColor(scanData.score)}`}>{scanData.score}%</span>
+                    <span className={`text-2xl font-bold ${getScoreTextColor(displayScore)}`}>{displayScore}%</span>
                   </div>
                 </div>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                AI Findability Score: {scanData.score}/100
+                AI Findability Score: {displayScore}/100
               </h1>
               <p className="text-lg text-gray-600 mb-6">Your site's AI visibility at a glance</p>
-              <div className={`inline-flex items-center px-6 py-3 bg-gradient-to-r ${getScoreColor(scanData.score)} text-white font-semibold rounded-full`}>
-                {getScoreMessage(scanData.score)}
+              <div className={`inline-flex items-center px-6 py-3 bg-gradient-to-r ${getScoreColor(displayScore)} text-white font-semibold rounded-full`}>
+                {getScoreMessage(displayScore)}
               </div>
             </div>
 
@@ -143,7 +145,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                 </svg>
                 Summary
               </h3>
-              <p className="text-gray-700 leading-relaxed">{getSummaryText(scanData.score, scanData.summary)}</p>
+              <p className="text-gray-700 leading-relaxed">{getSummaryText(displayScore, scanData.summary)}</p>
             </div>
 
             {/* Key Findings */}

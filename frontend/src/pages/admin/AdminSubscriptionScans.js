@@ -106,7 +106,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
       scan.lastName || '',
       scan.planId || 'N/A',
       scan.device || 'N/A',
-      scan.score !== undefined ? `${scan.score}%` : 'N/A',
+      scan.score !== undefined ? `${Math.round(scan.score)}%` : 'N/A',
       scan.status,
       new Date(scan.createdAt).toLocaleString()
     ]);
