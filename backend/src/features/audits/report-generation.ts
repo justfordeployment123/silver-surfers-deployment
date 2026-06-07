@@ -58,6 +58,20 @@ function getRoundedScoreValue(score: number | null | undefined): number | null {
   return score !== null && score !== undefined ? Math.round(score) : null;
 }
 
+function getPackageDisplayName(planType: string | undefined | null): string {
+  const normalized = String(planType || '').trim().toLowerCase();
+  if (normalized.includes('starter')) {
+    return 'Starter';
+  }
+  if (normalized.includes('onetime') || normalized.includes('one-time') || normalized.includes('one_time')) {
+    return 'One-Time';
+  }
+  if (normalized.includes('pro')) {
+    return 'Pro';
+  }
+  return 'Pro';
+}
+
 export function getScoreStatus(score: number | null | undefined): {
   label: 'Pass' | 'Needs Improvement' | 'Fail' | 'N/A';
   color: string;
@@ -528,12 +542,13 @@ export async function mergePDFsByPlatform(options: {
   reports: FullAuditPlatformReport[];
   planType: string;
 }): Promise<string> {
-  const { pdfPaths, device, email_address, outputDir, reports } = options;
+  const { pdfPaths, device, email_address, outputDir, reports, planType } = options;
   if (!pdfPaths || pdfPaths.length === 0) {
     throw new Error('No PDF paths provided for merging');
   }
 
   const deviceCapitalized = device.charAt(0).toUpperCase() + device.slice(1);
+  const packageText = getPackageDisplayName(planType);
   const outputPath = path.join(outputDir, `combined-${device}-report.pdf`);
   const mergedPdf = await PDFLib.create();
 
@@ -570,9 +585,13 @@ export async function mergePDFsByPlatform(options: {
   titleDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
     .text(siteName, titleMargin, preparedY + 18, { width: 200 });
   titleDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text('on', titleMargin, preparedY + 40);
+    .text('Package', titleMargin, preparedY + 40);
   titleDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
-    .text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), titleMargin, preparedY + 58, { width: 200 });
+    .text(packageText, titleMargin, preparedY + 58, { width: 200 });
+  titleDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
+    .text('on', titleMargin, preparedY + 82);
+  titleDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
+    .text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), titleMargin, preparedY + 100, { width: 200 });
 
   const possibleLogoPaths = [
     resolveBackendPath('assets', 'Logo.png'),
@@ -674,6 +693,8 @@ export async function mergePDFsByPlatform(options: {
     .text(`Report prepared for: ${email_address}`, coverMargin + 60, coverY);
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
     .text(`Pages audited: ${reports.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
+  coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
+    .text(`Package: ${packageText}`, coverMargin + 60, coverY + 50, { width: coverWidth - 120 });
   addFooterToPdfDocument(coverDoc, 2);
   coverDoc.end();
 
@@ -847,12 +868,13 @@ export async function generateCombinedPlatformReport(options: {
   planType: string;
   individualPdfPaths: string[];
 }): Promise<string> {
-  const { reports, device, email_address, outputDir } = options;
+  const { reports, device, email_address, outputDir, planType } = options;
   if (!reports || reports.length === 0) {
     throw new Error('No reports provided for combined PDF generation');
   }
 
   const deviceCapitalized = device.charAt(0).toUpperCase() + device.slice(1);
+  const packageText = getPackageDisplayName(planType);
   const outputPath = path.join(outputDir, `combined-${device}-report.pdf`);
 
   const doc = new PDFDocument({
@@ -882,6 +904,10 @@ export async function generateCombinedPlatformReport(options: {
   currentY += 20;
 
   doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')
+    .text(`Package: ${packageText}`, margin, currentY, { width: pageWidth, align: 'center' });
+  currentY += 20;
+
+  doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')
     .text(`Total Pages Audited: ${reports.length}`, margin, currentY, { width: pageWidth, align: 'center' });
   currentY += 40;
 
@@ -899,7 +925,10 @@ export async function generateCombinedPlatformReport(options: {
   currentY = margin;
   doc.fontSize(20).font('BoldFont').fillColor('#2C3E50')
     .text('Pages Summary', margin, currentY, { width: pageWidth });
-  currentY += 40;
+  currentY += 30;
+  doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')
+    .text(`Package: ${packageText}`, margin, currentY, { width: pageWidth });
+  currentY += 30;
 
   const headerHeight = 30;
   const rowHeight = 25;
