@@ -1,6 +1,3 @@
-import fs from 'node:fs/promises';
-import os from 'node:os';
-import path from 'node:path';
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
@@ -12,7 +9,6 @@ import { asyncHandler } from '../../shared/http/async-handler.ts';
 import { buildAnalysisDetail } from '../audits/analysis-details.ts';
 import { getQuickScanModel } from '../audits/audits.dependencies.ts';
 import { listAnalysisReportFiles, sendAnalysisReportFile } from '../audits/analysis-reports.ts';
-import { generateAuditAiSummaryPdf } from '../audits/report-generation.ts';
 import { getAuditQueues } from '../audits/audits.runtime.ts';
 import { getAnalysisRecordModel, getEmailModule, getUserModel } from './auth.dependencies.ts';
 import { authRequired, decodeAuthToken, readBearerToken } from './auth.middleware.ts';
@@ -68,8 +64,6 @@ function isActiveScanStatus(status: string | undefined): boolean {
   return normalized === 'queued' || normalized === 'processing';
 }
 
-const QUICK_SCAN_AI_SUMMARY_REPORT_ID = 'ai-summary-pdf';
-
 function normalizeQuickScanDevice(value: unknown): 'desktop' | 'mobile' | 'tablet' {
   const normalized = String(value || '').trim().toLowerCase();
   if (normalized === 'mobile' || normalized === 'tablet') {
@@ -77,18 +71,6 @@ function normalizeQuickScanDevice(value: unknown): 'desktop' | 'mobile' | 'table
   }
 
   return 'desktop';
-}
-
-function buildQuickScanAiSummaryFileView(device?: string | null) {
-  const normalizedDevice = normalizeQuickScanDevice(device);
-  return {
-    id: QUICK_SCAN_AI_SUMMARY_REPORT_ID,
-    filename: `ai-executive-summary-${normalizedDevice}.pdf`,
-    displayName: `ai-executive-summary-${normalizedDevice}.pdf`,
-    contentType: 'application/pdf',
-    hasPreview: true,
-    hasDownload: true,
-  };
 }
 
 function isQuickScanAiSummaryFilename(filename: string | undefined): boolean {
@@ -101,17 +83,6 @@ function filterStoredQuickScanAiSummary<T extends { filename?: string }>(reportF
   }
 
   return reportFiles.filter((file) => !isQuickScanAiSummaryFilename(file?.filename));
-}
-
-function findStoredQuickScanAiSummaryById<T extends { id?: string; filename?: string }>(
-  reportFiles: T[] | undefined,
-  reportId: string,
-): T | null {
-  if (!Array.isArray(reportFiles) || !reportId) {
-    return null;
-  }
-
-  return reportFiles.find((file) => file?.id === reportId && isQuickScanAiSummaryFilename(file?.filename)) || null;
 }
 
 router.post('/register', asyncHandler(async (request, response) => {
@@ -741,7 +712,7 @@ router.get('/my-quick-scans/:quickScanId', authRequired, asyncHandler(async (req
     url: item.url,
     score: item.scanScore ?? item.scoreCard?.overallScore,
     scoreCard: item.scoreCard,
-    aiReport: item.aiReport,
+    aiReport: undefined,
     status: item.status,
     emailStatus: item.emailStatus || (item.status === 'completed' ? 'sent' : item.status === 'failed' ? 'failed' : 'pending'),
     attachmentCount,
@@ -754,10 +725,7 @@ router.get('/my-quick-scans/:quickScanId', authRequired, asyncHandler(async (req
     updatedAt: item.updatedAt,
   });
 
-  const reportFilesWithoutStoredAiSummary = filterStoredQuickScanAiSummary(detail.reportFiles);
-  const reportFiles = item.aiReport
-    ? [...reportFilesWithoutStoredAiSummary, buildQuickScanAiSummaryFileView(item.device)]
-    : reportFilesWithoutStoredAiSummary;
+  const reportFiles = filterStoredQuickScanAiSummary(detail.reportFiles);
 
   response.json({
     item: {
@@ -796,34 +764,6 @@ router.get('/my-quick-scans/:quickScanId/reports/:reportId', authRequired, async
   }
 
   await listAnalysisReportFiles(item);
-
-  const legacyAiSummaryFile = findStoredQuickScanAiSummaryById(item.reportFiles, reportId);
-  if (reportId === QUICK_SCAN_AI_SUMMARY_REPORT_ID || legacyAiSummaryFile) {
-    if (!item.aiReport) {
-      response.status(404).json({ error: 'AI summary report not found.' });
-      return;
-    }
-
-    const tempPath = path.join(os.tmpdir(), `quick-scan-ai-summary-${quickScanId}-${Date.now()}.pdf`);
-
-    try {
-      await generateAuditAiSummaryPdf(item.aiReport, {
-        url: String(item.url || ''),
-        outputPath: tempPath,
-        title: 'Quick Scan AI Executive Summary',
-        scorecard: item.scoreCard,
-      });
-
-      const fileBuffer = await fs.readFile(tempPath);
-      const filename = `ai-executive-summary-${normalizeQuickScanDevice(item.device)}.pdf`;
-      response.setHeader('Content-Type', 'application/pdf');
-      response.setHeader('Content-Disposition', `${disposition}; filename="${filename}"`);
-      response.send(fileBuffer);
-      return;
-    } finally {
-      await fs.unlink(tempPath).catch(() => undefined);
-    }
-  }
 
   const sent = await sendAnalysisReportFile(item, reportId, response, disposition).catch((error) => {
     if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {

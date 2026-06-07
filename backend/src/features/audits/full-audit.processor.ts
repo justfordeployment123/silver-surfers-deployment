@@ -48,7 +48,6 @@ import {
   calculateSeniorFriendlinessScore,
   generateCombinedPlatformReport,
   generateAuditAiSummaryPdf,
-  generateLiteAccessibilityReport,
   generateSeniorAccessibilityReport,
   generateSummaryPDF,
   mergePDFsByPlatform,
@@ -660,21 +659,6 @@ async function generatePlatformReports(
     for (const report of reports) {
       try {
         await new Promise<void>((resolve) => setImmediate(resolve));
-        if (report.isLiteVersion && planId !== 'pro' && planId !== 'onetime') {
-          const litePdfResult = await generateLiteAccessibilityReport(report.jsonReportPath, finalReportFolder);
-          const expectedPdfPath = path.join(finalReportFolder, buildFullAuditPdfFileName(report.url, device));
-
-          if (litePdfResult?.reportPath) {
-            if (litePdfResult.reportPath !== expectedPdfPath) {
-              await fs.copyFile(litePdfResult.reportPath, expectedPdfPath);
-              await fs.unlink(litePdfResult.reportPath).catch(() => undefined);
-            }
-
-            individualPdfPaths.push(expectedPdfPath);
-          }
-          continue;
-        }
-
         const seniorPdfResult = await generateSeniorAccessibilityReport({
           inputFile: report.jsonReportPath,
           url: report.url,

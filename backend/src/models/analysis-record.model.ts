@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { aiReportSchema, reportFileSchema, reportStorageSchema, scoreCardSchema } from './shared-schemas.ts';
+import { aiReportSchema, emailTrackingSchema, reportFileSchema, reportStorageSchema, scoreCardSchema } from './shared-schemas.ts';
 
 const fullAuditTargetSchema = new mongoose.Schema({
   url: { type: String, required: true },
@@ -46,6 +46,7 @@ const analysisRecordSchema = new mongoose.Schema({
   emailError: { type: String },
   emailAccepted: { type: [String], default: [] },
   emailRejected: { type: [String], default: [] },
+  emailTracking: { type: emailTrackingSchema, default: undefined },
   attachmentCount: { type: Number, default: 0 },
   failureReason: { type: String },
   autoRecoveryAttempts: { type: Number, default: 0 },
@@ -57,6 +58,7 @@ const analysisRecordSchema = new mongoose.Schema({
 analysisRecordSchema.index({ email: 1, createdAt: -1 });
 analysisRecordSchema.index({ user: 1, createdAt: -1 });
 analysisRecordSchema.index({ 'reportStorage.objects.downloadTokenHash': 1 }, { sparse: true });
+analysisRecordSchema.index({ 'emailTracking.trackingId': 1 }, { sparse: true });
 
 analysisRecordSchema.pre('save', function (next: (error?: Error) => void) {
   (this as { updatedAt?: Date }).updatedAt = new Date();

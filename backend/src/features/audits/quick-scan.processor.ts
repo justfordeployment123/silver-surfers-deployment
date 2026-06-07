@@ -10,10 +10,8 @@ import {
   requestScannerAudit,
   type ScannerServiceAuditSuccess,
 } from '../scanner/scanner-client.ts';
-import { generateAuditAiReport } from './ai-reporting.ts';
-import { buildRemediationRoadmap } from './analysis-details.ts';
 import { buildAuditScorecard } from './audit-scorecard.ts';
-import { generateAuditAiSummaryPdf, generateLiteAccessibilityReport } from './report-generation.ts';
+import { generateLiteAccessibilityReport } from './report-generation.ts';
 import { collectAttachmentsRecursive, sendAuditReportEmail } from './report-delivery.ts';
 import { buildStoredReportFilesFromAttachments, mergeStoredReportFilesWithStorage } from './report-files.ts';
 import { cleanupLocalReportDirectoryWhenStored } from './report-retention.ts';
@@ -128,7 +126,6 @@ export async function completeQuickScanFromAuditResult(
   job: QuickScanJobPayload,
   auditResult: ScannerServiceAuditSuccess,
 ): Promise<QueueResult> {
-  const fullName = [job.firstName, job.lastName].filter(Boolean).join(' ') || 'Valued Customer';
   const QuickScan = await getQuickScanModel();
   let jsonReportPath: string | undefined;
 
@@ -139,14 +136,6 @@ export async function completeQuickScanFromAuditResult(
       isLiteVersion: true,
       pageUrl: job.url,
     });
-    const aiReport = await generateAuditAiReport({
-      url: job.url,
-      fullName,
-      scorecard: liteScorecard,
-      remediationRoadmap: buildRemediationRoadmap(liteScorecard),
-      isLiteVersion: true,
-    });
-
     const uniqueQuickScanId = job.quickScanId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userSpecificOutputDir = path.join(
       'reports-lite',
@@ -161,28 +150,12 @@ export async function completeQuickScanFromAuditResult(
     const score = Number.isFinite(liteScorecard.overallScore)
       ? Math.round(liteScorecard.overallScore)
       : Number.parseFloat(String(pdfResult.score));
-    await generateAuditAiSummaryPdf(aiReport, {
-      url: job.url,
-      outputPath: path.join(
-        userSpecificOutputDir,
-        `ai-executive-summary-${normalizeQuickScanDevice(job.selectedDevice)}.pdf`,
-      ),
-      title: 'Quick Scan AI Executive Summary',
-      scorecard: liteScorecard,
-    }).catch((error) => {
-      quickScanLogger.warn('Failed to generate quick scan AI executive summary PDF.', {
-        quickScanId: job.quickScanId,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    });
-
     if (job.quickScanId) {
       const attachmentsPreview = await collectAttachmentsRecursive(userSpecificOutputDir).catch(() => []);
       await QuickScan.findByIdAndUpdate(job.quickScanId, {
         device: normalizeQuickScanDevice(job.selectedDevice),
         scanScore: Number.isFinite(score) ? Math.round(score) : undefined,
         scoreCard: liteScorecard,
-        aiReport,
         status: 'completed',
         emailStatus: 'sending',
         emailError: undefined,

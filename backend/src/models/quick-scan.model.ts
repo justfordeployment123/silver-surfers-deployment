@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 
-import { aiReportSchema, reportFileSchema, reportStorageSchema, scoreCardSchema } from './shared-schemas.ts';
+import { aiReportSchema, emailTrackingSchema, reportFileSchema, reportStorageSchema, scoreCardSchema } from './shared-schemas.ts';
 
 const quickScanSchema = new mongoose.Schema({
   url: {
@@ -100,6 +100,10 @@ const quickScanSchema = new mongoose.Schema({
     type: [reportFileSchema],
     default: [],
   },
+  emailTracking: {
+    type: emailTrackingSchema,
+    default: undefined,
+  },
   errorMessage: {
     type: String,
     default: null,
@@ -121,6 +125,7 @@ quickScanSchema.index({ url: 1 });
 quickScanSchema.index({ scanDate: -1 });
 quickScanSchema.index({ scannerJobId: 1 }, { sparse: true });
 quickScanSchema.index({ 'reportStorage.objects.downloadTokenHash': 1 }, { sparse: true });
+quickScanSchema.index({ 'emailTracking.trackingId': 1 }, { sparse: true });
 
 const QuickScan = (mongoose.models.QuickScan as mongoose.Model<unknown> | undefined)
   || mongoose.model('QuickScan', quickScanSchema);

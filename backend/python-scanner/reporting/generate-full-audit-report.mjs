@@ -5,7 +5,6 @@ import { fileURLToPath } from 'node:url';
 import {
   calculateSeniorFriendlinessScore,
   generateAuditAiSummaryPdf,
-  generateLiteAccessibilityReport,
   generateSeniorAccessibilityReport,
   generateSummaryPDF,
   mergePDFsByPlatform,
@@ -62,7 +61,7 @@ function buildPlatformSummary(reportsByPlatform) {
 
     return {
       platform: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
-      score: scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : null,
+      score: scores.length > 0 ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null,
     };
   });
 }
@@ -76,7 +75,7 @@ function buildPlatformScores(reportsByPlatform) {
     return {
       key: device,
       label: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
-      score: scores.length > 0 ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0,
+      score: scores.length > 0 ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : 0,
       pageCount: reports.length,
     };
   });
@@ -153,16 +152,6 @@ async function main() {
 
     reportsByPlatform[device] ||= [];
     reportsByPlatform[device].push(reportEntry);
-
-    if (isLiteVersion && planId !== 'pro' && planId !== 'onetime') {
-      const litePdfResult = await generateLiteAccessibilityReport(jsonReportPath, outputDir);
-      const expectedPdfPath = path.join(outputDir, buildFullAuditPdfFileName(url, device));
-      if (litePdfResult?.reportPath && litePdfResult.reportPath !== expectedPdfPath) {
-        await fs.copyFile(litePdfResult.reportPath, expectedPdfPath);
-        await fs.unlink(litePdfResult.reportPath).catch(() => undefined);
-      }
-      continue;
-    }
 
     await generateSeniorAccessibilityReport({
       inputFile: jsonReportPath,

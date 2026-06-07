@@ -127,7 +127,6 @@ export default function QuickScanDetail() {
     const evaluationDimensions = item?.evaluationDimensions || item?.scorecard?.evaluationDimensions || [];
     const topIssues = item?.topIssues || [];
     const remediationBuckets = item?.remediationBuckets || [];
-    const aiReport = item?.aiReport || null;
 
     const handleRerun = async () => {
         if (!quickScanId) return;
@@ -355,72 +354,6 @@ export default function QuickScanDetail() {
                                             </div>
                                         </div>
                                     ))}
-                                </div>
-                            )}
-                        </section>
-
-                        <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-                            <div className="mb-5">
-                                <h2 className="text-2xl font-bold">AI Executive Summary</h2>
-                                <p className="mt-1 text-sm text-gray-300">
-                                    Business-friendly narrative generated from the stored quick scan scorecard.
-                                </p>
-                            </div>
-                            {!aiReport ? (
-                                <p className="text-sm text-gray-400">No AI summary is available for this quick scan yet.</p>
-                            ) : (
-                                <div className="space-y-5">
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <p className="text-lg font-semibold text-white">{aiReport.headline}</p>
-                                            <ScoreBadge value={aiReport.provider} tone={aiReport.provider === "openai" ? "blue" : "gray"} />
-                                            <ScoreBadge
-                                                value={aiReport.status}
-                                                tone={aiReport.status === "generated" ? "green" : "yellow"}
-                                            />
-                                            {aiReport.model ? <ScoreBadge value={aiReport.model} tone="gray" /> : null}
-                                        </div>
-                                        <p className="mt-3 text-sm text-gray-200">{aiReport.summary}</p>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                            <h3 className="text-lg font-semibold text-white">Business Impact</h3>
-                                            <p className="mt-3 text-sm text-gray-300">{aiReport.businessImpact}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                            <h3 className="text-lg font-semibold text-white">Priority Summary</h3>
-                                            <p className="mt-3 text-sm text-gray-300">{aiReport.prioritySummary}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                        <h3 className="text-lg font-semibold text-white">Top Recommendations</h3>
-                                        {Array.isArray(aiReport.topRecommendations) && aiReport.topRecommendations.length > 0 ? (
-                                            <div className="mt-4 space-y-3">
-                                                {aiReport.topRecommendations.map((recommendation, index) => (
-                                                    <div
-                                                        key={`${index}-${recommendation}`}
-                                                        className="rounded-xl border border-white/10 bg-black/20 p-4"
-                                                    >
-                                                        <div className="flex items-start gap-3">
-                                                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-200">
-                                                                {index + 1}
-                                                            </span>
-                                                            <p className="text-sm text-gray-200">{recommendation}</p>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="mt-3 text-sm text-gray-400">No AI recommendations are available yet.</p>
-                                        )}
-                                    </div>
-
-                                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                        <h3 className="text-lg font-semibold text-white">Stakeholder Note</h3>
-                                        <p className="mt-3 text-sm text-gray-300">{aiReport.stakeholderNote}</p>
-                                    </div>
                                 </div>
                             )}
                         </section>

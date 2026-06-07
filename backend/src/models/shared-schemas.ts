@@ -93,6 +93,19 @@ export const reportStorageSchema = new mongoose.Schema({
   objects: { type: [storedObjectSchema], default: [] },
 }, { _id: false });
 
+export const emailTrackingSchema = new mongoose.Schema({
+  trackingId: { type: String },
+  sentAt: { type: Date },
+  openedAt: { type: Date },
+  lastOpenedAt: { type: Date },
+  openCount: { type: Number, default: 0 },
+  clickedAt: { type: Date },
+  lastClickedAt: { type: Date },
+  clickCount: { type: Number, default: 0 },
+  lastUserAgent: { type: String },
+  lastIp: { type: String },
+}, { _id: false });
+
 export const aiReportSchema = new mongoose.Schema({
   status: { type: String, enum: ['generated', 'fallback'], default: 'fallback' },
   provider: { type: String, enum: ['openai', 'local'], default: 'local' },

@@ -45,6 +45,7 @@ export interface AuditReportEmailOptions {
     websiteUrl?: string;
     quickScanScore?: string | number | null;
     deviceFilter?: string | null;
+    tracking?: EmailTrackingContext;
 }
 
 export interface StoredAuditReportEmailOptions {
@@ -54,6 +55,7 @@ export interface StoredAuditReportEmailOptions {
     storage: QueueReportStorage;
     isQuickScan?: boolean;
     quickScanScore?: string | number | null;
+    tracking?: EmailTrackingContext;
 }
 
 export interface AuditReportEmailResult {
@@ -90,6 +92,10 @@ export interface DirectMailOptions {
 interface MailTransportResult {
     transporter: nodemailer.Transporter | null;
     reason?: string;
+}
+
+export interface EmailTrackingContext {
+    trackingId: string;
 }
 
 function resetCachedTransport(): void {
@@ -393,6 +399,7 @@ export function buildAuditReportEmailBody(options: {
     storageErrors?: string[];
     isQuickScan?: boolean;
     quickScanScore?: string | number | null;
+    tracking?: EmailTrackingContext;
 }): string {
     const hasFiles = options.uploadedFiles.length > 0;
     const hasErrors = options.storageErrors && options.storageErrors.length > 0;
@@ -577,7 +584,7 @@ export function buildAuditReportEmailBody(options: {
                         <span style="${styles.fileIcon}">${fileIcon}</span>
                         <div style="flex:1; min-width:0;">
                             <p style="${styles.fileName}">${displayName}</p>
-                            <a href="${file.downloadUrl}"
+                            <a href="${wrapTrackedDownloadUrl(file.downloadUrl, options.tracking)}"
                                style="${styles.downloadButton}" 
                                target="_blank" 
                                rel="noopener noreferrer">
@@ -678,6 +685,7 @@ export function buildAuditReportEmailBody(options: {
                     </p>
                 </div>
 
+                ${buildOpenPixelHtml(options.tracking)}
             </div>
         </body>
         </html>
@@ -690,6 +698,34 @@ function buildFromAddress(): string {
 
 function usesSignedS3Urls(): boolean {
     return process.env.AWS_S3_URL_MODE?.trim() !== "object";
+}
+
+function getTrackingBaseUrl(): string {
+    return (
+        process.env.EMAIL_TRACKING_BASE_URL
+        || process.env.REPORT_DOWNLOAD_BASE_URL
+        || process.env.API_PUBLIC_URL
+        || process.env.BACKEND_PUBLIC_URL
+        || process.env.FRONTEND_URL
+        || "http://localhost:8000"
+    ).replace(/\/+$/, "");
+}
+
+function buildOpenPixelHtml(tracking?: EmailTrackingContext): string {
+    if (!tracking?.trackingId) {
+        return "";
+    }
+
+    const pixelUrl = `${getTrackingBaseUrl()}/email-track/open/${encodeURIComponent(tracking.trackingId)}.gif`;
+    return `<img src="${pixelUrl}" width="1" height="1" alt="" style="display:none;width:1px;height:1px;opacity:0;border:0;" />`;
+}
+
+function wrapTrackedDownloadUrl(downloadUrl: string, tracking?: EmailTrackingContext): string {
+    if (!tracking?.trackingId || !downloadUrl) {
+        return downloadUrl;
+    }
+
+    return `${getTrackingBaseUrl()}/email-track/click/${encodeURIComponent(tracking.trackingId)}?u=${encodeURIComponent(downloadUrl)}`;
 }
 
 export async function sendAuditReportEmail(options: AuditReportEmailOptions): Promise<AuditReportEmailResult> {
@@ -773,6 +809,7 @@ export async function sendAuditReportEmail(options: AuditReportEmailOptions): Pr
         storageErrors: combinedStorageErrors,
         isQuickScan: options.isQuickScan,
         quickScanScore: options.quickScanScore,
+        tracking: options.tracking,
     });
 
     try {
@@ -863,6 +900,7 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
         storage: storageWithTokens,
         isQuickScan: options.isQuickScan,
         quickScanScore: options.quickScanScore,
+        tracking: options.tracking,
     });
 
     try {

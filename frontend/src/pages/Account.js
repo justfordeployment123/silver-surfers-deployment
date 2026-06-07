@@ -30,7 +30,7 @@ const StatusPill = ({ value }) => {
             : String(value || "queued")
                   .replace(/_/g, " ")
                   .toUpperCase();
-    return <span className={`text-[10px] px-2 py-0.5 rounded-full ${cls}`}>{label}</span>;
+    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>{label}</span>;
 };
 
 const EmailPill = ({ value }) => {
@@ -42,21 +42,21 @@ const EmailPill = ({ value }) => {
               : value === "sending"
                 ? "bg-blue-600/60"
                 : "bg-gray-600/50";
-    return <span className={`text-[10px] px-2 py-0.5 rounded-full ${cls}`}>EMAIL {String(value || "pending").toUpperCase()}</span>;
+    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>EMAIL {String(value || "pending").toUpperCase()}</span>;
 };
 
 const ScorePill = ({ value }) => {
     if (typeof value !== "number" || Number.isNaN(value)) return null;
     const rounded = Math.round(value);
     const cls = rounded >= 80 ? "bg-emerald-600/60" : rounded >= 70 ? "bg-amber-600/60" : "bg-red-600/60";
-    return <span className={`text-[10px] px-2 py-0.5 rounded-full ${cls}`}>SILVER SCORE {rounded}</span>;
+    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>SILVER SCORE {rounded}</span>;
 };
 
 const RiskPill = ({ value }) => {
     if (!value) return null;
     const normalized = String(value).toLowerCase();
     const cls = normalized === "low" ? "bg-emerald-700/50" : normalized === "medium" ? "bg-amber-700/50" : "bg-red-700/50";
-    return <span className={`text-[10px] px-2 py-0.5 rounded-full ${cls}`}>RISK {normalized.toUpperCase()}</span>;
+    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>RISK {normalized.toUpperCase()}</span>;
 };
 
 const getQuickScanStepIndex = (value) => {
@@ -79,7 +79,7 @@ const QuickScanStatusLine = ({ value }) => {
     const failed = String(value || "").toLowerCase() === "failed";
 
     return (
-        <div className="flex items-center gap-2 text-[11px] text-gray-300">
+        <div className="flex items-center gap-2 text-sm text-gray-300">
             <span className="font-semibold uppercase tracking-[0.2em] text-gray-400">Current status</span>
             <span className={failed ? "text-red-300" : "text-green-300"}>{getQuickScanStatusLabel(value)}</span>
         </div>
@@ -266,10 +266,10 @@ export default function Account() {
                     <h1 className="heading-page font-bold tracking-tight bg-gradient-to-r from-blue-400 via-green-500 to-teal-400 text-transparent bg-clip-text">
                         My Account
                     </h1>
-                    <p className="text-sm text-gray-300 mt-2">Your full audits, quick scans, and their current delivery status.</p>
+                    <p className="text-base text-gray-300 mt-2">Your full audits, quick scans, and their current delivery status.</p>
                 </header>
                 {!user && (
-                    <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-sm">Please log in to view your account.</div>
+                    <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-base">Please log in to view your account.</div>
                 )}
                 {user && (
                     <>
@@ -280,12 +280,12 @@ export default function Account() {
                                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                                         <div className="text-center sm:text-left">
                                             <h3 className="text-xl font-bold text-white mb-2">Ready to Start Your Audit?</h3>
-                                            <p className="text-gray-300 text-sm">
+                                            <p className="text-gray-300 text-base">
                                                 You have {subscription.isTeamMember ? "team access to" : "an active"}{" "}
                                                 <span className="font-semibold text-green-400">{subscription.plan?.name}</span> subscription
                                             </p>
                                             {subscription.isTeamMember && (
-                                                <p className="text-yellow-300 text-xs mt-1">👥 You're using a team plan</p>
+                                                <p className="text-yellow-300 text-sm mt-1">👥 You're using a team plan</p>
                                             )}
                                         </div>
                                         <button
@@ -309,18 +309,18 @@ export default function Account() {
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
                                                 <p
-                                                    className={`text-sm font-semibold ${activeTab === "full-audits" ? "text-gray-950" : "text-white"}`}
+                                                    className={`text-base font-semibold ${activeTab === "full-audits" ? "text-gray-950" : "text-white"}`}
                                                 >
                                                     Full Audits
                                                 </p>
                                                 <p
-                                                    className={`text-[11px] ${activeTab === "full-audits" ? "text-gray-600" : "text-gray-400"}`}
+                                                    className={`text-sm ${activeTab === "full-audits" ? "text-gray-600" : "text-gray-400"}`}
                                                 >
                                                     Detailed audit runs and report packages
                                                 </p>
                                             </div>
                                             <span
-                                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${activeTab === "full-audits" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
+                                                className={`rounded-full px-2.5 py-1 text-sm font-semibold ${activeTab === "full-audits" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
                                             >
                                                 {filtered.length}
                                             </span>
@@ -334,18 +334,18 @@ export default function Account() {
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
                                                 <p
-                                                    className={`text-sm font-semibold ${activeTab === "quick-scans" ? "text-gray-950" : "text-white"}`}
+                                                    className={`text-base font-semibold ${activeTab === "quick-scans" ? "text-gray-950" : "text-white"}`}
                                                 >
                                                     Quick Scans
                                                 </p>
                                                 <p
-                                                    className={`text-[11px] ${activeTab === "quick-scans" ? "text-gray-600" : "text-gray-400"}`}
+                                                    className={`text-sm ${activeTab === "quick-scans" ? "text-gray-600" : "text-gray-400"}`}
                                                 >
                                                     Fast scan requests with status progress
                                                 </p>
                                             </div>
                                             <span
-                                                className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${activeTab === "quick-scans" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
+                                                className={`rounded-full px-2.5 py-1 text-sm font-semibold ${activeTab === "quick-scans" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
                                             >
                                                 {filteredQuickScans.length}
                                             </span>
@@ -359,12 +359,12 @@ export default function Account() {
                                     value={q}
                                     onChange={(e) => setQ(e.target.value)}
                                     placeholder={activeTab === "quick-scans" ? "Search URL or email..." : "Search URL or taskId..."}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-green-500/50"
+                                    className="flex-1 px-3 py-2 rounded-lg bg-white/10 text-base outline-none focus:ring-2 ring-green-500/50"
                                 />
                                 <select
                                     value={status}
                                     onChange={(e) => setStatus(e.target.value)}
-                                    className="px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-green-500/50 text-white"
+                                    className="px-3 py-2 rounded-lg bg-white/10 text-base outline-none focus:ring-2 ring-green-500/50 text-white"
                                 >
                                     <option value="all" className="text-black">
                                         All
@@ -387,30 +387,30 @@ export default function Account() {
                                 </select>
                                 <button
                                     onClick={load}
-                                    className="px-4 py-2 rounded-lg bg-green-600/80 hover:bg-green-500 text-xs font-semibold shadow"
+                                    className="px-4 py-2 rounded-lg bg-green-600/80 hover:bg-green-500 text-sm font-semibold shadow"
                                 >
                                     Refresh
                                 </button>
                             </div>
 
-                            {loading && <div className="text-sm text-gray-400">Loading...</div>}
+                            {loading && <div className="text-base text-gray-400">Loading...</div>}
 
                             <div className="space-y-8">
                                 {activeTab === "full-audits" ? (
                                     <section className="space-y-3">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <h2 className="text-lg font-semibold text-white">Full Audits</h2>
-                                                <p className="text-xs text-gray-400">
+                                                <h2 className="text-xl font-semibold text-white">Full Audits</h2>
+                                                <p className="text-sm text-gray-400">
                                                     Detailed accessibility audit runs linked to your account.
                                                 </p>
                                             </div>
-                                            <span className="text-xs text-gray-400">{filtered.length} shown</span>
+                                            <span className="text-sm text-gray-400">{filtered.length} shown</span>
                                         </div>
 
-                                        {auditError && <div className="text-sm text-red-300">{auditError}</div>}
+                                        {auditError && <div className="text-base text-red-300">{auditError}</div>}
                                         {!loading && filtered.length === 0 && (
-                                            <div className="text-sm text-gray-400 italic">No full audits found.</div>
+                                            <div className="text-base text-gray-400 italic">No full audits found.</div>
                                         )}
 
                                         <div className="space-y-3">
@@ -428,7 +428,7 @@ export default function Account() {
                                                                 <ScorePill value={rec.score ?? rec.scoreCard?.overallScore} />
                                                                 <RiskPill value={rec.scoreCard?.riskTier} />
                                                             </div>
-                                                            <div className="text-[11px] text-gray-300 flex flex-wrap gap-4">
+                                                            <div className="text-sm text-gray-300 flex flex-wrap gap-4">
                                                                 <span>Task: {rec.taskId}</span>
                                                                 {rec.createdAt && (
                                                                     <span>Created {new Date(rec.createdAt).toLocaleString()}</span>
@@ -451,14 +451,14 @@ export default function Account() {
                                                                 )}
                                                             </div>
                                                             {rec.failureReason && (
-                                                                <div className="mt-1 text-[11px] text-red-300">
+                                                                <div className="mt-1 text-sm text-red-300">
                                                                     Reason: {rec.failureReason}
                                                                 </div>
                                                             )}
                                                             {!rec.failureReason &&
                                                                 Array.isArray(rec.warnings) &&
                                                                 rec.warnings.length > 0 && (
-                                                                    <div className="mt-1 text-[11px] text-amber-300">
+                                                                    <div className="mt-1 text-sm text-amber-300">
                                                                         Warning: {rec.warnings[0]}
                                                                     </div>
                                                                 )}
@@ -468,7 +468,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleRescanAnalysis(rec.taskId)}
                                                                     disabled={rescanningKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {rescanningKey === `analysis:${rec.taskId}` ? "Queueing..." : "Re-scan"}
                                                                 </button>
@@ -477,7 +477,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleRerunAnalysis(rec.taskId)}
                                                                     disabled={rerunningKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {rerunningKey === `analysis:${rec.taskId}` ? "Re-running..." : "Re-run"}
                                                                 </button>
@@ -485,7 +485,7 @@ export default function Account() {
                                                             {rec.taskId && (
                                                                 <button
                                                                     onClick={() => navigate(`/account/analysis/${rec.taskId}`)}
-                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
                                                                 >
                                                                     {rec.attachmentCount > 0 ? "View reports" : "View details"}
                                                                 </button>
@@ -494,7 +494,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleDeleteAnalysis(rec.taskId)}
                                                                     disabled={deletingKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {deletingKey === `analysis:${rec.taskId}` ? "Deleting..." : "Delete"}
                                                                 </button>
@@ -509,17 +509,17 @@ export default function Account() {
                                     <section className="space-y-3">
                                         <div className="flex items-center justify-between gap-3">
                                             <div>
-                                                <h2 className="text-lg font-semibold text-white">Quick Scans</h2>
-                                                <p className="text-xs text-gray-400">
+                                                <h2 className="text-xl font-semibold text-white">Quick Scans</h2>
+                                                <p className="text-sm text-gray-400">
                                                     Free scan requests with a live status line for pending, queued, and complete.
                                                 </p>
                                             </div>
-                                            <span className="text-xs text-gray-400">{filteredQuickScans.length} shown</span>
+                                            <span className="text-sm text-gray-400">{filteredQuickScans.length} shown</span>
                                         </div>
 
-                                        {quickScanError && <div className="text-sm text-red-300">{quickScanError}</div>}
+                                        {quickScanError && <div className="text-base text-red-300">{quickScanError}</div>}
                                         {!loading && filteredQuickScans.length === 0 && (
-                                            <div className="text-sm text-gray-400 italic">No quick scans found.</div>
+                                            <div className="text-base text-gray-400 italic">No quick scans found.</div>
                                         )}
 
                                         <div className="space-y-3">
@@ -539,7 +539,7 @@ export default function Account() {
 
                                                             <QuickScanStatusLine value={scan.status} />
 
-                                                            <div className="text-[11px] text-gray-300 flex flex-wrap gap-4">
+                                                            <div className="text-sm text-gray-300 flex flex-wrap gap-4">
                                                                 {scan.scanDate && (
                                                                     <span>Scanned {new Date(scan.scanDate).toLocaleString()}</span>
                                                                 )}
@@ -553,10 +553,10 @@ export default function Account() {
                                                             </div>
 
                                                             {scan.errorMessage && (
-                                                                <div className="text-[11px] text-red-300">Reason: {scan.errorMessage}</div>
+                                                                <div className="text-sm text-red-300">Reason: {scan.errorMessage}</div>
                                                             )}
                                                             {scan.emailError && (
-                                                                <div className="text-[11px] text-amber-300">Email: {scan.emailError}</div>
+                                                                <div className="text-sm text-amber-300">Email: {scan.emailError}</div>
                                                             )}
                                                         </div>
                                                         <div className="flex flex-wrap gap-2">
@@ -564,7 +564,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleRescanQuickScan(scan._id)}
                                                                     disabled={rescanningKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {rescanningKey === `quick:${scan._id}` ? "Queueing..." : "Re-scan"}
                                                                 </button>
@@ -573,7 +573,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleRerunQuickScan(scan._id)}
                                                                     disabled={rerunningKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {rerunningKey === `quick:${scan._id}` ? "Re-running..." : "Re-run"}
                                                                 </button>
@@ -581,7 +581,7 @@ export default function Account() {
                                                             {scan._id && (
                                                                 <button
                                                                     onClick={() => navigate(`/account/quick-scans/${scan._id}`)}
-                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
+                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
                                                                 >
                                                                     View quick scan
                                                                 </button>
@@ -590,7 +590,7 @@ export default function Account() {
                                                                 <button
                                                                     onClick={() => handleDeleteQuickScan(scan._id)}
                                                                     disabled={deletingKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
                                                                 >
                                                                     {deletingKey === `quick:${scan._id}` ? "Deleting..." : "Delete"}
                                                                 </button>

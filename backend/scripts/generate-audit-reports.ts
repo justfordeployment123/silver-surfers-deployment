@@ -22,6 +22,7 @@ interface CliOptions {
   email: string;
   mode: Mode;
   device: FullAuditDevice;
+  planId: string;
   pages: string[];
   outDir: string;
   scannerUrl: string;
@@ -96,6 +97,7 @@ function buildOptions(): CliOptions {
     email: getArg('email') || 'local-test@silversurfers.local',
     mode: parseMode(getArg('mode')),
     device: parseDevice(getArg('device')),
+    planId: getArg('plan-id') || 'local-test',
     pages: parsePages(getArg('pages'), url),
     outDir: path.resolve(getArg('out') || defaultOutDir),
     scannerUrl: (getArg('scanner-url') || env.scannerServiceUrl).replace(/\/+$/, ''),
@@ -225,7 +227,7 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
       imagePaths: {},
       outputDir: pageDir,
       formFactor: options.device,
-      planType: 'local-test',
+      planType: options.planId,
     });
 
     pageReports.push({
@@ -247,7 +249,7 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
     device: options.device,
     email_address: options.email,
     outputDir: fullDir,
-    planType: 'local-test',
+    planType: options.planId,
     individualPdfPaths,
   });
   const summaryPdf = await generateSummaryPDF(
@@ -285,6 +287,7 @@ async function main(): Promise<void> {
     pages: options.pages,
     mode: options.mode,
     device: options.device,
+    planId: options.planId,
     email: options.email,
     files: generatedFiles,
   }, null, 2), 'utf8');

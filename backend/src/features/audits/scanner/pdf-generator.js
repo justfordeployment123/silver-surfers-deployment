@@ -569,7 +569,7 @@ addOverallScoreDisplay(scoreData) {
         const score = Math.round(scoreData.finalScore);
         // For messaging on this page, treat 80% as the minimum recommended standard (Pass threshold)
         const meetsMinimum = score >= 80;
-        const formFactor = reportData.configSettings?.formFactor || 'desktop';
+        const formFactor = reportData.configSettings?.formFactor || this.options?.formFactor || 'desktop';
         const formFactorDisplay = formFactor.charAt(0).toUpperCase() + formFactor.slice(1);
 
         // Determine package type display text
@@ -1868,14 +1868,14 @@ addOverallScoreDisplay(scoreData) {
             this.currentY += 25;
 
             // Table headers - ensure total width doesn't exceed pageWidth (515)
-            // Component (100), Rating (85), Actual (50), Standard (70), Details (210) = 515
-            // Increased Rating from 70 to 85 to ensure "Needs Improvement" fits on one line
-            const colWidths = [100, 85, 50, 70, 210]; // Component, Rating, Actual, Standard, Details
+            // Component (110), Rating (95), Actual (60), Details (250) = 515
+            // Rating has enough room for "Needs Improvement"; Details receives the removed Standard column space.
+            const colWidths = [110, 95, 60, 250]; // Component, Rating, Actual, Details
             const rowMinHeight = 28;
             
             // Calculate header height dynamically based on text wrapping
             this.doc.fontSize(11).font('BoldFont');
-            const headers = ['Component', 'Rating', 'Actual', 'Standard', 'Details'];
+            const headers = ['Component', 'Rating', 'Actual', 'Details'];
             let maxHeaderHeight = 0;
             headers.forEach((header, index) => {
                 const headerTextHeight = this.doc.heightOfString(header, { 
@@ -1937,9 +1937,6 @@ addOverallScoreDisplay(scoreData) {
                     actualColor = '#FD7E14'; // Yellow/Orange
                 }
                 
-                // Standard is 80% or higher for Pass
-                const standard = excluded ? 'N/A' : '>=80%';
-                
                 // Get details from actual audit data
                 let details = '';
                 
@@ -1983,7 +1980,7 @@ addOverallScoreDisplay(scoreData) {
                 // IMPORTANT: Set font size first for accurate height calculation
                 this.doc.fontSize(10).font('RegularFont');
                 const detailsHeight = this.doc.heightOfString(details, { 
-                    width: colWidths[4] - 10,
+                    width: colWidths[3] - 10,
                     lineGap: 1
                 });
                 const componentNameHeight = this.doc.heightOfString(audit.info.title, {
@@ -2063,20 +2060,11 @@ addOverallScoreDisplay(scoreData) {
                     });
                 currentX += colWidths[2];
 
-                // Standard
-                const standardText = String(standard || '').trim();
-                this.doc.fontSize(10).font('BoldFont').fillColor('#28A745')
-                    .text(standardText, currentX + 5, tableY + 6, {
-                        width: colWidths[3] - 10,
-                        align: 'center'
-                    });
-                currentX += colWidths[3];
-
                 // Details - ensure full text wrapping (no height limit to prevent clipping)
                 const detailsText = String(details || '').trim();
                 this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
                     .text(detailsText, currentX + 5, tableY + 6, {
-                        width: colWidths[4] - 10,
+                        width: colWidths[3] - 10,
                         align: 'left',
                         lineGap: 1,
                         ellipsis: false
@@ -2904,6 +2892,10 @@ addOverallScoreDisplay(scoreData) {
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';
             const url = reportData.finalUrl || 'unknown-url';
+            reportData.configSettings = {
+                ...(reportData.configSettings || {}),
+                formFactor,
+            };
 
             // Create a safe, short, unique filename from URL and device
             function safeFilename(url, device) {
