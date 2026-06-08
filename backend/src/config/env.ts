@@ -111,6 +111,12 @@ export interface AppEnv {
     scannerSqsQuickResultQueueUrl?: string;
     scannerSqsFullJobQueueUrl?: string;
     scannerSqsFullResultQueueUrl?: string;
+    scannerSqsVpsQuickJobQueueUrl?: string;
+    scannerSqsVpsFullJobQueueUrl?: string;
+    scannerFallbackToVpsEnabled: boolean;
+    scannerFallbackMaxAttempts: number;
+    scannerFallbackVpsQuickBacklogLimit: number;
+    scannerFallbackVpsFullBacklogLimit: number;
     scannerSqsWaitTimeSeconds: number;
     scannerSqsResultVisibilityTimeoutSeconds: number;
     scannerSqsResultWorkerEnabled: boolean;
@@ -122,6 +128,7 @@ export interface AppEnv {
     scannerLiteAuditTimeoutMs: number;
     scannerFullAuditTimeoutMs: number;
     scannerPrecheckFallbackEnabled: boolean;
+    scannerPrecheckFallbackUrl?: string;
     scannerPrecheckFallbackTimeoutMs: number;
     skipUrlPrecheck: boolean;
     chromePath?: string;
@@ -209,6 +216,12 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         scannerSqsQuickResultQueueUrl: source.SCANNER_SQS_QUICK_RESULT_QUEUE_URL?.trim() || genericScannerSqsResultQueueUrl,
         scannerSqsFullJobQueueUrl: source.SCANNER_SQS_FULL_JOB_QUEUE_URL?.trim() || genericScannerSqsJobQueueUrl,
         scannerSqsFullResultQueueUrl: source.SCANNER_SQS_FULL_RESULT_QUEUE_URL?.trim() || genericScannerSqsResultQueueUrl,
+        scannerSqsVpsQuickJobQueueUrl: source.SCANNER_SQS_VPS_QUICK_JOB_QUEUE_URL?.trim() || undefined,
+        scannerSqsVpsFullJobQueueUrl: source.SCANNER_SQS_VPS_FULL_JOB_QUEUE_URL?.trim() || undefined,
+        scannerFallbackToVpsEnabled: parseBoolean(source.SCANNER_FALLBACK_TO_VPS_ENABLED, false),
+        scannerFallbackMaxAttempts: parseBoundedNumber(source.SCANNER_FALLBACK_MAX_ATTEMPTS, 1, 0, 5),
+        scannerFallbackVpsQuickBacklogLimit: parseBoundedNumber(source.SCANNER_FALLBACK_VPS_QUICK_BACKLOG_LIMIT, 25, 1, 500),
+        scannerFallbackVpsFullBacklogLimit: parseBoundedNumber(source.SCANNER_FALLBACK_VPS_FULL_BACKLOG_LIMIT, 5, 1, 100),
         scannerSqsWaitTimeSeconds: parseBoundedNumber(source.SCANNER_SQS_WAIT_TIME_SECONDS, 20, 1, 20),
         scannerSqsResultVisibilityTimeoutSeconds: parseBoundedNumber(source.SCANNER_SQS_RESULT_VISIBILITY_TIMEOUT_SECONDS, 30, 5, 300),
         scannerSqsResultWorkerEnabled: parseBoolean(source.SCANNER_SQS_RESULT_WORKER_ENABLED, true),
@@ -220,6 +233,7 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         scannerLiteAuditTimeoutMs: parseBoundedNumber(source.SCANNER_LITE_AUDIT_TIMEOUT_MS, 240_000, 60_000, 60 * 60 * 1000),
         scannerFullAuditTimeoutMs: parseBoundedNumber(source.SCANNER_FULL_AUDIT_TIMEOUT_MS, 300_000, 60_000, 4 * 60 * 60 * 1000),
         scannerPrecheckFallbackEnabled: parseBoolean(source.SCANNER_PRECHECK_FALLBACK_ENABLED, true),
+        scannerPrecheckFallbackUrl: source.SCANNER_PRECHECK_FALLBACK_URL?.trim() || source.VPS_SCANNER_SERVICE_URL?.trim() || undefined,
         scannerPrecheckFallbackTimeoutMs: parseBoundedNumber(source.SCANNER_PRECHECK_FALLBACK_TIMEOUT_MS, 20_000, 3_000, 60_000),
         skipUrlPrecheck: parseBoolean(source.SKIP_URL_PRECHECK, false),
         chromePath: resolveChromePath(source),

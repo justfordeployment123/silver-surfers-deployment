@@ -10,7 +10,15 @@ import {
   setCachedCompletedFullAuditSnapshot,
   setCachedFullAuditPageReport,
 } from './audit-cache.ts';
-import { dispatchScannerFullAuditBatch, requestScannerAudit, requestScannerFullAuditBatch, requestScannerLoadSnapshot, type ScannerSqsResultPayload } from '../scanner/scanner-client.ts';
+import {
+  createScannerJobId,
+  dispatchScannerFullAuditBatch,
+  isScannerFailureEligibleForVpsFallback,
+  requestScannerAudit,
+  requestScannerFullAuditBatch,
+  requestScannerLoadSnapshot,
+  type ScannerSqsResultPayload,
+} from '../scanner/scanner-client.ts';
 import { generateAuditAiReport } from './ai-reporting.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
 import { env } from '../../config/env.ts';
@@ -841,7 +849,13 @@ async function failFullAuditFromScannerResult(
   errorCode?: string,
 ): Promise<void> {
   const AnalysisRecord = await getAnalysisRecordModel();
-  const record = await AnalysisRecord.findOne({ scannerJobId });
+  const record = await AnalysisRecord.findOne({
+    $or: [
+      { scannerJobId },
+      { primaryScannerJobId: scannerJobId },
+      { fallbackScannerJobId: scannerJobId },
+    ],
+  });
   if (!record) {
     fullAuditLogger.warn('Scanner result failure had no matching full-audit record.', {
       scannerJobId,
@@ -869,6 +883,157 @@ async function failFullAuditFromScannerResult(
   await record.save();
 }
 
+async function queueFullAuditVpsFallbackFromScannerResult(payload: ScannerSqsResultPayload): Promise<boolean> {
+  const scannerJobId = payload.scannerJobId || '';
+  if (!scannerJobId || !env.scannerFallbackToVpsEnabled || !env.scannerSqsVpsFullJobQueueUrl) {
+    return false;
+  }
+
+  if (!isScannerFailureEligibleForVpsFallback(payload)) {
+    return false;
+  }
+
+  const AnalysisRecord = await getAnalysisRecordModel();
+  const record = await AnalysisRecord.findOne({
+    $or: [
+      { scannerJobId },
+      { primaryScannerJobId: scannerJobId },
+      { fallbackScannerJobId: scannerJobId },
+    ],
+  });
+
+  if (!record) {
+    return false;
+  }
+
+  if (record.status === 'completed' || record.status === 'completed_with_warnings') {
+    return false;
+  }
+
+  const fallbackCount = Number(record.scannerFallbackCount || 0);
+  if (fallbackCount >= env.scannerFallbackMaxAttempts || record.scannerTier === 'vps' || payload.scannerTier === 'vps') {
+    return false;
+  }
+
+  const fallbackBacklog = await AnalysisRecord.countDocuments({
+    scannerTier: 'vps',
+    scannerQueueStatus: { $in: ['fallback_pending', 'queued', 'dispatched'] },
+    status: 'processing',
+  });
+
+  if (fallbackBacklog >= env.scannerFallbackVpsFullBacklogLimit) {
+    fullAuditLogger.warn('Skipping VPS fallback full audit because fallback backlog limit is reached.', {
+      taskId: record.taskId,
+      scannerJobId,
+      fallbackBacklog,
+      fallbackBacklogLimit: env.scannerFallbackVpsFullBacklogLimit,
+    });
+    return false;
+  }
+
+  const fallbackScannerJobId = createScannerJobId();
+  const effectivePlanId = record.planId || 'pro';
+  const selectedDevice = typeof record.device === 'string' ? record.device : null;
+  const devicesToAudit = resolveDevicesToAudit(effectivePlanId, selectedDevice);
+  const fullModePageLimit = effectivePlanId === 'pro' || effectivePlanId === 'onetime'
+    ? env.fullAuditTotalPageLimit
+    : env.fullAuditFullModePageLimit;
+  const fullName = [record.firstName, record.lastName].filter(Boolean).join(' ') || 'Valued Customer';
+  const errorMessage = payload.error || 'Scanner full-audit batch failed.';
+
+  await AnalysisRecord.updateOne({ _id: record._id }, {
+    $set: {
+      scannerTier: 'vps',
+      fallbackScannerJobId,
+      scannerQueueStatus: 'fallback_pending',
+      scannerResultAt: new Date(),
+      failureReason: undefined,
+      emailError: undefined,
+    },
+    $inc: { scannerFallbackCount: 1 },
+    $push: {
+      scannerAttemptHistory: {
+        scannerJobId,
+        scannerTier: payload.scannerTier || 'aws',
+        queueKind: 'full',
+        status: 'failed',
+        errorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+        error: errorMessage,
+        completedAt: new Date(),
+      },
+    },
+  });
+
+  const dispatchResult = await dispatchScannerFullAuditBatch({
+    scannerJobId: fallbackScannerJobId,
+    scannerTier: 'vps',
+    orchestration: {
+      url: record.url,
+      devices: devicesToAudit,
+      crawlScope: {
+        maxPages: env.fullAuditMaxPages,
+        maxDepth: env.fullAuditMaxDepth,
+        delayMs: env.fullAuditCrawlDelayMs,
+        timeoutMs: env.fullAuditCrawlTimeoutMs,
+        maxRetries: env.fullAuditCrawlMaxRetries,
+        totalPageLimit: env.fullAuditTotalPageLimit,
+        priorityPageLimit: env.fullAuditPriorityPageLimit,
+        fullModePageLimit,
+      },
+    },
+    reportGeneration: {
+      enabled: true,
+      email: record.email,
+      taskId: record.taskId || scannerJobId,
+      url: record.url,
+      planId: effectivePlanId,
+      selectedDevice,
+      fullName,
+    },
+  });
+
+  if (!dispatchResult.success) {
+    fullAuditLogger.error('Failed to queue VPS fallback full audit.', {
+      taskId: record.taskId,
+      originalScannerJobId: scannerJobId,
+      fallbackScannerJobId,
+      errorCode: dispatchResult.errorCode,
+      error: dispatchResult.error,
+    });
+    return false;
+  }
+
+  await AnalysisRecord.updateOne({ _id: record._id }, {
+    $set: {
+      status: 'processing',
+      emailStatus: 'pending',
+      scannerJobId: fallbackScannerJobId,
+      scannerTier: 'vps',
+      scannerQueueStatus: 'queued',
+      scannerDispatchedAt: new Date(),
+    },
+    $push: {
+      scannerAttemptHistory: {
+        scannerJobId: fallbackScannerJobId,
+        scannerTier: 'vps',
+        queueKind: 'full',
+        status: 'queued',
+        queuedAt: new Date(),
+      },
+    },
+  });
+
+  fullAuditLogger.warn('Full-audit scanner result failed on AWS; queued VPS fallback scan.', {
+    taskId: record.taskId,
+    originalScannerJobId: scannerJobId,
+    fallbackScannerJobId,
+    errorCode: payload.errorCode,
+    error: errorMessage,
+  });
+
+  return true;
+}
+
 export async function completeFullAuditFromScannerResult(payload: ScannerSqsResultPayload): Promise<void> {
   const scannerJobId = payload.scannerJobId || '';
   if (!scannerJobId) {
@@ -877,6 +1042,11 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
   }
 
   if (!payload.success) {
+    if (await queueFullAuditVpsFallbackFromScannerResult(payload)) {
+      await ScannerResult.deleteOne({ scannerJobId }).catch(() => undefined);
+      return;
+    }
+
     await failFullAuditFromScannerResult(
       scannerJobId,
       payload.error || 'Scanner full-audit batch failed.',
@@ -887,7 +1057,13 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
   }
 
   const AnalysisRecord = await getAnalysisRecordModel();
-  const record = await AnalysisRecord.findOne({ scannerJobId });
+  const record = await AnalysisRecord.findOne({
+    $or: [
+      { scannerJobId },
+      { primaryScannerJobId: scannerJobId },
+      { fallbackScannerJobId: scannerJobId },
+    ],
+  });
   if (!record) {
     fullAuditLogger.warn('Scanner result had no matching full-audit record.', {
       scannerJobId,
@@ -1041,6 +1217,17 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
     record.scannerQueueStatus = 'result_received';
     record.scannerResultAt = new Date();
     record.scannerArtifact = payload.report as Record<string, unknown> | undefined;
+    record.scannerTier = payload.scannerTier || record.scannerTier || 'aws';
+    record.scannerAttemptHistory = [
+      ...(record.scannerAttemptHistory || []),
+      {
+        scannerJobId,
+        scannerTier: payload.scannerTier || record.scannerTier || 'aws',
+        queueKind: 'full',
+        status: 'completed',
+        completedAt: new Date(),
+      },
+    ];
     await record.save();
 
     const emailContent = buildFullAuditEmailContent(effectivePlanId, record.device);
@@ -1338,10 +1525,21 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         ],
       }, []);
       record.scannerJobId = dispatchResult.scannerJobId;
+      record.primaryScannerJobId = dispatchResult.scannerJobId;
+      record.fallbackScannerJobId = undefined;
+      record.scannerTier = dispatchResult.scannerTier;
+      record.scannerFallbackCount = 0;
       record.scannerQueueStatus = 'dispatched';
       record.scannerDispatchedAt = new Date();
       record.emailStatus = 'pending';
       record.status = 'processing';
+      record.scannerAttemptHistory = [{
+        scannerJobId: dispatchResult.scannerJobId,
+        scannerTier: dispatchResult.scannerTier,
+        queueKind: 'full',
+        status: 'queued',
+        queuedAt: new Date(),
+      }];
       await record.save();
       await clearReportDirectoryActive(finalReportFolder);
       await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);
@@ -1483,10 +1681,21 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           ],
         }, []);
         record.scannerJobId = dispatchResult.scannerJobId;
+        record.primaryScannerJobId = dispatchResult.scannerJobId;
+        record.fallbackScannerJobId = undefined;
+        record.scannerTier = dispatchResult.scannerTier;
+        record.scannerFallbackCount = 0;
         record.scannerQueueStatus = 'dispatched';
         record.scannerDispatchedAt = new Date();
         record.emailStatus = 'pending';
         record.status = 'processing';
+        record.scannerAttemptHistory = [{
+          scannerJobId: dispatchResult.scannerJobId,
+          scannerTier: dispatchResult.scannerTier,
+          queueKind: 'full',
+          status: 'queued',
+          queuedAt: new Date(),
+        }];
         await record.save();
         await clearReportDirectoryActive(finalReportFolder);
         await fs.rm(finalReportFolder, { recursive: true, force: true }).catch(() => undefined);

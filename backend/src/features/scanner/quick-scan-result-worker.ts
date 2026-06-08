@@ -6,7 +6,10 @@ import {
 } from '../audits/quick-scan.processor.ts';
 import { getQuickScanModel } from '../audits/audits.dependencies.ts';
 import {
+  createScannerJobId,
+  dispatchScannerAuditJob,
   downloadScannerS3Report,
+  isScannerFailureEligibleForVpsFallback,
   loadSqsRuntime,
   parseSqsResultBody,
   type ScannerSqsResultPayload,
@@ -121,7 +124,13 @@ export class QuickScanResultWorker {
     }
 
     const QuickScan = await getQuickScanModel();
-    const record = await QuickScan.findOne({ scannerJobId: payload.scannerJobId });
+    const record = await QuickScan.findOne({
+      $or: [
+        { scannerJobId: payload.scannerJobId },
+        { primaryScannerJobId: payload.scannerJobId },
+        { fallbackScannerJobId: payload.scannerJobId },
+      ],
+    });
 
     if (!record) {
       resultWorkerLogger.warn('Discarding quick scanner result with no matching quick scan record.', {
@@ -146,14 +155,131 @@ export class QuickScanResultWorker {
 
     if (!payload.success) {
       const errorMessage = buildAuditFailureMessage(payload);
-      await QuickScan.findByIdAndUpdate(quickScanId, {
-        status: 'failed',
-        emailStatus: 'failed',
-        emailError: errorMessage,
-        errorMessage,
-        scannerQueueStatus: 'failed',
-        scannerErrorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
-        scannerResultAt: new Date(),
+      const fallbackCount = Number(record.scannerFallbackCount || 0);
+      const isVpsResult = payload.scannerTier === 'vps' || record.scannerTier === 'vps';
+      const shouldFallbackToVps = env.scannerFallbackToVpsEnabled
+        && Boolean(env.scannerSqsVpsQuickJobQueueUrl)
+        && fallbackCount < env.scannerFallbackMaxAttempts
+        && !isVpsResult
+        && isScannerFailureEligibleForVpsFallback(payload);
+
+      if (shouldFallbackToVps) {
+        const fallbackBacklog = await QuickScan.countDocuments({
+          scannerTier: 'vps',
+          scannerQueueStatus: { $in: ['fallback_pending', 'queued'] },
+          status: { $in: ['queued', 'processing'] },
+        });
+
+        if (fallbackBacklog >= env.scannerFallbackVpsQuickBacklogLimit) {
+          resultWorkerLogger.warn('Skipping VPS fallback quick scan because fallback backlog limit is reached.', {
+            quickScanId,
+            scannerJobId: payload.scannerJobId,
+            fallbackBacklog,
+            fallbackBacklogLimit: env.scannerFallbackVpsQuickBacklogLimit,
+          });
+        } else {
+          const fallbackScannerJobId = createScannerJobId();
+          await QuickScan.updateOne({ _id: quickScanId }, {
+            $set: {
+              scannerTier: 'vps',
+              fallbackScannerJobId,
+              scannerQueueStatus: 'fallback_pending',
+              scannerErrorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+              scannerResultAt: new Date(),
+              emailError: undefined,
+              errorMessage: undefined,
+            },
+            $inc: { scannerFallbackCount: 1 },
+            $push: {
+              scannerAttemptHistory: {
+                scannerJobId: payload.scannerJobId,
+                scannerTier: payload.scannerTier || 'aws',
+                queueKind: 'quick',
+                status: 'failed',
+                errorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+                error: errorMessage,
+                completedAt: new Date(),
+              },
+            },
+          });
+
+          const job = buildQuickScanJobFromRecord(record);
+          const dispatchResult = await dispatchScannerAuditJob({
+            url: payload.url || job.url,
+            device: payload.device || job.selectedDevice || 'desktop',
+            format: 'json',
+            isLiteVersion: true,
+            includeReport: true,
+            scannerQueue: 'quick',
+            scannerTier: 'vps',
+            scannerJobId: fallbackScannerJobId,
+          });
+
+          if (dispatchResult.success) {
+            await QuickScan.updateOne({ _id: quickScanId }, {
+              $set: {
+                status: 'processing',
+                emailStatus: 'pending',
+                scannerJobId: fallbackScannerJobId,
+                scannerTier: 'vps',
+                scannerQueueStatus: 'queued',
+                scannerErrorCode: undefined,
+              },
+              $push: {
+                scannerAttemptHistory: {
+                  scannerJobId: fallbackScannerJobId,
+                  scannerTier: 'vps',
+                  queueKind: 'quick',
+                  status: 'queued',
+                  queuedAt: new Date(),
+                },
+              },
+            });
+
+            resultWorkerLogger.warn('Quick scanner result failed on AWS; queued VPS fallback scan.', {
+              quickScanId,
+              originalScannerJobId: payload.scannerJobId,
+              fallbackScannerJobId,
+              errorCode: payload.errorCode,
+              error: errorMessage,
+            });
+
+            await this.deleteMessage(runtime, client, message.ReceiptHandle);
+            return;
+          }
+
+          resultWorkerLogger.error('Failed to queue VPS fallback quick scan.', {
+            quickScanId,
+            originalScannerJobId: payload.scannerJobId,
+            fallbackScannerJobId,
+            dispatchErrorCode: dispatchResult.errorCode,
+            dispatchError: dispatchResult.error,
+          });
+        }
+      }
+
+      await QuickScan.updateOne({ _id: quickScanId }, {
+        $set: {
+          status: 'failed',
+          emailStatus: 'failed',
+          emailError: errorMessage,
+          errorMessage,
+          scannerQueueStatus: 'failed',
+          scannerErrorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+          scannerResultAt: new Date(),
+          scannerTier: payload.scannerTier || record.scannerTier || 'aws',
+        },
+        $push: {
+          scannerAttemptHistory: {
+            scannerJobId: payload.scannerJobId,
+            scannerTier: payload.scannerTier || record.scannerTier || 'aws',
+            queueKind: 'quick',
+            status: 'failed',
+            errorCode: payload.errorCode || 'SCANNER_WORKER_FAILED',
+            error: errorMessage,
+            completedAt: new Date(),
+          },
+        },
       });
 
       resultWorkerLogger.error('Quick scanner result reported failure.', {
@@ -197,11 +323,23 @@ export class QuickScanResultWorker {
       message: payload.message || 'Audit completed by scanner SQS worker.',
     });
 
-    await QuickScan.findByIdAndUpdate(quickScanId, {
-      scannerQueueStatus: 'completed',
-      scannerResultAt: new Date(),
-      scannerErrorCode: undefined,
-      scannerArtifact: payload.report,
+    await QuickScan.updateOne({ _id: quickScanId }, {
+      $set: {
+        scannerQueueStatus: 'completed',
+        scannerResultAt: new Date(),
+        scannerErrorCode: undefined,
+        scannerArtifact: payload.report,
+        scannerTier: payload.scannerTier || record.scannerTier || 'aws',
+      },
+      $push: {
+        scannerAttemptHistory: {
+          scannerJobId: payload.scannerJobId,
+          scannerTier: payload.scannerTier || record.scannerTier || 'aws',
+          queueKind: 'quick',
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      },
     });
 
     await this.deleteMessage(runtime, client, message.ReceiptHandle);

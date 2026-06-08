@@ -19,6 +19,7 @@ export interface ScannerServiceAuditRequest {
   includeReport?: boolean;
   scannerQueue?: 'quick' | 'full';
   scannerJobId?: string;
+  scannerTier?: 'aws' | 'vps';
 }
 
 export interface ScannerFullAuditBatchTarget {
@@ -46,6 +47,7 @@ export interface ScannerFullAuditOrchestrationRequest {
 
 export interface ScannerFullAuditBatchRequest {
   scannerJobId?: string;
+  scannerTier?: 'aws' | 'vps';
   targets?: ScannerFullAuditBatchTarget[];
   orchestration?: ScannerFullAuditOrchestrationRequest;
   reportGeneration?: {
@@ -101,6 +103,8 @@ export interface ScannerSqsResultPayload {
   reportStorage?: QueueReportStorage;
   reportsGeneratedInWorker?: boolean;
   aiReport?: AuditAiReport;
+  scannerTier?: 'aws' | 'vps';
+  originalScannerJobId?: string;
 }
 
 interface ScannerFullAuditBatchArtifactTarget {
@@ -155,6 +159,7 @@ export interface ScannerSqsDispatchSuccess {
   queueKind: 'quick' | 'full';
   jobQueueUrl: string;
   resultQueueUrl: string;
+  scannerTier: 'aws' | 'vps';
 }
 
 export type ScannerSqsDispatchResult = ScannerSqsDispatchSuccess | ScannerServiceAuditFailure;
@@ -203,6 +208,7 @@ export type ScannerFullAuditBatchDispatchResult = {
   jobQueueUrl: string;
   resultQueueUrl: string;
   targetCount: number;
+  scannerTier: 'aws' | 'vps';
 } | ScannerServiceAuditFailure;
 
 export interface ScannerServiceLoadSnapshot {
@@ -229,6 +235,39 @@ function resolveScannerQueueKind(request: ScannerServiceAuditRequest): 'quick' |
   }
 
   return request.isLiteVersion ? 'quick' : 'full';
+}
+
+function resolveScannerTier(value: unknown): 'aws' | 'vps' {
+  return value === 'vps' ? 'vps' : 'aws';
+}
+
+function resolveJobQueueUrl(queueKind: 'quick' | 'full', scannerTier: 'aws' | 'vps'): string | undefined {
+  if (scannerTier === 'vps') {
+    return queueKind === 'quick' ? env.scannerSqsVpsQuickJobQueueUrl : env.scannerSqsVpsFullJobQueueUrl;
+  }
+
+  return queueKind === 'quick' ? env.scannerSqsQuickJobQueueUrl : env.scannerSqsFullJobQueueUrl;
+}
+
+export function isScannerFailureEligibleForVpsFallback(payload: {
+  success?: boolean;
+  error?: string;
+  errorCode?: string;
+  scannerTier?: string;
+}): boolean {
+  if (payload.success || payload.scannerTier === 'vps') {
+    return false;
+  }
+
+  const errorCode = String(payload.errorCode || '').toUpperCase();
+  const errorText = String(payload.error || '');
+  const combined = `${errorCode}\n${errorText}`;
+
+  if (/DNS|ENOTFOUND|NXDOMAIN|INVALID_URL|NOT_FOUND|HTTP_404|CERT|SSL|TLS|CONNECTION_REFUSED/i.test(combined)) {
+    return false;
+  }
+
+  return /TIMEOUT|REQUEST_TIMEOUT|SCAN_TIMEOUT|PAGE\.GOTO|TARGETCLOSED|TARGET PAGE|BROWSER HAS BEEN CLOSED|NS_ERROR_NET_RESET|ERR_CONNECTION_RESET|NAVIGATION|LOAD EVENT|SCANNER_WORKER_FAILED|SERVICE_UNAVAILABLE/i.test(combined);
 }
 
 function resolveReportHostname(url: string): string {
@@ -423,7 +462,8 @@ async function buildAuditResultFromSqsPayload(
 
 export async function dispatchScannerAuditJob(request: ScannerServiceAuditRequest): Promise<ScannerSqsDispatchResult> {
   const queueKind = resolveScannerQueueKind(request);
-  const jobQueueUrl = queueKind === 'quick' ? env.scannerSqsQuickJobQueueUrl : env.scannerSqsFullJobQueueUrl;
+  const scannerTier = resolveScannerTier(request.scannerTier);
+  const jobQueueUrl = resolveJobQueueUrl(queueKind, scannerTier);
   const resultQueueUrl = queueKind === 'quick' ? env.scannerSqsQuickResultQueueUrl : env.scannerSqsFullResultQueueUrl;
 
   if (!jobQueueUrl || !resultQueueUrl) {
@@ -455,6 +495,7 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
     isLiteVersion,
     includeReport: true,
     queueKind,
+    scannerTier,
     requestedAt: new Date().toISOString(),
     artifact: {
       bucket: env.scannerSqsArtifactBucket,
@@ -469,6 +510,7 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
     device: body.device,
     isLiteVersion,
     queueKind,
+    scannerTier,
     jobQueueUrl,
     resultQueueUrl,
   });
@@ -484,6 +526,7 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
     queueKind,
     jobQueueUrl,
     resultQueueUrl,
+    scannerTier,
   };
 }
 
@@ -496,7 +539,8 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
     };
   }
 
-  const jobQueueUrl = env.scannerSqsFullJobQueueUrl;
+  const scannerTier = resolveScannerTier(request.scannerTier);
+  const jobQueueUrl = resolveJobQueueUrl('full', scannerTier);
   const resultQueueUrl = env.scannerSqsFullResultQueueUrl;
   if (!jobQueueUrl || !resultQueueUrl) {
     return {
@@ -539,6 +583,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
     jobType: 'fullAuditBatch',
     scannerJobId,
     queueKind: 'full',
+    scannerTier,
     requestedAt: new Date().toISOString(),
     artifact: {
       bucket: env.scannerSqsArtifactBucket,
@@ -577,6 +622,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
     scannerJobId,
     targetCount: body.targets.length,
     orchestrationInScanner: Boolean(request.orchestration),
+    scannerTier,
     jobQueueUrl,
     resultQueueUrl,
   });
@@ -592,6 +638,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
     jobQueueUrl,
     resultQueueUrl,
     targetCount: body.targets.length,
+    scannerTier,
   };
 }
 

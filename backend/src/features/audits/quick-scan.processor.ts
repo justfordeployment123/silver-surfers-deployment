@@ -330,9 +330,20 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
           status: 'processing',
           emailStatus: 'pending',
           scannerJobId,
+          primaryScannerJobId: scannerJobId,
+          fallbackScannerJobId: undefined,
+          scannerTier: 'aws',
+          scannerFallbackCount: 0,
           scannerQueueStatus: 'pending',
           scannerErrorCode: undefined,
           scannerArtifact: undefined,
+          scannerAttemptHistory: [{
+            scannerJobId,
+            scannerTier: 'aws',
+            queueKind: 'quick',
+            status: 'queued',
+            queuedAt: new Date(),
+          }],
         }).catch((error) => {
           quickScanLogger.warn('Failed to persist quick scan scanner job id before dispatch.', {
             quickScanId: job.quickScanId,
@@ -362,6 +373,7 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
           emailStatus: 'pending',
           scannerQueueStatus: 'queued',
           scannerErrorCode: undefined,
+          scannerTier: dispatchResult.scannerTier,
         }).catch((error) => {
           quickScanLogger.warn('Failed to persist quick scan scanner job id.', {
             quickScanId: job.quickScanId,

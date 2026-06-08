@@ -392,7 +392,10 @@ function classifyPartialHealth(error: string): { checkStatus: 'SSL_ERROR' | 'TCP
 }
 
 async function runScannerPrecheckFallback(url: string, fetchImpl: FetchLike): Promise<PrecheckResult | undefined> {
-  if (!env.scannerPrecheckFallbackEnabled || !env.scannerServiceUrl) {
+  const scannerPrecheckUrl = env.scannerPrecheckFallbackUrl
+    || (env.scannerDispatchMode === 'http' ? env.scannerServiceUrl : undefined);
+
+  if (!env.scannerPrecheckFallbackEnabled || !scannerPrecheckUrl) {
     return undefined;
   }
 
@@ -401,10 +404,10 @@ async function runScannerPrecheckFallback(url: string, fetchImpl: FetchLike): Pr
   try {
     precheckLogger.info('Trying scanner browser precheck fallback.', {
       url,
-      scannerServiceUrl: env.scannerServiceUrl,
+      scannerServiceUrl: scannerPrecheckUrl,
     });
 
-    const response = await fetchImpl(`${env.scannerServiceUrl}/precheck`, {
+    const response = await fetchImpl(`${scannerPrecheckUrl}/precheck`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

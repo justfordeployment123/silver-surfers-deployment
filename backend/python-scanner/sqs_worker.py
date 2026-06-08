@@ -605,6 +605,7 @@ class ScannerSqsWorker:
         payload = self._parse_payload(message.get("Body"))
         scanner_job_id = safe_text(payload.get("scannerJobId") or f"unknown-{int(time.time() * 1000)}")
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
+        scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
         protected = False
 
         try:
@@ -642,6 +643,7 @@ class ScannerSqsWorker:
                     "schemaVersion": 1,
                     "scannerJobId": scanner_job_id,
                     "queueKind": queue_kind,
+                    "scannerTier": scanner_tier,
                     "success": False,
                     "error": error_message,
                     "errorCode": "SCANNER_WORKER_FAILED",
@@ -680,6 +682,7 @@ class ScannerSqsWorker:
 
         device = safe_text(payload.get("device") or "desktop")
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
+        scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
         is_lite_version = bool(payload.get("isLiteVersion"))
         version = "Lite" if is_lite_version else "Full"
         device_config = get_viewport_for_device(device)
@@ -691,6 +694,7 @@ class ScannerSqsWorker:
                 "url": url,
                 "device": device,
                 "queueKind": queue_kind,
+                "scannerTier": scanner_tier,
                 "isLiteVersion": is_lite_version,
                 "version": version,
             },
@@ -701,6 +705,7 @@ class ScannerSqsWorker:
             "url": url,
             "device": device,
             "queueKind": queue_kind,
+            "scannerTier": scanner_tier,
             "version": version,
         }
 
@@ -746,6 +751,7 @@ class ScannerSqsWorker:
             "schemaVersion": 1,
             "scannerJobId": scanner_job_id,
             "queueKind": queue_kind,
+            "scannerTier": scanner_tier,
             "success": True,
             "report": {
                 "bucket": self.bucket,
@@ -788,6 +794,7 @@ class ScannerSqsWorker:
     ) -> Dict[str, Any]:
         started_at = time.time()
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "full"))
+        scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
         targets = payload.get("targets")
         selected_pages = payload.get("selectedPages") if isinstance(payload.get("selectedPages"), list) else []
         orchestration = payload.get("orchestration") if isinstance(payload.get("orchestration"), dict) else None
@@ -805,6 +812,7 @@ class ScannerSqsWorker:
             extra={
                 "scannerJobId": scanner_job_id,
                 "queueKind": queue_kind,
+                "scannerTier": scanner_tier,
                 "targetCount": len(targets),
                 "orchestratedInScanner": bool(orchestration),
             },
@@ -837,6 +845,7 @@ class ScannerSqsWorker:
             "jobType": "fullAuditBatch",
             "scannerJobId": scanner_job_id,
             "queueKind": queue_kind,
+            "scannerTier": scanner_tier,
             "url": safe_text(payload.get("url") or orchestration_url),
             "targetCount": len(target_results),
             "successfulTargetCount": successful_count,
@@ -878,6 +887,7 @@ class ScannerSqsWorker:
             "jobType": "fullAuditBatch",
             "scannerJobId": scanner_job_id,
             "queueKind": queue_kind,
+            "scannerTier": scanner_tier,
             "success": successful_count > 0,
             "report": {
                 "bucket": self.bucket,

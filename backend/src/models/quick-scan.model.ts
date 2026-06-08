@@ -76,6 +76,27 @@ const quickScanSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.Mixed,
     default: undefined,
   },
+  scannerTier: {
+    type: String,
+    enum: ['aws', 'vps'],
+    default: 'aws',
+  },
+  primaryScannerJobId: {
+    type: String,
+    default: null,
+  },
+  fallbackScannerJobId: {
+    type: String,
+    default: null,
+  },
+  scannerFallbackCount: {
+    type: Number,
+    default: 0,
+  },
+  scannerAttemptHistory: {
+    type: [mongoose.Schema.Types.Mixed],
+    default: [],
+  },
   reportGenerated: {
     type: Boolean,
     default: false,
