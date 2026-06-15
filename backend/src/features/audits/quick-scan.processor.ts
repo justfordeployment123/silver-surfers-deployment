@@ -327,23 +327,27 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
 
       if (job.quickScanId) {
         await QuickScan.findByIdAndUpdate(job.quickScanId, {
-          status: 'processing',
-          emailStatus: 'pending',
-          scannerJobId,
-          primaryScannerJobId: scannerJobId,
-          fallbackScannerJobId: undefined,
-          scannerTier: 'aws',
-          scannerFallbackCount: 0,
-          scannerQueueStatus: 'pending',
-          scannerErrorCode: undefined,
-          scannerArtifact: undefined,
-          scannerAttemptHistory: [{
+          $set: {
+            status: 'processing',
+            emailStatus: 'pending',
             scannerJobId,
+            primaryScannerJobId: scannerJobId,
+            fallbackScannerJobId: undefined,
             scannerTier: 'aws',
-            queueKind: 'quick',
-            status: 'queued',
-            queuedAt: new Date(),
-          }],
+            scannerFallbackCount: 0,
+            scannerQueueStatus: 'pending',
+            scannerErrorCode: undefined,
+            scannerArtifact: undefined,
+          },
+          $push: {
+            scannerAttemptHistory: {
+              scannerJobId,
+              scannerTier: 'aws',
+              queueKind: 'quick',
+              status: 'queued',
+              queuedAt: new Date(),
+            },
+          },
         }).catch((error) => {
           quickScanLogger.warn('Failed to persist quick scan scanner job id before dispatch.', {
             quickScanId: job.quickScanId,

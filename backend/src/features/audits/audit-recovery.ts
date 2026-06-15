@@ -7,7 +7,6 @@ import {
   getQuickScanModel,
   type AnalysisRecordDocument,
   type AnalysisRecordModel,
-  type QuickScanDocument,
   type QuickScanModel,
 } from './audits.dependencies.ts';
 
@@ -71,22 +70,6 @@ function resetFullAuditRecordForRetry(record: AnalysisRecordDocument): void {
   record.score = undefined;
   record.scoreCard = undefined;
   record.aiReport = undefined;
-}
-
-function resetQuickScanRecordForRetry(record: QuickScanDocument): void {
-  record.status = 'queued';
-  record.errorMessage = undefined;
-  record.emailStatus = 'pending';
-  record.emailError = undefined;
-  record.scanScore = undefined;
-  record.scoreCard = undefined;
-  record.aiReport = undefined;
-  record.reportGenerated = false;
-  record.reportPath = null;
-  record.reportDirectory = undefined;
-  record.reportStorage = undefined;
-  record.reportFiles = [];
-  record.scanDate = new Date();
 }
 
 function markAutoRecoveryAttempt(
@@ -226,7 +209,12 @@ async function recoverQuickScanRecords(
 ): Promise<Omit<AuditRecoveryRunSummary, 'fullAuditsRecovered'>> {
   const cutoff = new Date(deps.now.getTime() - deps.retryDelayMs);
   const candidates = await deps.QuickScan.find({
-    status: { $in: ['queued', 'processing', 'failed'] },
+    status: { $in: ['queued', 'processing'] },
+    scanScore: null,
+    $or: [
+      { scannerResultAt: { $exists: false } },
+      { scannerResultAt: null },
+    ],
     updatedAt: { $lte: cutoff },
   })
     .sort({ updatedAt: 1 })
@@ -254,31 +242,82 @@ async function recoverQuickScanRecords(
     }
 
     try {
-      resetQuickScanRecordForRetry(record);
-      markAutoRecoveryAttempt(record, deps.now);
-      await record.save();
+      const staleScannerJobId = record.scannerJobId ? String(record.scannerJobId) : undefined;
+      const claimedRecord = await deps.QuickScan.findOneAndUpdate(
+        {
+          _id: record._id,
+          status: { $in: ['queued', 'processing'] },
+          scannerJobId: staleScannerJobId || null,
+          scanScore: null,
+          $or: [
+            { scannerResultAt: { $exists: false } },
+            { scannerResultAt: null },
+          ],
+          updatedAt: { $lte: cutoff },
+        },
+        {
+          $set: {
+            status: 'queued',
+            errorMessage: undefined,
+            emailStatus: 'pending',
+            emailError: undefined,
+            scanScore: undefined,
+            scoreCard: undefined,
+            aiReport: undefined,
+            reportGenerated: false,
+            reportPath: null,
+            reportDirectory: undefined,
+            reportStorage: undefined,
+            reportFiles: [],
+            scanDate: deps.now,
+            fallbackScannerJobId: undefined,
+            scannerErrorCode: undefined,
+            scannerQueueStatus: 'pending',
+            scannerResultAt: undefined,
+            lastAutoRecoveryAt: deps.now,
+          },
+          $inc: { autoRecoveryAttempts: 1 },
+          $push: {
+            scannerAttemptHistory: {
+              scannerJobId: staleScannerJobId,
+              scannerTier: record.scannerTier || 'aws',
+              queueKind: 'quick',
+              status: 'stale_requeued',
+              reason: 'No scanner result was received before the auto-recovery delay elapsed.',
+              recoveredAt: deps.now,
+            },
+          },
+        },
+        { new: true },
+      );
+
+      if (!claimedRecord) {
+        skippedActiveJobs += 1;
+        continue;
+      }
 
       await deps.quickScanQueue.addJob({
-        email: record.email,
-        url: record.url,
-        firstName: record.firstName || '',
-        lastName: record.lastName || '',
+        email: claimedRecord.email || record.email,
+        url: claimedRecord.url || record.url,
+        firstName: claimedRecord.firstName || '',
+        lastName: claimedRecord.lastName || '',
         userId: null,
         taskId: createTaskId(),
         jobType: 'quick-scan',
         subscriptionId: null,
         priority: 2,
         quickScanId,
-        selectedDevice: record.device || 'desktop',
+        selectedDevice: claimedRecord.device || record.device || 'desktop',
       });
 
       quickScansRecovered += 1;
       auditRecoveryLogger.warn('Auto-recovered quick scan record.', {
         quickScanId,
-        email: record.email,
-        url: record.url,
-        status: record.status,
-        autoRecoveryAttempts: record.autoRecoveryAttempts,
+        email: claimedRecord.email,
+        url: claimedRecord.url,
+        status: claimedRecord.status,
+        staleScannerJobId,
+        autoRecoveryAttempts: claimedRecord.autoRecoveryAttempts,
       });
     } catch (error) {
       errors += 1;

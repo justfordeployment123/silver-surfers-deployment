@@ -424,6 +424,11 @@ export async function getUsers(request: Request, response: Response): Promise<vo
       query.role = role;
     }
 
+    const accountStatus = String(request.query.accountStatus || 'all').toLowerCase();
+    if (accountStatus !== 'all') {
+      query.accountStatus = accountStatus;
+    }
+
     const users = await User.find(query).select('-password -passwordHash').sort({ createdAt: -1 }).lean();
 
     const usersWithSubscriptions = await Promise.all(users.map(async (user) => {
@@ -432,6 +437,8 @@ export async function getUsers(request: Request, response: Response): Promise<vo
       if (!userObj.name && (userObj.firstName || userObj.lastName)) {
         userObj.name = [userObj.firstName, userObj.lastName].filter(Boolean).join(' ') || userObj.email;
       }
+
+      userObj.accountStatus = String(userObj.accountStatus || 'active').toLowerCase();
 
       if (
         user.subscription
@@ -539,6 +546,7 @@ export async function getUser(request: Request, response: Response): Promise<voi
       success: true,
       user: {
         ...user,
+        accountStatus: String((user as { accountStatus?: string }).accountStatus || 'active').toLowerCase(),
         subscription,
       },
     });
@@ -612,6 +620,55 @@ export async function updateUserRole(request: Request, response: Response): Prom
   } catch (error) {
     console.error('Error updating user role:', error);
     response.status(500).json({ error: 'Failed to update user role' });
+  }
+}
+
+export async function updateUserStatus(request: Request, response: Response): Promise<void> {
+  try {
+    const id = String(request.params.id || '');
+    const status = String(request.body?.status || '').trim().toLowerCase();
+    const reason = String(request.body?.reason || '').trim();
+
+    if (!['active', 'suspended'].includes(status)) {
+      response.status(400).json({ error: 'Valid status (active or suspended) is required' });
+      return;
+    }
+
+    if (request.user?.id === id && status === 'suspended') {
+      response.status(400).json({ error: 'You cannot suspend your own account' });
+      return;
+    }
+
+    const update: Record<string, unknown> = {
+      accountStatus: status,
+    };
+    const unset: Record<string, unknown> = {};
+
+    if (status === 'suspended') {
+      update.suspendedAt = new Date();
+      update.suspendedBy = request.user?.id;
+      update.suspensionReason = reason || 'Suspended by admin';
+    } else {
+      unset.suspendedAt = 1;
+      unset.suspendedBy = 1;
+      unset.suspensionReason = 1;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      id,
+      Object.keys(unset).length > 0 ? { $set: update, $unset: unset } : { $set: update },
+      { new: true },
+    ).select('-password -passwordHash');
+
+    if (!user) {
+      response.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    response.json({ success: true, user });
+  } catch (error) {
+    console.error('Error updating user status:', error);
+    response.status(500).json({ error: 'Failed to update user status' });
   }
 }
 

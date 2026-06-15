@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminListUsers, adminGetUser, adminResetUserUsage, adminUpdateUserSubscription, adminUpdateUserRole } from '../../api';
+import { adminListUsers, adminGetUser, adminResetUserUsage, adminUpdateUserSubscription, adminUpdateUserRole, adminUpdateUserStatus } from '../../api';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -9,6 +9,7 @@ const AdminUsers = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterSubscription, setFilterSubscription] = useState('all');
+  const [filterAccountStatus, setFilterAccountStatus] = useState('all');
   const [showUserDetail, setShowUserDetail] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -110,7 +111,8 @@ const AdminUsers = () => {
     const matchesSubscription = filterSubscription === 'all' || 
                                (filterSubscription === 'active' && user.subscription?.status === 'active') ||
                                (filterSubscription === 'none' && !user.subscription);
-    return matchesSearch && matchesRole && matchesSubscription;
+    const matchesAccountStatus = filterAccountStatus === 'all' || String(user.accountStatus || 'active') === filterAccountStatus;
+    return matchesSearch && matchesRole && matchesSubscription && matchesAccountStatus;
   });
 
   const getStatusBadge = (status) => {
@@ -190,6 +192,27 @@ const AdminUsers = () => {
     }
   };
 
+  const handleUpdateStatus = async (userId, newStatus) => {
+    const action = newStatus === 'suspended' ? 'suspend' : 'reactivate';
+    if (!window.confirm(`Are you sure you want to ${action} this user?`)) {
+      return;
+    }
+
+    try {
+      const result = await adminUpdateUserStatus(userId, newStatus);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(`User account ${newStatus === 'suspended' ? 'suspended' : 'reactivated'} successfully`);
+        loadUsers();
+        setShowUserDetail(null);
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (err) {
+      setError('Failed to update user status');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -246,6 +269,18 @@ const AdminUsers = () => {
               <option value="all" className="text-gray-900">All</option>
               <option value="active" className="text-gray-900">Active</option>
               <option value="none" className="text-gray-900">No Subscription</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Account Status</label>
+            <select
+              value={filterAccountStatus}
+              onChange={(e) => setFilterAccountStatus(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+            >
+              <option value="all" className="text-gray-900">All</option>
+              <option value="active" className="text-gray-900">Active</option>
+              <option value="suspended" className="text-gray-900">Suspended</option>
             </select>
           </div>
         </div>
@@ -345,6 +380,15 @@ const AdminUsers = () => {
                       <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
                         {user.role}
                       </span>
+                      <div className="mt-2">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          String(user.accountStatus || 'active') === 'suspended'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {String(user.accountStatus || 'active')}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       {user.subscription ? (
@@ -399,7 +443,7 @@ const AdminUsers = () => {
             </div>
             <div className="overflow-y-auto flex-1 p-6">
               <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Email</label>
                   <p className="mt-1 text-sm text-gray-900">{showUserDetail.email}</p>
@@ -417,6 +461,10 @@ const AdminUsers = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Verified</label>
                   <p className="mt-1 text-sm text-gray-900">{showUserDetail.verified ? 'Yes' : 'No'}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Account Status</label>
+                  <p className="mt-1 text-sm text-gray-900 capitalize">{showUserDetail.accountStatus || 'active'}</p>
                 </div>
               </div>
               {showUserDetail.subscription && (
@@ -491,6 +539,25 @@ const AdminUsers = () => {
                          title={currentUserId === showUserDetail._id ? 'You cannot demote yourself' : 'Remove admin privileges'}
                        >
                          {currentUserId === showUserDetail._id ? 'Cannot Demote Yourself' : 'Remove Admin Privileges'}
+                       </button>
+                     )}
+                   </div>
+
+                   <div className="border-t pt-3 mt-3">
+                     <h5 className="text-sm font-medium text-gray-700 mb-2">Account Status</h5>
+                     {String(showUserDetail.accountStatus || 'active') === 'suspended' ? (
+                       <button
+                         onClick={() => handleUpdateStatus(showUserDetail._id, 'active')}
+                         className="w-full px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition-colors"
+                       >
+                         Reactivate User
+                       </button>
+                     ) : (
+                       <button
+                         onClick={() => handleUpdateStatus(showUserDetail._id, 'suspended')}
+                         className="w-full px-3 py-2 bg-red-500 hover:bg-red-600 text-white text-sm font-medium rounded-lg transition-colors"
+                       >
+                         Suspend User
                        </button>
                      )}
                    </div>

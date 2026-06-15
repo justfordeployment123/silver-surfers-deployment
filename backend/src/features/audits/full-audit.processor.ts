@@ -57,7 +57,6 @@ import {
   generateCombinedPlatformReport,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
-  generateSummaryPDF,
   mergePDFsByPlatform,
   type FullAuditPlatformReport,
 } from './report-generation.ts';
@@ -700,6 +699,7 @@ async function generatePlatformReports(
           outputDir: finalReportFolder,
           reports,
           planType: planId,
+          platformSummary: buildPlatformSummary(reportsByPlatform),
         });
       } catch (mergeError) {
         fullAuditLogger.warn('Combined PDF merge failed. Falling back to summary PDF.', {
@@ -714,6 +714,7 @@ async function generatePlatformReports(
           outputDir: finalReportFolder,
           planType: planId,
           individualPdfPaths,
+          platformSummary: buildPlatformSummary(reportsByPlatform),
         }).catch((summaryError) => {
           fullAuditLogger.error('Fallback combined platform PDF generation failed.', {
             device,
@@ -2039,17 +2040,6 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
       await record.save().catch((error) => {
         fullAuditLogger.warn('Failed to persist AI executive summary on analysis record.', {
-          taskId: effectiveTaskId,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      });
-    }
-
-    const platformSummary = buildPlatformSummary(reportsByPlatform);
-    if (platformSummary.length > 0 && !batchWorkerReportStorage) {
-      const summaryPdfPath = path.join(finalReportFolder, 'audit-summary.pdf');
-      await generateSummaryPDF(platformSummary, summaryPdfPath).catch((error) => {
-        fullAuditLogger.warn('Failed to generate full-audit summary PDF.', {
           taskId: effectiveTaskId,
           error: error instanceof Error ? error.message : String(error),
         });

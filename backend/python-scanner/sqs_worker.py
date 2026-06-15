@@ -110,6 +110,10 @@ signal.signal(signal.SIGTERM, _request_shutdown)
 class RetryableJobError(RuntimeError):
     """Raised when the job should become visible in SQS for another worker."""
 
+    def __init__(self, message: str, retry_delay_seconds: int = 30):
+        super().__init__(message)
+        self.retry_delay_seconds = max(0, int(retry_delay_seconds))
+
 
 def _required_env(name: str) -> str:
     value = os.getenv(name, "").strip()
@@ -292,10 +296,38 @@ def _is_retryable_processing_error(error: Exception) -> bool:
     non_retryable_navigation_fragments = (
         "page.goto: timeout",
         "ns_error_net_reset",
+        "ns_error_net_interrupt",
+        "ssl_error_bad_cert_domain",
+        "ssl_error_unknown",
+        "sec_error_expired_certificate",
+        "sec_error_unknown_issuer",
     )
     if any(fragment in message for fragment in non_retryable_navigation_fragments):
         return False
     return any(fragment in message for fragment in retryable_fragments)
+
+
+def _classify_scanner_error(error: Exception | str) -> str:
+    message = safe_text(str(error)).lower()
+    if "ssl_error_bad_cert_domain" in message:
+        return "SSL_CERT_DOMAIN_ERROR"
+    if "ssl_error_unknown" in message:
+        return "SSL_ERROR_UNKNOWN"
+    if "sec_error_expired_certificate" in message:
+        return "SSL_CERT_EXPIRED"
+    if "sec_error_unknown_issuer" in message:
+        return "SSL_CERT_UNKNOWN_ISSUER"
+    if "ssl" in message and ("cert" in message or "certificate" in message):
+        return "SSL_CERTIFICATE_ERROR"
+    if "ns_error_net_interrupt" in message:
+        return "NETWORK_INTERRUPTED"
+    if "ns_error_net_reset" in message or "econnreset" in message or "connection reset" in message:
+        return "NETWORK_RESET"
+    if "page.goto: timeout" in message or "timeout" in message:
+        return "NAVIGATION_TIMEOUT"
+    if "target page, context or browser has been closed" in message or "targetclosederror" in message:
+        return "BROWSER_TARGET_CLOSED"
+    return "SCANNER_WORKER_FAILED"
 
 
 class JobStdoutLogger:
@@ -566,13 +598,26 @@ class ScannerSqsWorker:
 
             for message in response.get("Messages", []):
                 if _shutdown_requested:
-                    self._release_message(message, "shutdown requested before scan started")
+                    payload = self._parse_payload(message.get("Body"))
+                    scanner_job_id = safe_text(payload.get("scannerJobId") or "")
+                    self._release_message(
+                        message,
+                        "shutdown requested before scan started",
+                        scanner_job_id=scanner_job_id or None,
+                        visibility_timeout_seconds=_optional_int("SCANNER_SQS_SHUTDOWN_RETRY_DELAY_SECONDS", 30),
+                    )
                     continue
                 self._handle_message(message)
 
         logger.info("Scanner SQS worker stopped.")
 
-    def _release_message(self, message: Dict[str, Any], reason: str, scanner_job_id: Optional[str] = None) -> None:
+    def _release_message(
+        self,
+        message: Dict[str, Any],
+        reason: str,
+        scanner_job_id: Optional[str] = None,
+        visibility_timeout_seconds: int = 0,
+    ) -> None:
         receipt_handle = message.get("ReceiptHandle")
         if not receipt_handle:
             return
@@ -581,13 +626,14 @@ class ScannerSqsWorker:
             self.sqs.change_message_visibility(
                 QueueUrl=self.job_queue_url,
                 ReceiptHandle=receipt_handle,
-                VisibilityTimeout=0,
+                VisibilityTimeout=max(0, int(visibility_timeout_seconds)),
             )
             logger.warning(
                 "Released scanner SQS job back to queue.",
                 extra={
                     "scannerJobId": scanner_job_id,
                     "reason": reason,
+                    "visibilityTimeoutSeconds": max(0, int(visibility_timeout_seconds)),
                 },
             )
         except Exception as error:
@@ -610,14 +656,23 @@ class ScannerSqsWorker:
 
         try:
             if _shutdown_requested:
-                raise RetryableJobError("Shutdown requested before scan started.")
+                raise RetryableJobError(
+                    "Shutdown requested before scan started.",
+                    retry_delay_seconds=_optional_int("SCANNER_SQS_SHUTDOWN_RETRY_DELAY_SECONDS", 30),
+                )
 
             protected = self.task_protection.protect(scanner_job_id)
             if not protected:
-                raise RetryableJobError("ECS task scale-in protection was not applied.")
+                raise RetryableJobError(
+                    "ECS task scale-in protection was not applied.",
+                    retry_delay_seconds=_optional_int("SCANNER_SQS_PROTECTION_RETRY_DELAY_SECONDS", 120),
+                )
 
             if _shutdown_requested:
-                raise RetryableJobError("Shutdown requested after task protection was applied.")
+                raise RetryableJobError(
+                    "Shutdown requested after task protection was applied.",
+                    retry_delay_seconds=_optional_int("SCANNER_SQS_SHUTDOWN_RETRY_DELAY_SECONDS", 30),
+                )
 
             result = self._process_scan_job(scanner_job_id, payload, receipt_handle)
             self._send_result(result)
@@ -631,10 +686,16 @@ class ScannerSqsWorker:
                     extra={
                         "scannerJobId": scanner_job_id,
                         "queueKind": queue_kind,
-                        "error": error_message,
+                        "retryReason": error_message,
+                        "retryDelaySeconds": getattr(error, "retry_delay_seconds", 0),
                     },
                 )
-                self._release_message(message, error_message, scanner_job_id)
+                self._release_message(
+                    message,
+                    error_message,
+                    scanner_job_id,
+                    visibility_timeout_seconds=getattr(error, "retry_delay_seconds", 0),
+                )
                 return
 
             logger.exception("Scanner SQS job failed.", extra={"scannerJobId": scanner_job_id})
@@ -646,7 +707,7 @@ class ScannerSqsWorker:
                     "scannerTier": scanner_tier,
                     "success": False,
                     "error": error_message,
-                    "errorCode": "SCANNER_WORKER_FAILED",
+                    "errorCode": _classify_scanner_error(error),
                 }
             )
             if receipt_handle:

@@ -98,10 +98,15 @@ export interface QuickScanDocument {
   emailStatus?: string;
   emailError?: string | null;
   scannerJobId?: string | null;
+  primaryScannerJobId?: string | null;
+  fallbackScannerJobId?: string | null;
+  scannerTier?: 'aws' | 'vps';
   scannerQueueStatus?: string;
   scannerResultAt?: Date;
   scannerErrorCode?: string | null;
   scannerArtifact?: Record<string, unknown>;
+  scannerFallbackCount?: number;
+  scannerAttemptHistory?: Array<Record<string, unknown>>;
   scanScore?: number | null;
   scoreCard?: AuditScorecard;
   scanDate?: Date;

@@ -85,6 +85,10 @@ function filterStoredQuickScanAiSummary<T extends { filename?: string }>(reportF
   return reportFiles.filter((file) => !isQuickScanAiSummaryFilename(file?.filename));
 }
 
+function isAccountSuspended(user: { accountStatus?: string } | null | undefined): boolean {
+  return String(user?.accountStatus || 'active').toLowerCase() === 'suspended';
+}
+
 router.post('/register', asyncHandler(async (request, response) => {
   const User = await getUserModel();
   const emailModule = await getEmailModule();
@@ -116,6 +120,7 @@ router.post('/register', asyncHandler(async (request, response) => {
     role: 'user',
     provider: 'local',
     verified: false,
+    accountStatus: 'active',
     verificationTokenHash: hashToken(verificationToken),
     verificationExpires: new Date(Date.now() + 24 * 60 * 60 * 1000),
   });
@@ -158,6 +163,11 @@ router.post('/verify-email', asyncHandler(async (request, response) => {
     return;
   }
 
+  if (isAccountSuspended(user)) {
+    response.status(403).json({ error: 'Your account is suspended. Please contact support.' });
+    return;
+  }
+
   user.verified = true;
   user.verificationTokenHash = undefined;
   user.verificationExpires = undefined;
@@ -186,6 +196,11 @@ router.post('/resend-verification', asyncHandler(async (request, response) => {
   const user = await User.findOne({ email: String(email).trim().toLowerCase() });
   if (!user) {
     response.status(404).json({ error: 'User not found' });
+    return;
+  }
+
+  if (isAccountSuspended(user)) {
+    response.status(403).json({ error: 'Your account is suspended. Please contact support.' });
     return;
   }
 
@@ -223,6 +238,11 @@ router.post('/login', asyncHandler(async (request, response) => {
   const user = await User.findOne({ email: String(email).trim().toLowerCase() });
   if (!user || !(await bcrypt.compare(String(password), user.passwordHash || ''))) {
     response.status(401).json({ error: 'Invalid credentials' });
+    return;
+  }
+
+  if (isAccountSuspended(user)) {
+    response.status(403).json({ error: 'Your account is suspended. Please contact support.' });
     return;
   }
 
@@ -331,11 +351,17 @@ router.get('/me', asyncHandler(async (request, response) => {
       return;
     }
 
+    if (isAccountSuspended(user)) {
+      response.status(200).json({ user: null });
+      return;
+    }
+
     response.json({
       user: {
         email: user.email,
         role: user.role,
         verified: user.verified,
+        accountStatus: user.accountStatus || 'active',
       },
     });
   } catch {

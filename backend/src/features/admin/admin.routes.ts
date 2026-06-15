@@ -16,6 +16,7 @@ import {
   getUsers,
   rerunAnalysis,
   resetUserUsage,
+  updateUserStatus,
   updateUserRole,
   updateUserSubscription,
 } from './admin.controller.ts';
@@ -290,6 +291,7 @@ router.get('/users', asyncHandler(getUsers));
 router.get('/users/:id', asyncHandler(getUser));
 router.post('/users/:id/reset-usage', asyncHandler(resetUserUsage));
 router.put('/users/:id/role', asyncHandler(updateUserRole));
+router.put('/users/:id/status', asyncHandler(updateUserStatus));
 router.post('/subscription/update', asyncHandler(updateUserSubscription));
 
 export default router;

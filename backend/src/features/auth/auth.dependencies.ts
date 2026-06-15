@@ -11,6 +11,7 @@ interface UserDocument {
   email: string;
   role: string;
   verified: boolean;
+  accountStatus?: 'active' | 'suspended';
   passwordHash?: string;
   verificationTokenHash?: string;
   verificationExpires?: Date;

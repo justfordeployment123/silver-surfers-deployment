@@ -56,10 +56,20 @@ const LITE_AUDIT_INFO = {
         category: 'Security',
         impact: 'Secure connections protect older adults from online scams.',
     },
-    'largest-contentful-paint': {
-        title: 'Loading Speed',
-        category: 'Performance',
-        impact: 'Fast loading prevents older adults from thinking site is broken.',
+    'user-scalable-audit': {
+        title: 'Pinch-to-Zoom Allowed',
+        category: 'Mobile',
+        impact: 'Older adults can enlarge content on phones and tablets.',
+    },
+    'horizontal-scroll-audit': {
+        title: 'No Horizontal Scrolling',
+        category: 'Mobile',
+        impact: 'Page fits the screen width without confusing side-scrolling.',
+    },
+    'text-size-adjust-audit': {
+        title: 'Text Scaling Not Blocked',
+        category: 'Mobile',
+        impact: 'Browser can automatically adjust text size for readability.',
     },
     'cumulative-layout-shift': {
         title: 'Stable Layout',

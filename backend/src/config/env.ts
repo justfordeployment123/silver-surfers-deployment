@@ -145,6 +145,11 @@ export interface AppEnv {
     openAiModel: string;
     openAiBaseUrl: string;
     openAiTimeoutMs: number;
+    anthropicApiKey?: string;
+    anthropicModel: string;
+    anthropicBaseUrl: string;
+    anthropicVersion: string;
+    anthropicTimeoutMs: number;
     scannerMaxConcurrentAudits: number;
     scannerMaxQueuedAudits: number;
     fullAuditMaxPages: number;
@@ -250,6 +255,11 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         openAiModel: source.OPENAI_MODEL?.trim() || "gpt-4o",
         openAiBaseUrl: source.OPENAI_BASE_URL?.trim() || "https://api.openai.com/v1",
         openAiTimeoutMs: parseBoundedNumber(source.OPENAI_TIMEOUT_MS, 20_000, 1_000, 120_000),
+        anthropicApiKey: source.ANTHROPIC_API_KEY?.trim() || undefined,
+        anthropicModel: source.ANTHROPIC_MODEL?.trim() || "claude-sonnet-4-6",
+        anthropicBaseUrl: source.ANTHROPIC_BASE_URL?.trim() || "https://api.anthropic.com/v1",
+        anthropicVersion: source.ANTHROPIC_VERSION?.trim() || "2023-06-01",
+        anthropicTimeoutMs: parseBoundedNumber(source.ANTHROPIC_TIMEOUT_MS || source.OPENAI_TIMEOUT_MS, 20_000, 1_000, 120_000),
         scannerMaxConcurrentAudits: parseNumber(source.SCANNER_MAX_CONCURRENT_AUDITS, 1),
         scannerMaxQueuedAudits: parseNumber(source.SCANNER_MAX_QUEUED_AUDITS, 8),
         fullAuditMaxPages: parseBoundedNumber(source.FULL_AUDIT_MAX_PAGES, 25, 1, 500),

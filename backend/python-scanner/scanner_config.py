@@ -29,8 +29,10 @@ LITE_AUDIT_REFS = [
     {"id": "label", "weight": 3},
     {"id": "heading-order", "weight": 2},
     {"id": "is-on-https", "weight": 2},
-    {"id": "largest-contentful-paint", "weight": 1},
     {"id": "cumulative-layout-shift", "weight": 1},
+    {"id": "user-scalable-audit", "weight": 2},
+    {"id": "horizontal-scroll-audit", "weight": 1},
+    {"id": "text-size-adjust-audit", "weight": 1},
     {"id": "image-alt", "weight": 3},
 ]
 
@@ -43,7 +45,9 @@ FULL_AUDIT_REFS = [
     {"id": "text-font-audit", "weight": 15},
     {"id": "layout-brittle-audit", "weight": 2},
     {"id": "flesch-kincaid-audit", "weight": 15},
-    {"id": "largest-contentful-paint", "weight": 5},
+    {"id": "user-scalable-audit", "weight": 4},
+    {"id": "horizontal-scroll-audit", "weight": 3},
+    {"id": "text-size-adjust-audit", "weight": 3},
     {"id": "total-blocking-time", "weight": 5},
     {"id": "link-name", "weight": 5},
     {"id": "button-name", "weight": 5},

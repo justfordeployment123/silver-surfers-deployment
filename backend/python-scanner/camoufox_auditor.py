@@ -1,6 +1,6 @@
 import time
-from typing import Any, Dict
-from urllib.parse import urlparse
+from typing import Any, Dict, Optional
+from urllib.parse import urlparse, urlunparse
 
 from bs4 import BeautifulSoup
 from camoufox.sync_api import Camoufox
@@ -8,6 +8,29 @@ from camoufox.sync_api import Camoufox
 from axe_integration import ensure_expected_audits, find_axe_core_script, merge_axe_results_into_audits, make_not_checked_audit
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score
 from scanner_utils import safe_text
+
+
+def _www_to_apex_retry_url(url: str) -> Optional[str]:
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    if not hostname.lower().startswith("www."):
+        return None
+
+    apex_hostname = hostname[4:]
+    netloc = apex_hostname
+    if parsed.port:
+        netloc = f"{apex_hostname}:{parsed.port}"
+
+    return urlunparse(
+        (
+            parsed.scheme or "https",
+            netloc,
+            parsed.path or "/",
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
 
 
 def navigate_for_audit(page, url: str) -> None:
@@ -21,11 +44,19 @@ def navigate_for_audit(page, url: str) -> None:
         return
     except Exception as first_error:
         first_message = safe_text(str(first_error)).lower()
+        if "ssl_error_bad_cert_domain" in first_message:
+            apex_retry_url = _www_to_apex_retry_url(url)
+            if apex_retry_url and apex_retry_url != url:
+                page.goto(apex_retry_url, wait_until="domcontentloaded", timeout=60000)
+                return
+
         recoverable = (
             "timeout" in first_message
             or "ns_error_net_reset" in first_message
+            or "ns_error_net_interrupt" in first_message
             or "econnreset" in first_message
             or "connection reset" in first_message
+            or "network interrupt" in first_message
         )
         if not recoverable:
             raise
@@ -41,7 +72,7 @@ def navigate_for_audit(page, url: str) -> None:
             return
         except Exception as second_error:
             second_message = safe_text(str(second_error)).lower()
-            if "timeout" in second_message:
+            if "timeout" in second_message or "ns_error_net_interrupt" in second_message:
                 try:
                     if safe_text(page.content()):
                         return
@@ -319,7 +350,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             smallItems.push({
                                 node: {
                                     nodeLabel: el.textContent.trim().substring(0, 50) || el.tagName.toLowerCase(),
-                                    selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+                                    selector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (() => { const cls = typeof el.className === 'string' ? el.className : (el.className?.baseVal || ''); return cls ? '.' + cls.trim().split(/\\s+/)[0] : ''; })(),
                                     path: el.tagName.toLowerCase()
                                 },
                                 width: Math.round(rect.width),
@@ -385,7 +416,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             failingItems.push({
                                 node: {
                                     nodeLabel: link.href || 'Link',
-                                    selector: link.tagName.toLowerCase() + (link.id ? '#' + link.id : '') + (link.className ? '.' + link.className.split(' ')[0] : ''),
+                                    selector: link.tagName.toLowerCase() + (link.id ? '#' + link.id : '') + (() => { const cls = typeof link.className === 'string' ? link.className : (link.className?.baseVal || ''); return cls ? '.' + cls.trim().split(/\\s+/)[0] : ''; })(),
                                     path: link.tagName.toLowerCase()
                                 }
                             });
@@ -446,7 +477,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             failingItems.push({
                                 node: {
                                     nodeLabel: btn.tagName.toLowerCase(),
-                                    selector: btn.tagName.toLowerCase() + (btn.id ? '#' + btn.id : '') + (btn.className ? '.' + btn.className.split(' ')[0] : ''),
+                                    selector: btn.tagName.toLowerCase() + (btn.id ? '#' + btn.id : '') + (() => { const cls = typeof btn.className === 'string' ? btn.className : (btn.className?.baseVal || ''); return cls ? '.' + cls.trim().split(/\\s+/)[0] : ''; })(),
                                     path: btn.tagName.toLowerCase()
                                 }
                             });
@@ -491,14 +522,16 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     inputs.forEach(input => {
                         const id = input.id;
                         const name = input.name;
-                        const label = document.querySelector(`label[for="${id}"]`);
+                        const label = id
+                            ? Array.from(document.querySelectorAll('label')).find(candidate => candidate.htmlFor === id)
+                            : null;
                         const ariaLabel = input.getAttribute('aria-label');
                         const placeholder = input.getAttribute('placeholder');
                         if (!label && !ariaLabel && !placeholder) {
                             failingItems.push({
                                 node: {
                                     nodeLabel: input.tagName.toLowerCase() + (input.type ? '[' + input.type + ']' : ''),
-                                    selector: input.tagName.toLowerCase() + (input.id ? '#' + input.id : '') + (input.className ? '.' + input.className.split(' ')[0] : ''),
+                                    selector: input.tagName.toLowerCase() + (input.id ? '#' + input.id : '') + (() => { const cls = typeof input.className === 'string' ? input.className : (input.className?.baseVal || ''); return cls ? '.' + cls.trim().split(/\\s+/)[0] : ''; })(),
                                     path: input.tagName.toLowerCase()
                                 }
                             });
@@ -628,7 +661,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         if (fontSize < 16 && el.textContent.trim()) {
                             failingItems.push({
                                 textSnippet: el.textContent.trim().substring(0, 100) || 'Text element',
-                                containerSelector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.className ? '.' + el.className.split(' ')[0] : ''),
+                                containerSelector: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (() => { const cls = typeof el.className === 'string' ? el.className : (el.className?.baseVal || ''); return cls ? '.' + cls.trim().split(/\\s+/)[0] : ''; })(),
                                 fontSize: fontSize.toFixed(1) + 'px'
                             });
                         }
@@ -741,38 +774,105 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     } if line_failing else None,
                 }
             
-            # Performance metrics - sync eval
-            performance_metrics = page.evaluate("""
-                () => {
-                    const perf = performance.timing;
-                    const lcpEntries = performance.getEntriesByType('largest-contentful-paint');
-                    const latestLcp = lcpEntries.length ? lcpEntries[lcpEntries.length - 1] : null;
-                    const loadTime = perf.loadEventEnd && perf.navigationStart ? perf.loadEventEnd - perf.navigationStart : 0;
-                    return {
-                        loadTime,
-                        lcp: latestLcp ? latestLcp.startTime : null
-                    };
-                }
-            """)
-            
-            # Largest Contentful Paint (LCP)
-            lcp_value = performance_metrics.get("lcp")
-            if isinstance(lcp_value, (int, float)) and lcp_value > 0:
-                lcp_score = 1.0 if lcp_value < 2500 else max(0, 1 - (lcp_value - 2500) / 2500)
-                audits["largest-contentful-paint"] = {
-                    "id": "largest-contentful-paint",
-                    "title": "Largest Contentful Paint",
-                    "description": f"This audit measures how long it takes for the main content to load. LCP time: {lcp_value:.0f}ms. Good if under 2500ms.",
-                    "score": lcp_score,
-                    "numericValue": lcp_value,
-                    "displayValue": f"LCP {lcp_value:.0f}ms",
-                }
-            else:
-                audits["largest-contentful-paint"] = make_not_checked_audit(
-                    "largest-contentful-paint",
-                    "Largest Contentful Paint",
-                    "LCP was not available from the browser performance timeline for this run, so page loading speed is excluded instead of treated as 0ms.",
-                )
+            # --- Mobile & Cross-Platform audits (JS-injected, anti-bot safe) ---
+
+            # 1. User-Scalable Audit: pinch-to-zoom must not be blocked
+            try:
+                user_scalable_result = page.evaluate("""
+                    () => {
+                        const meta = document.querySelector('meta[name="viewport"]');
+                        if (!meta) return { blocked: false, content: '' };
+                        const content = meta.getAttribute('content') || '';
+                        const blocksZoom = /user-scalable\\s*=\\s*no/i.test(content)
+                            || /maximum-scale\\s*=\\s*[01](\\.[0-9]+)?(?!\\d)/i.test(content);
+                        return { blocked: blocksZoom, content: content };
+                    }
+                """)
+                zoom_blocked = user_scalable_result.get("blocked", False)
+                zoom_content = user_scalable_result.get("content", "")
+            except Exception as e:
+                print(f"⚠️ user-scalable-audit failed: {e}")
+                zoom_blocked = False
+                zoom_content = ""
+
+            audits["user-scalable-audit"] = {
+                "id": "user-scalable-audit",
+                "title": "Pinch-to-Zoom is not blocked",
+                "description": (
+                    f"This audit checks if the viewport meta tag blocks pinch-to-zoom. "
+                    f"Viewport: '{zoom_content}'. "
+                    + ("Zoom is blocked — this prevents older adults from enlarging content." if zoom_blocked
+                       else "Zoom is allowed, enabling users to enlarge content as needed.")
+                ),
+                "score": 0.0 if zoom_blocked else 1.0,
+                "numericValue": 0.0 if zoom_blocked else 1.0,
+            }
+
+            # 2. Horizontal Scroll Audit: content must not overflow viewport width
+            try:
+                h_scroll_result = page.evaluate("""
+                    () => {
+                        const overflows = document.documentElement.scrollWidth > window.innerWidth + 5;
+                        return {
+                            overflows: overflows,
+                            scrollWidth: document.documentElement.scrollWidth,
+                            innerWidth: window.innerWidth
+                        };
+                    }
+                """)
+                h_overflows = h_scroll_result.get("overflows", False)
+                scroll_width = h_scroll_result.get("scrollWidth", 0)
+                inner_width = h_scroll_result.get("innerWidth", 0)
+            except Exception as e:
+                print(f"⚠️ horizontal-scroll-audit failed: {e}")
+                h_overflows = False
+                scroll_width = 0
+                inner_width = 0
+
+            audits["horizontal-scroll-audit"] = {
+                "id": "horizontal-scroll-audit",
+                "title": "Page does not require horizontal scrolling",
+                "description": (
+                    f"This audit checks if page content fits within the viewport width. "
+                    f"Content width: {scroll_width}px, viewport width: {inner_width}px. "
+                    + ("Horizontal scrolling detected — this confuses older adults on mobile devices." if h_overflows
+                       else "Content fits within the viewport — no horizontal scrolling required.")
+                ),
+                "score": 0.0 if h_overflows else 1.0,
+                "numericValue": 0.0 if h_overflows else 1.0,
+            }
+
+            # 3. Text-Size-Adjust Audit: CSS must not disable mobile text scaling
+            try:
+                text_adjust_result = page.evaluate("""
+                    () => {
+                        const elements = [document.documentElement, document.body];
+                        for (const el of elements) {
+                            const style = window.getComputedStyle(el);
+                            const val = style.webkitTextSizeAdjust || style.textSizeAdjust || '';
+                            if (val === 'none') {
+                                return { blocked: true, value: val };
+                            }
+                        }
+                        return { blocked: false, value: '' };
+                    }
+                """)
+                text_adjust_blocked = text_adjust_result.get("blocked", False)
+            except Exception as e:
+                print(f"⚠️ text-size-adjust-audit failed: {e}")
+                text_adjust_blocked = False
+
+            audits["text-size-adjust-audit"] = {
+                "id": "text-size-adjust-audit",
+                "title": "Mobile text scaling is not disabled",
+                "description": (
+                    "This audit checks if CSS disables the browser's automatic text size adjustment on mobile. "
+                    + ("Text scaling is blocked via CSS — older adults lose automatic text enlargement on mobile." if text_adjust_blocked
+                       else "Text scaling is not disabled — browsers can adjust text size for readability.")
+                ),
+                "score": 0.0 if text_adjust_blocked else 1.0,
+                "numericValue": 0.0 if text_adjust_blocked else 1.0,
+            }
             
             # Cumulative Layout Shift (CLS) - measure actual CLS from performance entries
             # Note: CLS is measured during page load, so we read from existing performance entries
@@ -1278,8 +1378,9 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 let selector = link.tagName.toLowerCase();
                                 if (link.id) {
                                     selector += '#' + link.id;
-                                } else if (link.className) {
-                                    const firstClass = link.className.split(' ')[0];
+                                } else {
+                                    const cls = typeof link.className === 'string' ? link.className : (link.className?.baseVal || '');
+                                    const firstClass = cls.trim().split(/\\s+/)[0];
                                     if (firstClass) selector += '.' + firstClass;
                                 }
                                 elements.push({
@@ -1297,8 +1398,9 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 let selector = div.tagName.toLowerCase();
                                 if (div.id) {
                                     selector += '#' + div.id;
-                                } else if (div.className) {
-                                    const firstClass = div.className.split(' ')[0];
+                                } else {
+                                    const cls = typeof div.className === 'string' ? div.className : (div.className?.baseVal || '');
+                                    const firstClass = cls.trim().split(/\\s+/)[0];
                                     if (firstClass) selector += '.' + firstClass;
                                 }
                                 elements.push({

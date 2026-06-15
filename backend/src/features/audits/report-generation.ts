@@ -31,6 +31,11 @@ export interface FullAuditPlatformReport {
   score: number | null;
 }
 
+export interface PlatformSummaryEntry {
+  platform: string;
+  score: number | null;
+}
+
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {
   const pageHeight = doc.page.height;
   const footerY = pageHeight - 30;
@@ -70,6 +75,123 @@ function getPackageDisplayName(planType: string | undefined | null): string {
     return 'Pro';
   }
   return 'Pro';
+}
+
+function getReportLogoPaths(): string[] {
+  return [
+    resolveBackendPath('assets', 'Logo.png'),
+    resolveBackendPath('reporting', 'assets', 'Logo.png'),
+    resolveBackendPath('backend-silver-surfers', 'assets', 'Logo.png'),
+    resolveBackendPath('my-app', 'assets', 'Logo.png'),
+    resolveBackendPath('src', 'assets', 'Logo.png'),
+    path.join(process.cwd(), 'assets', 'Logo.png'),
+    path.join(process.cwd(), 'reporting', 'assets', 'Logo.png'),
+    path.join('/app', 'assets', 'Logo.png'),
+    path.join('/app', 'reporting', 'assets', 'Logo.png'),
+  ];
+}
+
+function drawSummaryTable(
+  doc: InstanceType<typeof PDFDocument>,
+  rows: PlatformSummaryEntry[],
+  options: {
+    x: number;
+    y: number;
+    width: number;
+  },
+): number {
+  if (!rows.length) {
+    return options.y;
+  }
+
+  const headers = ['Platform', 'Average Score', 'Result'];
+  const colWidths = [options.width * 0.45, options.width * 0.25, options.width * 0.30];
+  const headerHeight = 28;
+  const rowHeight = 22;
+  let currentY = options.y;
+
+  doc.roundedRect(options.x, currentY, options.width, headerHeight + (rows.length * rowHeight), 8).fill('#F8FAFC');
+  doc.rect(options.x, currentY, options.width, headerHeight).fill('#3D5A80');
+  doc.font('BoldFont').fontSize(10).fillColor('#FFFFFF');
+
+  let currentX = options.x;
+  headers.forEach((header, index) => {
+    doc.text(header, currentX + 8, currentY + 9, {
+      width: colWidths[index] - 16,
+      align: index === 0 ? 'left' : 'center',
+      lineBreak: false,
+    });
+    currentX += colWidths[index];
+  });
+
+  currentY += headerHeight;
+  doc.font('RegularFont').fontSize(10);
+
+  rows.forEach((row, index) => {
+    const scoreValue = getRoundedScoreValue(row.score);
+    const scoreText = scoreValue !== null ? `${scoreValue}%` : 'N/A';
+    const status = getScoreStatus(row.score);
+    if (index % 2 === 0) {
+      doc.rect(options.x, currentY, options.width, rowHeight).fill('#FFFFFF');
+    }
+
+    currentX = options.x;
+    doc.fillColor('#1F2937').text(row.platform, currentX + 8, currentY + 6, {
+      width: colWidths[0] - 16,
+      align: 'left',
+      lineBreak: false,
+      ellipsis: true,
+    });
+    currentX += colWidths[0];
+
+    doc.fillColor('#1F2937').text(scoreText, currentX, currentY + 6, {
+      width: colWidths[1],
+      align: 'center',
+      lineBreak: false,
+    });
+    currentX += colWidths[1];
+
+    doc.fillColor(status.color).font('BoldFont').text(status.label, currentX, currentY + 6, {
+      width: colWidths[2],
+      align: 'center',
+      lineBreak: false,
+    });
+    doc.font('RegularFont');
+
+    doc.strokeColor('#E5E7EB').lineWidth(0.5)
+      .moveTo(options.x, currentY + rowHeight)
+      .lineTo(options.x + options.width, currentY + rowHeight)
+      .stroke();
+    currentY += rowHeight;
+  });
+
+  return currentY;
+}
+
+function drawCoverSummarySection(
+  doc: InstanceType<typeof PDFDocument>,
+  rows: PlatformSummaryEntry[],
+  options: {
+    x: number;
+    y: number;
+    width: number;
+  },
+): number {
+  if (!rows.length) {
+    return options.y;
+  }
+
+  const blockHeight = 72 + (rows.length * 22);
+  doc.roundedRect(options.x, options.y, options.width, blockHeight, 10).fill('#F8FAFC');
+  doc.font('BoldFont').fontSize(13).fillColor('#1E3A8A')
+    .text('Audit Summary', options.x + 14, options.y + 12, { width: options.width - 28 });
+  doc.font('RegularFont').fontSize(10).fillColor('#475569')
+    .text('Platform scores included in this combined report.', options.x + 14, options.y + 30, { width: options.width - 28 });
+  return drawSummaryTable(doc, rows, {
+    x: options.x + 12,
+    y: options.y + 48,
+    width: options.width - 24,
+  }) + 12;
 }
 
 export function getScoreStatus(score: number | null | undefined): {
@@ -298,21 +420,51 @@ export async function generateAuditAiSummaryPdf(
     const normalizedBusinessImpact = String(aiReport?.businessImpact || '').trim();
     const normalizedPrioritySummary = String(aiReport?.prioritySummary || '').trim();
     const normalizedStakeholderNote = String(aiReport?.stakeholderNote || '').trim();
+    const normalizeListText = (value: string): string => value
+      .replace(/^\s*(?:[-*•]\s*)?(?:\d+[.)]\s*)?/, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const canonicalListText = (value: string): string => normalizeListText(value)
+      .replace(/[.。]+$/g, '')
+      .toLowerCase();
+    const dedupeByKey = <T>(items: T[], getKey: (item: T) => string): T[] => {
+      const seen = new Set<string>();
+      const unique: T[] = [];
+      for (const item of items) {
+        const key = getKey(item);
+        if (!key || seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        unique.push(item);
+      }
+      return unique;
+    };
+
     const normalizedRecommendations = Array.isArray(aiReport?.topRecommendations)
-      ? aiReport.topRecommendations.map((item) => String(item || '').trim()).filter(Boolean)
+      ? dedupeByKey(
+        aiReport.topRecommendations.map((item) => normalizeListText(String(item || ''))).filter(Boolean),
+        canonicalListText,
+      )
       : [];
     const normalizedFindingGuidance = Array.isArray(aiReport?.perFindingGuidance)
-      ? aiReport.perFindingGuidance
+      ? dedupeByKey(aiReport.perFindingGuidance
         .map((item) => ({
           auditId: String(item?.auditId || '').trim(),
-          title: String(item?.title || '').trim(),
-          explanation: String(item?.explanation || '').trim(),
-          remediation: String(item?.remediation || '').trim(),
+          title: normalizeListText(String(item?.title || '')),
+          explanation: normalizeListText(String(item?.explanation || '')),
+          remediation: normalizeListText(String(item?.remediation || '')),
           wcagCriteria: Array.isArray(item?.wcagCriteria)
             ? item.wcagCriteria.map((criterion) => String(criterion || '').trim()).filter(Boolean)
             : [],
         }))
-        .filter((item) => item.auditId && item.title && item.explanation && item.remediation)
+        .filter((item) => item.auditId && item.title && item.explanation && item.remediation),
+        (item) => [
+          canonicalListText(item.title),
+          canonicalListText(item.explanation),
+          canonicalListText(item.remediation),
+        ].join('|'),
+      )
       : [];
     const normalizedDimensions = Array.isArray(options.scorecard?.dimensions)
       ? options.scorecard.dimensions
@@ -323,13 +475,19 @@ export async function generateAuditAiSummaryPdf(
         .filter((dimension) => dimension.label)
       : [];
     const normalizedTopIssues = Array.isArray(options.scorecard?.topIssues)
-      ? options.scorecard.topIssues
+      ? dedupeByKey(options.scorecard.topIssues
         .map((issue) => ({
           title: String(issue?.title || '').trim(),
           wcagReferences: Array.isArray(issue?.wcagReferences) ? issue.wcagReferences : [],
           wcagCriteria: Array.isArray(issue?.wcagCriteria) ? issue.wcagCriteria : [],
         }))
-        .filter((issue) => issue.title)
+        .filter((issue) => issue.title),
+        (issue) => [
+          canonicalListText(issue.title),
+          (issue.wcagCriteria || []).join(','),
+          (issue.wcagReferences || []).map((reference) => `${reference.criterion}:${reference.title}`).join(','),
+        ].join('|'),
+      )
       : [];
 
     const doc = new PDFDocument({
@@ -386,8 +544,9 @@ export async function generateAuditAiSummaryPdf(
     const renderScoreCard = (): void => {
       if (!options.scorecard) return;
       const cardTop = doc.y;
-      const cardHeight = 96;
+      const cardHeight = 112;
       const scoreBoxWidth = 130;
+      const detailLabelWidth = 150;
 
       doc.save();
       doc.roundedRect(pageMarginLeft, cardTop, contentWidth, cardHeight, 8).fill('#F8FAFC');
@@ -419,10 +578,10 @@ export async function generateAuditAiSummaryPdf(
       let rowY = cardTop + 14;
       detailRows.forEach(([label, value]) => {
         doc.font('RegularFont').fontSize(9).fillColor('#64748B')
-          .text(label.toUpperCase(), detailX, rowY, { width: 110, lineBreak: false });
+          .text(label.toUpperCase(), detailX, rowY, { width: detailLabelWidth, lineBreak: false, ellipsis: true });
         doc.font('BoldFont').fontSize(10).fillColor('#0F172A')
-          .text(value, detailX + 110, rowY, { width: detailWidth - 110, lineBreak: false, ellipsis: true });
-        rowY += 16;
+          .text(value, detailX + detailLabelWidth, rowY, { width: detailWidth - detailLabelWidth, lineBreak: false, ellipsis: true });
+        rowY += 17;
       });
       doc.restore();
       doc.y = cardTop + cardHeight + 18;
@@ -433,6 +592,7 @@ export async function generateAuditAiSummaryPdf(
       accentColor: string,
       body: string | null,
       bullets: string[] | null,
+      options: { showBulletDots?: boolean } = {},
     ): void => {
       const hasBody = !!(body && body.trim());
       const hasBullets = !!(bullets && bullets.length > 0);
@@ -462,10 +622,15 @@ export async function generateAuditAiSummaryPdf(
         doc.font('RegularFont').fontSize(11).fillColor('#334155');
         bullets!.forEach((item) => {
           const lineY = doc.y;
-          doc.save();
-          doc.fillColor(accentColor).circle(innerLeft + 5, lineY + 6, 2.5).fill();
-          doc.restore();
-          doc.fillColor('#334155').text(item, innerLeft + 16, lineY, { width: innerWidth - 16, lineGap: 3 });
+          const showBulletDots = options.showBulletDots !== false;
+          if (showBulletDots) {
+            doc.save();
+            doc.fillColor(accentColor).circle(innerLeft + 5, lineY + 6, 2.5).fill();
+            doc.restore();
+          }
+          const textX = showBulletDots ? innerLeft + 16 : innerLeft;
+          const textWidth = showBulletDots ? innerWidth - 16 : innerWidth;
+          doc.fillColor('#334155').text(item, textX, lineY, { width: textWidth, lineGap: 3 });
           doc.moveDown(0.2);
         });
       }
@@ -511,6 +676,7 @@ export async function generateAuditAiSummaryPdf(
       sectionPalette.recommendations,
       null,
       normalizedRecommendations.map((rec, i) => `${i + 1}. ${rec}`),
+      { showBulletDots: false },
     );
 
     renderSectionCard(
@@ -524,6 +690,7 @@ export async function generateAuditAiSummaryPdf(
           `Fix: ${item.remediation}`,
         ];
       }),
+      { showBulletDots: false },
     );
 
     renderSectionCard('Stakeholder Note', sectionPalette.stakeholder, normalizedStakeholderNote, null);
@@ -541,8 +708,9 @@ export async function mergePDFsByPlatform(options: {
   outputDir: string;
   reports: FullAuditPlatformReport[];
   planType: string;
+  platformSummary?: PlatformSummaryEntry[];
 }): Promise<string> {
-  const { pdfPaths, device, email_address, outputDir, reports, planType } = options;
+  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [] } = options;
   if (!pdfPaths || pdfPaths.length === 0) {
     throw new Error('No PDF paths provided for merging');
   }
@@ -593,13 +761,7 @@ export async function mergePDFsByPlatform(options: {
   titleDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
     .text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), titleMargin, preparedY + 100, { width: 200 });
 
-  const possibleLogoPaths = [
-    resolveBackendPath('assets', 'Logo.png'),
-    resolveBackendPath('backend-silver-surfers', 'assets', 'Logo.png'),
-    resolveBackendPath('my-app', 'assets', 'Logo.png'),
-    resolveBackendPath('src', 'assets', 'Logo.png'),
-  ];
-
+  const possibleLogoPaths = getReportLogoPaths();
   const logoX = titleDoc.page.width - 180;
   const logoY = titlePageHeight - 150;
   const logoSize = 120;
@@ -616,6 +778,15 @@ export async function mergePDFsByPlatform(options: {
       continue;
     }
   }
+
+  drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reports.map((report) => ({
+    platform: getReportPageName(report.url),
+    score: report.score,
+  })), {
+    x: titleMargin,
+    y: titleY + 190,
+    width: titlePageWidth,
+  });
 
   titleDoc.end();
   await new Promise<void>((resolve, reject) => {
@@ -867,8 +1038,9 @@ export async function generateCombinedPlatformReport(options: {
   outputDir: string;
   planType: string;
   individualPdfPaths: string[];
+  platformSummary?: PlatformSummaryEntry[];
 }): Promise<string> {
-  const { reports, device, email_address, outputDir, planType } = options;
+  const { reports, device, email_address, outputDir, planType, platformSummary = [] } = options;
   if (!reports || reports.length === 0) {
     throw new Error('No reports provided for combined PDF generation');
   }
@@ -917,6 +1089,15 @@ export async function generateCombinedPlatformReport(options: {
   doc.fontSize(16).font('BoldFont').fillColor('#3498DB')
     .text(`Average Score: ${Math.round(avgScore)}%`, margin, currentY, { width: pageWidth, align: 'center' });
   currentY += 40;
+
+  currentY = drawCoverSummarySection(doc, platformSummary.length > 0 ? platformSummary : reports.map((report) => ({
+    platform: getReportPageName(report.url),
+    score: report.score,
+  })), {
+    x: margin,
+    y: currentY,
+    width: pageWidth,
+  });
 
   doc.fontSize(11).font('RegularFont').fillColor('#95A5A6')
     .text(`Generated: ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}`, margin, currentY, { width: pageWidth, align: 'center' });

@@ -560,6 +560,15 @@ export const adminUpdateUserRole = async (userId, role) => {
   }
 };
 
+export const adminUpdateUserStatus = async (userId, status, reason = '') => {
+  try {
+    const res = await api.put(`/admin/users/${userId}/status`, { status, reason });
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
 // User subscription management
 export const createPortalSession = async () => {
   try { 

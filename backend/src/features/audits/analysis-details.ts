@@ -194,6 +194,46 @@ h2 { font-size: 1.5rem; }`,
 <!-- After — allows user zoom up to 5× -->
 <meta name="viewport" content="width=device-width, initial-scale=1">`,
     },
+    "user-scalable-audit": {
+        action: "Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.",
+        whyItMatters: "Many older adults rely on pinch-to-zoom to read small text or interact with small targets. Blocking it removes a critical accessibility mechanism.",
+        effort: "low",
+        codeSnippet: `<!-- Before — blocks pinch-to-zoom -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<!-- After — allows pinch-to-zoom -->
+<meta name="viewport" content="width=device-width, initial-scale=1">`,
+    },
+    "horizontal-scroll-audit": {
+        action: "Fix content overflow so the entire page fits within the screen width without requiring horizontal scrolling.",
+        whyItMatters: "Horizontal scrolling is disorienting and tiring on touch devices. Older adults may miss content or become confused when the page extends beyond the screen edge.",
+        effort: "medium",
+        codeSnippet: `/* Prevent overflow on common problem elements */
+img, video, table, pre {
+  max-width: 100%;
+}
+
+/* Contain the page root */
+body {
+  overflow-x: hidden;
+}`,
+    },
+    "text-size-adjust-audit": {
+        action: "Remove CSS that disables mobile text scaling to allow browsers to automatically adjust text size for readability.",
+        whyItMatters: "Mobile browsers include automatic text sizing to make content readable on small screens. Disabling this via CSS removes a built-in accessibility aid that older adults depend on.",
+        effort: "low",
+        codeSnippet: `/* Before — disables text scaling */
+html {
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+/* After — allows browser text scaling */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}`,
+    },
     "cumulative-layout-shift": {
         action: "Reduce layout shifts by reserving space for dynamic content and stabilizing page loading behavior.",
         whyItMatters: "Unexpected movement causes disorientation and makes target acquisition harder.",
@@ -351,19 +391,6 @@ a:hover, a:focus {
   placeholder="e.g. name@example.com"
   autocomplete="email"
 >`,
-    },
-    "largest-contentful-paint": {
-        action: "Improve loading speed for key above-the-fold content so primary information appears more quickly.",
-        whyItMatters: "Slow perceived loading can look broken and reduce trust, especially in critical journeys.",
-        effort: "high",
-        codeSnippet: `<!-- Preload hero image to improve LCP -->
-<link rel="preload" as="image" href="/images/hero.webp">
-
-<!-- Prefer next-gen formats -->
-<picture>
-  <source srcset="hero.webp" type="image/webp">
-  <img src="hero.jpg" alt="Two older adults using a tablet" loading="eager">
-</picture>`,
     },
     "total-blocking-time": {
         action: "Reduce long main-thread tasks and blocking scripts that delay user interaction.",

@@ -7,7 +7,7 @@ const aiReportingLogger = logger.child('feature:audits:ai-reporting');
 const MAX_AI_FINDING_GUIDANCE = 20;
 
 export type AuditAiReportStatus = 'generated' | 'fallback';
-export type AuditAiReportProvider = 'openai' | 'local';
+export type AuditAiReportProvider = 'anthropic' | 'local';
 
 export interface AuditAiReport {
   status: AuditAiReportStatus;
@@ -39,7 +39,7 @@ export interface GenerateAuditAiReportOptions {
   isLiteVersion?: boolean;
 }
 
-interface OpenAiAuditReportPayload {
+interface AiAuditReportPayload {
   headline?: string;
   summary?: string;
   businessImpact?: string;
@@ -82,10 +82,9 @@ function limitRecommendationList(values: unknown): string[] {
     return [];
   }
 
-  return values
+  return dedupeStrings(values
     .map((value) => String(value || '').trim())
-    .filter(Boolean)
-    .slice(0, 5);
+    .filter(Boolean), 5);
 }
 
 function limitFindingGuidanceList(values: unknown, fallback: AuditAiFindingGuidance[]): AuditAiFindingGuidance[] {
@@ -119,12 +118,77 @@ function limitFindingGuidanceList(values: unknown, fallback: AuditAiFindingGuida
     .filter((item): item is AuditAiFindingGuidance => Boolean(item))
     .slice(0, MAX_AI_FINDING_GUIDANCE);
 
-  return normalized.length > 0 ? normalized : fallback;
+  const unique = dedupeFindingGuidance(normalized);
+  return unique.length > 0 ? unique : fallback;
 }
 
 function sanitizeSentence(value: unknown, fallback: string): string {
   const normalized = String(value || '').trim();
   return normalized || fallback;
+}
+
+function stripListMarker(value: string): string {
+  return value.replace(/^\s*(?:[-*•]\s*)?(?:\d+[.)]\s*)?/, '').trim();
+}
+
+function canonicalizeListText(value: string): string {
+  return stripListMarker(value)
+    .replace(/\s+/g, ' ')
+    .replace(/[.。]+$/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function dedupeStrings(values: string[], limit = 5): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const value of values) {
+    const cleaned = stripListMarker(String(value || '').trim());
+    const key = canonicalizeListText(cleaned);
+    if (!cleaned || !key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(cleaned);
+    if (unique.length >= limit) {
+      break;
+    }
+  }
+
+  return unique;
+}
+
+function dedupeFindingGuidance(values: AuditAiFindingGuidance[]): AuditAiFindingGuidance[] {
+  const seen = new Set<string>();
+  const unique: AuditAiFindingGuidance[] = [];
+
+  for (const item of values) {
+    const key = [
+      canonicalizeListText(item.title),
+      canonicalizeListText(item.explanation),
+      canonicalizeListText(item.remediation),
+    ].filter(Boolean).join('|');
+
+    if (!key || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push({
+      ...item,
+      title: stripListMarker(item.title),
+      explanation: stripListMarker(item.explanation),
+      remediation: stripListMarker(item.remediation),
+    });
+
+    if (unique.length >= MAX_AI_FINDING_GUIDANCE) {
+      break;
+    }
+  }
+
+  return unique;
 }
 
 function getPrimaryConcern(scorecard: AuditScorecard): string {
@@ -143,7 +207,7 @@ function buildPrioritySummaryText(remediationRoadmap: AnalysisRemediationItem[])
   const mediumEffort = remediationRoadmap.filter((item) => item.bucketKey === 'medium-effort').length;
   const highEffort = remediationRoadmap.filter((item) => item.bucketKey === 'high-effort').length;
 
-  return `Roadmap balance: ${quickWins} Quick Wins, ${mediumEffort} Medium Effort items, and ${highEffort} High Effort items. Start with lower-effort fixes that remove immediate friction, then schedule the heavier engineering and design work in a planned remediation phase.`;
+  return `Roadmap balance: ${quickWins} Quick Wins, ${mediumEffort} Medium Effort items, and ${highEffort} High Effort items. Start with lower-effort fixes that remove immediate friction, then schedule the heavier engineering and design work in a planned remediation phase. Complete roadmap balance items are found on the Full Audit Report.`;
 }
 
 export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions): AuditAiReport {
@@ -171,19 +235,19 @@ export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions
       : 'The current experience is likely creating meaningful barriers for older adults in reading, navigation, and task completion, which can reduce trust and conversion in high-value journeys.';
 
   const topRecommendations = remediationRoadmap.length > 0
-    ? remediationRoadmap.slice(0, 4).map((item) => item.action)
+    ? dedupeStrings(remediationRoadmap.map((item) => item.action), 4)
     : [
       'Review the weakest score category first and remove the most obvious barriers to reading, navigation, and interaction.',
       'Prioritize issues that affect core tasks before expanding into longer-term refinements.',
       'Retest after remediation to confirm that score improvements translate into a clearer user experience for older adults.',
     ];
-  const perFindingGuidance = remediationRoadmap.slice(0, MAX_AI_FINDING_GUIDANCE).map((item) => ({
+  const perFindingGuidance = dedupeFindingGuidance(remediationRoadmap.map((item) => ({
     auditId: item.auditId,
     title: item.title,
     explanation: item.whyItMatters,
     remediation: item.action,
     ...(item.wcagCriteria?.length ? { wcagCriteria: item.wcagCriteria } : {}),
-  }));
+  })));
 
   return {
     status: 'fallback',
@@ -253,6 +317,13 @@ function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
 }
 
 function extractResponseText(payload: any): string {
+  const contentBlocks = Array.isArray(payload?.content) ? payload.content : [];
+  for (const part of contentBlocks) {
+    if (typeof part?.text === 'string' && part.text.trim()) {
+      return part.text;
+    }
+  }
+
   const choices = Array.isArray(payload?.choices) ? payload.choices : [];
   for (const choice of choices) {
     const content = choice?.message?.content;
@@ -290,8 +361,8 @@ function extractJsonObject(rawText: string): string {
   return trimmed;
 }
 
-function normalizeOpenAiReport(
-  payload: OpenAiAuditReportPayload,
+function normalizeAnthropicReport(
+  payload: AiAuditReportPayload,
   fallback: AuditAiReport,
 ): AuditAiReport {
   const topRecommendations = limitRecommendationList(payload.topRecommendations);
@@ -299,22 +370,22 @@ function normalizeOpenAiReport(
 
   return {
     status: 'generated',
-    provider: 'openai',
-    model: env.openAiModel,
+    provider: 'anthropic',
+    model: env.anthropicModel,
     generatedAt: new Date().toISOString(),
     headline: sanitizeSentence(payload.headline, fallback.headline),
     summary: sanitizeSentence(payload.summary, fallback.summary),
     businessImpact: sanitizeSentence(payload.businessImpact, fallback.businessImpact),
-    prioritySummary: sanitizeSentence(payload.prioritySummary, fallback.prioritySummary),
+    prioritySummary: fallback.prioritySummary,
     topRecommendations: topRecommendations.length > 0 ? topRecommendations : fallback.topRecommendations,
     perFindingGuidance,
     stakeholderNote: sanitizeSentence(payload.stakeholderNote, fallback.stakeholderNote),
   };
 }
 
-async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, fallback: AuditAiReport): Promise<AuditAiReport> {
+async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions, fallback: AuditAiReport): Promise<AuditAiReport> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.openAiTimeoutMs);
+  const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
 
   try {
     const systemPrompt = [
@@ -322,6 +393,8 @@ async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, f
       'Write for a business stakeholder, not a developer. Tone: confident, specific, plainspoken.',
       'Ground every section in the actual scan data the user provides — reference the site URL, score, weakest dimensions, and named top issues. Do NOT use generic boilerplate.',
       'Do NOT claim certification, guaranteed compliance, or legal conformance.',
+      'Do NOT repeat the same recommendation or finding guidance. If the same issue appears on multiple devices or pages, merge it into one item.',
+      'Do NOT include bullet characters or numbering inside array item text; the report renderer adds numbering.',
       '',
       'Return ONLY a single valid JSON object with EXACTLY these keys (no extras, no comments):',
       '  - "headline": one bold, specific sentence (max 14 words) capturing the overall state of THIS site.',
@@ -343,29 +416,28 @@ async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, f
       buildPromptPayload(options),
     ].join('\n');
 
-    const response = await fetch(`${env.openAiBaseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${env.openAiApiKey}`,
+        'x-api-key': env.anthropicApiKey || '',
+        'anthropic-version': env.anthropicVersion,
       },
       body: JSON.stringify({
-        model: env.openAiModel,
+        model: env.anthropicModel,
+        max_tokens: 4000,
+        temperature: 0.4,
+        system: systemPrompt,
         messages: [
-          { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.4,
-        max_tokens: 4000,
-        response_format: { type: 'json_object' },
-        reasoning_effort: 'low',
       }),
       signal: controller.signal,
     });
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => '');
-      throw new Error(`OpenAI API error (${response.status}): ${errorBody || response.statusText}`);
+      throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
     }
 
     const payload = await response.json();
@@ -373,16 +445,16 @@ async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, f
     const jsonText = extractJsonObject(outputText);
     const finishReason = payload?.choices?.[0]?.finish_reason;
 
-    let parsed: OpenAiAuditReportPayload;
+    let parsed: AiAuditReportPayload;
     try {
-      parsed = JSON.parse(jsonText) as OpenAiAuditReportPayload;
+      parsed = JSON.parse(jsonText) as AiAuditReportPayload;
     } catch (parseError) {
       throw new Error(
         `Failed to parse model JSON (finish_reason=${finishReason}): ${parseError instanceof Error ? parseError.message : String(parseError)}. Preview: ${jsonText.slice(0, 400)}`,
       );
     }
 
-    return normalizeOpenAiReport(parsed, fallback);
+    return normalizeAnthropicReport(parsed, fallback);
   } finally {
     clearTimeout(timeout);
   }
@@ -391,16 +463,16 @@ async function requestOpenAiAuditReport(options: GenerateAuditAiReportOptions, f
 export async function generateAuditAiReport(options: GenerateAuditAiReportOptions): Promise<AuditAiReport> {
   const fallback = buildFallbackAuditAiReport(options);
 
-  if (!env.openAiApiKey) {
+  if (!env.anthropicApiKey) {
     return fallback;
   }
 
   try {
-    return await requestOpenAiAuditReport(options, fallback);
+    return await requestAnthropicAuditReport(options, fallback);
   } catch (error) {
-    aiReportingLogger.warn('OpenAI audit summary generation failed. Falling back to local narrative.', {
+    aiReportingLogger.warn('Claude audit summary generation failed. Falling back to local narrative.', {
       url: options.url,
-      model: env.openAiModel,
+      model: env.anthropicModel,
       error: error instanceof Error ? error.message : String(error),
     });
     return fallback;
@@ -431,12 +503,12 @@ export function buildAuditAiReportMarkdown(aiReport: AuditAiReport, options: { u
     '',
     '## Top Recommendations',
     '',
-    ...aiReport.topRecommendations.map((recommendation) => `- ${recommendation}`),
+    ...dedupeStrings(aiReport.topRecommendations || [], 6).map((recommendation, index) => `${index + 1}. ${recommendation}`),
     '',
     '## Per-Finding Guidance',
     '',
-    ...(aiReport.perFindingGuidance || []).flatMap((item) => [
-      `### ${item.title}`,
+    ...dedupeFindingGuidance(aiReport.perFindingGuidance || []).flatMap((item, index) => [
+      `### ${index + 1}. ${item.title}`,
       '',
       `- Audit ID: ${item.auditId}`,
       ...(item.wcagCriteria?.length ? [`- WCAG: ${item.wcagCriteria.join(', ')}`] : []),

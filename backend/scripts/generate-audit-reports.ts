@@ -10,7 +10,6 @@ import {
   generateCombinedPlatformReport,
   generateLiteAccessibilityReport,
   generateSeniorAccessibilityReport,
-  generateSummaryPDF,
   type FullAuditPlatformReport,
 } from '../src/features/audits/report-generation.ts';
 import type { FullAuditDevice } from '../src/features/audits/full-audit.helpers.ts';
@@ -81,6 +80,19 @@ function parsePages(rawPages: string | undefined, fallbackUrl: string): string[]
     .map(normalizeUrl);
 
   return pages.length > 0 ? pages : [fallbackUrl];
+}
+
+function buildPlatformSummary(reportsByPlatform: Record<string, Array<{ score: number | null }>>): Array<{ platform: string; score: number | null }> {
+  return Object.entries(reportsByPlatform).map(([device, reports]) => {
+    const scores = reports
+      .map((report) => report.score)
+      .filter((score): score is number => typeof score === 'number' && Number.isFinite(score));
+
+    return {
+      platform: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
+      score: scores.length > 0 ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null,
+    };
+  });
 }
 
 function sanitizePathSegment(value: string): string {
@@ -251,15 +263,11 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
     outputDir: fullDir,
     planType: options.planId,
     individualPdfPaths,
+    platformSummary: buildPlatformSummary(reportsByPlatform),
   });
-  const summaryPdf = await generateSummaryPDF(
-    pageReports.map((report) => ({ platform: report.url, score: report.score })),
-    path.join(fullDir, `summary-${options.device}.pdf`),
-  );
 
   generatedFiles.push(
     { kind: 'full-combined-pdf', path: combinedPdf },
-    { kind: 'full-summary-pdf', path: summaryPdf },
   );
 
   return generatedFiles;

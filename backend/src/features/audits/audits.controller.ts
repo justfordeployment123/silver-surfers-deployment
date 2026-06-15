@@ -241,6 +241,17 @@ async function resolveReachableUrl(rawUrl: string): Promise<{
   };
 }
 
+async function isSuspendedEmail(email: string): Promise<boolean> {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail) {
+    return false;
+  }
+
+  const User = await getUserModel();
+  const user = await User.findOne({ email: normalizedEmail }).lean();
+  return String((user as { accountStatus?: string } | null)?.accountStatus || 'active').toLowerCase() === 'suspended';
+}
+
 export async function precheckUrl(request: Request, response: Response): Promise<void> {
   const rawUrl = String(request.body?.url || '');
   const result = await resolveReachableUrl(rawUrl);
@@ -435,6 +446,11 @@ export async function quickAudit(request: Request, response: Response): Promise<
   const { email, url, firstName, lastName, selectedDevice } = request.body || {};
   if (!email || !url) {
     response.status(400).json({ error: 'Email and URL are required.' });
+    return;
+  }
+
+  if (await isSuspendedEmail(String(email))) {
+    response.status(403).json({ error: 'Your account is suspended. Please contact support.' });
     return;
   }
 

@@ -6,7 +6,6 @@ import {
   calculateSeniorFriendlinessScore,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
-  generateSummaryPDF,
   mergePDFsByPlatform,
 } from './src/features/audits/report-generation.ts';
 import {
@@ -181,15 +180,9 @@ async function main() {
       outputDir,
       reports,
       planType: planId,
+      platformSummary: buildPlatformSummary(reportsByPlatform),
     }).catch((error) => {
       console.warn(`Combined ${device} PDF merge failed: ${error?.message || error}`);
-    });
-  }
-
-  const platformSummary = buildPlatformSummary(reportsByPlatform);
-  if (platformSummary.length > 0) {
-    await generateSummaryPDF(platformSummary, path.join(outputDir, 'audit-summary.pdf')).catch((error) => {
-      console.warn(`Summary PDF generation failed: ${error?.message || error}`);
     });
   }
 

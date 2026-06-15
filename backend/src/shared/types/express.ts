@@ -8,6 +8,8 @@ declare global {
         id: string;
         email: string;
         role?: string;
+        accountStatus?: 'active' | 'suspended';
+        verified?: boolean;
       };
       subscription?: any;
       hasOneTimeScans?: boolean;

@@ -84,12 +84,26 @@ const AUDIT_INFO = {
         why: 'Older adults benefit from clear, simple language that requires less mental effort to understand. High reading difficulty levels can prevent them from accessing important information and completing critical tasks.',
         recommendation: 'Aim for a Flesch-Kincaid Reading Ease score of 60 or higher (plain English level). Use shorter sentences, simpler words, and clear structure. Break complex ideas into digestible chunks. Avoid jargon and technical terms unless absolutely necessary.',
     },
-    'largest-contentful-paint': {
-        title: 'Page Loading Speed',
-        category: 'Performance for Older Adults',
-        importance: 'Slow-loading pages can confuse older adults who may think the site is broken. Fast loading builds confidence.',
-        why: 'Older adults may have less patience for slow technology and may abandon sites that don\'t load quickly.',
-        recommendation: 'Optimize images, use a content delivery network (CDN), and minimize render-blocking scripts to ensure the main content loads in under 2.5 seconds.',
+    'user-scalable-audit': {
+        title: 'Pinch-to-Zoom Allowed',
+        category: 'Mobile & Cross-Platform Optimization',
+        importance: 'Blocking pinch-to-zoom prevents older adults from enlarging content that is too small to read or interact with.',
+        why: 'Older adults frequently rely on browser zoom and pinch-to-zoom gestures to compensate for reduced vision. Disabling this creates a significant barrier.',
+        recommendation: 'Remove `user-scalable=no` and `maximum-scale=1` from the viewport meta tag. Use `<meta name="viewport" content="width=device-width, initial-scale=1">` instead.',
+    },
+    'horizontal-scroll-audit': {
+        title: 'No Horizontal Scrolling Required',
+        category: 'Mobile & Cross-Platform Optimization',
+        importance: 'Horizontal scrolling is disorienting and difficult to control on touchscreens, making content inaccessible to older adults on mobile devices.',
+        why: 'When content overflows the viewport width, users on phones and tablets must scroll sideways to read text, which is confusing and tiring.',
+        recommendation: 'Use responsive CSS (fluid layouts, max-width: 100%, overflow-x: hidden) to ensure all content fits within the device viewport width.',
+    },
+    'text-size-adjust-audit': {
+        title: 'Mobile Text Scaling Not Disabled',
+        category: 'Mobile & Cross-Platform Optimization',
+        importance: 'When CSS disables text size adjustment, older adults lose the browser\'s built-in ability to scale text for readability on small screens.',
+        why: 'Mobile browsers automatically adjust text size for readability. Setting `text-size-adjust: none` in CSS removes this accessibility aid.',
+        recommendation: 'Remove `-webkit-text-size-adjust: none` and `text-size-adjust: none` from your CSS. Set these to `100%` or `auto` if needed to preserve zoom scaling.',
     },
     'cumulative-layout-shift': {
         title: 'Stable Page Layout',
@@ -216,7 +230,9 @@ const AUDIT_PRD_DIMENSION_MAP = {
     'is-on-https': 'trustSecuritySignals',
     'geolocation-on-start': 'trustSecuritySignals',
     viewport: 'mobileOptimization',
-    'largest-contentful-paint': 'mobileOptimization',
+    'user-scalable-audit': 'mobileOptimization',
+    'horizontal-scroll-audit': 'mobileOptimization',
+    'text-size-adjust-audit': 'mobileOptimization',
 };
 
 // Function to calculate the weighted "Senior Friendliness" score
@@ -321,7 +337,9 @@ export class ElderlyAccessibilityPDFGenerator {
             path.join(__dirname, '../../../assets/Logo.png'), // From report_generation: up 3 levels to backend-silver-surfers
             path.join(__dirname, '../../assets/Logo.png'),    // Alternative path
             path.join(process.cwd(), 'assets/Logo.png'),      // From project root
-            path.join(process.cwd(), 'backend-silver-surfers/assets/Logo.png') // Explicit backend path
+            path.join(process.cwd(), 'backend-silver-surfers/assets/Logo.png'), // Explicit backend path
+            '/app/assets/Logo.png',
+            '/app/reporting/assets/Logo.png'
         ];
         
         const logoX = pageWidth - 180;
@@ -945,7 +963,8 @@ addOverallScoreDisplay(scoreData) {
             'color-contrast': 'color contrast',
             'target-size': 'touch target sizing',
             'text-font-audit': 'text size and readability',
-            'largest-contentful-paint': 'page loading speed',
+            'user-scalable-audit': 'pinch-to-zoom access',
+            'horizontal-scroll-audit': 'mobile layout fit',
             'link-name': 'link text clarity',
             'label': 'form labels and inputs',
             'cumulative-layout-shift': 'layout stability',
@@ -1033,7 +1052,9 @@ addOverallScoreDisplay(scoreData) {
             'color-contrast': 'Improve color contrast ratios for text and interactive elements so older adults can easily read content.',
             'target-size': 'Increase the size and spacing of buttons and links to make them easier to tap, especially on touch devices.',
             'text-font-audit': 'Increase text sizes and ensure consistent typography for comfortable reading.',
-            'largest-contentful-paint': 'Optimize page loading speed (images, scripts, and hosting) to reduce wait times.',
+            'user-scalable-audit': 'Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.',
+            'horizontal-scroll-audit': 'Fix content overflow so the page fits within the screen width without requiring horizontal scrolling.',
+            'text-size-adjust-audit': 'Remove CSS that disables mobile text scaling to allow browsers to adjust text size for readability.',
             'link-name': 'Rewrite vague links (e.g., “Learn more”) into descriptive text that explains the destination or action.',
             'label': 'Add clear labels and instructions to all form fields so users understand what to enter.',
             'cumulative-layout-shift': 'Stabilize layout elements to prevent content from shifting as the page loads.',
@@ -1397,7 +1418,9 @@ addOverallScoreDisplay(scoreData) {
         // Fallback to hardcoded descriptions if audit data not available
         const issueDescriptions = {
             'color-contrast': 'Insufficient color contrast between text and backgrounds makes content difficult to read for users with vision impairments or age-related vision changes.',
-            'largest-contentful-paint': 'Slow page loading creates frustration and may cause users to abandon the site, assuming it\'s broken or connection failed.',
+            'user-scalable-audit': 'Pinch-to-zoom is blocked, preventing older adults from enlarging content that is too small to read or interact with.',
+            'horizontal-scroll-audit': 'Page content overflows the screen width, forcing older adults to scroll horizontally which is disorienting on mobile devices.',
+            'text-size-adjust-audit': 'Mobile text scaling is disabled via CSS, removing the browser\'s ability to automatically adjust text size for readability.',
             'link-name': 'Generic link text like \'click here\' or \'read more\' provides no context about the destination, making navigation confusing.',
             'text-font-audit': 'Text size below 16px is difficult for many users to read without strain.',
             'layout-brittle-audit': 'Layout breaks when users adjust text spacing for better readability.',
@@ -2037,7 +2060,8 @@ addOverallScoreDisplay(scoreData) {
                         width: colWidths[0] - 10,
                         align: 'left',
                         lineGap: 1,
-                        ellipsis: false
+                        ellipsis: false,
+                        height: Math.max(rowHeight - 12, 10)
                     });
                 currentX += colWidths[0];
 
@@ -2047,7 +2071,9 @@ addOverallScoreDisplay(scoreData) {
                 this.doc.fontSize(10).font('BoldFont').fillColor(ratingColor)
                     .text(ratingText, currentX + 5, tableY + 6, {
                         width: colWidths[1] - 10,
-                        align: 'center'
+                        align: 'center',
+                        ellipsis: false,
+                        height: Math.max(rowHeight - 12, 10)
                     });
                 currentX += colWidths[1];
 
@@ -2056,7 +2082,9 @@ addOverallScoreDisplay(scoreData) {
                 this.doc.fontSize(10).font('BoldFont').fillColor(actualColor)
                     .text(actualText, currentX + 5, tableY + 6, {
                         width: colWidths[2] - 10,
-                        align: 'center'
+                        align: 'center',
+                        ellipsis: false,
+                        height: Math.max(rowHeight - 12, 10)
                     });
                 currentX += colWidths[2];
 
@@ -2067,7 +2095,8 @@ addOverallScoreDisplay(scoreData) {
                         width: colWidths[3] - 10,
                         align: 'left',
                         lineGap: 1,
-                        ellipsis: false
+                        ellipsis: false,
+                        height: Math.max(rowHeight - 12, 10)
                     });
 
                 // Draw row border
@@ -2720,171 +2749,182 @@ addOverallScoreDisplay(scoreData) {
     }
     
     drawEnhancedTable(items, config, category) {
-    if (!items || items.length === 0) return;
-    
-    // Filter out rows where ANY column is empty, null, undefined, 'N/A', or whitespace
-    const itemsToShow = items.filter(item => {
-        // Check all columns using extractors
-        return config.extractors.every(extractor => {
+        if (!items || items.length === 0) return;
+
+        const itemsToShow = items.filter(item => config.extractors.every(extractor => {
             const value = extractor(item);
-            // Return true if value exists, is not 'N/A', and is not empty/whitespace
             return value && value !== 'N/A' && String(value).trim() !== '';
-        });
-    });
-    
-    // If ALL rows have empty columns, don't render the table at all
-    if (itemsToShow.length === 0) {
-        console.log('Skipping table - all rows have empty columns');
-        return; // Exit without rendering anything
-    }
-    
-    const startY = this.currentY;
-    let tableY = startY;
-    const auditInfo = AUDIT_INFO[config.auditId];
-    // Reserve space for footer at bottom (footer at pageHeight - 30, so reserve 50px)
-    let pageBottom = this.doc.page.height - 50;
-    
-    // Calculate header height dynamically based on text wrapping
-    this.doc.font('BoldFont').fontSize(11);
-    let maxHeaderHeight = 0;
-    config.headers.forEach((header, index) => {
-        const cellPadding = 10;
-        const availableWidth = Math.max(config.widths[index] - (cellPadding * 2), 20);
-        const headerTextHeight = this.doc.heightOfString(header, { 
-            width: availableWidth,
-            lineGap: 2
-        });
-        if (headerTextHeight > maxHeaderHeight) {
-            maxHeaderHeight = headerTextHeight;
+        }));
+
+        if (itemsToShow.length === 0) {
+            console.log('Skipping table - all rows have empty columns');
+            return;
         }
-    });
-    // Add padding: 12px top + 12px bottom = 24px total padding
-    const headerHeight = Math.max(maxHeaderHeight + 24, 40);
-    
-    // Draw header with light gray background
-    this.doc.rect(this.margin, tableY, this.pageWidth, headerHeight).fill('#F3F4F6');
-    this.doc.fillColor('#374151');
-    let currentX = this.margin;
-    
-    config.headers.forEach((header, index) => {
+
+        const pageBottom = () => this.doc.page.height - 50;
+        const headers = config.headers;
+        const headerPadding = 10;
         const cellPadding = 10;
-        const availableWidth = Math.max(config.widths[index] - (cellPadding * 2), 20);
-        // Center text horizontally using align: 'center' with column width
-        this.doc.text(header, currentX + cellPadding, tableY + (headerHeight / 2) - (maxHeaderHeight / 2), { 
-            width: availableWidth, 
-            align: 'center' 
-        });
-        currentX += config.widths[index];
-    });
-    
-    tableY += headerHeight;
-    this.doc.font('RegularFont').fontSize(10);
-    
-    // Draw rows with alternating white background and bottom borders
-    itemsToShow.forEach((item, rowIndex) => {
-        const rowData = config.extractors.map(extractor => {
-            let value = String(extractor(item) || 'N/A').trim();
-            // Replace "Senior" with "Accessibility" in table cell text
-            value = value.replace(/\bSenior\b/gi, 'Accessibility');
-            return value;
-        });
-        let maxRowHeight = 0;
-        
-        rowData.forEach((cellValue, colIndex) => {
-            const cellWidth = config.widths[colIndex] - 20;
-            // Calculate height using same parameters as text rendering (lineGap: 2)
-            // Ensure font size is 10pt for accurate height calculation
-            this.doc.fontSize(10).font('RegularFont');
-            const cellHeight = this.doc.heightOfString(cellValue, { 
-                width: cellWidth,
-                lineGap: 2
+        const auditInfo = AUDIT_INFO[config.auditId];
+
+        const measureHeaderHeight = () => {
+            this.doc.font('BoldFont').fontSize(11);
+            let maxHeaderHeight = 0;
+            headers.forEach((header, index) => {
+                const availableWidth = Math.max(config.widths[index] - (headerPadding * 2), 20);
+                const headerTextHeight = this.doc.heightOfString(header, {
+                    width: availableWidth,
+                    lineGap: 2
+                });
+                if (headerTextHeight > maxHeaderHeight) {
+                    maxHeaderHeight = headerTextHeight;
+                }
             });
-            if (cellHeight > maxRowHeight) {
-                maxRowHeight = cellHeight;
-            }
+            return Math.max(maxHeaderHeight + 24, 40);
+        };
+
+        const buildRowData = (item) => config.extractors.map(extractor => {
+            let value = String(extractor(item) || 'N/A').trim();
+            return value.replace(/\bSenior\b/gi, 'Accessibility');
         });
-        
-        // Add padding (10px top + 10px bottom) and ensure minimum row height
-        const rowHeight = Math.max(maxRowHeight + 20, 40);
-        // Don't cap row height - allow full text to display
-        const finalRowHeight = rowHeight;
-        
-        // Check if row would exceed page bottom margin (with safety buffer for footer)
-        // Footer is at pageHeight - 30, so reserve 50px (30px footer + 20px buffer)
-        // Only check minimum space for next row if there actually is a next row
-        pageBottom = this.doc.page.height - 50;
-        const isLastRow = rowIndex === itemsToShow.length - 1;
-        
-        // For last row, only check if it fits (don't worry about space after)
-        // For other rows, check if there's enough space for the next row
-        const minSpaceForNextRow = 50; // Reduced from 60px - minimum space needed for next row (40px row + 10px buffer)
-        const spaceAfterRow = pageBottom - (tableY + finalRowHeight);
-        const needsPageBreak = tableY + finalRowHeight > pageBottom || 
-                              (!isLastRow && spaceAfterRow < minSpaceForNextRow);
-        
-        if (needsPageBreak) {
-            this.addPage();
-            // Removed "Detailed Findings - Continued" heading
-            tableY = this.currentY;
-            
-            // Redraw header on new page
+
+        const measureStandardRowHeight = (rowData) => {
+            let maxRowHeight = 0;
+            rowData.forEach((cellValue, colIndex) => {
+                const cellWidth = Math.max(config.widths[colIndex] - (cellPadding * 2), 20);
+                this.doc.fontSize(10).font('RegularFont');
+                const cellHeight = this.doc.heightOfString(cellValue, {
+                    width: cellWidth,
+                    lineGap: 2
+                });
+                if (cellHeight > maxRowHeight) {
+                    maxRowHeight = cellHeight;
+                }
+            });
+            return Math.max(maxRowHeight + 20, 40);
+        };
+
+        const drawHeader = (tableY, headerHeight) => {
             this.doc.rect(this.margin, tableY, this.pageWidth, headerHeight).fill('#F3F4F6');
-            this.doc.font('BoldFont').fontSize(11).fillColor('#374151');
-            currentX = this.margin;
-            config.headers.forEach((header, index) => {
-                const cellPadding = 10;
-                const availableWidth = Math.max(config.widths[index] - (cellPadding * 2), 20);
-                // Center text horizontally using align: 'center' with column width
-                this.doc.text(header, currentX + cellPadding, tableY + (headerHeight / 2) - (maxHeaderHeight / 2), { 
-                    width: availableWidth, 
-                    align: 'center' 
+            this.doc.fillColor('#374151').font('BoldFont').fontSize(11);
+            let currentX = this.margin;
+            headers.forEach((header, index) => {
+                const availableWidth = Math.max(config.widths[index] - (headerPadding * 2), 20);
+                this.doc.text(header, currentX + headerPadding, tableY + (headerHeight / 2) - 8, {
+                    width: availableWidth,
+                    align: 'center',
+                    lineBreak: false
                 });
                 currentX += config.widths[index];
             });
-            tableY += headerHeight;
-            this.doc.font('RegularFont').fontSize(10);
-            // Recalculate pageBottom after adding new page
-            pageBottom = this.doc.page.height - 50;
-        }
-        
-        // White background for all rows
-        this.doc.rect(this.margin, tableY, this.pageWidth, finalRowHeight).fill('#FFFFFF');
-        
-        // Draw cell content - ensure full text wrapping (no height limit to prevent clipping)
-        currentX = this.margin;
-        rowData.forEach((cellValue, colIndex) => {
-            // Calculate available width for text (column width minus padding)
-            const cellPadding = 10;
-            const availableWidth = Math.max(config.widths[colIndex] - (cellPadding * 2), 20);
-            
-            // Draw text without height constraint - row height was already calculated to fit all text
-            // Ensure font size is consistently 10pt for all table cells
-            this.doc.fontSize(10).font('RegularFont').fillColor('#374151').text(cellValue, currentX + cellPadding, tableY + 10, {
-                width: availableWidth,
-                lineGap: 2,
-                align: 'left',
-                ellipsis: false
+        };
+
+        const drawStackedRow = (rowData, tableY, rowHeight) => {
+            this.doc.roundedRect(this.margin, tableY, this.pageWidth, rowHeight, 6).fill('#FFFFFF');
+            this.doc.strokeColor('#E5E7EB').lineWidth(0.5)
+                .roundedRect(this.margin, tableY, this.pageWidth, rowHeight, 6).stroke();
+
+            let innerY = tableY + 10;
+            rowData.forEach((cellValue, index) => {
+                const label = headers[index];
+                this.doc.font('BoldFont').fontSize(9).fillColor('#6B7280')
+                    .text(label, this.margin + 12, innerY, {
+                        width: this.pageWidth - 24,
+                        lineBreak: false
+                    });
+                innerY += 12;
+                const valueHeight = this.doc.heightOfString(cellValue, {
+                    width: this.pageWidth - 24,
+                    lineGap: 2
+                });
+                this.doc.font('RegularFont').fontSize(10).fillColor('#374151')
+                    .text(cellValue, this.margin + 12, innerY, {
+                        width: this.pageWidth - 24,
+                        lineGap: 2,
+                        align: 'left',
+                        ellipsis: false,
+                        height: valueHeight + 2
+                    });
+                innerY += valueHeight + 16;
+                if (index < rowData.length - 1) {
+                    this.doc.strokeColor('#F3F4F6').lineWidth(0.5)
+                        .moveTo(this.margin + 12, innerY - 6)
+                        .lineTo(this.margin + this.pageWidth - 12, innerY - 6)
+                        .stroke();
+                }
             });
-            currentX += config.widths[colIndex];
-        });
-        
-        // Draw light bottom border for the row
-        this.doc.moveTo(this.margin, tableY + finalRowHeight)
-            .lineTo(this.margin + this.pageWidth, tableY + finalRowHeight)
-            .strokeColor('#E5E7EB')
-            .lineWidth(0.5)
-            .stroke();
-        
-        tableY += finalRowHeight;
-        
-        // Final safety check - if tableY exceeds page bottom, we have a problem
-        if (tableY > pageBottom) {
-            console.warn(`Warning: Table row exceeded page bottom. tableY: ${tableY}, pageBottom: ${pageBottom}`);
+        };
+
+        const drawStandardRow = (rowData, tableY, rowHeight) => {
+            this.doc.rect(this.margin, tableY, this.pageWidth, rowHeight).fill('#FFFFFF');
+            let currentX = this.margin;
+
+            rowData.forEach((cellValue, colIndex) => {
+                const availableWidth = Math.max(config.widths[colIndex] - (cellPadding * 2), 20);
+                this.doc.fontSize(10).font('RegularFont').fillColor('#374151').text(cellValue, currentX + cellPadding, tableY + 10, {
+                    width: availableWidth,
+                    height: Math.max(rowHeight - 20, 10),
+                    lineGap: 2,
+                    align: 'left',
+                    ellipsis: false
+                });
+                currentX += config.widths[colIndex];
+            });
+
+            this.doc.moveTo(this.margin, tableY + rowHeight)
+                .lineTo(this.margin + this.pageWidth, tableY + rowHeight)
+                .strokeColor('#E5E7EB')
+                .lineWidth(0.5)
+                .stroke();
+        };
+
+        const headerHeight = measureHeaderHeight();
+        const firstRowData = buildRowData(itemsToShow[0]);
+        const firstRowHeight = measureStandardRowHeight(firstRowData);
+        let tableY = this.currentY;
+
+        if (tableY + headerHeight + Math.min(firstRowHeight, 140) > pageBottom()) {
+            this.addPage();
+            tableY = this.currentY;
         }
-    });
-    
-    this.currentY = tableY + 20;
-}
+
+        drawHeader(tableY, headerHeight);
+        tableY += headerHeight;
+        this.doc.font('RegularFont').fontSize(10);
+
+        itemsToShow.forEach((item, rowIndex) => {
+            const rowData = buildRowData(item);
+            const standardRowHeight = measureStandardRowHeight(rowData);
+            const tallRow = standardRowHeight > 120;
+            const renderedRowHeight = tallRow
+                ? Math.max(
+                    72 + rowData.reduce((sum, cellValue) => sum + this.doc.heightOfString(cellValue, {
+                        width: this.pageWidth - 24,
+                        lineGap: 2
+                    }) + 28, 0),
+                    150
+                )
+                : standardRowHeight;
+            const minimumSpace = tallRow ? 30 : 50;
+
+            if (tableY + renderedRowHeight > pageBottom() || (rowIndex < itemsToShow.length - 1 && (pageBottom() - (tableY + renderedRowHeight)) < minimumSpace)) {
+                this.addPage();
+                tableY = this.currentY;
+                drawHeader(tableY, headerHeight);
+                tableY += headerHeight;
+            }
+
+            if (tallRow) {
+                drawStackedRow(rowData, tableY, renderedRowHeight);
+            } else {
+                drawStandardRow(rowData, tableY, renderedRowHeight);
+            }
+
+            tableY += renderedRowHeight;
+        });
+
+        this.currentY = tableY + 20;
+    }
 
     async generateReport(inputFile, outputFile, options = {}) {
         try {
