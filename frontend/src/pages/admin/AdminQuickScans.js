@@ -6,9 +6,19 @@ const AdminQuickScans = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('scanDate');
   const [sortOrder, setSortOrder] = useState('desc');
   const [refreshing, setRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 50,
+    pages: 1
+  });
   const [statistics, setStatistics] = useState({
     totalScans: 0,
     completedScans: 0,
@@ -19,13 +29,12 @@ const AdminQuickScans = () => {
 
   useEffect(() => {
     loadQuickScans();
-  }, [sortBy, sortOrder]);
+  }, [sortBy, sortOrder, statusFilter, currentPage, pageSize, debouncedSearchQuery]);
 
   useEffect(() => {
     const delayedSearch = setTimeout(() => {
-      if (searchQuery !== undefined) {
-        loadQuickScans();
-      }
+      setCurrentPage(1);
+      setDebouncedSearchQuery(searchQuery.trim());
     }, 500);
     return () => clearTimeout(delayedSearch);
   }, [searchQuery]);
@@ -36,8 +45,10 @@ const AdminQuickScans = () => {
       setError('');
       
       const params = {
-        limit: 100,
-        search: searchQuery || undefined,
+        page: currentPage,
+        limit: pageSize,
+        search: debouncedSearchQuery || undefined,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
         sortBy,
         sortOrder
       };
@@ -46,6 +57,7 @@ const AdminQuickScans = () => {
       if (result.error) {
         setError(result.error);
         setQuickScans([]);
+        setPagination({ total: 0, page: 1, limit: pageSize, pages: 1 });
         setStatistics({
           totalScans: 0,
           completedScans: 0,
@@ -55,6 +67,12 @@ const AdminQuickScans = () => {
         });
       } else {
         setQuickScans(result.items || []);
+        setPagination({
+          total: Number(result.total) || 0,
+          page: Number(result.page) || currentPage,
+          limit: Number(result.limit) || pageSize,
+          pages: Math.max(1, Number(result.pages) || 1)
+        });
         setStatistics(result.statistics || {
           totalScans: 0,
           completedScans: 0,
@@ -66,6 +84,7 @@ const AdminQuickScans = () => {
     } catch (err) {
       setError('Failed to load quick scan data');
       setQuickScans([]);
+      setPagination({ total: 0, page: 1, limit: pageSize, pages: 1 });
     } finally {
       setLoading(false);
     }
@@ -125,7 +144,31 @@ const AdminQuickScans = () => {
       setSortBy(field);
       setSortOrder('desc');
     }
+    setCurrentPage(1);
   };
+
+  const handlePageSizeChange = (event) => {
+    setPageSize(Number(event.target.value));
+    setCurrentPage(1);
+  };
+
+  const getPageNumbers = () => {
+    const totalPages = pagination.pages || 1;
+    const activePage = pagination.page || currentPage;
+    const start = Math.max(1, activePage - 2);
+    const end = Math.min(totalPages, activePage + 2);
+    const pages = [];
+
+    for (let page = start; page <= end; page += 1) {
+      pages.push(page);
+    }
+
+    return pages;
+  };
+
+  const totalRecords = pagination.total || 0;
+  const visibleStart = totalRecords === 0 ? 0 : ((pagination.page || currentPage) - 1) * (pagination.limit || pageSize) + 1;
+  const visibleEnd = Math.min(totalRecords, visibleStart + quickScans.length - 1);
 
   if (loading) {
     return (
@@ -202,6 +245,7 @@ const AdminQuickScans = () => {
               const [field, order] = e.target.value.split('-');
               setSortBy(field);
               setSortOrder(order);
+              setCurrentPage(1);
             }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
           >
@@ -212,11 +256,39 @@ const AdminQuickScans = () => {
             <option value="url-asc">URL A-Z</option>
             <option value="url-desc">URL Z-A</option>
           </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+          >
+            <option value="all">All Statuses</option>
+            <option value="queued">Queued</option>
+            <option value="processing">Processing</option>
+            <option value="completed">Completed</option>
+            <option value="completed_with_warnings">Completed with warnings</option>
+            <option value="failed">Failed</option>
+          </select>
+          <select
+            value={pageSize}
+            onChange={handlePageSizeChange}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+          >
+            <option value={25}>25 per page</option>
+            <option value={50}>50 per page</option>
+            <option value={100}>100 per page</option>
+            <option value={200}>200 per page</option>
+          </select>
           <button
             onClick={() => {
               setSearchQuery('');
+              setDebouncedSearchQuery('');
+              setStatusFilter('all');
               setSortBy('scanDate');
               setSortOrder('desc');
+              setCurrentPage(1);
             }}
             className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
           >
@@ -245,7 +317,7 @@ const AdminQuickScans = () => {
       <div className="bg-white shadow rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
-            Quick Scan Records ({quickScans.length})
+            Quick Scan Records ({visibleStart}-{visibleEnd} of {totalRecords})
           </h3>
         </div>
         
@@ -262,7 +334,7 @@ const AdminQuickScans = () => {
                       URL
                       {sortBy === 'url' && (
                         <span className="ml-1">
-                          {sortOrder === 'asc' ? '↑' : '↓'}
+                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
                         </span>
                       )}
                     </button>
@@ -275,7 +347,7 @@ const AdminQuickScans = () => {
                       Email
                       {sortBy === 'email' && (
                         <span className="ml-1">
-                          {sortOrder === 'asc' ? '↑' : '↓'}
+                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
                         </span>
                       )}
                     </button>
@@ -294,7 +366,7 @@ const AdminQuickScans = () => {
                       Scan Date
                       {sortBy === 'scanDate' && (
                         <span className="ml-1">
-                          {sortOrder === 'asc' ? '↑' : '↓'}
+                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
                         </span>
                       )}
                     </button>
@@ -341,6 +413,59 @@ const AdminQuickScans = () => {
                 ))}
               </tbody>
             </table>
+            <div className="flex flex-col gap-4 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-gray-600">
+                Showing {visibleStart}-{visibleEnd} of {totalRecords} quick scans
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(1)}
+                  disabled={(pagination.page || currentPage) <= 1}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  First
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={(pagination.page || currentPage) <= 1}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                {getPageNumbers().map((pageNumber) => (
+                  <button
+                    type="button"
+                    key={pageNumber}
+                    onClick={() => setCurrentPage(pageNumber)}
+                    className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                      pageNumber === (pagination.page || currentPage)
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((page) => Math.min(pagination.pages || 1, page + 1))}
+                  disabled={(pagination.page || currentPage) >= (pagination.pages || 1)}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Next
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage(pagination.pages || 1)}
+                  disabled={(pagination.page || currentPage) >= (pagination.pages || 1)}
+                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Last
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="text-center py-12">
