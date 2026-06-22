@@ -2031,6 +2031,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         outputPath: path.join(finalReportFolder, aiSummaryFilename),
         title: 'AI Executive Summary',
         scorecard: record.scoreCard,
+        platformSummary: buildPlatformSummary(reportsByPlatform),
       }).catch((error) => {
         fullAuditLogger.warn('Failed to generate AI executive summary PDF.', {
           taskId: effectiveTaskId,

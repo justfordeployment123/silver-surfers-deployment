@@ -336,10 +336,14 @@ export class ElderlyAccessibilityPDFGenerator {
         const possibleLogoPaths = [
             path.join(__dirname, '../../../assets/Logo.png'), // From report_generation: up 3 levels to backend-silver-surfers
             path.join(__dirname, '../../assets/Logo.png'),    // Alternative path
+            path.join(__dirname, '../../../src/assets/Logo.png'),
             path.join(process.cwd(), 'assets/Logo.png'),      // From project root
+            path.join(process.cwd(), 'src/assets/Logo.png'),
             path.join(process.cwd(), 'backend-silver-surfers/assets/Logo.png'), // Explicit backend path
             '/app/assets/Logo.png',
-            '/app/reporting/assets/Logo.png'
+            '/app/src/assets/Logo.png',
+            '/app/reporting/assets/Logo.png',
+            '/app/reporting/src/assets/Logo.png'
         ];
         
         const logoX = pageWidth - 180;
@@ -643,7 +647,13 @@ addOverallScoreDisplay(scoreData) {
         // "Overall Accessibility Score (Desktop)" heading - top-left of content area
         this.doc.fontSize(14).font('BoldFont').fillColor('#000000')
             .text(`Overall Accessibility Score (${formFactorDisplay})`, contentX + 15, contentStartY + 15, 
-                { width: contentWidth - 30 });
+                { width: contentWidth - 170 });
+
+        this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50')
+            .text(`Package: ${packageText}`, contentX + contentWidth - 150, contentStartY + 17, {
+                width: 135,
+                align: 'right'
+            });
         
         // Large score percentage - centered, red color
         const scoreY = contentStartY + 50;
@@ -2526,17 +2536,104 @@ addOverallScoreDisplay(scoreData) {
     
     extractNodeLabel(node) {
         if (!node) return null;
-        return node.nodeLabel || node.snippet || null;
+        return this.sanitizeFindingLabel(node.nodeLabel || node.snippet || null, this.extractSelector(node));
     }
 
     extractElementLabel(item) {
         if (!item) return null;
         const issueText = String(item.node?.explanation || item.explanation || '').trim();
-        const nodeLabel = String(item.node?.nodeLabel || item.nodeLabel || '').trim();
+        const nodeLabel = this.sanitizeFindingLabel(item.node?.nodeLabel || item.nodeLabel || '', item.node?.selector || item.selector || '');
         if (nodeLabel && nodeLabel !== issueText) return nodeLabel;
         const html = String(item.html || item.node?.html || '').replace(/\s+/g, ' ').trim();
-        if (html) return html.slice(0, 220);
+        if (html) return this.sanitizeFindingLabel(html.slice(0, 220), item.node?.selector || item.selector || '');
         return nodeLabel || null;
+    }
+
+    sanitizeFindingLabel(value, selector = '') {
+        const raw = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!raw) return null;
+
+        const compactSelector = String(selector || '').trim();
+        const looksLikeSelector = /^([a-z0-9_-]+)?([.#:\[\]="'\s>+~()-][^<>]*)?$/i.test(raw) && !/\s{2,}/.test(raw);
+        if (looksLikeSelector) {
+            return raw.slice(0, 120);
+        }
+
+        const lines = raw
+            .split(/(?<=[.!?])\s+|\s{2,}|\n+/)
+            .map((part) => part.trim())
+            .filter(Boolean);
+        const primary = lines[0] || raw;
+
+        const noisyTokens = primary.split(/\s+/).filter(Boolean);
+        const tokenDiversity = new Set(noisyTokens.map((token) => token.toLowerCase())).size;
+        const readsLikeBlob = noisyTokens.length > 8 && tokenDiversity < noisyTokens.length * 0.75;
+
+        if (readsLikeBlob && compactSelector) {
+            return compactSelector.slice(0, 120);
+        }
+
+        if (primary.length <= 120) {
+            return primary;
+        }
+
+        return `${primary.slice(0, 117).trim()}...`;
+    }
+
+    formatEnhancedTableCell(value, header = '') {
+        const normalizedHeader = String(header || '').toLowerCase();
+        let text = String(value || '').replace(/\s+/g, ' ').trim();
+        if (!text || text === 'N/A') return text || 'N/A';
+
+        if (/^<[^>]+>/.test(text)) {
+            text = this.summarizeHtmlElement(text);
+        }
+
+        const maxLength = normalizedHeader.includes('issue') || normalizedHeader.includes('reason') || normalizedHeader.includes('impact')
+            ? 280
+            : normalizedHeader.includes('location') || normalizedHeader.includes('selector')
+                ? 170
+                : 180;
+
+        if (text.length <= maxLength) return text;
+        return `${text.slice(0, Math.max(0, maxLength - 3)).trim()}...`;
+    }
+
+    summarizeHtmlElement(html) {
+        const raw = String(html || '').replace(/\s+/g, ' ').trim();
+        const tagMatch = raw.match(/^<\s*([a-z0-9-]+)/i);
+        const tag = tagMatch ? tagMatch[1].toLowerCase() : 'element';
+        const attr = (name) => {
+            const pattern = new RegExp(`${name}\\s*=\\s*["']([^"']+)["']`, 'i');
+            return raw.match(pattern)?.[1]?.trim() || '';
+        };
+
+        const id = attr('id');
+        const className = attr('class');
+        const href = attr('href');
+        const src = attr('src');
+        const alt = attr('alt');
+        const ariaLabel = attr('aria-label');
+        const title = attr('title');
+
+        const parts = [`<${tag}>`];
+        if (id) parts.push(`#${id}`);
+        if (className) {
+            const classes = className
+                .split(/\s+/)
+                .filter(Boolean)
+                .slice(0, 3)
+                .map((name) => `.${name}`)
+                .join('');
+            if (classes) parts.push(classes);
+        }
+        if (ariaLabel) parts.push(`aria-label="${ariaLabel}"`);
+        if (alt) parts.push(`alt="${alt}"`);
+        if (title) parts.push(`title="${title}"`);
+        if (href) parts.push(`href="${href}"`);
+        if (src) parts.push(`src="${src}"`);
+
+        return parts.join(' ');
     }
     
     drawScoreCalculationTable(items, scoreData) {
@@ -2783,9 +2880,10 @@ addOverallScoreDisplay(scoreData) {
             return Math.max(maxHeaderHeight + 24, 40);
         };
 
-        const buildRowData = (item) => config.extractors.map(extractor => {
+        const buildRowData = (item) => config.extractors.map((extractor, index) => {
             let value = String(extractor(item) || 'N/A').trim();
-            return value.replace(/\bSenior\b/gi, 'Accessibility');
+            value = value.replace(/\bSenior\b/gi, 'Accessibility');
+            return this.formatEnhancedTableCell(value, headers[index]);
         });
 
         const measureStandardRowHeight = (rowData) => {
@@ -2802,6 +2900,36 @@ addOverallScoreDisplay(scoreData) {
                 }
             });
             return Math.max(maxRowHeight + 20, 40);
+        };
+
+        const measureStackedRowHeight = (rowData) => {
+            const contentWidth = this.pageWidth - 24;
+            let totalHeight = 20;
+
+            rowData.forEach((cellValue, index) => {
+                this.doc.font('BoldFont').fontSize(9);
+                const labelHeight = this.doc.heightOfString(headers[index], {
+                    width: contentWidth,
+                    lineGap: 1
+                });
+
+                this.doc.font('RegularFont').fontSize(10);
+                const valueHeight = this.doc.heightOfString(cellValue, {
+                    width: contentWidth,
+                    lineGap: 2
+                });
+
+                totalHeight += labelHeight;
+                totalHeight += 12;
+                totalHeight += valueHeight;
+                totalHeight += 16;
+
+                if (index < rowData.length - 1) {
+                    totalHeight += 6;
+                }
+            });
+
+            return Math.max(Math.ceil(totalHeight), 150);
         };
 
         const drawHeader = (tableY, headerHeight) => {
@@ -2894,18 +3022,8 @@ addOverallScoreDisplay(scoreData) {
 
         itemsToShow.forEach((item, rowIndex) => {
             const rowData = buildRowData(item);
-            const standardRowHeight = measureStandardRowHeight(rowData);
-            const tallRow = standardRowHeight > 120;
-            const renderedRowHeight = tallRow
-                ? Math.max(
-                    72 + rowData.reduce((sum, cellValue) => sum + this.doc.heightOfString(cellValue, {
-                        width: this.pageWidth - 24,
-                        lineGap: 2
-                    }) + 28, 0),
-                    150
-                )
-                : standardRowHeight;
-            const minimumSpace = tallRow ? 30 : 50;
+            const renderedRowHeight = measureStandardRowHeight(rowData);
+            const minimumSpace = 50;
 
             if (tableY + renderedRowHeight > pageBottom() || (rowIndex < itemsToShow.length - 1 && (pageBottom() - (tableY + renderedRowHeight)) < minimumSpace)) {
                 this.addPage();
@@ -2914,11 +3032,7 @@ addOverallScoreDisplay(scoreData) {
                 tableY += headerHeight;
             }
 
-            if (tallRow) {
-                drawStackedRow(rowData, tableY, renderedRowHeight);
-            } else {
-                drawStandardRow(rowData, tableY, renderedRowHeight);
-            }
+            drawStandardRow(rowData, tableY, renderedRowHeight);
 
             tableY += renderedRowHeight;
         });

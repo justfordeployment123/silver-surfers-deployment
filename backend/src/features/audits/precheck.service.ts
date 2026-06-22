@@ -68,7 +68,20 @@ export function buildCandidateUrls(input: string | undefined): CandidateUrlResul
 
   const hasProtocol = /^https?:\/\//i.test(raw);
   const cleaned = raw.replace(/^\w+:\/\//, '');
-  const baseUrls = hasProtocol ? [raw] : [`https://${cleaned}`, `http://${cleaned}`];
+  const baseUrls = (() => {
+    if (!hasProtocol) {
+      return [`https://${cleaned}`, `http://${cleaned}`];
+    }
+
+    try {
+      const parsed = new URL(raw);
+      const alternate = new URL(raw);
+      alternate.protocol = parsed.protocol === 'https:' ? 'http:' : 'https:';
+      return [raw, alternate.toString()];
+    } catch {
+      return [raw];
+    }
+  })();
 
   const candidates: string[] = [];
   const seen = new Set<string>();
@@ -153,15 +166,6 @@ function hasSameRedirectHostname(inputUrl: string, finalUrl: string): boolean {
     const input = new URL(inputUrl);
     const final = new URL(finalUrl);
     return comparableHostname(input.hostname) === comparableHostname(final.hostname);
-  } catch {
-    return false;
-  }
-}
-
-function isRootCandidateUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return parsed.pathname === '/' && !parsed.search && !parsed.hash;
   } catch {
     return false;
   }
@@ -503,14 +507,6 @@ export async function precheckCandidateUrl(
       if (scannerResult?.ok) {
         return scannerResult;
       }
-    }
-
-    if (!isRootCandidateUrl(url)) {
-      return {
-        ok: false,
-        error: 'No usable HTTP response was received for this page. Please check the URL or try the website homepage.',
-        checkStatus: 'NOT_REACHABLE',
-      };
     }
 
     const partial = classifyPartialHealth(httpResult.error);

@@ -277,10 +277,22 @@ def _is_retryable_processing_error(error: Exception) -> bool:
     if isinstance(error, RetryableJobError):
         return True
 
+    message = safe_text(str(error)).lower()
+    non_retryable_navigation_fragments = (
+        "page.goto: timeout",
+        "ns_error_net_reset",
+        "ns_error_net_interrupt",
+        "ssl_error_bad_cert_domain",
+        "ssl_error_unknown",
+        "sec_error_expired_certificate",
+        "sec_error_unknown_issuer",
+    )
+    if any(fragment in message for fragment in non_retryable_navigation_fragments):
+        return False
+
     if _shutdown_requested:
         return True
 
-    message = safe_text(str(error)).lower()
     retryable_fragments = (
         "target page, context or browser has been closed",
         "targetclosederror",
@@ -293,17 +305,6 @@ def _is_retryable_processing_error(error: Exception) -> bool:
         "temporarily unavailable",
         "service unavailable",
     )
-    non_retryable_navigation_fragments = (
-        "page.goto: timeout",
-        "ns_error_net_reset",
-        "ns_error_net_interrupt",
-        "ssl_error_bad_cert_domain",
-        "ssl_error_unknown",
-        "sec_error_expired_certificate",
-        "sec_error_unknown_issuer",
-    )
-    if any(fragment in message for fragment in non_retryable_navigation_fragments):
-        return False
     return any(fragment in message for fragment in retryable_fragments)
 
 

@@ -1,3 +1,4 @@
+import os
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse
@@ -8,6 +9,15 @@ from camoufox.sync_api import Camoufox
 from axe_integration import ensure_expected_audits, find_axe_core_script, merge_axe_results_into_audits, make_not_checked_audit
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score
 from scanner_utils import safe_text
+
+
+def _scanner_ignore_https_errors() -> bool:
+    return safe_text(os.getenv("SCANNER_IGNORE_HTTPS_ERRORS", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _www_to_apex_retry_url(url: str) -> Optional[str]:
@@ -98,7 +108,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
     # Note: viewport is set on the page, not in the browser constructor
     with Camoufox(headless=True) as browser:
         # Get a page from the browser (sync API)
-        page = browser.new_page()
+        page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
         
         # Set viewport and device emulation for the page
         viewport = device_config.get("viewport", {"width": 1920, "height": 1080})

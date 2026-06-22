@@ -256,6 +256,12 @@ async function generateFullReports(options: CliOptions): Promise<GeneratedFile[]
     );
   }
 
+  const reportsByPlatform: Record<string, Array<{ score: number | null }>> = {
+    [options.device]: pageReports.map((report) => ({
+      score: typeof report.score === 'number' ? report.score : null,
+    })),
+  };
+
   const combinedPdf = await generateCombinedPlatformReport({
     reports: pageReports,
     device: options.device,

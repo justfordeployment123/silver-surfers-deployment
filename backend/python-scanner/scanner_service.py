@@ -50,6 +50,15 @@ _queued_audits = 0
 _scanner_executor = ThreadPoolExecutor(max_workers=SCANNER_EXECUTOR_WORKERS, thread_name_prefix="scanner")
 
 
+def _scanner_ignore_https_errors() -> bool:
+    return safe_text(os.getenv("SCANNER_IGNORE_HTTPS_ERRORS", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 async def get_scanner_load() -> Dict[str, int]:
     async with _audit_condition:
         return {
@@ -314,7 +323,7 @@ def _precheck_url_sync(url: str) -> Dict[str, Any]:
         try:
             # Use Camoufox with context manager (proper usage pattern)
             with Camoufox(headless=True) as browser:
-                page = browser.new_page()
+                page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
                 
                 # Set basic viewport
                 page.set_viewport_size({"width": 1920, "height": 1080})
@@ -530,7 +539,7 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
     with _link_extraction_lock:
         try:
             with Camoufox(headless=True) as browser:
-                page = browser.new_page()
+                page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
                 page.set_viewport_size({"width": 1920, "height": 1080})
 
                 # Realistic desktop user-agent

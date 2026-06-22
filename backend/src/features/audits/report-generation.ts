@@ -81,14 +81,54 @@ function getReportLogoPaths(): string[] {
   return [
     resolveBackendPath('assets', 'Logo.png'),
     resolveBackendPath('reporting', 'assets', 'Logo.png'),
+    resolveBackendPath('reporting', 'src', 'assets', 'Logo.png'),
     resolveBackendPath('backend-silver-surfers', 'assets', 'Logo.png'),
     resolveBackendPath('my-app', 'assets', 'Logo.png'),
     resolveBackendPath('src', 'assets', 'Logo.png'),
     path.join(process.cwd(), 'assets', 'Logo.png'),
+    path.join(process.cwd(), 'src', 'assets', 'Logo.png'),
     path.join(process.cwd(), 'reporting', 'assets', 'Logo.png'),
+    path.join(process.cwd(), 'reporting', 'src', 'assets', 'Logo.png'),
     path.join('/app', 'assets', 'Logo.png'),
+    path.join('/app', 'src', 'assets', 'Logo.png'),
     path.join('/app', 'reporting', 'assets', 'Logo.png'),
+    path.join('/app', 'reporting', 'src', 'assets', 'Logo.png'),
   ];
+}
+
+function findExistingReportLogoPath(): string | null {
+  for (const logoPath of getReportLogoPaths()) {
+    try {
+      if (fsSync.existsSync(logoPath)) {
+        return logoPath;
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+function drawReportLogo(
+  doc: InstanceType<typeof PDFDocument>,
+  options: { x: number; y: number; size: number },
+): boolean {
+  const logoPath = findExistingReportLogoPath();
+  if (!logoPath) {
+    return false;
+  }
+
+  try {
+    const logoBuffer = fsSync.readFileSync(logoPath);
+    doc.image(logoBuffer, options.x, options.y, {
+      fit: [options.size, options.size],
+      align: 'right',
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function drawSummaryTable(
@@ -412,6 +452,7 @@ export async function generateAuditAiSummaryPdf(
     outputPath: string;
     title?: string;
     scorecard?: AuditScorecard;
+    platformSummary?: PlatformSummaryEntry[];
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -587,6 +628,83 @@ export async function generateAuditAiSummaryPdf(
       doc.y = cardTop + cardHeight + 18;
     };
 
+    const renderAuditSummaryTable = (): void => {
+      const summary = Array.isArray(options.platformSummary)
+        ? options.platformSummary.filter((entry) => entry && entry.platform)
+        : [];
+      if (summary.length === 0) return;
+
+      const startY = doc.y;
+      const rowHeight = 28;
+      const headerHeight = 30;
+      const colWidths = [contentWidth * 0.34, contentWidth * 0.28, contentWidth * 0.38];
+      const tableHeight = headerHeight + (summary.length * rowHeight);
+      const sectionHeight = 34 + tableHeight + 14;
+
+      if (startY + sectionHeight > doc.page.height - doc.page.margins.bottom) {
+        doc.addPage();
+        doc.y = doc.page.margins.top;
+      }
+
+      const headingY = doc.y;
+      doc.font('BoldFont').fontSize(14).fillColor(sectionPalette.summary)
+        .text('Audit Summary', pageMarginLeft, headingY, { width: contentWidth });
+      const underlineY = doc.y + 2;
+      doc.save();
+      doc.lineWidth(2).strokeColor(sectionPalette.summary)
+        .moveTo(pageMarginLeft, underlineY).lineTo(pageMarginLeft + 36, underlineY).stroke();
+      doc.restore();
+
+      let tableY = underlineY + 12;
+      doc.roundedRect(pageMarginLeft, tableY, contentWidth, tableHeight, 8).fill('#F8FAFC');
+      doc.rect(pageMarginLeft, tableY, contentWidth, headerHeight).fill('#3B82F6');
+
+      doc.font('BoldFont').fontSize(9).fillColor('#FFFFFF');
+      let x = pageMarginLeft;
+      doc.text('PLATFORM', x + 10, tableY + 10, { width: colWidths[0] - 20, lineBreak: false });
+      x += colWidths[0];
+      doc.text('AVERAGE SCORE', x + 10, tableY + 10, { width: colWidths[1] - 20, align: 'center', lineBreak: false });
+      x += colWidths[1];
+      doc.text('RESULT', x + 10, tableY + 10, { width: colWidths[2] - 20, align: 'center', lineBreak: false });
+
+      tableY += headerHeight;
+      summary.forEach((entry, index) => {
+        const score = typeof entry.score === 'number' && Number.isFinite(entry.score) ? Math.round(entry.score) : null;
+        const result = score == null
+          ? 'Not Available'
+          : score >= 80
+            ? 'Pass'
+            : score >= 70
+              ? 'Needs Improvement'
+              : 'Below Standard';
+        const resultColor = score == null
+          ? '#64748B'
+          : score >= 80
+            ? '#16A34A'
+            : score >= 70
+              ? '#F59E0B'
+              : '#DC2626';
+
+        if (index % 2 === 1) {
+          doc.rect(pageMarginLeft, tableY, contentWidth, rowHeight).fill('#F1F5F9');
+        }
+
+        let cellX = pageMarginLeft;
+        doc.font('BoldFont').fontSize(9).fillColor('#334155')
+          .text(String(entry.platform), cellX + 10, tableY + 9, { width: colWidths[0] - 20, lineBreak: false, ellipsis: true });
+        cellX += colWidths[0];
+        doc.font('BoldFont').fontSize(9).fillColor('#0F172A')
+          .text(score == null ? 'N/A' : `${score}%`, cellX + 10, tableY + 9, { width: colWidths[1] - 20, align: 'center', lineBreak: false });
+        cellX += colWidths[1];
+        doc.font('BoldFont').fontSize(9).fillColor(resultColor)
+          .text(result, cellX + 10, tableY + 9, { width: colWidths[2] - 20, align: 'center', lineBreak: false, ellipsis: true });
+
+        tableY += rowHeight;
+      });
+
+      doc.y = tableY + 18;
+    };
+
     const renderSectionCard = (
       heading: string,
       accentColor: string,
@@ -666,6 +784,7 @@ export async function generateAuditAiSummaryPdf(
     }
 
     renderScoreCard();
+    renderAuditSummaryTable();
     renderTopIssues();
 
     renderSectionCard('Summary', sectionPalette.summary, normalizedSummary, null);
@@ -761,23 +880,10 @@ export async function mergePDFsByPlatform(options: {
   titleDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
     .text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }), titleMargin, preparedY + 100, { width: 200 });
 
-  const possibleLogoPaths = getReportLogoPaths();
   const logoX = titleDoc.page.width - 180;
   const logoY = titlePageHeight - 150;
   const logoSize = 120;
-  for (const logoPath of possibleLogoPaths) {
-    try {
-      if (fsSync.existsSync(logoPath)) {
-        titleDoc.image(logoPath, logoX, logoY, {
-          fit: [logoSize, logoSize],
-          align: 'right',
-        });
-        break;
-      }
-    } catch {
-      continue;
-    }
-  }
+  drawReportLogo(titleDoc, { x: logoX, y: logoY, size: logoSize });
 
   drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reports.map((report) => ({
     platform: getReportPageName(report.url),
@@ -841,7 +947,13 @@ export async function mergePDFsByPlatform(options: {
 
   coverDoc.fontSize(14).font('BoldFont').fillColor('#000000')
     .text(`Overall Accessibility Score (${deviceCapitalized})`, contentX + 15, contentStartY + 15, {
-      width: contentWidth - 30,
+      width: contentWidth - 170,
+    });
+
+  coverDoc.fontSize(11).font('BoldFont').fillColor('#2C3E50')
+    .text(`Package: ${packageText}`, contentX + contentWidth - 150, contentStartY + 17, {
+      width: 135,
+      align: 'right',
     });
 
   const scoreColor = roundedScore >= 80 ? '#28A745' : roundedScore >= 70 ? '#FD7E14' : '#DC3545';
@@ -1065,6 +1177,7 @@ export async function generateCombinedPlatformReport(options: {
 
   doc.fontSize(28).font('BoldFont').fillColor('#2C3E50')
     .text(`Combined ${deviceCapitalized} Audit Report`, margin, currentY, { width: pageWidth, align: 'center' });
+  drawReportLogo(doc, { x: doc.page.width - 180, y: 50, size: 120 });
   currentY += 60;
 
   doc.fontSize(14).font('RegularFont').fillColor('#7F8C8D')
