@@ -6,6 +6,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const [url, setUrl] = useState('');
   const [email, setEmail] = useState('');
+  const [lockedEmail, setLockedEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('desktop'); // Default device selection
@@ -33,11 +34,13 @@ const Checkout = () => {
         // Set email
         if (userResult.user && userResult.user.email) {
           setEmail(userResult.user.email);
+          setLockedEmail(userResult.user.email);
         } else {
           // Fallback to localStorage if available
           const savedEmail = localStorage.getItem('userEmail') || localStorage.getItem('email') || localStorage.getItem('authEmail');
           if (savedEmail) {
             setEmail(savedEmail);
+            setLockedEmail(savedEmail);
           }
         }
         
@@ -69,6 +72,7 @@ const Checkout = () => {
         const savedEmail = localStorage.getItem('userEmail') || localStorage.getItem('email') || localStorage.getItem('authEmail');
         if (savedEmail) {
           setEmail(savedEmail);
+          setLockedEmail(savedEmail);
         }
       } finally {
         setSubscriptionLoading(false);
@@ -141,7 +145,9 @@ const Checkout = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!url || !email) {
+    const auditEmail = lockedEmail || email;
+
+    if (!url || !auditEmail) {
       setError('Please fill in all fields');
       return;
     }
@@ -223,7 +229,7 @@ const Checkout = () => {
       // For Pro plan, deviceToUse remains null (backend handles all devices)
 
       // Now start the actual audit with device selection and credit type
-      const auditResult = await startAudit(email, url, deviceToUse, firstName, lastName, creditType);
+      const auditResult = await startAudit(auditEmail, url, deviceToUse, firstName, lastName, creditType);
       
       if (auditResult.error) {
         setError(auditResult.error);
@@ -382,10 +388,36 @@ const Checkout = () => {
               <input
                 type="email"
                 id="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                value={lockedEmail || email}
+                onChange={(e) => {
+                  if (lockedEmail) {
+                    e.currentTarget.value = lockedEmail;
+                    setEmail(lockedEmail);
+                    return;
+                  }
+                  setEmail(e.target.value);
+                }}
+                onInput={(e) => {
+                  if (lockedEmail && e.currentTarget.value !== lockedEmail) {
+                    e.currentTarget.value = lockedEmail;
+                    setEmail(lockedEmail);
+                  }
+                }}
+                onPaste={(e) => {
+                  if (lockedEmail) {
+                    e.preventDefault();
+                    setEmail(lockedEmail);
+                  }
+                }}
                 placeholder="your@email.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
+                readOnly={Boolean(lockedEmail)}
+                aria-readonly={Boolean(lockedEmail)}
+                autoComplete={lockedEmail ? 'off' : 'email'}
+                className={`w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 ${
+                  lockedEmail
+                    ? 'bg-gray-100 cursor-not-allowed focus:ring-0 focus:border-gray-300'
+                    : 'focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+                }`}
                 required
               />
             </div>

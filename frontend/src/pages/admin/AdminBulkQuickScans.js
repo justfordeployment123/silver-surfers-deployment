@@ -11,7 +11,7 @@ const AdminBulkQuickScans = () => {
   const [success, setSuccess] = useState('');
   const [result, setResult] = useState(null);
 
-  const MAX_URLS = 50;
+  const MAX_URLS = 200;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

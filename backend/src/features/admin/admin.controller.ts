@@ -241,9 +241,17 @@ export async function getQuickScans(request: Request, response: Response): Promi
 export async function bulkQuickScans(request: Request, response: Response): Promise<void> {
   try {
     const { urls, email, firstName, lastName } = request.body ?? {};
+    const maxBulkQuickScanUrls = Math.max(1, Number(process.env.ADMIN_BULK_QUICK_SCAN_MAX_URLS) || 200);
 
     if (!Array.isArray(urls) || urls.length === 0) {
       response.status(400).json({ error: 'URLs array is required and must not be empty.' });
+      return;
+    }
+
+    if (urls.length > maxBulkQuickScanUrls) {
+      response.status(400).json({
+        error: `Maximum ${maxBulkQuickScanUrls} URLs allowed per bulk submission. You provided ${urls.length}.`,
+      });
       return;
     }
 
