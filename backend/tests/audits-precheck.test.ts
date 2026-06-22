@@ -478,6 +478,44 @@ test('precheckCandidateUrl accepts same-organization service redirects', async (
   }
 });
 
+test('precheckCandidateUrl accepts known brand ownership redirects', async () => {
+  const fetchImpl: typeof fetch = async () => {
+    const response = new Response('', { status: 200 });
+    Object.defineProperty(response, 'url', { value: 'https://store.google.com/category/fitbit' });
+    Object.defineProperty(response, 'redirected', { value: true });
+    return response;
+  };
+
+  const result = await precheckCandidateUrl('https://www.fitbit.com', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.finalUrl, 'https://store.google.com/category/fitbit');
+    assert.equal(result.finalState, 'PASS');
+    assert.equal(result.checkStatus, 'HEALTHY');
+  }
+});
+
+test('precheckCandidateUrl accepts known regional brand redirects', async () => {
+  const fetchImpl: typeof fetch = async () => {
+    const response = new Response('', { status: 200 });
+    Object.defineProperty(response, 'url', { value: 'https://www.wholefoodsmarket.co.uk/' });
+    Object.defineProperty(response, 'redirected', { value: true });
+    return response;
+  };
+
+  const result = await precheckCandidateUrl('https://www.wholefoodsmarket.com/', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.finalUrl, 'https://www.wholefoodsmarket.co.uk/');
+    assert.equal(result.finalState, 'PASS');
+    assert.equal(result.checkStatus, 'HEALTHY');
+  }
+});
+
 test('precheckCandidateUrl does not let TCP fallback rescue a domain-mismatch redirect', async () => {
   const fetchImpl: typeof fetch = async () => {
     const response = new Response('', { status: 403 });

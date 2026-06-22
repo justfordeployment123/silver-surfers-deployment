@@ -205,6 +205,23 @@ function hasSameRedirectSite(inputUrl: string, finalUrl: string): boolean {
   }
 }
 
+function isAllowedKnownBrandRedirect(inputUrl: string, finalUrl: string): boolean {
+  try {
+    const input = new URL(inputUrl);
+    const final = new URL(finalUrl);
+    const inputDomain = registrableDomain(input.hostname);
+    const finalDomain = registrableDomain(final.hostname);
+
+    return [
+      ['fitbit.com', 'google.com'],
+      ['wholefoodsmarket.com', 'wholefoodsmarket.co.uk'],
+      ['hulu.com', 'disneyplus.com'],
+    ].some(([fromDomain, toDomain]) => inputDomain === fromDomain && finalDomain === toDomain);
+  } catch {
+    return false;
+  }
+}
+
 function isAllowedProtectedRedirect(inputUrl: string, finalUrl: string): boolean {
   try {
     const input = new URL(inputUrl);
@@ -282,7 +299,7 @@ async function classifyHttpResponse(response: Response, url: string): Promise<Pr
       };
     }
 
-    if (!hasSameRedirectSite(url, finalUrl)) {
+    if (!hasSameRedirectSite(url, finalUrl) && !isAllowedKnownBrandRedirect(url, finalUrl)) {
       return {
         ok: false,
         error: `URL redirected to a different domain (${new URL(finalUrl).hostname}). Please check the website URL.`,
