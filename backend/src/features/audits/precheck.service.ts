@@ -18,7 +18,7 @@ export interface PrecheckSuccessResult {
   finalUrl: string;
   redirected: boolean;
   finalState?: 'PASS' | 'PROTECTED' | 'PARTIAL';
-  checkStatus?: 'HEALTHY' | 'PROTECTED' | 'TCP_REACHABLE' | 'SSL_ERROR' | 'SERVER_ERROR' | 'UNKNOWN_HTTP_RESPONSE';
+  checkStatus?: 'HEALTHY' | 'PROTECTED' | 'TCP_REACHABLE' | 'DNS_REACHABLE' | 'SSL_ERROR' | 'SERVER_ERROR' | 'UNKNOWN_HTTP_RESPONSE';
   health?: 'OK' | 'PROTECTED' | 'SSL_ERROR' | 'HTTP_ERROR';
   reason?: string;
 }
@@ -408,6 +408,26 @@ async function runTcpPrecheck(url: string, tcpProbe: TcpProbe, timeoutMs = 5_000
   }
 }
 
+async function runDnsPrecheck(url: string): Promise<PrecheckResult> {
+  try {
+    const parsed = new URL(url);
+    await lookup(parsed.hostname);
+
+    return {
+      ok: true,
+      accessible: false,
+      finalUrl: url,
+      redirected: false,
+      finalState: 'PARTIAL',
+      checkStatus: 'DNS_REACHABLE',
+      health: 'HTTP_ERROR',
+      reason: 'Domain resolved, but no usable HTTP response was received. The scanner will still try to process the website.',
+    };
+  } catch (error) {
+    return { ok: false, error: classifyNetworkError(error), checkStatus: 'NOT_REACHABLE' };
+  }
+}
+
 async function runHttpPrecheck(
   url: string,
   fetchImpl: FetchLike,
@@ -593,6 +613,18 @@ export async function precheckCandidateUrl(
       health: partial.health,
       reason: partial.reason,
     };
+  }
+
+  const dnsResult = await runDnsPrecheck(url);
+  if (dnsResult.ok) {
+    if (options.scannerFallback ?? true) {
+      const scannerResult = await runScannerPrecheckFallback(url, fetchImpl);
+      if (scannerResult?.ok) {
+        return scannerResult;
+      }
+    }
+
+    return dnsResult;
   }
 
   return httpResult;

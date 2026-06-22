@@ -243,13 +243,36 @@ test('precheckCandidateUrl returns failure when both HTTP and TCP checks fail', 
     throw new Error('unexpected call');
   };
 
-  const result = await precheckCandidateUrl('https://example.com', fetchImpl, {
+  const result = await precheckCandidateUrl('https://definitely-not-a-real-silversurfers-domain.invalid', fetchImpl, {
     tcpProbe: async () => false,
     scannerFallback: false,
   });
 
   assert.equal(result.ok, false);
   assert.equal((result as { checkStatus: string }).checkStatus, 'NOT_REACHABLE');
+});
+
+test('precheckCandidateUrl marks DNS-resolving hosts as enqueueable when TCP fails', async () => {
+  const fetchImpl: typeof fetch = async (_input, init) => {
+    if (init?.method === 'HEAD' || init?.method === 'GET') {
+      throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' });
+    }
+
+    throw new Error('unexpected call');
+  };
+
+  const result = await precheckCandidateUrl('https://localhost', fetchImpl, {
+    tcpProbe: async () => false,
+    scannerFallback: false,
+  });
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, false);
+    assert.equal(result.finalState, 'PARTIAL');
+    assert.equal(result.checkStatus, 'DNS_REACHABLE');
+    assert.equal(result.health, 'HTTP_ERROR');
+  }
 });
 
 test('precheckCandidateUrl accepts common bot-protection statuses as reachable', async () => {
