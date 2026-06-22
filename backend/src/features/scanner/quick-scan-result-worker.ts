@@ -124,13 +124,17 @@ export class QuickScanResultWorker {
     }
 
     const QuickScan = await getQuickScanModel();
-    const record = await QuickScan.findOne({
-      $or: [
-        { scannerJobId: payload.scannerJobId },
-        { primaryScannerJobId: payload.scannerJobId },
-        { fallbackScannerJobId: payload.scannerJobId },
-      ],
-    });
+    const resultLookupConditions: Array<Record<string, unknown>> = [
+      { scannerJobId: payload.scannerJobId },
+      { primaryScannerJobId: payload.scannerJobId },
+      { fallbackScannerJobId: payload.scannerJobId },
+    ];
+
+    if (payload.success) {
+      resultLookupConditions.push({ 'scannerAttemptHistory.scannerJobId': payload.scannerJobId });
+    }
+
+    const record = await QuickScan.findOne({ $or: resultLookupConditions });
 
     if (!record) {
       resultWorkerLogger.warn('Discarding quick scanner result with no matching quick scan record.', {

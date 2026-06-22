@@ -415,6 +415,46 @@ test('precheckCandidateUrl rejects redirects to a different domain', async () =>
   assert.equal((result as { checkStatus: string }).checkStatus, 'REDIRECTED_DOMAIN_MISMATCH');
 });
 
+test('precheckCandidateUrl accepts same-organization auth redirects as protected', async () => {
+  const fetchImpl: typeof fetch = async () => {
+    const response = new Response('', { status: 200 });
+    Object.defineProperty(response, 'url', { value: 'https://accounts.google.com/signin/v2/identifier' });
+    Object.defineProperty(response, 'redirected', { value: true });
+    return response;
+  };
+
+  const result = await precheckCandidateUrl('https://wallet.google.com/wallet/u/0/home', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.status, 200);
+    assert.equal(result.finalState, 'PROTECTED');
+    assert.equal(result.checkStatus, 'PROTECTED');
+    assert.equal(result.health, 'PROTECTED');
+  }
+});
+
+test('precheckCandidateUrl accepts same-organization service redirects', async () => {
+  const fetchImpl: typeof fetch = async () => {
+    const response = new Response('', { status: 403 });
+    Object.defineProperty(response, 'url', { value: 'https://ssp.delta.com/apac/en' });
+    Object.defineProperty(response, 'redirected', { value: true });
+    return response;
+  };
+
+  const result = await precheckCandidateUrl('https://www.delta.com/apac/en', fetchImpl);
+
+  assert.equal(result.ok, true);
+  if (result.ok) {
+    assert.equal(result.accessible, true);
+    assert.equal(result.status, 403);
+    assert.equal(result.finalState, 'PROTECTED');
+    assert.equal(result.checkStatus, 'PROTECTED');
+    assert.equal(result.health, 'PROTECTED');
+  }
+});
+
 test('precheckCandidateUrl does not let TCP fallback rescue a domain-mismatch redirect', async () => {
   const fetchImpl: typeof fetch = async () => {
     const response = new Response('', { status: 403 });

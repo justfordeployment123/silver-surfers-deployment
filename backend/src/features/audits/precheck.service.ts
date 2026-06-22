@@ -161,11 +161,67 @@ function comparableHostname(value: string): string {
   return value.toLowerCase().replace(/^www\./, '');
 }
 
+function registrableDomain(value: string): string {
+  const normalized = comparableHostname(value);
+  const parts = normalized.split('.').filter(Boolean);
+  if (parts.length <= 2) return normalized;
+
+  const publicSuffix = parts.slice(-2).join('.');
+  const commonSecondLevelSuffixes = new Set([
+    'co.uk',
+    'org.uk',
+    'ac.uk',
+    'gov.uk',
+    'com.au',
+    'net.au',
+    'org.au',
+    'co.nz',
+    'com.br',
+    'com.pk',
+  ]);
+
+  return commonSecondLevelSuffixes.has(publicSuffix) && parts.length >= 3
+    ? parts.slice(-3).join('.')
+    : publicSuffix;
+}
+
 function hasSameRedirectHostname(inputUrl: string, finalUrl: string): boolean {
   try {
     const input = new URL(inputUrl);
     const final = new URL(finalUrl);
     return comparableHostname(input.hostname) === comparableHostname(final.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function hasSameRedirectSite(inputUrl: string, finalUrl: string): boolean {
+  try {
+    const input = new URL(inputUrl);
+    const final = new URL(finalUrl);
+    return registrableDomain(input.hostname) === registrableDomain(final.hostname);
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedProtectedRedirect(inputUrl: string, finalUrl: string): boolean {
+  try {
+    const input = new URL(inputUrl);
+    const final = new URL(finalUrl);
+    if (registrableDomain(input.hostname) !== registrableDomain(final.hostname)) {
+      return false;
+    }
+
+    const finalHostname = comparableHostname(final.hostname);
+    return [
+      'account',
+      'accounts',
+      'auth',
+      'login',
+      'signin',
+      'sso',
+    ].some((prefix) => finalHostname === `${prefix}.${registrableDomain(final.hostname)}`);
   } catch {
     return false;
   }
@@ -214,11 +270,28 @@ async function classifyHttpResponse(response: Response, url: string): Promise<Pr
   };
 
   if (response.redirected && !hasSameRedirectHostname(url, finalUrl)) {
-    return {
-      ok: false,
-      error: `URL redirected to a different domain (${new URL(finalUrl).hostname}). Please check the website URL.`,
-      checkStatus: 'REDIRECTED_DOMAIN_MISMATCH',
-    };
+    if (isAllowedProtectedRedirect(url, finalUrl)) {
+      return {
+        ok: true,
+        accessible: true,
+        ...base,
+        finalState: 'PROTECTED',
+        checkStatus: 'PROTECTED',
+        health: 'PROTECTED',
+        reason: 'Website is online but redirected to a sign-in or protected account page.',
+      };
+    }
+
+    if (!hasSameRedirectSite(url, finalUrl)) {
+      return {
+        ok: false,
+        error: `URL redirected to a different domain (${new URL(finalUrl).hostname}). Please check the website URL.`,
+        checkStatus: 'REDIRECTED_DOMAIN_MISMATCH',
+      };
+    }
+
+    // Continue normal status classification for same-organization redirects
+    // such as delta.com -> ssp.delta.com.
   }
 
   if (response.status >= 200 && response.status < 400) {
