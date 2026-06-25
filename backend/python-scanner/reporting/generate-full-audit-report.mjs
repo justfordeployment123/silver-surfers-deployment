@@ -204,6 +204,7 @@ async function main() {
       outputPath: path.join(outputDir, 'ai-executive-summary.pdf'),
       title: 'AI Executive Summary',
       scorecard: aggregateScorecard,
+      platformSummary: buildPlatformSummary(reportsByPlatform),
     }).catch((error) => {
       console.warn(`AI executive summary PDF generation failed: ${error?.message || error}`);
     });

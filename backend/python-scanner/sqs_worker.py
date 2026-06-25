@@ -1001,7 +1001,20 @@ class ScannerSqsWorker:
             delay_ms,
         )
         if not extraction.get("success") and not extraction.get("links"):
-            raise RuntimeError(safe_text(extraction.get("error") or "Scanner link extraction failed."))
+            logger.warning(
+                "Scanner full-audit link extraction failed; continuing with root URL only.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "url": root_url,
+                    "error": safe_text(extraction.get("error") or "Scanner link extraction failed."),
+                },
+            )
+            extraction = {
+                **extraction,
+                "success": True,
+                "links": [],
+                "finalUrl": safe_text(extraction.get("finalUrl") or root_url),
+            }
 
         root_canonical = _canonical_page_url(safe_text(extraction.get("finalUrl") or root_url)) or _canonical_page_url(root_url)
         if not root_canonical:

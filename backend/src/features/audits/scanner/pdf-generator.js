@@ -12,6 +12,32 @@ import customConfig from './custom-config.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const REPORT_LOGO_PATHS = [
+    path.join(__dirname, '../../../assets/Logo.png'),
+    path.join(__dirname, '../../assets/Logo.png'),
+    path.join(__dirname, '../../../src/assets/Logo.png'),
+    path.join(process.cwd(), 'assets/Logo.png'),
+    path.join(process.cwd(), 'src/assets/Logo.png'),
+    path.join(process.cwd(), 'backend-silver-surfers/assets/Logo.png'),
+    '/app/assets/Logo.png',
+    '/app/src/assets/Logo.png',
+    '/app/reporting/assets/Logo.png',
+    '/app/reporting/src/assets/Logo.png'
+];
+
+function findReportLogoPath() {
+    for (const logoPath of REPORT_LOGO_PATHS) {
+        try {
+            if (fs.existsSync(logoPath)) {
+                return logoPath;
+            }
+        } catch (error) {
+            // Continue to next path.
+        }
+    }
+    return null;
+}
+
 // Elderly-focused audit information with expanded explanations and recommendations
 const AUDIT_INFO = {
     'text-font-audit': {
@@ -294,6 +320,20 @@ export class ElderlyAccessibilityPDFGenerator {
         // White background for the entire page
         this.doc.rect(0, 0, pageWidth, pageHeight).fill('#FFFFFF');
 
+        const logoPath = findReportLogoPath();
+        if (logoPath) {
+            try {
+                this.doc.image(logoPath, (pageWidth - 96) / 2, 56, {
+                    fit: [96, 96],
+                    align: 'center'
+                });
+            } catch (error) {
+                console.warn(`Failed to draw title page top logo from ${logoPath}: ${error.message}`);
+            }
+        } else {
+            console.warn(`Logo not found. Tried paths: ${REPORT_LOGO_PATHS.join(', ')}`);
+        }
+
         // Title: "SilverSurfers Website Accessibility Audit Report" - centered, stacked
         const titleY = pageHeight * 0.35; // Upper-middle section
         const titleX = this.margin; // Start at margin
@@ -331,43 +371,26 @@ export class ElderlyAccessibilityPDFGenerator {
         this.doc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
             .text(dateStr, preparedX, preparedY + 58, { width: 200 });
 
-        // Lower right: Logo
-        // Try multiple possible paths for the logo
-        const possibleLogoPaths = [
-            path.join(__dirname, '../../../assets/Logo.png'), // From report_generation: up 3 levels to backend-silver-surfers
-            path.join(__dirname, '../../assets/Logo.png'),    // Alternative path
-            path.join(__dirname, '../../../src/assets/Logo.png'),
-            path.join(process.cwd(), 'assets/Logo.png'),      // From project root
-            path.join(process.cwd(), 'src/assets/Logo.png'),
-            path.join(process.cwd(), 'backend-silver-surfers/assets/Logo.png'), // Explicit backend path
-            '/app/assets/Logo.png',
-            '/app/src/assets/Logo.png',
-            '/app/reporting/assets/Logo.png',
-            '/app/reporting/src/assets/Logo.png'
-        ];
-        
+        // Lower right: brand mark
         const logoX = pageWidth - 180;
         const logoY = pageHeight - 150;
         const logoSize = 120;
         let logoLoaded = false;
 
-        for (const logoPath of possibleLogoPaths) {
+        if (logoPath) {
             try {
-                if (fs.existsSync(logoPath)) {
-                    this.doc.image(logoPath, logoX, logoY, { 
-                        fit: [logoSize, logoSize],
-                        align: 'right'
-                    });
-                    logoLoaded = true;
-                    break;
-                }
+                this.doc.image(logoPath, logoX, logoY, {
+                    fit: [logoSize, logoSize],
+                    align: 'right'
+                });
+                logoLoaded = true;
             } catch (error) {
-                // Continue to next path
+                console.warn(`Failed to draw title page lower logo from ${logoPath}: ${error.message}`);
             }
         }
 
         if (!logoLoaded) {
-            console.warn(`Logo not found. Tried paths: ${possibleLogoPaths.join(', ')}`);
+            console.warn(`Logo not found. Tried paths: ${REPORT_LOGO_PATHS.join(', ')}`);
         }
 
         // Reset currentY for next page (don't increment pageNumber here - let addPage() handle it)
@@ -2902,36 +2925,6 @@ addOverallScoreDisplay(scoreData) {
             return Math.max(maxRowHeight + 20, 40);
         };
 
-        const measureStackedRowHeight = (rowData) => {
-            const contentWidth = this.pageWidth - 24;
-            let totalHeight = 20;
-
-            rowData.forEach((cellValue, index) => {
-                this.doc.font('BoldFont').fontSize(9);
-                const labelHeight = this.doc.heightOfString(headers[index], {
-                    width: contentWidth,
-                    lineGap: 1
-                });
-
-                this.doc.font('RegularFont').fontSize(10);
-                const valueHeight = this.doc.heightOfString(cellValue, {
-                    width: contentWidth,
-                    lineGap: 2
-                });
-
-                totalHeight += labelHeight;
-                totalHeight += 12;
-                totalHeight += valueHeight;
-                totalHeight += 16;
-
-                if (index < rowData.length - 1) {
-                    totalHeight += 6;
-                }
-            });
-
-            return Math.max(Math.ceil(totalHeight), 150);
-        };
-
         const drawHeader = (tableY, headerHeight) => {
             this.doc.rect(this.margin, tableY, this.pageWidth, headerHeight).fill('#F3F4F6');
             this.doc.fillColor('#374151').font('BoldFont').fontSize(11);
@@ -2944,42 +2937,6 @@ addOverallScoreDisplay(scoreData) {
                     lineBreak: false
                 });
                 currentX += config.widths[index];
-            });
-        };
-
-        const drawStackedRow = (rowData, tableY, rowHeight) => {
-            this.doc.roundedRect(this.margin, tableY, this.pageWidth, rowHeight, 6).fill('#FFFFFF');
-            this.doc.strokeColor('#E5E7EB').lineWidth(0.5)
-                .roundedRect(this.margin, tableY, this.pageWidth, rowHeight, 6).stroke();
-
-            let innerY = tableY + 10;
-            rowData.forEach((cellValue, index) => {
-                const label = headers[index];
-                this.doc.font('BoldFont').fontSize(9).fillColor('#6B7280')
-                    .text(label, this.margin + 12, innerY, {
-                        width: this.pageWidth - 24,
-                        lineBreak: false
-                    });
-                innerY += 12;
-                const valueHeight = this.doc.heightOfString(cellValue, {
-                    width: this.pageWidth - 24,
-                    lineGap: 2
-                });
-                this.doc.font('RegularFont').fontSize(10).fillColor('#374151')
-                    .text(cellValue, this.margin + 12, innerY, {
-                        width: this.pageWidth - 24,
-                        lineGap: 2,
-                        align: 'left',
-                        ellipsis: false,
-                        height: valueHeight + 2
-                    });
-                innerY += valueHeight + 16;
-                if (index < rowData.length - 1) {
-                    this.doc.strokeColor('#F3F4F6').lineWidth(0.5)
-                        .moveTo(this.margin + 12, innerY - 6)
-                        .lineTo(this.margin + this.pageWidth - 12, innerY - 6)
-                        .stroke();
-                }
             });
         };
 

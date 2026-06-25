@@ -112,7 +112,7 @@ function findExistingReportLogoPath(): string | null {
 
 function drawReportLogo(
   doc: InstanceType<typeof PDFDocument>,
-  options: { x: number; y: number; size: number },
+  options: { x: number; y: number; size: number; align?: 'left' | 'center' | 'right' },
 ): boolean {
   const logoPath = findExistingReportLogoPath();
   if (!logoPath) {
@@ -123,12 +123,25 @@ function drawReportLogo(
     const logoBuffer = fsSync.readFileSync(logoPath);
     doc.image(logoBuffer, options.x, options.y, {
       fit: [options.size, options.size],
-      align: 'right',
+      align: options.align || 'right',
     });
     return true;
   } catch {
     return false;
   }
+}
+
+function drawCenteredReportLogo(
+  doc: InstanceType<typeof PDFDocument>,
+  y: number,
+  size: number,
+): boolean {
+  return drawReportLogo(doc, {
+    x: (doc.page.width - size) / 2,
+    y,
+    size,
+    align: 'center',
+  });
 }
 
 function drawSummaryTable(
@@ -853,6 +866,7 @@ export async function mergePDFsByPlatform(options: {
   const siteName = extractSiteNameFromUrl(baseUrl);
 
   titleDoc.rect(0, 0, titleDoc.page.width, titlePageHeight).fill('#FFFFFF');
+  drawCenteredReportLogo(titleDoc, 56, 96);
 
   const titleY = titlePageHeight * 0.35;
   const titleWidth = titlePageWidth;
