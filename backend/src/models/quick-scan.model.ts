@@ -37,6 +37,10 @@ const quickScanSchema = new mongoose.Schema({
     type: scoreCardSchema,
     default: undefined,
   },
+  wcagMatrix: {
+    type: mongoose.Schema.Types.Mixed,
+    default: undefined,
+  },
   scanDate: {
     type: Date,
     default: Date.now,

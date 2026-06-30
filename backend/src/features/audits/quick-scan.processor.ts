@@ -11,6 +11,7 @@ import {
   type ScannerServiceAuditSuccess,
 } from '../scanner/scanner-client.ts';
 import { buildAuditScorecard } from './audit-scorecard.ts';
+import { buildWcagMatrix } from './wcag-matrix.ts';
 import { generateLiteAccessibilityReport } from './report-generation.ts';
 import { collectAttachmentsRecursive, sendAuditReportEmail } from './report-delivery.ts';
 import { buildStoredReportFilesFromAttachments, mergeStoredReportFilesWithStorage } from './report-files.ts';
@@ -136,6 +137,7 @@ export async function completeQuickScanFromAuditResult(
       isLiteVersion: true,
       pageUrl: job.url,
     });
+    const wcagMatrix = buildWcagMatrix(liteScorecard.issues);
     const uniqueQuickScanId = job.quickScanId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userSpecificOutputDir = path.join(
       'reports-lite',
@@ -156,6 +158,7 @@ export async function completeQuickScanFromAuditResult(
         device: normalizeQuickScanDevice(job.selectedDevice),
         scanScore: Number.isFinite(score) ? Math.round(score) : undefined,
         scoreCard: liteScorecard,
+        wcagMatrix,
         status: 'completed',
         emailStatus: 'sending',
         emailError: undefined,

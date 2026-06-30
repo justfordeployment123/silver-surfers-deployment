@@ -21,6 +21,7 @@ import {
 } from '../scanner/scanner-client.ts';
 import { generateAuditAiReport } from './ai-reporting.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
+import { buildWcagMatrix } from './wcag-matrix.ts';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import { resolveBackendPath } from '../../config/paths.ts';
@@ -789,6 +790,7 @@ async function persistAggregateScorecard(
 
   record.score = aggregateScorecard.overallScore;
   record.scoreCard = aggregateScorecard;
+  record.wcagMatrix = buildWcagMatrix(aggregateScorecard.issues);
   await record.save().catch((error) => {
     fullAuditLogger.warn('Failed to persist aggregate full-audit scorecard.', {
       taskId: record.taskId,
