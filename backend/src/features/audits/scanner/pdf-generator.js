@@ -38,6 +38,58 @@ function findReportLogoPath() {
     return null;
 }
 
+const COMMON_SECOND_LEVEL_TLDS = new Set(['ac', 'co', 'com', 'edu', 'gov', 'net', 'org']);
+const GENERIC_HOST_PREFIXES = new Set(['amp', 'app', 'blog', 'cdn', 'go', 'm', 'mobile', 'shop', 'store', 'support', 'www']);
+
+function getBrandSegmentFromHostname(hostname) {
+    const parts = String(hostname || '')
+        .toLowerCase()
+        .replace(/\.$/, '')
+        .split('.')
+        .filter(Boolean);
+
+    if (parts.length === 0) return String(hostname || '');
+    if (parts.length === 1) return parts[0];
+
+    const last = parts[parts.length - 1];
+    const secondLast = parts[parts.length - 2];
+    const isCountryTld = last.length === 2;
+    const usesSecondLevelTld = isCountryTld && COMMON_SECOND_LEVEL_TLDS.has(secondLast);
+    const registrableIndex = usesSecondLevelTld ? parts.length - 3 : parts.length - 2;
+    const candidate = parts[Math.max(0, registrableIndex)];
+
+    if (GENERIC_HOST_PREFIXES.has(candidate) && parts.length > 1) {
+        return parts[Math.max(0, registrableIndex - 1)] || candidate;
+    }
+
+    return candidate;
+}
+
+function titleCaseSiteName(value) {
+    return String(value || '')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/([0-9]+)/g, ' $1')
+        .replace(/[-_]/g, ' ')
+        .split(' ')
+        .map(word => {
+            if (!word) return '';
+            return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+        })
+        .join(' ')
+        .trim();
+}
+
+function extractSiteNameFromUrl(url, fallback = 'Website') {
+    try {
+        const urlObj = new URL(String(url || '').startsWith('http') ? url : `https://${url}`);
+        const hostname = urlObj.hostname.replace(/^www\./i, '');
+        const name = titleCaseSiteName(getBrandSegmentFromHostname(hostname));
+        return name || hostname || fallback;
+    } catch (e) {
+        return fallback;
+    }
+}
+
 // Elderly-focused audit information with expanded explanations and recommendations
 const AUDIT_INFO = {
     'text-font-audit': {
@@ -291,29 +343,7 @@ export class ElderlyAccessibilityPDFGenerator {
     }
 
     addTitlePage(reportData) {
-        // Helper function to extract site name from URL
-        function extractSiteName(url) {
-            try {
-                const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-                let hostname = urlObj.hostname.replace(/^www\./, '');
-                // Convert domain to title case with spaces
-                let name = hostname.split('.')[0]; // Get the main part before .com
-                // Add spaces before capital letters and before numbers
-                name = name.replace(/([A-Z])/g, ' $1').replace(/([0-9]+)/g, ' $1');
-                // Split by common separators
-                name = name.replace(/[-_]/g, ' ');
-                // Title case each word
-                name = name.split(' ').map(word => {
-                    if (!word) return '';
-                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-                }).join(' ').trim();
-                return name || hostname;
-            } catch (e) {
-                return 'Website';
-            }
-        }
-
-        const siteName = extractSiteName(reportData.finalUrl || reportData.url || '');
+        const siteName = extractSiteNameFromUrl(reportData.finalUrl || reportData.url || '');
         const pageHeight = this.doc.page.height;
         const pageWidth = this.doc.page.width;
 
@@ -587,30 +617,7 @@ addOverallScoreDisplay(scoreData) {
     }
 }
     addIntroPage(reportData, scoreData, planType = 'pro') {
-        // Helper function to extract site name from URL
-        function extractSiteName(url) {
-            try {
-                const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-                let hostname = urlObj.hostname.replace(/^www\./, '');
-                // Convert domain to title case with spaces
-                // e.g., "carverridgeseniorliving.com" -> "Carver Ridge Senior Living"
-                let name = hostname.split('.')[0]; // Get the main part before .com
-                // Add spaces before capital letters and before numbers
-                name = name.replace(/([A-Z])/g, ' $1').replace(/([0-9]+)/g, ' $1');
-                // Split by common separators
-                name = name.replace(/[-_]/g, ' ');
-                // Title case each word
-                name = name.split(' ').map(word => {
-                    if (!word) return '';
-                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-                }).join(' ').trim();
-                return name || hostname;
-            } catch (e) {
-                return 'Website';
-            }
-        }
-
-        const siteName = extractSiteName(reportData.finalUrl || '');
+        const siteName = extractSiteNameFromUrl(reportData.finalUrl || '');
         const score = Math.round(scoreData.finalScore);
         // For messaging on this page, treat 80% as the minimum recommended standard (Pass threshold)
         const meetsMinimum = score >= 80;
@@ -946,26 +953,8 @@ addOverallScoreDisplay(scoreData) {
 
     addExecutiveSummary(reportData, scoreData) {
         this.addPage();
-        
-        // Helper to extract site name from URL
-        function extractSiteName(url) {
-            try {
-                const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-                let hostname = urlObj.hostname.replace(/^www\./, '');
-                let name = hostname.split('.')[0];
-                name = name.replace(/([A-Z])/g, ' $1').replace(/([0-9]+)/g, ' $1');
-                name = name.replace(/[-_]/g, ' ');
-                name = name.split(' ').map(word => {
-                    if (!word) return '';
-                    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-                }).join(' ').trim();
-                return name || hostname;
-            } catch (e) {
-                return 'website';
-            }
-        }
 
-        const siteName = extractSiteName(reportData.finalUrl || '');
+        const siteName = extractSiteNameFromUrl(reportData.finalUrl || '', 'website');
         const score = Math.round(scoreData.finalScore);
         // For messaging on this page, treat 80% as the minimum recommended standard (Pass threshold)
         const meetsMinimum = score >= 80;

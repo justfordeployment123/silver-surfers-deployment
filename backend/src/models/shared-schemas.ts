@@ -108,7 +108,7 @@ export const emailTrackingSchema = new mongoose.Schema({
 
 export const aiReportSchema = new mongoose.Schema({
   status: { type: String, enum: ['generated', 'fallback'], default: 'fallback' },
-  provider: { type: String, enum: ['openai', 'local'], default: 'local' },
+  provider: { type: String, enum: ['openai', 'anthropic', 'local'], default: 'local' },
   model: { type: String },
   generatedAt: { type: Date },
   headline: { type: String },

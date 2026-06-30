@@ -267,20 +267,65 @@ export function getScoreStatus(score: number | null | undefined): {
   return { label: 'Fail', color: '#EF4444' };
 }
 
-export function extractSiteNameFromUrl(url: string): string {
-  try {
-    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
-    let hostname = urlObj.hostname.replace(/^www\./, '');
-    let name = hostname.split('.')[0];
-    name = name.replace(/([A-Z])/g, ' $1').replace(/([0-9]+)/g, ' $1');
-    name = name.replace(/[-_]/g, ' ');
-    name = name.split(' ').map((word) => {
+const COMMON_SECOND_LEVEL_TLDS = new Set([
+  'ac', 'co', 'com', 'edu', 'gov', 'net', 'org',
+]);
+
+const GENERIC_HOST_PREFIXES = new Set([
+  'amp', 'app', 'blog', 'cdn', 'go', 'm', 'mobile', 'shop', 'store', 'support', 'www',
+]);
+
+function getBrandSegmentFromHostname(hostname: string): string {
+  const parts = hostname
+    .toLowerCase()
+    .replace(/\.$/, '')
+    .split('.')
+    .filter(Boolean);
+
+  if (parts.length === 0) {
+    return hostname;
+  }
+
+  if (parts.length === 1) {
+    return parts[0];
+  }
+
+  const last = parts[parts.length - 1];
+  const secondLast = parts[parts.length - 2];
+  const isCountryTld = last.length === 2;
+  const usesSecondLevelTld = isCountryTld && COMMON_SECOND_LEVEL_TLDS.has(secondLast);
+  const registrableIndex = usesSecondLevelTld ? parts.length - 3 : parts.length - 2;
+  const candidate = parts[Math.max(0, registrableIndex)];
+
+  if (GENERIC_HOST_PREFIXES.has(candidate) && parts.length > 1) {
+    return parts[Math.max(0, registrableIndex - 1)] || candidate;
+  }
+
+  return candidate;
+}
+
+function titleCaseSiteName(value: string): string {
+  return value
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/([0-9]+)/g, ' $1')
+    .replace(/[-_]/g, ' ')
+    .split(' ')
+    .map((word) => {
       if (!word) {
         return '';
       }
 
       return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-    }).join(' ').trim();
+    })
+    .join(' ')
+    .trim();
+}
+
+export function extractSiteNameFromUrl(url: string): string {
+  try {
+    const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const hostname = urlObj.hostname.replace(/^www\./i, '');
+    const name = titleCaseSiteName(getBrandSegmentFromHostname(hostname));
 
     return name || hostname;
   } catch {
