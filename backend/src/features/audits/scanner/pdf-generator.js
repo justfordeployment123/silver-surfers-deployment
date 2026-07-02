@@ -765,12 +765,25 @@ addOverallScoreDisplay(scoreData) {
         this.currentY += 35;
 
         const scorecard = scoreData.scorecard || buildAuditScorecard(reportData);
-        const tableItems = (scorecard.evaluationDimensions || []).map((dimension) => {
+        const dimensions = scorecard.evaluationDimensions || [];
+
+        // Largest remainder method — ensures displayed integer weights always sum to exactly 100
+        const activeDims = dimensions.filter(d => d.weight);
+        const floors = activeDims.map(d => Math.floor(d.weight));
+        const deficit = 100 - floors.reduce((s, f) => s + f, 0);
+        activeDims
+            .map((d, i) => ({ i, r: d.weight - floors[i] }))
+            .sort((a, b) => b.r - a.r)
+            .slice(0, deficit)
+            .forEach(({ i }) => { floors[i] += 1; });
+        const weightMap = new Map(activeDims.map((d, i) => [d.key, floors[i]]));
+
+        const tableItems = dimensions.map((dimension) => {
             const excluded = !dimension.weight;
             return {
                 name: dimension.label,
                 score: excluded ? 'N/A' : `${Math.round(dimension.score)}%`,
-                weight: excluded ? 'Excluded' : `${Math.round(dimension.weight)}%`,
+                weight: excluded ? 'Excluded' : `${weightMap.get(dimension.key) ?? Math.round(dimension.weight)}%`,
                 contribution: excluded ? 'N/A' : String(Math.round((dimension.score * dimension.weight) / 100)),
             };
         });
