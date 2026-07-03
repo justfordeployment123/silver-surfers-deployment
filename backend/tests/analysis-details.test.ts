@@ -198,8 +198,8 @@ const sampleScorecard = {
 
 const sampleAiReport: AuditAiReport = {
   status: 'generated',
-  provider: 'openai',
-  model: 'gpt-test-mini',
+  provider: 'anthropic',
+  model: 'claude-test-sonnet',
   generatedAt: '2026-03-16T12:05:00.000Z',
   headline: 'Meaningful friction remains in key older-adult journeys',
   summary: 'The site shows a workable base, but readability and interaction friction are still likely reducing confidence and task completion.',
@@ -276,7 +276,7 @@ test('buildAnalysisDetail returns normalized scorecard-backed detail payload for
   assert.equal(detail.scoreStatus, 'fail');
   assert.equal(detail.pageCount, 4);
   assert.equal(detail.aiReport?.headline, sampleAiReport.headline);
-  assert.equal(detail.aiReport?.provider, 'openai');
+  assert.equal(detail.aiReport?.provider, 'anthropic');
   assert.equal(detail.dimensions.length, 4);
   assert.equal(detail.evaluationDimensions.length, 8);
   assert.equal(detail.remediationRoadmap.length, 3);
