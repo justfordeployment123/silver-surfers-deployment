@@ -106,7 +106,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
     """
     # Use Camoufox for advanced anti-detection (sync API)
     # Note: viewport is set on the page, not in the browser constructor
-    with Camoufox(headless=True, skip_updates=True) as browser:
+    with Camoufox(headless=True) as browser:
         # Get a page from the browser (sync API)
         page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
         
@@ -1680,7 +1680,6 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     """)
                     fail_count = input_purpose_results.get("failCount", 0)
                     total_inputs = input_purpose_results.get("total", 0)
-                    input_score = 1.0 if fail_count == 0 else max(0.0, 1.0 - (fail_count / max(total_inputs, 1)))
                     audits["ss-input-purpose-audit"] = {
                         "id": "ss-input-purpose-audit",
                         "title": "Input fields collecting personal data have autocomplete attributes (WCAG 1.3.5)",
@@ -1689,9 +1688,9 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             f"include a valid autocomplete attribute so browsers and assistive technology can autofill them. "
                             f"Found {fail_count} input(s) missing required autocomplete out of {total_inputs} total."
                         ),
-                        "score": input_score,
+                        "score": 1.0 if fail_count == 0 else 0.0,
                         "numericValue": fail_count,
-                        "scoreDisplayMode": "numeric" if fail_count > 0 else "binary",
+                        "scoreDisplayMode": "binary",
                         "displayValue": (
                             "All personal data inputs have autocomplete"
                             if fail_count == 0
@@ -1839,7 +1838,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 return (hi + 0.05) / (lo + 0.05);
                             }
                             function parseRgb(str) {
-                                const m = str.match(/rgb\\((\\d+),\\s*(\\d+),\\s*(\\d+)\\)/);
+                                const m = str.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
                                 return m ? [+m[1], +m[2], +m[3]] : null;
                             }
                             const selectors = [
@@ -1924,11 +1923,18 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 '[data-toggle=tooltip], [data-bs-toggle=tooltip], .tooltip-trigger, ' +
                                 '[role=tooltip], .has-tooltip'
                             ));
+                            const interactiveTags = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'summary']);
                             const issues = [];
                             for (const el of triggers.slice(0, 30)) {
                                 const problems = [];
-                                // Check 1: title attribute only — not keyboard accessible natively enough
-                                if (el.hasAttribute('title') && !el.getAttribute('aria-describedby') && !el.getAttribute('data-tooltip')) {
+                                // Check 1: title attribute only — only flag interactive elements.
+                                // Non-interactive elements (abbr, td, img) use title for semantic
+                                // annotation, not as a tooltip triggered on focus/hover.
+                                const isInteractiveEl = interactiveTags.has(el.tagName.toLowerCase())
+                                    || !!el.getAttribute('role')
+                                    || el.onclick !== null
+                                    || !!el.getAttribute('onclick');
+                                if (el.hasAttribute('title') && !el.getAttribute('aria-describedby') && !el.getAttribute('data-tooltip') && isInteractiveEl) {
                                     problems.push('Uses native title attribute only — not keyboard accessible in all browsers');
                                 }
                                 // Check 2: aria-describedby points to hidden element (tooltip not visible/hoverable)
@@ -2020,8 +2026,12 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 // Skip elements that are natively focusable and not disabled
                                 if (isInteractiveTag && !el.disabled && !hasTabIndex) continue;
                                 if (isInteractiveTag && !el.disabled && tabIndexVal >= 0) continue;
-                                // Flag: explicitly removed from tab order with tabindex=-1
-                                if (hasTabIndex && tabIndexVal === -1) {
+                                // Flag: explicitly removed from tab order with tabindex=-1.
+                                // Native interactive elements (button, a, input) legitimately use
+                                // tabindex=-1 for focus management in carousels, tab panels, and
+                                // accordions — only flag them when an inline onclick is also present,
+                                // which indicates the element is intended to be activated by click.
+                                if (hasTabIndex && tabIndexVal === -1 && (!isInteractiveTag || hasClickHandler)) {
                                     // Only flag if visible and not inside a modal/dialog that manages focus
                                     const isInDialog = el.closest('[role=dialog], [role=alertdialog], dialog');
                                     if (!isInDialog) {
@@ -2106,16 +2116,23 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 const ti = el.getAttribute('tabindex');
                                 return ti === null || parseInt(ti, 10) >= 0;
                             });
-                            // Detect modal/dialog elements without proper close mechanism
+                            // Detect modal/dialog elements without proper close mechanism.
+                            // Check all visible dialogs, not only those with aria-modal="true".
                             const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog');
                             let trapCount = 0;
                             dialogs.forEach(dlg => {
+                                const st = window.getComputedStyle(dlg);
+                                const isVisible = st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
+                                // Native <dialog> is only "open" when it has the open attribute
+                                const isNativeDialog = dlg.tagName.toLowerCase() === 'dialog';
+                                const isOpen = isNativeDialog ? dlg.hasAttribute('open') : isVisible;
+                                if (!isOpen) return;
                                 const hasClose = dlg.querySelector(
                                     'button[aria-label*="close" i], button[aria-label*="dismiss" i], ' +
-                                    '[data-dismiss], .close, .modal-close'
+                                    'button[aria-label*="cancel" i], [data-dismiss], .close, .modal-close, ' +
+                                    '[data-bs-dismiss], button[class*="close"]'
                                 );
-                                const hasEscHint = dlg.getAttribute('aria-modal') === 'true';
-                                if (!hasClose && hasEscHint) trapCount++;
+                                if (!hasClose) trapCount++;
                             });
                             return { trapCount, dialogCount: dialogs.length, focusableCount: focusable.length };
                         }
@@ -2229,7 +2246,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
                             f"Found {motion_issues} issue(s)."
                         ),
-                        "score": 1.0 if motion_issues == 0 else max(0.0, 1.0 - motion_issues * 0.3),
+                        "score": 1.0 if motion_issues == 0 else 0.0,
                         "numericValue": float(motion_issues),
                         "scoreDisplayMode": "binary",
                         "details": {
@@ -2268,7 +2285,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     """)
                     pos_count = focus_order_results.get("positiveCount", 0)
                     total_focus = focus_order_results.get("totalFocusable", 1)
-                    score = 1.0 if pos_count == 0 else max(0.0, 1.0 - (pos_count / max(total_focus, 1)))
+                    score = 1.0 if pos_count == 0 else 0.0
                     audits["ss-focus-order-audit"] = {
                         "id": "ss-focus-order-audit",
                         "title": "Focus order preserves meaning (WCAG 2.4.3)",
@@ -2365,28 +2382,39 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     """)
                     header_count = obscure_results.get("fixedHeaderCount", 0)
                     footer_count = obscure_results.get("fixedFooterCount", 0)
-                    # Having fixed headers/footers is a risk but not automatic fail
-                    # Flag as needs-review when present, pass when none
                     has_risk = header_count > 0 or footer_count > 0
-                    audits["ss-focus-not-obscured-audit"] = {
-                        "id": "ss-focus-not-obscured-audit",
-                        "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
-                        "description": (
-                            f"Detects fixed/sticky headers or footers that could visually obscure focused elements. "
-                            f"Found {header_count} sticky header(s) and {footer_count} sticky footer(s)."
-                        ),
-                        "score": 0.0 if has_risk else 1.0,
-                        "numericValue": float(header_count + footer_count),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Risk"}],
-                            "items": (
-                            ([{"description": f"{header_count} sticky/fixed header(s) detected — verify focused elements remain visible"}] if header_count else []) +
-                            ([{"description": f"{footer_count} sticky/fixed footer(s) detected — verify focused elements remain visible"}] if footer_count else [])
-                        ),
-                        } if has_risk else None,
-                    }
+                    if has_risk:
+                        # Sticky/fixed elements are a risk factor but cannot be confirmed as a violation
+                        # without testing each focused element's visibility — flag for manual review.
+                        audits["ss-focus-not-obscured-audit"] = {
+                            "id": "ss-focus-not-obscured-audit",
+                            "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                            "description": (
+                                f"Detected {header_count} sticky header(s) and {footer_count} sticky footer(s). "
+                                f"Manually verify that no focused element is fully hidden behind these overlays."
+                            ),
+                            "score": None,
+                            "numericValue": float(header_count + footer_count),
+                            "scoreDisplayMode": "manual",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Risk"}],
+                                "items": (
+                                    ([{"description": f"{header_count} sticky/fixed header(s) detected — verify focused elements remain visible"}] if header_count else []) +
+                                    ([{"description": f"{footer_count} sticky/fixed footer(s) detected — verify focused elements remain visible"}] if footer_count else [])
+                                ),
+                            },
+                        }
+                    else:
+                        audits["ss-focus-not-obscured-audit"] = {
+                            "id": "ss-focus-not-obscured-audit",
+                            "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                            "description": "No fixed/sticky headers or footers detected that could obscure focused elements.",
+                            "score": 1.0,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "binary",
+                            "details": None,
+                        }
                 except Exception as e:
                     audits["ss-focus-not-obscured-audit"] = {
                         "id": "ss-focus-not-obscured-audit",
@@ -2425,7 +2453,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             f"so speech users can activate controls by speaking what they see. "
                             f"Found {ln_issues} mismatch(es)."
                         ),
-                        "score": 1.0 if ln_issues == 0 else max(0.0, 1.0 - ln_issues * 0.1),
+                        "score": 1.0 if ln_issues == 0 else 0.0,
                         "numericValue": float(ln_issues),
                         "scoreDisplayMode": "binary",
                         "details": {
@@ -2504,9 +2532,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                     risky.push({ tag: el.tagName, type: el.type || 'select', handler: handler.substring(0, 80) });
                                 }
                             });
-                            // Also check for form auto-submit patterns
-                            const autoSubmit = document.querySelectorAll('select[onchange*="submit" i], select[onchange*="location" i]');
-                            return { riskyCount: risky.length + autoSubmit.length, items: risky.slice(0, 10) };
+                            return { riskyCount: risky.length, items: risky.slice(0, 10) };
                         }
                     """)
                     oi_issues = on_input_results.get("riskyCount", 0)
@@ -2556,23 +2582,45 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     """)
                     multi_unnamed = nav_results.get("multipleUnnamed", False)
                     nav_count = nav_results.get("navCount", 0)
-                    audits["ss-consistent-navigation-audit"] = {
-                        "id": "ss-consistent-navigation-audit",
-                        "title": "Navigation is consistent (WCAG 3.2.3)",
-                        "description": (
-                            f"Checks for multiple navigation landmarks without accessible names, which makes it "
-                            f"impossible for assistive technology users to distinguish them. "
-                            f"Found {nav_count} nav element(s), {nav_results.get('unnamedCount', 0)} without aria-label."
-                        ),
-                        "score": 0.0 if multi_unnamed else 1.0,
-                        "numericValue": float(nav_results.get("unnamedCount", 0)),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Issue"}],
-                            "items": [{"description": f"{nav_results.get('unnamedCount')} of {nav_count} nav elements lack aria-label — screen reader users cannot distinguish them"}],
-                        } if multi_unnamed else None,
-                    }
+                    unnamed_count = nav_results.get("unnamedCount", 0)
+                    if multi_unnamed:
+                        # Multiple nav landmarks without aria-label are indistinguishable — hard fail.
+                        audits["ss-consistent-navigation-audit"] = {
+                            "id": "ss-consistent-navigation-audit",
+                            "title": "Navigation is consistent (WCAG 3.2.3)",
+                            "description": (
+                                f"Found {unnamed_count} of {nav_count} navigation landmark(s) without an aria-label. "
+                                f"Screen reader users cannot distinguish between them."
+                            ),
+                            "score": 0.0,
+                            "numericValue": float(unnamed_count),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": [{"description": f"{unnamed_count} of {nav_count} nav elements lack aria-label — screen reader users cannot distinguish them"}],
+                            },
+                        }
+                    else:
+                        # No indistinguishable landmark issue detected. WCAG 3.2.3 also requires
+                        # navigation to appear in the same order across pages, which requires manual
+                        # verification across multiple pages of the site.
+                        audits["ss-consistent-navigation-audit"] = {
+                            "id": "ss-consistent-navigation-audit",
+                            "title": "Navigation is consistent (WCAG 3.2.3)",
+                            "description": (
+                                f"Found {nav_count} navigation landmark(s), all with accessible names. "
+                                f"Manually verify that navigation appears in the same order across all pages."
+                            ),
+                            "score": None,
+                            "numericValue": float(unnamed_count),
+                            "scoreDisplayMode": "manual",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Note"}],
+                                "items": [{"description": "Cross-page navigation order consistency requires manual verification."}],
+                            },
+                        }
                 except Exception as e:
                     audits["ss-consistent-navigation-audit"] = {
                         "id": "ss-consistent-navigation-audit",
@@ -2601,25 +2649,37 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         }
                     """)
                     help_count = help_results.get("helpCount", 0)
-                    # WCAG 3.2.6: if help exists it should be in consistent location
-                    # We pass if help is present (good), note if it's not in header (informational)
-                    audits["ss-consistent-help-audit"] = {
-                        "id": "ss-consistent-help-audit",
-                        "title": "Consistent help mechanism (WCAG 3.2.6)",
-                        "description": (
-                            f"Checks for help/support mechanisms on the page. "
-                            f"Found {help_count} help link(s)/widget(s). "
-                            f"Help in header/nav: {help_results.get('helpInHeader', False)}."
-                        ),
-                        "score": 1.0 if help_count > 0 else 0.0,
-                        "numericValue": float(help_count),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Note"}],
-                            "items": [{"description": "No help or support links detected on this page"}],
-                        } if help_count == 0 else None,
-                    }
+                    help_in_header = help_results.get("helpInHeader", False)
+                    if help_count == 0:
+                        # WCAG 3.2.6 only applies when the page provides a help mechanism;
+                        # pages with no help at all are not subject to this criterion.
+                        audits["ss-consistent-help-audit"] = {
+                            "id": "ss-consistent-help-audit",
+                            "title": "Consistent help mechanism (WCAG 3.2.6)",
+                            "description": "No help or support mechanism detected on this page. WCAG 3.2.6 does not apply.",
+                            "score": None,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "notApplicable",
+                            "details": None,
+                        }
+                    else:
+                        location_note = "Help is in the header/nav (consistent location)." if help_in_header else "Help is not in the header/nav — verify consistent placement across pages."
+                        audits["ss-consistent-help-audit"] = {
+                            "id": "ss-consistent-help-audit",
+                            "title": "Consistent help mechanism (WCAG 3.2.6)",
+                            "description": (
+                                f"Found {help_count} help link(s)/widget(s). {location_note} "
+                                f"Cross-page consistency requires manual verification."
+                            ),
+                            "score": 1.0,
+                            "numericValue": float(help_count),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Note"}],
+                                "items": [{"description": location_note}, {"description": "Manually verify help appears in the same location on all pages of the site."}],
+                            },
+                        }
                 except Exception as e:
                     audits["ss-consistent-help-audit"] = {
                         "id": "ss-consistent-help-audit",
@@ -2722,7 +2782,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             f"announce status updates without focus change. "
                             f"Found {live_count} live region(s), {missing_live} notification element(s) missing aria-live."
                         ),
-                        "score": 1.0 if missing_live == 0 else max(0.0, 1.0 - missing_live * 0.25),
+                        "score": 1.0 if missing_live == 0 else 0.0,
                         "numericValue": float(missing_live),
                         "scoreDisplayMode": "binary",
                         "details": {

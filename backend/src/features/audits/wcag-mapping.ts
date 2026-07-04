@@ -214,7 +214,6 @@ const STATIC_AUDIT_MAPPINGS: Record<string, string[]> = {
     "layout-brittle-audit": ["1.4.10", "1.4.12"],
     "line-spacing-audit": ["1.4.12"],
     "text-font-audit": ["1.4.4", "1.4.12"],
-    "flesch-kincaid-audit": ["3.1.5"],
     "link-name": ["2.4.4"],
     "button-name": ["4.1.2", "2.5.3"],
     label: ["3.3.2", "1.3.1"],

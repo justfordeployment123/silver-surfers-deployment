@@ -33,8 +33,6 @@ export const WCAG_REMEDIATION_FALLBACKS: Record<string, string> = {
   "2.4.6": "Write headings and labels that clearly describe the purpose of the section or control they introduce.",
   "2.4.7": "Ensure visible keyboard focus is always present; never suppress the outline without providing an equivalent.",
   "2.4.11": "Ensure focused elements are not fully obscured by sticky headers, footers, or other fixed overlays.",
-  "2.4.12": "Ensure no part of a focused component's focus indicator is hidden by author-created content.",
-  "2.4.13": "Ensure focus indicators enclose the component with a minimum 2px perimeter and meet a 3:1 contrast ratio.",
   "2.5.1": "Provide a single-pointer alternative (e.g., button or tap) for every multi-finger or path-based gesture.",
   "2.5.2": "Do not trigger actions on the pointer down-event; allow cancellation by moving the pointer away before release.",
   "2.5.3": "Ensure the accessible name of every interactive control includes the visible label text.",

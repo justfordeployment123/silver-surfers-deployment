@@ -432,6 +432,115 @@ class LiteAccessibilityPDFGenerator {
         this.addBodyText('Premium Version: Comprehensive analysis of 18+ audits with visual highlighting, detailed recommendations, and professional reporting', 14, '#27AE60');
     }
 
+    addLiteWcagSection(reportData) {
+        const wcagMatrix = Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix : [];
+        if (!wcagMatrix.length) return;
+
+        this.addPage();
+
+        this.doc.fontSize(18).font('BoldFont').fillColor('#1F2937')
+            .text('WCAG 2.2 AA Coverage Overview', this.margin, this.currentY);
+        this.doc.moveTo(this.margin, this.currentY + 24)
+            .lineTo(this.margin + this.pageWidth, this.currentY + 24)
+            .lineWidth(2).stroke('#3B82F6');
+        this.currentY += 44;
+
+        // 4-card summary banner
+        const passed = wcagMatrix.filter(r => r.status === 'pass').length;
+        const failed = wcagMatrix.filter(r => r.status === 'fail').length;
+        const needsReview = wcagMatrix.filter(r => r.status === 'needs-review').length;
+        const notApplicable = wcagMatrix.filter(r => r.status === 'not-applicable').length;
+
+        const summaryCards = [
+            { label: 'Passed', value: String(passed), color: '#10B981' },
+            { label: 'Failed', value: String(failed), color: '#DC3545' },
+            { label: 'Needs Review', value: String(needsReview), color: '#F59E0B' },
+            { label: 'Not Applicable', value: String(notApplicable), color: '#6B7280' },
+        ];
+
+        const cardWidth = (this.pageWidth - 18) / 4;
+        summaryCards.forEach((card, index) => {
+            const x = this.margin + index * (cardWidth + 6);
+            this.doc.roundedRect(x, this.currentY, cardWidth, 54, 6).fill('#F8FAFC').stroke('#E5E7EB');
+            this.doc.fontSize(20).font('BoldFont').fillColor(card.color)
+                .text(card.value, x + 8, this.currentY + 9, { width: cardWidth - 16, align: 'center' });
+            this.doc.fontSize(7).font('BoldFont').fillColor('#6B7280')
+                .text(card.label.toUpperCase(), x + 6, this.currentY + 36, { width: cardWidth - 12, align: 'center' });
+        });
+        this.currentY += 70;
+
+        // Top 5 failed criteria
+        const topFailed = wcagMatrix
+            .filter(r => r.status === 'fail')
+            .slice(0, 5);
+
+        if (topFailed.length) {
+            this.doc.fontSize(13).font('BoldFont').fillColor('#1F2937')
+                .text('Top Failed Criteria', this.margin, this.currentY);
+            this.currentY += 20;
+
+            const colWidths = [50, 175, 290];
+            const headers = ['Criterion', 'Title', 'Action Required'];
+
+            // Table header
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, 28).fill('#3D5A80');
+            this.doc.font('BoldFont').fontSize(9).fillColor('#FFFFFF');
+            let x = this.margin;
+            headers.forEach((header, i) => {
+                this.doc.text(header, x + 5, this.currentY + 9, {
+                    width: colWidths[i] - 10,
+                    align: i === 0 ? 'center' : 'left',
+                });
+                x += colWidths[i];
+            });
+            this.currentY += 28;
+
+            topFailed.forEach((row, rowIndex) => {
+                const actionText = row.remediationGuidance || '';
+                this.doc.fontSize(9).font('RegularFont');
+                const cellTexts = [row.criterion || '', row.title || '', actionText];
+                const rowHeights = cellTexts.map((text, i) =>
+                    this.doc.heightOfString(text, { width: colWidths[i] - 10, lineGap: 1.5 })
+                );
+                const rowHeight = Math.max(26, Math.max(...rowHeights) + 12);
+
+                if (this.currentY + rowHeight > this.doc.page.height - 50) {
+                    this.addPage();
+                }
+
+                this.doc.rect(this.margin, this.currentY, this.pageWidth, rowHeight)
+                    .fill(rowIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FA');
+
+                x = this.margin;
+                cellTexts.forEach((text, i) => {
+                    this.doc.font('RegularFont').fontSize(9).fillColor('#2C3E50')
+                        .text(text, x + 5, this.currentY + 6, {
+                            width: colWidths[i] - 10,
+                            lineGap: 1.5,
+                            align: i === 0 ? 'center' : 'left',
+                        });
+                    x += colWidths[i];
+                });
+
+                this.doc.moveTo(this.margin, this.currentY + rowHeight)
+                    .lineTo(this.margin + this.pageWidth, this.currentY + rowHeight)
+                    .strokeColor('#DEE2E6').lineWidth(0.5).stroke();
+
+                this.currentY += rowHeight;
+            });
+
+            this.currentY += 10;
+        }
+
+        // Disclaimer
+        const disclaimer = 'Criteria marked Needs Review cannot be fully assessed by automated scanning. They require manual review by a qualified accessibility specialist. This report does not constitute a legal conformance certification.';
+        this.doc.rect(this.margin, this.currentY, this.pageWidth, 1).fill('#DEE2E6');
+        this.currentY += 8;
+        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+            .text(disclaimer, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(disclaimer, { width: this.pageWidth, lineGap: 2 }) + 12;
+    }
+
     async generateLiteReport(inputFile, outputFile) { // <-- REMOVED THE DEFAULT VALUE
         try {
             const reportData = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
@@ -510,6 +619,9 @@ class LiteAccessibilityPDFGenerator {
 
             // Results
             this.addLiteResults(reportData);
+
+            // WCAG matrix overview
+            this.addLiteWcagSection(reportData);
 
             // Add premium comparison page
             this.addPremiumComparisonPage();

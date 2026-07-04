@@ -2999,6 +2999,174 @@ addOverallScoreDisplay(scoreData) {
         this.currentY = tableY + 20;
     }
 
+    addWcagMatrixSection(reportData) {
+        const wcagMatrix = Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix : [];
+        if (!wcagMatrix.length) return;
+
+        this.addPage();
+
+        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C')
+            .text('WCAG 2.2 AA Coverage Matrix', this.margin, this.currentY);
+        this.currentY += 28;
+
+        const explanation = 'This matrix shows the automated coverage of all WCAG 2.2 Level A and AA success criteria. Criteria marked Needs Review cannot be fully assessed by automated scanning and require manual review by a qualified accessibility specialist.';
+        this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
+            .text(explanation, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(explanation, { width: this.pageWidth, lineGap: 2 }) + 16;
+
+        // Summary banner — 4 stat cards
+        const passed = wcagMatrix.filter(r => r.status === 'pass').length;
+        const failed = wcagMatrix.filter(r => r.status === 'fail').length;
+        const needsReview = wcagMatrix.filter(r => r.status === 'needs-review').length;
+        const notApplicable = wcagMatrix.filter(r => r.status === 'not-applicable').length;
+
+        const summaryCards = [
+            { label: 'Passed', value: String(passed), color: '#10B981' },
+            { label: 'Failed', value: String(failed), color: '#DC3545' },
+            { label: 'Needs Review', value: String(needsReview), color: '#F59E0B' },
+            { label: 'Not Applicable', value: String(notApplicable), color: '#6B7280' },
+        ];
+
+        const cardWidth = (this.pageWidth - 18) / 4;
+        summaryCards.forEach((card, index) => {
+            const x = this.margin + index * (cardWidth + 6);
+            this.doc.roundedRect(x, this.currentY, cardWidth, 54, 6).fill('#F8FAFC').stroke('#E5E7EB');
+            this.doc.fontSize(20).font('BoldFont').fillColor(card.color)
+                .text(card.value, x + 8, this.currentY + 9, { width: cardWidth - 16, align: 'center' });
+            this.doc.fontSize(7).font('BoldFont').fillColor('#6B7280')
+                .text(card.label.toUpperCase(), x + 6, this.currentY + 36, { width: cardWidth - 12, align: 'center' });
+        });
+        this.currentY += 70;
+
+        const colWidths = [50, 145, 35, 80, 45, 160];
+        const headers = ['Criterion', 'Title', 'Level', 'Status', 'Issues', 'Action Required'];
+        const pageBottom = () => this.doc.page.height - 50;
+
+        const getStatusColor = (status) => {
+            if (status === 'pass') return '#10B981';
+            if (status === 'fail') return '#DC3545';
+            if (status === 'needs-review') return '#F59E0B';
+            return '#6B7280';
+        };
+
+        const getStatusLabel = (status) => {
+            if (status === 'pass') return 'Pass';
+            if (status === 'fail') return 'Fail';
+            if (status === 'needs-review') return 'Needs Review';
+            return 'N/A';
+        };
+
+        const principleOrder = ['perceivable', 'operable', 'understandable', 'robust'];
+        const principleLabels = {
+            perceivable: 'Perceivable',
+            operable: 'Operable',
+            understandable: 'Understandable',
+            robust: 'Robust',
+        };
+
+        const drawTableHeader = () => {
+            const headerHeight = 32;
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, headerHeight).fill('#3D5A80');
+            this.doc.font('BoldFont').fontSize(9).fillColor('#FFFFFF');
+            let x = this.margin;
+            headers.forEach((header, i) => {
+                this.doc.text(header, x + 5, this.currentY + 10, {
+                    width: colWidths[i] - 10,
+                    align: i === 0 || i === 1 || i === 5 ? 'left' : 'center',
+                });
+                x += colWidths[i];
+            });
+            this.currentY += headerHeight;
+        };
+
+        const groups = {};
+        principleOrder.forEach(p => { groups[p] = []; });
+        wcagMatrix.forEach(row => {
+            const p = row.principle || 'perceivable';
+            if (groups[p]) groups[p].push(row);
+        });
+
+        drawTableHeader();
+        let rowIndex = 0;
+
+        principleOrder.forEach(principle => {
+            const rows = groups[principle];
+            if (!rows.length) return;
+
+            const subHeaderHeight = 24;
+            if (this.currentY + subHeaderHeight > pageBottom()) {
+                this.addPage();
+                drawTableHeader();
+            }
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, subHeaderHeight).fill('#E8EEF4');
+            this.doc.fontSize(10).font('BoldFont').fillColor('#2C5F9C')
+                .text(principleLabels[principle], this.margin + 8, this.currentY + 7, { width: this.pageWidth - 16 });
+            this.currentY += subHeaderHeight;
+
+            rows.forEach(row => {
+                const actionText = row.status === 'fail'
+                    ? (row.remediationGuidance || '')
+                    : row.status === 'needs-review'
+                        ? (row.manualReviewReason || row.remediationGuidance || '')
+                        : '';
+
+                this.doc.fontSize(9).font('RegularFont');
+                const cellTexts = [
+                    row.criterion || '',
+                    row.title || '',
+                    row.level || '',
+                    getStatusLabel(row.status),
+                    row.issueCount != null ? String(row.issueCount) : '0',
+                    actionText,
+                ];
+
+                const rowHeights = cellTexts.map((text, i) =>
+                    this.doc.heightOfString(text, { width: colWidths[i] - 10, lineGap: 1.5 })
+                );
+                const rowHeight = Math.max(28, Math.max(...rowHeights) + 14);
+
+                if (this.currentY + rowHeight > pageBottom()) {
+                    this.addPage();
+                    drawTableHeader();
+                }
+
+                this.doc.rect(this.margin, this.currentY, this.pageWidth, rowHeight)
+                    .fill(rowIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FA');
+
+                let x = this.margin;
+                cellTexts.forEach((text, i) => {
+                    const color = i === 3 ? getStatusColor(row.status) : '#2C3E50';
+                    const font = i === 3 ? 'BoldFont' : 'RegularFont';
+                    const align = i === 0 || i === 1 || i === 5 ? 'left' : 'center';
+                    this.doc.font(font).fontSize(9).fillColor(color)
+                        .text(text, x + 5, this.currentY + 7, {
+                            width: colWidths[i] - 10,
+                            lineGap: 1.5,
+                            align,
+                        });
+                    x += colWidths[i];
+                });
+
+                this.doc.moveTo(this.margin, this.currentY + rowHeight)
+                    .lineTo(this.margin + this.pageWidth, this.currentY + rowHeight)
+                    .strokeColor('#DEE2E6').lineWidth(0.5).stroke();
+
+                this.currentY += rowHeight;
+                rowIndex++;
+            });
+        });
+
+        this.currentY += 16;
+
+        const disclaimer = 'Criteria marked Needs Review cannot be fully assessed by automated scanning. They require manual review by a qualified accessibility specialist. This report does not constitute a legal conformance certification.';
+        this.checkPageBreak(40);
+        this.doc.rect(this.margin, this.currentY, this.pageWidth, 1).fill('#DEE2E6');
+        this.currentY += 8;
+        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+            .text(disclaimer, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(disclaimer, { width: this.pageWidth, lineGap: 2 }) + 12;
+    }
+
     async generateReport(inputFile, outputFile, options = {}) {
         try {
             const reportData = JSON.parse(await fsPromises.readFile(inputFile, 'utf8'));
@@ -3056,6 +3224,7 @@ addOverallScoreDisplay(scoreData) {
             this.addAutomatedWcagResultsPage(reportData);
             this.addSummaryPage(reportData);
             this.addPriorityRecommendations(reportData);
+            this.addWcagMatrixSection(reportData);
             this.addAreasOfStrength(reportData);
             this.addAboutPage(reportData, scoreData);
             this.addNextStepsPage();

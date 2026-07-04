@@ -20,6 +20,7 @@ import {
   type ScannerSqsResultPayload,
 } from '../scanner/scanner-client.ts';
 import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.ts';
+import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
 import { buildWcagMatrix } from './wcag-matrix.ts';
 import { env } from '../../config/env.ts';
@@ -791,14 +792,31 @@ async function persistAggregateScorecard(
   record.score = aggregateScorecard.overallScore;
   record.scoreCard = aggregateScorecard;
   const wcagMatrix = buildWcagMatrix(aggregateScorecard.issues);
-  const failedWcagRows = wcagMatrix.filter((row) => row.status === 'fail' || row.status === 'needs-review');
-  const wcagRemediationMap = await generateWcagRemediations(failedWcagRows);
   record.wcagMatrix = wcagMatrix.map((row) => ({
     ...row,
-    remediationGuidance: wcagRemediationMap[row.criterion] ?? row.remediationGuidance,
+    remediationGuidance: row.manualReviewRequired
+      ? row.remediationGuidance
+      : WCAG_REMEDIATION_FALLBACKS[row.criterion] ?? row.remediationGuidance,
   }));
   await record.save().catch((error) => {
     fullAuditLogger.warn('Failed to persist aggregate full-audit scorecard.', {
+      taskId: record.taskId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  const failedWcagRows = wcagMatrix.filter(
+    (row) => (row.status === 'fail' || row.status === 'needs-review') && !row.manualReviewRequired,
+  );
+  void generateWcagRemediations(failedWcagRows).then((wcagRemediationMap) => {
+    record.wcagMatrix = wcagMatrix.map((row) => ({
+      ...row,
+      remediationGuidance: row.manualReviewRequired
+        ? row.remediationGuidance
+        : wcagRemediationMap[row.criterion] ?? row.remediationGuidance,
+    }));
+    return record.save();
+  }).catch((error) => {
+    fullAuditLogger.warn('WCAG AI remediation upgrade failed; static fallbacks remain.', {
       taskId: record.taskId,
       error: error instanceof Error ? error.message : String(error),
     });

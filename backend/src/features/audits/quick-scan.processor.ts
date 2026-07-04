@@ -12,7 +12,7 @@ import {
 } from '../scanner/scanner-client.ts';
 import { buildAuditScorecard } from './audit-scorecard.ts';
 import { buildWcagMatrix } from './wcag-matrix.ts';
-import { generateWcagRemediations } from './ai-reporting.ts';
+import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { generateLiteAccessibilityReport } from './report-generation.ts';
 import { collectAttachmentsRecursive, sendAuditReportEmail } from './report-delivery.ts';
 import { buildStoredReportFilesFromAttachments, mergeStoredReportFilesWithStorage } from './report-files.ts';
@@ -139,11 +139,11 @@ export async function completeQuickScanFromAuditResult(
       pageUrl: job.url,
     });
     const rawWcagMatrix = buildWcagMatrix(liteScorecard.issues);
-    const failedWcagRows = rawWcagMatrix.filter((row) => row.status === 'fail' || row.status === 'needs-review');
-    const wcagRemediationMap = await generateWcagRemediations(failedWcagRows);
     const wcagMatrix = rawWcagMatrix.map((row) => ({
       ...row,
-      remediationGuidance: wcagRemediationMap[row.criterion] ?? row.remediationGuidance,
+      remediationGuidance: row.manualReviewRequired
+        ? row.remediationGuidance
+        : WCAG_REMEDIATION_FALLBACKS[row.criterion] ?? row.remediationGuidance,
     }));
     const uniqueQuickScanId = job.quickScanId || `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const userSpecificOutputDir = path.join(
