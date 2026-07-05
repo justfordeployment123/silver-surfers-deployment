@@ -228,86 +228,106 @@ class LiteAccessibilityPDFGenerator {
 
         // Results in 2-column card grid
         const cardWidth = (this.pageWidth - 15) / 2;
-        const cardHeight = 100;
         const cardSpacing = 15;
+        const badgeWidth = 90;
+        const badgeHeight = 22;
+        const titleLeftPad = 12;
+        const titleRightGap = 10; // gap between title text and badge
+        const titleWidth = cardWidth - badgeWidth - titleLeftPad - titleRightGap;
+
+        // Pre-compute each card's required height so paired cards in the same row share the same height
+        const cardItems = Object.keys(LITE_AUDIT_INFO)
+            .map((auditId) => {
+                const auditResult = audits[auditId];
+                const auditInfo = LITE_AUDIT_INFO[auditId];
+                if (!auditResult || !auditInfo || auditResult.score === null) return null;
+                return { auditId, auditResult, auditInfo };
+            })
+            .filter(Boolean);
+
+        // Calculate each card's height before drawing so paired rows share max height
+        const cardHeights = cardItems.map(({ auditInfo }) => {
+            this.doc.fontSize(14).font('BoldFont');
+            const titleH = this.doc.heightOfString(auditInfo.title, { width: titleWidth });
+            this.doc.fontSize(11).font('RegularFont');
+            const descH = this.doc.heightOfString(auditInfo.impact, { width: cardWidth - 24, lineGap: 3 });
+            const neededH = 12 + titleH + 8 + Math.min(descH, 44) + 12; // top + title + gap + desc (capped) + bottom
+            return Math.max(neededH, 100);
+        });
+
         let column = 0;
         let rowStartY = this.currentY;
 
-        Object.keys(LITE_AUDIT_INFO).forEach((auditId, index) => {
-            const auditResult = audits[auditId];
-            const auditInfo = LITE_AUDIT_INFO[auditId];
+        cardItems.forEach(({ auditResult, auditInfo }, index) => {
+            const score = auditResult.score;
+            const status = score >= 0.8 ? 'PASS' : score >= 0.7 ? 'NEEDS IMP.' : 'FAIL';
 
-            // Skip audits that are N/A (score is null) or don't exist
-            if (auditResult && auditInfo && auditResult.score !== null) {
-                const score = auditResult.score;
-                let status = score >= 0.8 ? 'PASS' :
-                    score >= 0.7 ? 'NEEDS IMPROVEMENT' : 'FAIL';
+            let bgColor, borderColor, badgeBg;
+            if (score >= 0.8) {
+                bgColor = '#ECFDF5'; borderColor = '#10B981'; badgeBg = '#10B981';
+            } else if (score >= 0.7) {
+                bgColor = '#FEF3C7'; borderColor = '#F59E0B'; badgeBg = '#F59E0B';
+            } else {
+                bgColor = '#FEE2E2'; borderColor = '#EF4444'; badgeBg = '#EF4444';
+            }
 
-                let bgColor, borderColor, statusColor, badgeBg;
-                if (score >= 0.8) {
-                    bgColor = '#ECFDF5';
-                    borderColor = '#10B981';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#10B981';
-                } else if (score >= 0.7) {
-                    bgColor = '#FEF3C7';
-                    borderColor = '#F59E0B';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#F59E0B';
-                } else {
-                    bgColor = '#FEE2E2';
-                    borderColor = '#EF4444';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#EF4444';
-                }
+            // Row height = max of this card and its partner (if it exists)
+            const partnerIndex = column === 0 ? index + 1 : index - 1;
+            const rowHeight = Math.max(
+                cardHeights[index],
+                partnerIndex < cardHeights.length ? cardHeights[partnerIndex] : 0
+            );
 
-                // Check if we need a new page
-                if (rowStartY + cardHeight > this.doc.page.height - 50) {
-                    this.addPage();
-                    rowStartY = this.currentY;
-                    column = 0;
-                }
+            if (column === 0 && rowStartY + rowHeight > this.doc.page.height - 50) {
+                this.addPage();
+                rowStartY = this.currentY;
+            }
 
-                const cardX = this.margin + (column * (cardWidth + cardSpacing));
-                const cardY = rowStartY;
+            const cardX = this.margin + (column * (cardWidth + cardSpacing));
+            const cardY = rowStartY;
 
-                // Draw card with left border
-                this.doc.rect(cardX, cardY, cardWidth, cardHeight).fill(bgColor);
-                this.doc.rect(cardX, cardY, 4, cardHeight).fill(borderColor);
+            // Card background and left accent border
+            this.doc.rect(cardX, cardY, cardWidth, rowHeight).fill(bgColor);
+            this.doc.rect(cardX, cardY, 4, rowHeight).fill(borderColor);
 
-                // Status badge in top right
-                const badgeWidth = 90;
-                const badgeHeight = 20;
-                const badgeX = cardX + cardWidth - badgeWidth - 10;
-                const badgeY = cardY + 8;
-                this.doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 10).fill(badgeBg);
-                this.doc.fontSize(11).font('BoldFont').fillColor(statusColor)
-                    .text(status, badgeX, badgeY + 5, { width: badgeWidth, align: 'center' });
+            // Status badge — top right, clear of title area
+            const badgeX = cardX + cardWidth - badgeWidth - 8;
+            const badgeY = cardY + 8;
+            this.doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 10).fill(badgeBg);
+            this.doc.fontSize(8).font('BoldFont').fillColor('#FFFFFF')
+                .text(status, badgeX, badgeY + 6, { width: badgeWidth, align: 'center', lineBreak: false });
 
-                // Title
-                this.doc.fontSize(14).font('BoldFont').fillColor('#1F2937')
-                    .text(auditInfo.title, cardX + 12, cardY + 12, { width: cardWidth - 95 });
+            // Title — constrained to left zone, never reaching badge column
+            this.doc.fontSize(14).font('BoldFont').fillColor('#1F2937');
+            const titleH = this.doc.heightOfString(auditInfo.title, { width: titleWidth });
+            this.doc.text(auditInfo.title, cardX + titleLeftPad, cardY + 12, { width: titleWidth });
 
-                // Description
+            // Description — positioned below actual title height
+            const descY = cardY + 12 + titleH + 8;
+            const descMaxH = rowHeight - (descY - cardY) - 10;
+            if (descMaxH > 10) {
                 this.doc.fontSize(11).font('RegularFont').fillColor('#6B7280')
-                    .text(auditInfo.impact, cardX + 12, cardY + 46, { 
-                        width: cardWidth - 24, 
-                        height: cardHeight - 64,
+                    .text(auditInfo.impact, cardX + titleLeftPad, descY, {
+                        width: cardWidth - 24,
+                        height: descMaxH,
                         ellipsis: true,
-                        lineGap: 3
+                        lineGap: 3,
                     });
+            }
 
-                // Move to next column or row
-                column++;
-                if (column >= 2) {
-                    column = 0;
-                    rowStartY += cardHeight + cardSpacing;
-                }
+            column++;
+            if (column >= 2) {
+                column = 0;
+                rowStartY += rowHeight + cardSpacing;
             }
         });
-        
+
         // Update currentY to after the last row
-        this.currentY = rowStartY + (column > 0 ? cardHeight + cardSpacing : 0);
+        const lastRowHeight = cardItems.length > 0 ? Math.max(
+            cardHeights[cardHeights.length - 1],
+            cardHeights.length >= 2 ? cardHeights[cardHeights.length - 2] : 0
+        ) : 0;
+        this.currentY = rowStartY + (column > 0 ? lastRowHeight + cardSpacing : 0);
     }
 
     addPremiumComparisonPage() {
