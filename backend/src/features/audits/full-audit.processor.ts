@@ -808,13 +808,19 @@ async function persistAggregateScorecard(
     (row) => (row.status === 'fail' || row.status === 'needs-review') && !row.manualReviewRequired,
   );
   void generateWcagRemediations(failedWcagRows).then((wcagRemediationMap) => {
-    record.wcagMatrix = wcagMatrix.map((row) => ({
+    const remediatedWcagMatrix = wcagMatrix.map((row) => ({
       ...row,
       remediationGuidance: row.manualReviewRequired
         ? row.remediationGuidance
         : wcagRemediationMap[row.criterion] ?? row.remediationGuidance,
     }));
-    return record.save();
+    const AnalysisRecordModel = record.constructor as {
+      updateOne(query: Record<string, unknown>, update: Record<string, unknown>): Promise<unknown>;
+    };
+    return AnalysisRecordModel.updateOne(
+      { _id: record._id },
+      { $set: { wcagMatrix: remediatedWcagMatrix } },
+    );
   }).catch((error) => {
     fullAuditLogger.warn('WCAG AI remediation upgrade failed; static fallbacks remain.', {
       taskId: record.taskId,
@@ -828,6 +834,11 @@ async function sendAuditEmail(
   planId: string,
   selectedDevice: string | null | undefined,
   finalReportFolder: string,
+  metadata?: {
+    websiteUrl?: string;
+    pagesAudited?: number;
+    recipientName?: string;
+  },
 ): Promise<FullAuditEmailResult> {
   const emailContent = buildFullAuditEmailContent(planId, selectedDevice);
 
@@ -838,6 +849,11 @@ async function sendAuditEmail(
       text: emailContent.text,
       folderPath: finalReportFolder,
       deviceFilter: emailContent.deviceFilter,
+      websiteUrl: metadata?.websiteUrl,
+      planName: planId,
+      deviceName: emailContent.deviceFilter || 'All Devices',
+      pagesAudited: metadata?.pagesAudited,
+      recipientName: metadata?.recipientName,
     }),
     new Promise<never>((_resolve, reject) => {
       setTimeout(() => reject(new Error('Email sending timed out after 5 minutes')), 300_000);
@@ -1257,12 +1273,23 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
     ];
     await record.save();
 
+    const pagesAuditedForEmail = new Set(
+      scanTargets
+        .filter((target) => target.status === 'completed')
+        .map((target) => target.url),
+    ).size || successfulTargetCount;
+    const recipientNameForEmail = [record.firstName, record.lastName].filter(Boolean).join(' ');
     const emailContent = buildFullAuditEmailContent(effectivePlanId, record.device);
     const sendResult = await sendStoredAuditReportEmail({
       to: email,
       subject: emailContent.subject,
       text: emailContent.text,
       storage: reportStorage,
+      websiteUrl,
+      planName: effectivePlanId,
+      deviceName: emailContent.deviceFilter || 'All Devices',
+      pagesAudited: pagesAuditedForEmail,
+      recipientName: recipientNameForEmail,
     }).catch((error) => ({
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -2102,17 +2129,33 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         });
       });
 
+      const pagesAuditedForEmail = new Set(
+        scanTargets
+          .filter((target) => target.status === 'completed')
+          .map((target) => target.url),
+      ).size || record.successfulTargetCount || record.attachmentCount || 1;
+      const recipientNameForEmail = [job.firstName, job.lastName].filter(Boolean).join(' ');
+      const emailContentForSend = buildFullAuditEmailContent(effectivePlanId, job.selectedDevice);
       const sendResult = batchWorkerReportStorage
         ? await sendStoredAuditReportEmail({
           to: job.email,
-          subject: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).subject,
-          text: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).text,
+          subject: emailContentForSend.subject,
+          text: emailContentForSend.text,
           storage: batchWorkerReportStorage,
+          websiteUrl: job.url,
+          planName: effectivePlanId,
+          deviceName: emailContentForSend.deviceFilter || 'All Devices',
+          pagesAudited: pagesAuditedForEmail,
+          recipientName: recipientNameForEmail,
         }).catch((error) => ({
           success: false,
           error: error instanceof Error ? error.message : String(error),
         }))
-        : await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder)
+        : await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder, {
+          websiteUrl: job.url,
+          pagesAudited: pagesAuditedForEmail,
+          recipientName: recipientNameForEmail,
+        })
         .catch((error) => ({
           success: false,
           error: error instanceof Error ? error.message : String(error),

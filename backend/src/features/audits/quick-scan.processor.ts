@@ -14,7 +14,7 @@ import { buildAuditScorecard } from './audit-scorecard.ts';
 import { buildWcagMatrix } from './wcag-matrix.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { generateLiteAccessibilityReport } from './report-generation.ts';
-import { collectAttachmentsRecursive, sendAuditReportEmail } from './report-delivery.ts';
+import { collectAttachmentsRecursive, sendAuditReportEmail, sendStoredAuditReportEmail } from './report-delivery.ts';
 import { buildStoredReportFilesFromAttachments, mergeStoredReportFilesWithStorage } from './report-files.ts';
 import { cleanupLocalReportDirectoryWhenStored } from './report-retention.ts';
 import { getQuickScanModel } from './audits.dependencies.ts';
@@ -190,6 +190,10 @@ export async function completeQuickScanFromAuditResult(
         isQuickScan: true,
         websiteUrl: job.url,
         quickScanScore: pdfResult.score,
+        planName: 'Quick Scan',
+        deviceName: normalizeQuickScanDevice(job.selectedDevice),
+        pagesAudited: 1,
+        recipientName: [job.firstName, job.lastName].filter(Boolean).join(' '),
       }),
       new Promise<never>((_resolve, reject) => {
         setTimeout(() => reject(new Error('Quick scan email timed out after 5 minutes')), 300_000);
@@ -303,6 +307,152 @@ export async function completeQuickScanFromAuditResult(
   }
 }
 
+export async function completeQuickScanFromStoredReport(
+  job: QuickScanJobPayload,
+  auditResult: ScannerServiceAuditSuccess,
+  reportStorage: QueueReportStorage,
+  scannerScore?: number,
+): Promise<QueueResult> {
+  const QuickScan = await getQuickScanModel();
+  let jsonReportPath: string | undefined;
+
+  try {
+    jsonReportPath = auditResult.reportPath;
+    const reportData = JSON.parse(await fs.readFile(jsonReportPath, 'utf8')) as Record<string, unknown>;
+    const liteScorecard = buildAuditScorecard(reportData, {
+      isLiteVersion: true,
+      pageUrl: job.url,
+    });
+    const score = Number.isFinite(scannerScore)
+      ? Math.round(Number(scannerScore))
+      : Number.isFinite(liteScorecard.overallScore)
+        ? Math.round(liteScorecard.overallScore)
+        : undefined;
+    const reportDirectory = buildReportDirectory(reportStorage, '');
+
+    if (job.quickScanId) {
+      await QuickScan.findByIdAndUpdate(job.quickScanId, {
+        device: normalizeQuickScanDevice(job.selectedDevice),
+        scanScore: score,
+        scoreCard: liteScorecard,
+        status: 'completed',
+        emailStatus: 'sending',
+        emailError: undefined,
+        reportGenerated: true,
+        reportPath: reportStorage.provider === 's3'
+          ? reportStorage.objects?.[0]?.key
+          : undefined,
+        reportDirectory,
+        reportStorage,
+        reportFiles: mergeStoredReportFilesWithStorage([], reportStorage),
+      }).catch((error) => {
+        quickScanLogger.warn('Failed to persist quick scan worker-generated report metadata.', {
+          quickScanId: job.quickScanId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
+    const emailResult = await Promise.race([
+      sendStoredAuditReportEmail({
+        to: job.email,
+        subject: 'Your SilverSurfers Quick Scan Results',
+        text: 'Attached is your older adult-friendly Quick Scan report. Thanks for trying SilverSurfers! For a full multi-page audit analysis and detailed guidance, consider upgrading.',
+        storage: reportStorage,
+        isQuickScan: true,
+        websiteUrl: job.url,
+        quickScanScore: score == null ? undefined : String(score),
+        planName: 'Quick Scan',
+        deviceName: normalizeQuickScanDevice(job.selectedDevice),
+        pagesAudited: 1,
+        recipientName: [job.firstName, job.lastName].filter(Boolean).join(' '),
+      }),
+      new Promise<never>((_resolve, reject) => {
+        setTimeout(() => reject(new Error('Quick scan email timed out after 5 minutes')), 300_000);
+      }),
+    ]);
+
+    if (emailResult.success === false) {
+      const emailFailureMessage = emailResult.error || 'Quick scan email failed.';
+
+      if (job.quickScanId) {
+        await QuickScan.findByIdAndUpdate(job.quickScanId, {
+          status: 'completed',
+          emailStatus: 'failed',
+          emailError: emailFailureMessage,
+          ...(emailResult.storage ? {
+            reportStorage: emailResult.storage,
+            reportFiles: mergeStoredReportFilesWithStorage([], emailResult.storage),
+          } : {}),
+        }).catch((error) => {
+          quickScanLogger.warn('Failed to persist quick scan stored-report email failure state.', {
+            quickScanId: job.quickScanId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        });
+      }
+
+      quickScanLogger.warn('Quick scan completed with scanner-generated report but email delivery failed.', {
+        email: job.email,
+        url: job.url,
+        quickScanId: job.quickScanId,
+        error: emailFailureMessage,
+      });
+
+      return {
+        emailStatus: 'failed',
+        attachmentCount: 0,
+        reportDirectory,
+        reportStorage: emailResult.storage || reportStorage,
+        scansUsed: 1,
+      };
+    }
+
+    if (job.quickScanId) {
+      await QuickScan.findByIdAndUpdate(job.quickScanId, {
+        emailStatus: 'sent',
+        emailError: undefined,
+        reportStorage: emailResult.storage || reportStorage,
+        reportPath: (emailResult.storage || reportStorage).provider === 's3'
+          ? (emailResult.storage || reportStorage).objects?.[0]?.key
+          : undefined,
+        reportDirectory: buildReportDirectory(emailResult.storage || reportStorage, reportDirectory),
+        reportFiles: mergeStoredReportFilesWithStorage([], emailResult.storage || reportStorage),
+      }).catch((error) => {
+        quickScanLogger.warn('Failed to persist quick scan stored-report email sent state.', {
+          quickScanId: job.quickScanId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
+    quickScanLogger.info('Quick scan completed from scanner-generated report.', {
+      email: job.email,
+      url: job.url,
+      quickScanId: job.quickScanId,
+      scorePct: score,
+      reportStorage: reportDirectory,
+    });
+
+    return {
+      emailStatus: 'sent',
+      attachmentCount: emailResult.attachmentCount || emailResult.totalFiles || 0,
+      reportDirectory: buildReportDirectory(emailResult.storage || reportStorage, reportDirectory),
+      reportStorage: emailResult.storage || reportStorage,
+      scansUsed: 1,
+    };
+  } finally {
+    if (jsonReportPath) {
+      await fs.unlink(jsonReportPath).catch((error) => {
+        quickScanLogger.warn('Failed to delete temporary quick scan report.', {
+          reportPath: jsonReportPath,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+  }
+}
+
 export async function runQuickScanProcess(payload: QueueJobInput): Promise<QueueResult> {
   const job = toQuickScanJobPayload(payload);
   const fullName = [job.firstName, job.lastName].filter(Boolean).join(' ') || 'Valued Customer';
@@ -375,6 +525,13 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
         includeReport: true,
         scannerQueue: 'quick',
         scannerJobId,
+        reportGeneration: {
+          enabled: true,
+          email: job.email,
+          quickScanId: job.quickScanId,
+          url: job.url,
+          fullName,
+        },
       });
 
       if (!dispatchResult.success) {

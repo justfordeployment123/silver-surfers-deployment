@@ -2,6 +2,7 @@ import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import {
   buildQuickScanJobFromRecord,
+  completeQuickScanFromStoredReport,
   completeQuickScanFromAuditResult,
 } from '../audits/quick-scan.processor.ts';
 import { getQuickScanModel } from '../audits/audits.dependencies.ts';
@@ -208,6 +209,7 @@ export class QuickScanResultWorker {
           });
 
           const job = buildQuickScanJobFromRecord(record);
+          const fullName = [job.firstName, job.lastName].filter(Boolean).join(' ') || 'Valued Customer';
           const dispatchResult = await dispatchScannerAuditJob({
             url: payload.url || job.url,
             device: payload.device || job.selectedDevice || 'desktop',
@@ -217,6 +219,13 @@ export class QuickScanResultWorker {
             scannerQueue: 'quick',
             scannerTier: 'vps',
             scannerJobId: fallbackScannerJobId,
+            reportGeneration: {
+              enabled: true,
+              email: job.email,
+              quickScanId: job.quickScanId,
+              url: payload.url || job.url,
+              fullName,
+            },
           });
 
           if (dispatchResult.success) {
@@ -315,7 +324,7 @@ export class QuickScanResultWorker {
       scannerJobId: payload.scannerJobId,
     });
 
-    await completeQuickScanFromAuditResult(job, {
+    const auditResult = {
       success: true,
       reportPath,
       isLiteVersion: payload.isLiteVersion ?? true,
@@ -325,7 +334,13 @@ export class QuickScanResultWorker {
       strategy: payload.strategy || 'Python-Camoufox-SQS',
       attemptNumber: payload.attemptNumber || 1,
       message: payload.message || 'Audit completed by scanner SQS worker.',
-    });
+    } as const;
+
+    if (payload.reportStorage?.objects?.length) {
+      await completeQuickScanFromStoredReport(job, auditResult, payload.reportStorage, payload.score);
+    } else {
+      await completeQuickScanFromAuditResult(job, auditResult);
+    }
 
     await QuickScan.updateOne({ _id: quickScanId }, {
       $set: {

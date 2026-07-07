@@ -77,6 +77,7 @@ COPY src/config/ ./src/config/
 COPY src/features/audits/ ./src/features/audits/
 COPY assets/ ./src/assets/
 COPY python-scanner/reporting/generate-full-audit-report.mjs ./generate-full-audit-report.mjs
+COPY python-scanner/reporting/generate-quick-scan-report.mjs ./generate-quick-scan-report.mjs
 
 WORKDIR /app
 
