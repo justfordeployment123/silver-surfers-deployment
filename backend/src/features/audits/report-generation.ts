@@ -806,7 +806,14 @@ export async function generateAuditAiSummaryPdf(
           }
           const textX = showBulletDots ? innerLeft + 16 : innerLeft;
           const textWidth = showBulletDots ? innerWidth - 16 : innerWidth;
-          doc.fillColor('#334155').text(item, textX, lineY, { width: textWidth, lineGap: 3 });
+          if (item.startsWith('Fix: ')) {
+            doc.font('BoldFont').fillColor('#1E40AF')
+              .text('Fix: ', textX, lineY, { continued: true, lineGap: 3 });
+            doc.font('RegularFont').fillColor('#334155')
+              .text(item.slice(5), { width: textWidth, lineGap: 3 });
+          } else {
+            doc.font('RegularFont').fillColor('#334155').text(item, textX, lineY, { width: textWidth, lineGap: 3 });
+          }
           doc.moveDown(0.2);
         });
       }

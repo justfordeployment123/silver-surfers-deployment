@@ -194,6 +194,7 @@ export const MANUAL_ONLY_CRITERIA: Record<string, string> = {
     "1.3.3": "Sensory characteristic instructions (color, shape, position) require content review.",
     "1.4.5": "Whether images contain meaningful text that should be real text requires human judgment.",
     "2.3.1": "Flash rate detection requires specialized video analysis tools beyond automated scanning.",
+    "2.1.4": "Single-character keyboard shortcuts are implemented in JavaScript and cannot be reliably detected or verified for remapping/disabling options through automated DOM inspection.",
     "2.4.5": "Presence of multiple navigation paths requires site-level manual review.",
     "2.5.1": "Pointer gesture alternatives require manual interaction testing.",
     "2.5.2": "Pointer cancellation compliance depends on interaction and business logic review.",

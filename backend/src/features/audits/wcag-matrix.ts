@@ -10,6 +10,13 @@ import {
     type WcagPourPrinciple,
 } from "./wcag-mapping.ts";
 
+// Criteria where our scanner can detect violations via DOM inspection but cannot confirm a pass.
+// When no violation is found, status becomes "needs-review" rather than "pass".
+const PARTIAL_COVERAGE_CRITERIA: Record<string, string> = {
+    "2.1.1": "DOM inspection detects elements removed from the tab order, but confirming that ALL functionality is operable by keyboard requires manual navigation testing.",
+    "2.1.2": "Dialog close-button detection covers the most common trap pattern, but complex custom focus-management widgets may still trap keyboard users and require manual verification.",
+};
+
 // All A/AA criteria IDs in display order — excludes 3.1.5 (AAA only)
 const AA_CRITERIA_ORDER: string[] = Object.keys(WCAG_CRITERIA_REGISTRY).filter(
     (id) => WCAG_CRITERIA_REGISTRY[id].level !== "AAA",
@@ -98,9 +105,26 @@ export function buildWcagMatrix(issues: AuditIssueSummary[]): WcagMatrix {
             };
         }
 
-        // Pass or not-applicable depending on whether any audits cover this criterion
+        // Pass or not-applicable depending on whether any audits cover this criterion.
+        // Partial-coverage criteria: scanner can flag violations but cannot confirm a clean pass —
+        // return needs-review so the client knows manual verification is still required.
         const mappedAuditIds = CRITERION_AUDIT_MAP[criterion] || [];
         if (mappedAuditIds.length > 0) {
+            if (PARTIAL_COVERAGE_CRITERIA[criterion]) {
+                return {
+                    criterion,
+                    title: def.title,
+                    level: def.level,
+                    principle: def.principle,
+                    status: "needs-review",
+                    evidenceSource: resolveEvidenceSource(mappedAuditIds),
+                    affectedElements: [],
+                    issueCount: 0,
+                    remediationGuidance: "",
+                    manualReviewRequired: true,
+                    manualReviewReason: PARTIAL_COVERAGE_CRITERIA[criterion],
+                };
+            }
             return {
                 criterion,
                 title: def.title,
