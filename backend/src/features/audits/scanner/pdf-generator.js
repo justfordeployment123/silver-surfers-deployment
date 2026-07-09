@@ -3170,6 +3170,9 @@ addOverallScoreDisplay(scoreData) {
     async generateReport(inputFile, outputFile, options = {}) {
         try {
             const reportData = JSON.parse(await fsPromises.readFile(inputFile, 'utf8'));
+            if (options.wcagMatrix && Array.isArray(options.wcagMatrix) && options.wcagMatrix.length > 0) {
+                reportData.wcagMatrix = options.wcagMatrix;
+            }
             console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';

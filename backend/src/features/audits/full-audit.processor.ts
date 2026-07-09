@@ -23,6 +23,7 @@ import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
 import { buildWcagMatrix } from './wcag-matrix.ts';
+import type { WcagMatrix } from './wcag-mapping.ts';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import { resolveBackendPath } from '../../config/paths.ts';
@@ -657,6 +658,7 @@ async function generatePlatformReports(
   email: string,
   planId: string,
   finalReportFolder: string,
+  wcagMatrix?: WcagMatrix,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -677,6 +679,7 @@ async function generatePlatformReports(
           outputDir: finalReportFolder,
           formFactor: device,
           planType: planId,
+          wcagMatrix,
         });
 
         if (seniorPdfResult?.reportPath) {
@@ -754,7 +757,7 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
 async function persistAggregateScorecard(
   record: AnalysisRecordDocument,
   reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>,
-): Promise<void> {
+): Promise<WcagMatrix | undefined> {
   const platformScorecards: AuditPlatformScore[] = [];
   const allScorecards: AuditScorecard[] = [];
 
@@ -781,7 +784,7 @@ async function persistAggregateScorecard(
   }
 
   if (allScorecards.length === 0) {
-    return;
+    return undefined;
   }
 
   const aggregateScorecard = buildAggregateAuditScorecard(allScorecards, {
@@ -827,6 +830,7 @@ async function persistAggregateScorecard(
       error: error instanceof Error ? error.message : String(error),
     });
   });
+  return wcagMatrix;
 }
 
 async function sendAuditEmail(
@@ -2054,15 +2058,15 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       };
     }
 
+    const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined);
     } else {
       addAuditWarning(
         warningSet,
         'Final PDF reports were generated and uploaded by the scanner Fargate task.',
       );
     }
-    await persistAggregateScorecard(record, reportsByPlatform);
 
     if (record.scoreCard && !batchWorkerReportStorage) {
       const remediationRoadmap = buildRemediationRoadmap(record.scoreCard);
