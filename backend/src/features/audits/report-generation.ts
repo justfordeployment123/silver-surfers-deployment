@@ -12,6 +12,7 @@ import { generateLiteAccessibilityReport as tsGenerateLiteAccessibilityReport } 
 import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
 import type { AuditScorecard } from './audit-scorecard.ts';
+import type { WcagMatrix } from './wcag-matrix.ts';
 
 export interface LitePdfResult {
   reportPath: string;
@@ -387,6 +388,7 @@ export async function generateSeniorAccessibilityReport(options: {
   outputDir: string;
   formFactor: FullAuditDevice;
   planType: string;
+  wcagMatrix?: WcagMatrix;
 }): Promise<SeniorPdfResult> {
   return tsGenerateSeniorAccessibilityReport(options);
 }
