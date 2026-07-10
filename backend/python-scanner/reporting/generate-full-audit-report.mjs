@@ -170,7 +170,11 @@ async function main() {
   }
 
   // Phase 3: generate PDFs now that wcagMatrix is available
-  for (const { jsonReportPath, url, device } of pdfQueue) {
+  const wcagInfo = wcagMatrix ? `${wcagMatrix.length}r` : 'UNDEF';
+  console.log(`[P1A-v4] Phase3 start: queue=${pdfQueue.length} scorecards=${scorecards.length} wcag=${wcagInfo}`);
+  for (let _pdfIdx = 0; _pdfIdx < pdfQueue.length; _pdfIdx++) {
+    const { jsonReportPath, url, device } = pdfQueue[_pdfIdx];
+    console.log(`[P1A-v4] PDF ${_pdfIdx + 1}/${pdfQueue.length} device=${device} wcag=${wcagInfo}`);
     await generateSeniorAccessibilityReport({
       inputFile: jsonReportPath,
       url,

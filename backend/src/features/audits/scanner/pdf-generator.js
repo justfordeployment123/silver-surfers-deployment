@@ -3170,8 +3170,10 @@ addOverallScoreDisplay(scoreData) {
     async generateReport(inputFile, outputFile, options = {}) {
         try {
             const reportData = JSON.parse(await fsPromises.readFile(inputFile, 'utf8'));
-            if (options.wcagMatrix && Array.isArray(options.wcagMatrix) && options.wcagMatrix.length > 0) {
-                reportData.wcagMatrix = options.wcagMatrix;
+            const _wm = options.wcagMatrix;
+            console.log(`[PDF-rcv] wcagMatrix: type=${typeof _wm} isArr=${Array.isArray(_wm)} len=${_wm != null ? (Array.isArray(_wm) ? _wm.length : 'not-arr') : 'null/undef'}`);
+            if (_wm && Array.isArray(_wm) && _wm.length > 0) {
+                reportData.wcagMatrix = _wm;
             }
             console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
