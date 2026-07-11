@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import time
 import threading
@@ -593,7 +594,8 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                         visited_keys.add(current_key)
 
                         if len(visited) > 1 and delay_ms > 0:
-                            page.wait_for_timeout(delay_ms)
+                            jitter = random.randint(0, min(2000, delay_ms))
+                            page.wait_for_timeout(delay_ms + jitter)
 
                         try:
                             page.goto(current_url, wait_until="domcontentloaded", timeout=min(navigation_timeout_ms, max(1_000, remaining_ms)))
@@ -614,6 +616,14 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                         if current_url == url:
                             final_url = page.url
                             home_key = (_scanner_canonicalize_url(final_url) or {}).get("key", "")
+                            # Simulate human reading the page before following links
+                            page.wait_for_timeout(random.randint(1500, 3500))
+                            try:
+                                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 400) + 200); }")
+                                page.wait_for_timeout(random.randint(500, 1200))
+                                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 300) + 100); }")
+                            except Exception:
+                                pass
 
                         parsed = urlparse(final_url)
                         base_scheme = parsed.scheme

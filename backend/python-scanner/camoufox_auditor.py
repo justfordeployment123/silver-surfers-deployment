@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse
@@ -217,9 +218,16 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
         
         try:
             navigate_for_audit(page, url)
-            
-            # Wait a bit for dynamic content (sync)
-            page.wait_for_timeout(2000)
+
+            # Jittered post-navigation wait to look human and let dynamic content settle
+            page.wait_for_timeout(random.randint(2000, 4500))
+            try:
+                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 350) + 150); }")
+                page.wait_for_timeout(random.randint(400, 1000))
+                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 250) + 100); }")
+                page.wait_for_timeout(random.randint(300, 800))
+            except Exception:
+                pass
             
             # Get page content (sync)
             html_content = page.content()

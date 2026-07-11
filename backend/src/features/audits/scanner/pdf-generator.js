@@ -3104,11 +3104,23 @@ addOverallScoreDisplay(scoreData) {
             this.currentY += subHeaderHeight;
 
             rows.forEach(row => {
-                const actionText = row.status === 'fail'
-                    ? (row.remediationGuidance || '')
-                    : row.status === 'needs-review'
-                        ? (row.manualReviewReason || row.remediationGuidance || '')
-                        : '';
+                const actionText = (() => {
+                    if (row.status === 'pass') {
+                        return 'Automated checks passed — no violations detected on this criterion.';
+                    }
+                    if (row.status === 'fail') {
+                        const n = row.issueCount || 0;
+                        const base = `${n} violation${n !== 1 ? 's' : ''} detected.`;
+                        return row.remediationGuidance
+                            ? `${base} ${row.remediationGuidance}`
+                            : `${base} Review the Priority Recommendations section for step-by-step fixes.`;
+                    }
+                    if (row.status === 'needs-review') {
+                        return row.manualReviewReason || 'Manual review required — cannot be fully assessed by automated scanning.';
+                    }
+                    // not-applicable
+                    return row.manualReviewReason || 'Not applicable under WCAG 2.2.';
+                })();
 
                 this.doc.fontSize(9).font('RegularFont');
                 const cellTexts = [
