@@ -20,7 +20,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib import request as url_request
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import boto3
 
@@ -264,6 +264,150 @@ def _orchestration_page_score(url: str, home_key: str) -> int:
         score -= min(24, (len(path.split("/")) - 2) * 8)
 
     return score
+
+
+_DISCOVERY_HREF_RE = re.compile(r"""(?:href|data-href|to)\s*=\s*["']([^"'<>]+)["']""", re.I)
+_DISCOVERY_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.I | re.S)
+
+
+def _fetch_discovery_text(url: str, timeout_seconds: int = 10) -> str:
+    request = url_request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+    with url_request.urlopen(request, timeout=timeout_seconds) as response:
+        content_type = safe_text(response.headers.get("content-type") or "").lower()
+        if not any(token in content_type for token in ("text/", "html", "xml", "application/xhtml")):
+            return ""
+        raw = response.read(2_000_000)
+    return raw.decode("utf-8", errors="ignore")
+
+
+def _same_site_host(hostname: str, expected_host: str) -> bool:
+    normalized = safe_text(hostname).lower()
+    expected = safe_text(expected_host).lower()
+    if normalized.startswith("www."):
+        normalized = normalized[4:]
+    if expected.startswith("www."):
+        expected = expected[4:]
+    return bool(normalized and expected and normalized == expected)
+
+
+def _normalize_discovered_internal_url(raw_url: str, base_url: str, root_url: str) -> Optional[str]:
+    raw = safe_text(raw_url).strip()
+    if not raw or re.match(r"^(javascript|mailto|tel):", raw, re.I):
+        return None
+    try:
+        root = urlparse(root_url)
+        resolved = urlparse(urljoin(base_url, raw))
+        if resolved.scheme not in {"http", "https"} or not resolved.netloc:
+            return None
+        if not _same_site_host(resolved.hostname or resolved.netloc, root.hostname or root.netloc):
+            return None
+
+        path = re.sub(r"/{2,}", "/", resolved.path or "/")
+        if path != "/" and path.endswith("/"):
+            path = path[:-1]
+        if re.search(r"\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3)$", path, re.I):
+            return None
+        if re.search(r"/(api|_next|static|assets|cdn-cgi)(/|$)", path, re.I):
+            return None
+
+        netloc = (resolved.hostname or resolved.netloc).lower()
+        if resolved.port:
+            netloc = f"{netloc}:{resolved.port}"
+        return f"{root.scheme}://{netloc}{path if path != '/' else ''}"
+    except Exception:
+        return None
+
+
+def _looks_like_sitemap_url(url: str) -> bool:
+    try:
+        path = urlparse(url).path.lower()
+        return path.endswith(".xml") and "sitemap" in path
+    except Exception:
+        return False
+
+
+def _discover_plain_internal_links(root_url: str, max_links: int = 100) -> list[str]:
+    canonical_root = _canonical_page_url(root_url)
+    if not canonical_root:
+        return []
+
+    parsed_root = urlparse(canonical_root["url"])
+    origin = f"{parsed_root.scheme}://{parsed_root.netloc}"
+    home_key = canonical_root["key"]
+    max_links = max(1, min(int(max_links or 100), 300))
+
+    discovered: list[str] = []
+    seen_keys: set[str] = set()
+
+    def add_link(raw: str, base_url: str) -> None:
+        if len(discovered) >= max_links:
+            return
+        normalized = _normalize_discovered_internal_url(raw, base_url, canonical_root["url"])
+        canonical = _canonical_page_url(normalized or "")
+        if not canonical or canonical["key"] == home_key or canonical["key"] in seen_keys:
+            return
+        if not _is_orchestration_candidate(canonical["url"], home_key):
+            return
+        seen_keys.add(canonical["key"])
+        discovered.append(canonical["url"])
+
+    sitemap_queue: list[str] = []
+    try:
+        robots = _fetch_discovery_text(f"{origin}/robots.txt", timeout_seconds=6)
+        for line in robots.splitlines():
+            match = re.match(r"\s*sitemap\s*:\s*(\S+)", line, re.I)
+            if match:
+                sitemap_queue.append(match.group(1).strip())
+    except Exception:
+        pass
+
+    sitemap_queue.extend([
+        f"{origin}/sitemap.xml",
+        f"{origin}/sitemap_index.xml",
+        f"{origin}/wp-sitemap.xml",
+    ])
+
+    visited_sitemaps: set[str] = set()
+    while sitemap_queue and len(visited_sitemaps) < 10 and len(discovered) < max_links:
+        sitemap_url = sitemap_queue.pop(0)
+        if sitemap_url in visited_sitemaps:
+            continue
+        visited_sitemaps.add(sitemap_url)
+        try:
+            sitemap_text = _fetch_discovery_text(sitemap_url, timeout_seconds=8)
+        except Exception:
+            continue
+        for loc in _DISCOVERY_LOC_RE.findall(sitemap_text):
+            candidate = safe_text(loc).strip()
+            if not candidate:
+                continue
+            if _looks_like_sitemap_url(candidate) and candidate not in visited_sitemaps:
+                sitemap_queue.append(candidate)
+                continue
+            add_link(candidate, sitemap_url)
+            if len(discovered) >= max_links:
+                break
+
+    try:
+        homepage_html = _fetch_discovery_text(canonical_root["url"], timeout_seconds=10)
+        for href in _DISCOVERY_HREF_RE.findall(homepage_html):
+            add_link(href, canonical_root["url"])
+            if len(discovered) >= max_links:
+                break
+    except Exception:
+        pass
+
+    return discovered
 
 
 def _format_size_mb(size: int) -> str:
@@ -1019,6 +1163,38 @@ class ScannerSqsWorker:
             max_depth,
             delay_ms,
         )
+        extraction_links = [safe_text(link) for link in extraction.get("links") or [] if safe_text(link)]
+        if len(extraction_links) < 3:
+            plain_links = _discover_plain_internal_links(
+                safe_text(extraction.get("finalUrl") or root_url),
+                raw_link_limit,
+            )
+            if plain_links:
+                merged_links: list[str] = []
+                merged_keys: set[str] = set()
+                for link in [*extraction_links, *plain_links]:
+                    canonical = _canonical_page_url(link)
+                    if not canonical or canonical["key"] in merged_keys:
+                        continue
+                    merged_keys.add(canonical["key"])
+                    merged_links.append(canonical["url"])
+                extraction = {
+                    **extraction,
+                    "success": True,
+                    "links": merged_links,
+                    "finalUrl": safe_text(extraction.get("finalUrl") or root_url),
+                    "error": safe_text(extraction.get("error") or "") or None,
+                }
+                logger.info(
+                    "Scanner full-audit link extraction supplemented by sitemap/html discovery.",
+                    extra={
+                        "scannerJobId": scanner_job_id,
+                        "url": root_url,
+                        "browserLinkCount": len(extraction_links),
+                        "plainDiscoveryLinkCount": len(plain_links),
+                        "mergedLinkCount": len(merged_links),
+                    },
+                )
         if not extraction.get("success") and not extraction.get("links"):
             logger.warning(
                 "Scanner full-audit link extraction failed; continuing with root URL only.",
