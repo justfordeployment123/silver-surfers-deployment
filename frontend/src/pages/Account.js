@@ -457,9 +457,9 @@ export default function Account() {
                                                             )}
                                                             {!rec.failureReason &&
                                                                 Array.isArray(rec.warnings) &&
-                                                                rec.warnings.length > 0 && (
+                                                                rec.warnings.filter(w => !w.includes('dispatched to the scanner service')).length > 0 && (
                                                                     <div className="mt-1 text-sm text-amber-300">
-                                                                        Warning: {rec.warnings[0]}
+                                                                        Warning: {rec.warnings.filter(w => !w.includes('dispatched to the scanner service'))[0]}
                                                                     </div>
                                                                 )}
                                                         </div>

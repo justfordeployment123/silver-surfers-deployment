@@ -432,12 +432,11 @@ export default function AnalysisDetail() {
                 <div className="mb-4 flex flex-wrap gap-2">
                   <ScoreBadge value={`Degraded ${item.degradedTargetCount || 0}`} tone="yellow" />
                   <ScoreBadge value={`Failed ${item.failedTargetCount || 0}`} tone={item.failedTargetCount ? 'red' : 'gray'} />
-                  <ScoreBadge value={`Planned ${item.plannedTargetCount || 0}`} tone="gray" />
                 </div>
-                {item.warnings?.length > 0 ? (
+                {item.warnings?.filter(w => !w.includes('dispatched to the scanner service')).length > 0 ? (
                   <div className="space-y-2">
                     <h2 className="text-xl font-bold text-white">Warnings</h2>
-                    {item.warnings.map((warning) => (
+                    {item.warnings.filter(w => !w.includes('dispatched to the scanner service')).map((warning) => (
                       <p key={warning} className="text-sm text-amber-100">{warning}</p>
                     ))}
                   </div>
