@@ -1,4 +1,4 @@
-import asyncio
+import concurrent.futures
 import os
 from typing import Any
 
@@ -6,12 +6,10 @@ from scanner_config import KEEP_TEMP_REPORTS
 
 
 def run_with_clean_event_loop_context(fn, *args):
-    try:
-        asyncio.set_event_loop(None)
-    except Exception:
-        pass
-
-    return fn(*args)
+    # Playwright sync API cannot run inside a running asyncio event loop.
+    # Running in a fresh ThreadPoolExecutor thread guarantees no inherited loop.
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(fn, *args).result()
 
 
 def safe_text(value: Any) -> str:
