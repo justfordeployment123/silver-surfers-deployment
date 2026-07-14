@@ -14,6 +14,11 @@ function normalizeBillingCycle(value: unknown): BillingCycle {
   return value === 'monthly' ? 'monthly' : 'yearly';
 }
 
+function isMissingStripeSubscriptionError(error: unknown): boolean {
+  const stripeError = error as { statusCode?: number; code?: string };
+  return stripeError.statusCode === 404 || stripeError.code === 'resource_missing';
+}
+
 function resolveFrontendUrl(): string {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 }
@@ -427,9 +432,24 @@ export async function cancelSubscription(request: Request, response: Response): 
     const planName = getPlanById(subscription.planId)?.name || 'Unknown Plan';
     const stripe = getStripeClient();
     if (cancelAtPeriodEnd) {
-      await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
-        cancel_at_period_end: true,
-      });
+      try {
+        await stripe.subscriptions.update(subscription.stripeSubscriptionId, {
+          cancel_at_period_end: true,
+        });
+      } catch (error) {
+        if (!isMissingStripeSubscriptionError(error)) {
+          throw error;
+        }
+
+        // Stripe has no record of this subscription (e.g. deleted directly in Stripe) - treat it as already gone.
+        await Subscription.findByIdAndUpdate(subscription._id, {
+          status: 'canceled',
+          canceledAt: new Date(),
+        });
+
+        response.json({ message: 'Subscription was already canceled.' });
+        return;
+      }
 
       await Subscription.findByIdAndUpdate(subscription._id, {
         cancelAtPeriodEnd: true,
@@ -450,7 +470,14 @@ export async function cancelSubscription(request: Request, response: Response): 
       return;
     }
 
-    await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+    try {
+      await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
+    } catch (error) {
+      if (!isMissingStripeSubscriptionError(error)) {
+        throw error;
+      }
+      // Stripe has no record of this subscription (e.g. deleted directly in Stripe) - treat it as already gone.
+    }
 
     await Subscription.findByIdAndUpdate(subscription._id, {
       status: 'canceled',
