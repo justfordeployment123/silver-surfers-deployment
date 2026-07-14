@@ -1181,11 +1181,7 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
       successfulTargetCount,
       degradedTargetCount,
       failedTargetCount,
-      warnings: [
-        ...warningSet,
-        'Full audit scanner result was processed by the result inbox worker.',
-        'Final PDF reports were generated and uploaded by the scanner Fargate task.',
-      ],
+      warnings: [...warningSet],
     };
     applyExecutionSummary(record, executionSummary, scanTargets);
 
@@ -1521,9 +1517,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         successfulTargetCount: 0,
         degradedTargetCount: 0,
         failedTargetCount: 0,
-        warnings: [
-          'Full audit orchestration was dispatched to the scanner service; link extraction, page selection, scanning, and report upload will complete there.',
-        ],
+        warnings: [],
       }, []);
       record.scannerJobId = dispatchResult.scannerJobId;
       record.primaryScannerJobId = dispatchResult.scannerJobId;
@@ -1676,10 +1670,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           successfulTargetCount: 0,
           degradedTargetCount: 0,
           failedTargetCount: 0,
-          warnings: [
-            ...warningSet,
-            'Full audit was dispatched to the scanner service and will be completed when the scanner result arrives.',
-          ],
+          warnings: [...warningSet],
         }, []);
         record.scannerJobId = dispatchResult.scannerJobId;
         record.primaryScannerJobId = dispatchResult.scannerJobId;
@@ -1768,10 +1759,6 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           );
         }
 
-        addAuditWarning(
-          warningSet,
-          'Full audit page/device scans were processed as one scanner batch job.',
-        );
         fullAuditLogger.info('Full-audit batch scanner completed.', {
           taskId: effectiveTaskId,
           scannerJobId: batchResult.scannerJobId,
@@ -2003,11 +1990,6 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
     if (!batchWorkerReportStorage) {
       await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder);
-    } else {
-      addAuditWarning(
-        warningSet,
-        'Final PDF reports were generated and uploaded by the scanner Fargate task.',
-      );
     }
     await persistAggregateScorecard(record, reportsByPlatform);
 
