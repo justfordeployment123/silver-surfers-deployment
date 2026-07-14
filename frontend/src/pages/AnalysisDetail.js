@@ -919,7 +919,7 @@ export default function AnalysisDetail() {
                 )}
 
                 <div className="mt-5 border-t border-white/10 pt-4">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-gray-300">
                     Criteria marked Needs Review require manual review and cannot be fully assessed by automated scanning. This report does not constitute a legal conformance certification.
                   </p>
                 </div>
