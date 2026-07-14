@@ -1016,7 +1016,13 @@ addOverallScoreDisplay(scoreData) {
             'link-name': 'link text clarity',
             'label': 'form labels and inputs',
             'cumulative-layout-shift': 'layout stability',
-            'is-on-https': 'security (HTTPS)'
+            'is-on-https': 'security (HTTPS)',
+            'image-alt': 'image alt text',
+            'heading-order': 'heading structure',
+            'duplicate-id': 'duplicate element IDs',
+            'aria-hidden-focus': 'hidden focusable elements',
+            'video-caption': 'video captions',
+            'identical-links-same-purpose': 'ambiguous repeated links'
         };
 
         // Collect weak/strong audits with per-page violation counts from Lighthouse items
@@ -1129,7 +1135,25 @@ addOverallScoreDisplay(scoreData) {
                 ? `Fix ${count} unlabelled form ${count === 1 ? 'field' : 'fields'}: add clear labels and instructions so users understand what to enter.`
                 : 'Add clear labels and instructions to all form fields so users understand what to enter.',
             'cumulative-layout-shift': () => 'Stabilize layout elements to prevent content from shifting as the page loads.',
-            'is-on-https': () => 'Ensure all pages load over HTTPS to protect user privacy and security.'
+            'is-on-https': () => 'Ensure all pages load over HTTPS to protect user privacy and security.',
+            'image-alt': (count) => count
+                ? `Fix ${count} ${count === 1 ? 'image' : 'images'} missing alt text so screen readers can describe them to visually impaired users.`
+                : 'Add descriptive alt text to all images so screen readers can convey their meaning.',
+            'heading-order': (count) => count
+                ? `Fix ${count} heading order ${count === 1 ? 'issue' : 'issues'}: ensure headings follow a logical hierarchy (H1 → H2 → H3) for easier navigation.`
+                : 'Ensure headings follow a logical order (H1 → H2 → H3) so users can navigate page structure easily.',
+            'duplicate-id': (count) => count
+                ? `Fix ${count} duplicate HTML ${count === 1 ? 'ID' : 'IDs'}: each element ID must be unique or assistive technologies may behave unpredictably.`
+                : 'Remove duplicate HTML element IDs to prevent assistive technology errors.',
+            'aria-hidden-focus': (count) => count
+                ? `Fix ${count} focusable ${count === 1 ? 'element' : 'elements'} hidden from screen readers: keyboard and assistive technology users cannot interact with them.`
+                : 'Ensure focusable elements are not hidden from assistive technologies.',
+            'video-caption': (count) => count
+                ? `Add captions to ${count} ${count === 1 ? 'video' : 'videos'} on this page so deaf and hard-of-hearing users can access the content.`
+                : 'Add captions to all videos so deaf and hard-of-hearing users can access the content.',
+            'identical-links-same-purpose': (count) => count
+                ? `Fix ${count} ambiguous repeated ${count === 1 ? 'link' : 'links'} (e.g. multiple "Read more"): give each a unique label that explains where it leads.`
+                : 'Give repeated links unique, descriptive labels so users know where each one leads.'
         };
 
         const priorityActions = [];
