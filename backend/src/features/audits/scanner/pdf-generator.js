@@ -968,6 +968,7 @@ addOverallScoreDisplay(scoreData) {
         this.addPage();
 
         const siteName = extractSiteNameFromUrl(reportData.finalUrl || '', 'website');
+        const pageUrl = reportData.finalUrl || '';
         const score = Math.round(scoreData.finalScore);
         // For messaging on this page, treat 80% as the minimum recommended standard (Pass threshold)
         const meetsMinimum = score >= 80;
@@ -975,15 +976,27 @@ addOverallScoreDisplay(scoreData) {
         // Executive Summary heading (blue)
         this.doc.fontSize(24).font('BoldFont').fillColor('#2C5F9C')
             .text('Executive Summary', this.margin, this.currentY);
-        this.currentY += 35;
+        this.currentY += 30;
+
+        // Page URL subtitle — lets reader immediately identify which page this section covers
+        if (pageUrl) {
+            this.doc.fontSize(9).font('RegularFont').fillColor('#7F8C8D')
+                .text(`Page: ${pageUrl}`, this.margin, this.currentY, {
+                    width: this.pageWidth,
+                    lineBreak: false,
+                    ellipsis: true
+                });
+            this.currentY += 18;
+        }
+        this.currentY += 8;
 
         // Opening paragraph with site name
         const openingText = `This comprehensive accessibility audit evaluates the ${siteName} website specifically for digital users. The assessment focuses on digital user challenges including vision changes, motor skill considerations, cognitive processing needs, and technology familiarity.`;
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-            .text(openingText, this.margin, this.currentY, { 
-                width: this.pageWidth, 
+            .text(openingText, this.margin, this.currentY, {
+                width: this.pageWidth,
                 align: 'justify',
-                lineGap: 3 
+                lineGap: 3
             });
         this.currentY += this.doc.heightOfString(openingText, { width: this.pageWidth, lineGap: 3 }) + 30;
 
@@ -1006,44 +1019,57 @@ addOverallScoreDisplay(scoreData) {
             'is-on-https': 'security (HTTPS)'
         };
 
+        // Collect weak/strong audits with per-page violation counts from Lighthouse items
         const weakAudits = [];
         const strongAudits = [];
 
         Object.keys(IMPORTANT_AUDITS).forEach(id => {
             const audit = audits[id];
             if (!audit || typeof audit.score !== 'number') return;
+            const count = Array.isArray(audit.details?.items) ? audit.details.items.length : null;
             if (audit.score < 0.7) {
-                weakAudits.push(IMPORTANT_AUDITS[id]);
+                weakAudits.push({ id, label: IMPORTANT_AUDITS[id], count });
             } else if (audit.score >= 0.9) {
-                strongAudits.push(IMPORTANT_AUDITS[id]);
+                strongAudits.push({ id, label: IMPORTANT_AUDITS[id], count });
             }
         });
 
-        const formatList = (items) => {
-            if (!items.length) return '';
-            if (items.length === 1) return items[0];
-            if (items.length === 2) return `${items[0]} and ${items[1]}`;
-            return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+        // Sort weak audits by violation count descending so the most impactful lead
+        weakAudits.sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+
+        const formatLabelList = (items) => {
+            const labels = items.map(i => i.label || i);
+            if (!labels.length) return '';
+            if (labels.length === 1) return labels[0];
+            if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+            return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
         };
 
         const keyFindings = [];
 
-        // 1) Score statement – remove the word "Overall"
+        // 1) Score statement
         keyFindings.push(
             `Score of ${score}% ${meetsMinimum ? 'meets' : 'falls below'} the 80% minimum standard for user-friendly accessibility on this page`
         );
 
-        // 2) Areas needing improvement on this specific page
+        // 2) Weak areas with violation counts to differentiate across pages
         if (weakAudits.length) {
-            keyFindings.push(
-                `Key accessibility gaps on this page: ${formatList(weakAudits)}.`
+            const withCounts = weakAudits.map(a =>
+                a.count != null ? `${a.label} (${a.count} ${a.count === 1 ? 'issue' : 'issues'})` : a.label
             );
+            const formatStringList = (items) => {
+                if (!items.length) return '';
+                if (items.length === 1) return items[0];
+                if (items.length === 2) return `${items[0]} and ${items[1]}`;
+                return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+            };
+            keyFindings.push(`Key accessibility gaps on this page: ${formatStringList(withCounts)}.`);
         }
 
         // 3) Strong areas on this specific page
         if (strongAudits.length) {
             keyFindings.push(
-                `Strong performance on this page in: ${formatList(strongAudits)}.`
+                `Strong performance on this page in: ${formatLabelList(strongAudits)}.`
             );
         }
 
@@ -1057,20 +1083,20 @@ addOverallScoreDisplay(scoreData) {
         keyFindings.forEach(finding => {
             const bulletX = this.margin + 20;
             const textX = bulletX + 15;
-            
+
             // Draw bullet point
             this.doc.circle(bulletX, this.currentY + 5, 2.5).fill('#2C3E50');
-            
+
             // Draw finding text
             this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
                 .text(finding, textX, this.currentY, {
                     width: this.pageWidth - 35,
                     lineGap: 2
                 });
-            
-            const findingHeight = this.doc.heightOfString(finding, { 
-                width: this.pageWidth - 35, 
-                lineGap: 2 
+
+            const findingHeight = this.doc.heightOfString(finding, {
+                width: this.pageWidth - 35,
+                lineGap: 2
             });
             this.currentY += findingHeight + 10;
         });
@@ -1084,29 +1110,35 @@ addOverallScoreDisplay(scoreData) {
 
         // Priority actions based on weakest audits for THIS page
         const ACTIONS_BY_AUDIT = {
-            'color-contrast': 'Improve color contrast ratios for text and interactive elements so older adults can easily read content.',
-            'target-size': 'Increase the size and spacing of buttons and links to make them easier to tap, especially on touch devices.',
-            'text-font-audit': 'Increase text sizes and ensure consistent typography for comfortable reading.',
-            'user-scalable-audit': 'Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.',
-            'horizontal-scroll-audit': 'Fix content overflow so the page fits within the screen width without requiring horizontal scrolling.',
-            'text-size-adjust-audit': 'Remove CSS that disables mobile text scaling to allow browsers to adjust text size for readability.',
-            'link-name': 'Rewrite vague links (e.g., “Learn more”) into descriptive text that explains the destination or action.',
-            'label': 'Add clear labels and instructions to all form fields so users understand what to enter.',
-            'cumulative-layout-shift': 'Stabilize layout elements to prevent content from shifting as the page loads.',
-            'is-on-https': 'Ensure all pages load over HTTPS to protect user privacy and security.'
+            'color-contrast': (count) => count
+                ? `Fix ${count} color contrast ${count === 1 ? 'violation' : 'violations'}: improve contrast ratios for text and interactive elements so older adults can easily read content.`
+                : 'Improve color contrast ratios for text and interactive elements so older adults can easily read content.',
+            'target-size': (count) => count
+                ? `Fix ${count} touch target ${count === 1 ? 'issue' : 'issues'}: increase the size and spacing of buttons and links to make them easier to tap on touch devices.`
+                : 'Increase the size and spacing of buttons and links to make them easier to tap, especially on touch devices.',
+            'text-font-audit': (count) => count
+                ? `Fix ${count} text size ${count === 1 ? 'issue' : 'issues'}: increase text sizes and ensure consistent typography for comfortable reading.`
+                : 'Increase text sizes and ensure consistent typography for comfortable reading.',
+            'user-scalable-audit': () => 'Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.',
+            'horizontal-scroll-audit': () => 'Fix content overflow so the page fits within the screen width without requiring horizontal scrolling.',
+            'text-size-adjust-audit': () => 'Remove CSS that disables mobile text scaling to allow browsers to adjust text size for readability.',
+            'link-name': (count) => count
+                ? `Fix ${count} vague ${count === 1 ? 'link' : 'links'}: rewrite link text (e.g., “Learn more”) to clearly describe the destination or action.`
+                : 'Rewrite vague links (e.g., “Learn more”) into descriptive text that explains the destination or action.',
+            'label': (count) => count
+                ? `Fix ${count} unlabelled form ${count === 1 ? 'field' : 'fields'}: add clear labels and instructions so users understand what to enter.`
+                : 'Add clear labels and instructions to all form fields so users understand what to enter.',
+            'cumulative-layout-shift': () => 'Stabilize layout elements to prevent content from shifting as the page loads.',
+            'is-on-https': () => 'Ensure all pages load over HTTPS to protect user privacy and security.'
         };
 
         const priorityActions = [];
 
-        // Use the same weak audits list but keep only the first 4 for actions
-        const weakAuditIdsInOrder = Object.keys(IMPORTANT_AUDITS).filter(id => {
-            const audit = audits[id];
-            return audit && typeof audit.score === 'number' && audit.score < 0.7;
-        });
-
-        weakAuditIdsInOrder.slice(0, 4).forEach(id => {
-            if (ACTIONS_BY_AUDIT[id]) {
-                priorityActions.push(ACTIONS_BY_AUDIT[id]);
+        // Use weak audits already sorted by violation count — highest-impact action leads for this page
+        weakAudits.slice(0, 4).forEach(({ id, count }) => {
+            const actionFn = ACTIONS_BY_AUDIT[id];
+            if (actionFn) {
+                priorityActions.push(actionFn(count));
             }
         });
 
@@ -1121,20 +1153,20 @@ addOverallScoreDisplay(scoreData) {
         priorityActions.forEach(action => {
             const bulletX = this.margin + 20;
             const textX = bulletX + 15;
-            
+
             // Draw bullet point
             this.doc.circle(bulletX, this.currentY + 5, 2.5).fill('#2C3E50');
-            
+
             // Draw action text (bold for priority actions)
             this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50')
                 .text(action, textX, this.currentY, {
                     width: this.pageWidth - 35,
                     lineGap: 2
                 });
-            
-            const actionHeight = this.doc.heightOfString(action, { 
-                width: this.pageWidth - 35, 
-                lineGap: 2 
+
+            const actionHeight = this.doc.heightOfString(action, {
+                width: this.pageWidth - 35,
+                lineGap: 2
             });
             this.currentY += actionHeight + 10;
         });
