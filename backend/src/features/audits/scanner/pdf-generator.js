@@ -3239,10 +3239,9 @@ addOverallScoreDisplay(scoreData) {
             this.addIntroPage(reportData, scoreData, options.planType || 'pro');
             this.addExecutiveSummary(reportData, scoreData);
             this.addScoreCalculationPage(reportData, scoreData);
-            this.addAutomatedWcagResultsPage(reportData);
+            this.addWcagMatrixSection(reportData);
             this.addSummaryPage(reportData);
             this.addPriorityRecommendations(reportData);
-            this.addWcagMatrixSection(reportData);
             this.addAreasOfStrength(reportData);
             this.addAboutPage(reportData, scoreData);
             this.addNextStepsPage();
