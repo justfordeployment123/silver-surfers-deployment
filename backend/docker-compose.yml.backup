@@ -1,28 +1,45 @@
-# SilverSurfers — Full Stack Project Compose
+# SilverSurfers — local development + staging compose
 #
-# Includes:
-#   - Redis (Job queue/cache)
-#   - API (Backend server)
-#   - Worker (Background processor)
-#   - Scanner (Headless Chromium / Lighthouse)
-#   - Frontend (React SPA + Nginx)
+# Services:
+#   mongo    — Primary database (port 27017)
+#   redis    — BullMQ job queue and cache broker
+#   api      — Express API server (port 8000)
+#   worker   — Background audit job processor (BullMQ consumer)
+#   scanner  — Headless Chromium / Lighthouse scanner service (port 8001)
+#
+# Usage:
+#   docker compose up --build          # bring up all services
+#   docker compose up api worker       # bring up without rebuilding scanner
+#   docker compose logs -f worker      # tail worker logs
+#   docker compose down -v             # stop and remove volumes
+#
+# Environment:
+#   Copy .env.example to .env and fill in secrets before running.
+#   docker compose automatically loads .env from the same directory.
 
 services:
     # ──────────────────────────────────────────────
-    # Frontend — React SPA + Nginx
+    # MongoDB — primary database
     # ──────────────────────────────────────────────
-    frontend:
-        build:
-            context: ./frontend
-            dockerfile: Dockerfile
-            args:
-                - REACT_APP_API_BASE_URL=https://silver-surfers-backend.kodevio.com
-        container_name: ss-frontend
+    mongo:
+        image: mongo:7.0-jammy
+        container_name: ss-mongo
         restart: unless-stopped
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+            MONGO_INITDB_DATABASE: ${MONGO_DB}
         ports:
-            - "3000:80"
+            - "27017:27017"
+        volumes:
+            - mongo_data:/data/db
         networks:
             - ssnet
+        healthcheck:
+            test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
 
     # ──────────────────────────────────────────────
     # Redis — BullMQ broker
@@ -31,7 +48,7 @@ services:
         image: redis:7-alpine
         container_name: ss-redis
         restart: unless-stopped
-        command: redis-server --save 60 1 --appendonly yes --loglevel warning
+        command: redis-server --save 60 1 --loglevel warning
         ports:
             - "6380:6379"
         volumes:
@@ -45,27 +62,28 @@ services:
             retries: 5
 
     # ──────────────────────────────────────────────
-    # API — Backend server
+    # API server — Express HTTP API
     # ──────────────────────────────────────────────
     api:
         build:
-            context: ./backend
+            context: .
             dockerfile: Dockerfile
         container_name: ss-api
         restart: unless-stopped
         depends_on:
+            mongo:
+                condition: service_healthy
             redis:
                 condition: service_healthy
         env_file:
-            - ./backend/.env
+            - .env
         environment:
-            # Specific overrides for Docker networking
-            PORT: 8000
-            REDIS_URL: redis://redis:6379
-            SCANNER_SERVICE_URL: http://scanner:8001
-            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
-            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
             NODE_ENV: production
+            PORT: 8000
+            MONGO_URL: ${MONGO_URL}
+            REDIS_URL: redis://redis:6379
+            QUEUE_BACKEND: bullmq
+            SCANNER_SERVICE_URL: http://scanner:8001
         ports:
             - "8000:8000"
         networks:
@@ -82,36 +100,43 @@ services:
             start_period: 20s
 
     # ──────────────────────────────────────────────
-    # Worker — Background auditor
+    # Worker — BullMQ background job consumer
+    # Processes audit jobs dispatched by the API.
+    # Calls the scanner service for Lighthouse runs,
+    # then builds scorecards, PDFs, AI reports, emails.
     # ──────────────────────────────────────────────
     worker:
         build:
-            context: ./backend
+            context: .
             dockerfile: Dockerfile.worker
         container_name: ss-worker
         restart: unless-stopped
         depends_on:
+            mongo:
+                condition: service_healthy
             redis:
                 condition: service_healthy
             scanner:
                 condition: service_healthy
         env_file:
-            - ./backend/.env
+            - .env
         environment:
-            REDIS_URL: redis://redis:6379
-            SCANNER_SERVICE_URL: http://scanner:8001
-            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
-            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
             NODE_ENV: production
+            MONGO_URL: ${MONGO_URL}
+            REDIS_URL: redis://redis:6379
+            QUEUE_BACKEND: bullmq
+            SCANNER_SERVICE_URL: http://scanner:8001
         networks:
             - ssnet
 
     # ──────────────────────────────────────────────
-    # Scanner — Headless Lighthouse scanner
+    # Scanner — headless Chromium + Lighthouse
+    # Runs as an internal HTTP service; only the
+    # worker and API call it — not exposed publicly.
     # ──────────────────────────────────────────────
     scanner:
         build:
-            context: ./backend
+            context: .
             dockerfile: Dockerfile.scanner
         container_name: ss-scanner
         restart: unless-stopped
@@ -119,18 +144,11 @@ services:
             redis:
                 condition: service_healthy
         env_file:
-            - ./backend/.env
+            - .env
         environment:
-            SCANNER_PORT: 8001
-            PORT: 8001
-            TEMP_DIR: /tmp
-            PYTHONUNBUFFERED: 1
-            SCANNER_MAX_CONCURRENT_AUDITS: ${SCANNER_MAX_CONCURRENT_AUDITS:-1}
-            SCANNER_MAX_QUEUED_AUDITS: ${SCANNER_MAX_QUEUED_AUDITS:-8}
-            SCANNER_EXECUTOR_WORKERS: ${SCANNER_EXECUTOR_WORKERS:-2}
-            SCANNER_KEEP_TEMP_REPORTS: ${SCANNER_KEEP_TEMP_REPORTS:-false}
-            REDIS_URL: redis://redis:6379
             NODE_ENV: production
+            SCANNER_PORT: 8001
+            REDIS_URL: redis://redis:6379
         security_opt:
             - seccomp:unconfined
         ports:
@@ -153,5 +171,7 @@ networks:
         driver: bridge
 
 volumes:
+    mongo_data:
+        driver: local
     redis_data:
         driver: local

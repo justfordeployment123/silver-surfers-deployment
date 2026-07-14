@@ -1,79 +1,34 @@
-# SilverSurfers — local development + staging compose
-#
-# Services:
-#   mongo    — Primary database (port 27017)
-#   redis    — BullMQ job queue and cache broker
-#   api      — Express API server (port 8000)
-#   worker   — Background audit job processor (BullMQ consumer)
-#   scanner  — Headless Chromium / Lighthouse scanner service (port 8001)
-#
-# Usage:
-#   docker compose up --build          # bring up all services
-#   docker compose up api worker       # bring up without rebuilding scanner
-#   docker compose logs -f worker      # tail worker logs
-#   docker compose down -v             # stop and remove volumes
-#
-# Environment:
-#   Copy .env.example to .env and fill in secrets before running.
-#   docker compose automatically loads .env from the same directory.
+name: ss-prod
 
 services:
-    # ──────────────────────────────────────────────
-    # MongoDB — primary database
-    # ──────────────────────────────────────────────
-    mongo:
-        image: mongo:7.0-jammy
-        container_name: ss-mongo
-        restart: unless-stopped
-        environment:
-            MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
-            MONGO_INITDB_DATABASE: ${MONGO_URL}
-        ports:
-            - "27017:27017"
-        volumes:
-            - mongo_data:/data/db
-        networks:
-            - ssnet
-        healthcheck:
-            test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
-
-    # ──────────────────────────────────────────────
-    # Redis — BullMQ broker
-    # ──────────────────────────────────────────────
     redis:
         image: redis:7-alpine
-        container_name: ss-redis
+        container_name: ss-redis-new
         restart: unless-stopped
         command: redis-server --save 60 1 --loglevel warning
         ports:
-            - "6380:6379"
+            - "6381:6379"
         volumes:
-            - redis_data:/data
+            - redis_data_new:/data
         networks:
-            - ssnet
+            - ssnet_new
         healthcheck:
             test: ["CMD", "redis-cli", "ping"]
             interval: 10s
             timeout: 5s
             retries: 5
 
-    # ──────────────────────────────────────────────
-    # API server — Express HTTP API
-    # ──────────────────────────────────────────────
     api:
         build:
             context: .
             dockerfile: Dockerfile
-        container_name: ss-api
+        image: ss-prod-api:latest
+        container_name: ss-api-new
         restart: unless-stopped
         depends_on:
-            mongo:
-                condition: service_healthy
             redis:
+                condition: service_healthy
+            scanner:
                 condition: service_healthy
         env_file:
             - .env
@@ -85,9 +40,9 @@ services:
             QUEUE_BACKEND: bullmq
             SCANNER_SERVICE_URL: http://scanner:8001
         ports:
-            - "8000:8000"
+            - "8002:8000"
         networks:
-            - ssnet
+            - ssnet_new
         healthcheck:
             test:
                 [
@@ -97,23 +52,16 @@ services:
             interval: 30s
             timeout: 10s
             retries: 3
-            start_period: 20s
+            start_period: 40s
 
-    # ──────────────────────────────────────────────
-    # Worker — BullMQ background job consumer
-    # Processes audit jobs dispatched by the API.
-    # Calls the scanner service for Lighthouse runs,
-    # then builds scorecards, PDFs, AI reports, emails.
-    # ──────────────────────────────────────────────
     worker:
         build:
             context: .
             dockerfile: Dockerfile.worker
-        container_name: ss-worker
+        image: ss-prod-worker:latest
+        container_name: ss-worker-new
         restart: unless-stopped
         depends_on:
-            mongo:
-                condition: service_healthy
             redis:
                 condition: service_healthy
             scanner:
@@ -127,18 +75,14 @@ services:
             QUEUE_BACKEND: bullmq
             SCANNER_SERVICE_URL: http://scanner:8001
         networks:
-            - ssnet
+            - ssnet_new
 
-    # ──────────────────────────────────────────────
-    # Scanner — headless Chromium + Lighthouse
-    # Runs as an internal HTTP service; only the
-    # worker and API call it — not exposed publicly.
-    # ──────────────────────────────────────────────
     scanner:
         build:
             context: .
             dockerfile: Dockerfile.scanner
-        container_name: ss-scanner
+        image: ss-prod-scanner:latest
+        container_name: ss-scanner-new
         restart: unless-stopped
         depends_on:
             redis:
@@ -152,9 +96,9 @@ services:
         security_opt:
             - seccomp:unconfined
         ports:
-            - "8001:8001"
+            - "8003:8001"
         networks:
-            - ssnet
+            - ssnet_new
         healthcheck:
             test:
                 [
@@ -167,11 +111,11 @@ services:
             start_period: 30s
 
 networks:
-    ssnet:
+    ssnet_new:
+        name: ssnet_new
         driver: bridge
 
 volumes:
-    mongo_data:
-        driver: local
-    redis_data:
+    redis_data_new:
+        name: redis_data_new
         driver: local
