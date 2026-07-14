@@ -82,7 +82,7 @@ function titleCaseSiteName(value) {
 function extractSiteNameFromUrl(url, fallback = 'Website') {
     try {
         const urlObj = new URL(String(url || '').startsWith('http') ? url : `https://${url}`);
-        const hostname = urlObj.hostname.replace(/^www\./i, '');
+        const hostname = urlObj.hostname.replace(/^(?:www|m|mobile|amp)\./i, '');
         const name = titleCaseSiteName(getBrandSegmentFromHostname(hostname));
         return name || hostname || fallback;
     } catch (e) {
