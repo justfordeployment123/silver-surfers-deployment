@@ -16,6 +16,7 @@ import {
   getUsers,
   rerunAnalysis,
   resetUserUsage,
+  toggleInternalFlag,
   updateUserStatus,
   updateUserRole,
   updateUserSubscription,
@@ -292,6 +293,7 @@ router.get('/users/:id', asyncHandler(getUser));
 router.post('/users/:id/reset-usage', asyncHandler(resetUserUsage));
 router.put('/users/:id/role', asyncHandler(updateUserRole));
 router.put('/users/:id/status', asyncHandler(updateUserStatus));
+router.put('/users/:id/internal', asyncHandler(toggleInternalFlag));
 router.post('/subscription/update', asyncHandler(updateUserSubscription));
 
 export default router;

@@ -675,6 +675,35 @@ export async function updateUserStatus(request: Request, response: Response): Pr
   }
 }
 
+export async function toggleInternalFlag(request: Request, response: Response): Promise<void> {
+  try {
+    const id = String(request.params.id || '');
+
+    if (request.user?.id === id) {
+      response.status(400).json({ error: 'You cannot change your own internal flag' });
+      return;
+    }
+
+    const user = await User.findById(id).select('-password -passwordHash');
+    if (!user) {
+      response.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    const currentValue = (user as unknown as Record<string, unknown>).isInternal as boolean ?? false;
+    const updated = await User.findByIdAndUpdate(
+      id,
+      { $set: { isInternal: !currentValue } },
+      { new: true },
+    ).select('-password -passwordHash');
+
+    response.json({ success: true, user: updated, isInternal: !currentValue });
+  } catch (error) {
+    console.error('Error toggling internal flag:', error);
+    response.status(500).json({ error: 'Failed to update internal flag' });
+  }
+}
+
 export async function updateUserSubscription(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.body?.userId;

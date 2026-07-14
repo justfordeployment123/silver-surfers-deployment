@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminListUsers, adminGetUser, adminResetUserUsage, adminUpdateUserSubscription, adminUpdateUserRole, adminUpdateUserStatus } from '../../api';
+import { adminListUsers, adminGetUser, adminResetUserUsage, adminUpdateUserSubscription, adminUpdateUserRole, adminUpdateUserStatus, adminToggleInternalFlag } from '../../api';
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -10,6 +10,7 @@ const AdminUsers = () => {
   const [filterRole, setFilterRole] = useState('all');
   const [filterSubscription, setFilterSubscription] = useState('all');
   const [filterAccountStatus, setFilterAccountStatus] = useState('all');
+  const [filterInternal, setFilterInternal] = useState('external');
   const [showUserDetail, setShowUserDetail] = useState(null);
   const [showPlanModal, setShowPlanModal] = useState(null);
   const [currentUserId, setCurrentUserId] = useState(null);
@@ -108,11 +109,14 @@ const AdminUsers = () => {
     const matchesSearch = user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          user.name?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = filterRole === 'all' || user.role === filterRole;
-    const matchesSubscription = filterSubscription === 'all' || 
+    const matchesSubscription = filterSubscription === 'all' ||
                                (filterSubscription === 'active' && user.subscription?.status === 'active') ||
                                (filterSubscription === 'none' && !user.subscription);
     const matchesAccountStatus = filterAccountStatus === 'all' || String(user.accountStatus || 'active') === filterAccountStatus;
-    return matchesSearch && matchesRole && matchesSubscription && matchesAccountStatus;
+    const matchesInternal = filterInternal === 'all' ||
+                            (filterInternal === 'external' && !user.isInternal) ||
+                            (filterInternal === 'internal' && user.isInternal);
+    return matchesSearch && matchesRole && matchesSubscription && matchesAccountStatus && matchesInternal;
   });
 
   const getStatusBadge = (status) => {
@@ -213,6 +217,22 @@ const AdminUsers = () => {
     }
   };
 
+  const handleToggleInternal = async (userId) => {
+    try {
+      const result = await adminToggleInternalFlag(userId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(`User marked as ${result.isInternal ? 'internal' : 'external'}`);
+        loadUsers();
+        setShowUserDetail(null);
+        setTimeout(() => setSuccess(''), 3000);
+      }
+    } catch (err) {
+      setError('Failed to update internal flag');
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -283,18 +303,31 @@ const AdminUsers = () => {
               <option value="suspended" className="text-gray-900">Suspended</option>
             </select>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Account Type</label>
+            <select
+              value={filterInternal}
+              onChange={(e) => setFilterInternal(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-gray-900 bg-white"
+            >
+              <option value="all" className="text-gray-900">All</option>
+              <option value="external" className="text-gray-900">Clients Only</option>
+              <option value="internal" className="text-gray-900">Internal Only</option>
+            </select>
+          </div>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 mt-6">
           <div className="bg-indigo-50 rounded-lg p-4">
-            <div className="text-sm font-medium text-indigo-600">Total Users</div>
-            <div className="text-2xl font-bold text-indigo-900 mt-1">{users.length}</div>
+            <div className="text-sm font-medium text-indigo-600">Real Clients</div>
+            <div className="text-2xl font-bold text-indigo-900 mt-1">{users.filter(u => !u.isInternal).length}</div>
+            <div className="text-xs text-indigo-400 mt-1">{users.filter(u => u.isInternal).length} internal</div>
           </div>
           <div className="bg-green-50 rounded-lg p-4">
             <div className="text-sm font-medium text-green-600">Active Subscriptions</div>
             <div className="text-2xl font-bold text-green-900 mt-1">
-              {users.filter(u => u.subscription?.status === 'active').length}
+              {users.filter(u => !u.isInternal && u.subscription?.status === 'active').length}
             </div>
           </div>
           <div className="bg-purple-50 rounded-lg p-4">
@@ -377,9 +410,16 @@ const AdminUsers = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
-                        {user.role}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleBadge(user.role)}`}>
+                          {user.role}
+                        </span>
+                        {user.isInternal && (
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">
+                            Internal
+                          </span>
+                        )}
+                      </div>
                       <div className="mt-2">
                         <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
                           String(user.accountStatus || 'active') === 'suspended'
@@ -517,6 +557,24 @@ const AdminUsers = () => {
                      Update Subscription Plan
                    </button>
                    
+                   {/* Internal Flag */}
+                   <div className="border-t pt-3 mt-3">
+                     <h5 className="text-sm font-medium text-gray-700 mb-2">Account Type</h5>
+                     <button
+                       onClick={() => handleToggleInternal(showUserDetail._id)}
+                       disabled={currentUserId === showUserDetail._id}
+                       className={`w-full px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                         currentUserId === showUserDetail._id
+                           ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                           : showUserDetail.isInternal
+                             ? 'bg-orange-500 hover:bg-orange-600 text-white'
+                             : 'bg-gray-500 hover:bg-gray-600 text-white'
+                       }`}
+                     >
+                       {showUserDetail.isInternal ? 'Remove Internal Flag' : 'Mark as Internal (Staff/Contractor)'}
+                     </button>
+                   </div>
+
                    {/* Role Management */}
                    <div className="border-t pt-3 mt-3">
                      <h5 className="text-sm font-medium text-gray-700 mb-2">Role Management</h5>

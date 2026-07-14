@@ -51,6 +51,7 @@ const userSchema = new mongoose.Schema({
     isTeamMember: { type: Boolean, default: false },
     teamOwner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
+  isInternal: { type: Boolean, default: false },
   oneTimeScans: { type: Number, default: 0 },
   purchaseHistory: [{
     date: { type: Date, default: Date.now },
