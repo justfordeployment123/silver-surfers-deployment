@@ -26,11 +26,11 @@ const Subscription = () => {
     const [newMemberEmail, setNewMemberEmail] = useState("");
     const [teamScans, setTeamScans] = useState([]);
     const [scansLoading, setScansLoading] = useState(false);
-    const [billingCycle] = useState("yearly"); // Always yearly - no monthly option
+    const [billingCycle, setBillingCycle] = useState("yearly");
     const navigate = useNavigate();
     const [params] = useSearchParams();
     const selectedPlan = params.get("plan");
-    const selectedCycle = "yearly"; // Always yearly
+    const selectedCycle = params.get("cycle") === "monthly" ? "monthly" : "yearly";
 
     // Scroll to top when error or success is set
     useEffect(() => {
@@ -45,7 +45,36 @@ const Subscription = () => {
         if (plan.type === "one-time" || plan.isOneTime) {
             return plan.price;
         }
-        return plan.yearlyPrice; // Always yearly
+        return billingCycle === "yearly" ? plan.yearlyPrice : plan.monthlyPrice;
+    };
+
+    // Returns { main, suffix, caption } for subscription plan pricing based on the selected billing cycle.
+    const getPriceDisplay = (plan) => {
+        if (billingCycle === "yearly") {
+            const perMonth = plan.yearlyPrice / 12;
+            return {
+                main: formatPrice(perMonth),
+                suffix: "/month",
+                caption: `billed yearly (${formatPrice(plan.yearlyPrice)}/year)`,
+            };
+        }
+        return {
+            main: formatPrice(plan.monthlyPrice),
+            suffix: "/Month",
+            caption: `(${formatPrice(plan.monthlyPrice * 12)}/year)`,
+        };
+    };
+
+    // Starter/Pro plans list their scan allotment as the first feature; recompute it for the selected cycle.
+    const getDisplayFeatures = (plan) => {
+        const scanLimit = plan.limits?.scansPerMonth;
+        if (plan.isOneTime || plan.type === "one-time" || plan.contactSales || scanLimit === -1 || scanLimit === undefined) {
+            return plan.limits.features;
+        }
+
+        const effectiveScans = billingCycle === "monthly" ? Math.floor(scanLimit / 12) : scanLimit;
+        const scanLabel = `${effectiveScans} report${effectiveScans === 1 ? "" : "s"} per ${billingCycle === "monthly" ? "month" : "year"}`;
+        return [scanLabel, ...plan.limits.features.slice(1)];
     };
 
     useEffect(() => {
@@ -510,7 +539,9 @@ const Subscription = () => {
                                     </div>
 
                                     <div className="flex items-center justify-between">
-                                        <span className="text-gray-700">Scans This Year:</span>
+                                        <span className="text-gray-700">
+                                            Scans This {currentSubscription.billingCycle === "monthly" ? "Month" : "Year"}:
+                                        </span>
                                         <span className="font-semibold text-gray-900">
                                             {currentSubscription.usage?.scansThisMonth || 0} /{" "}
                                             {currentSubscription.limits?.scansPerMonth === -1
@@ -840,6 +871,27 @@ const Subscription = () => {
                                     <div className="text-center mb-8">
                                         <h2 className="text-2xl font-bold text-gray-900 mb-4">Available Plans</h2>
                                         <p className="text-lg text-gray-600 mb-6">Upgrade or change your subscription</p>
+
+                                        <div className="inline-flex items-center bg-gray-50 border-2 border-gray-200 rounded-full p-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBillingCycle("yearly")}
+                                                className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+                                                    billingCycle === "yearly" ? "bg-blue-500 text-white shadow" : "text-gray-600"
+                                                }`}
+                                            >
+                                                Billed Yearly
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBillingCycle("monthly")}
+                                                className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+                                                    billingCycle === "monthly" ? "bg-blue-500 text-white shadow" : "text-gray-600"
+                                                }`}
+                                            >
+                                                Billed Monthly
+                                            </button>
+                                        </div>
                                     </div>
 
                                     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -848,6 +900,7 @@ const Subscription = () => {
                                             .map((plan) => {
                                                 const isCurrentPlan = plan.id === currentSubscription.planId;
                                                 const canUpgrade = !isCurrentPlan && plan.id !== "custom";
+                                                const priceDisplay = plan.contactSales ? null : getPriceDisplay(plan);
 
                                                 return (
                                                     <div
@@ -867,17 +920,24 @@ const Subscription = () => {
 
                                                         {/* Pricing Section */}
                                                         <div className="mb-4">
-                                                            <div className="font-bold text-2xl text-gray-900 mb-1">
-                                                                {formatPrice(getCurrentPrice(plan))}
-                                                            </div>
-                                                            <div className="text-sm text-gray-500 mb-2">per year</div>
+                                                            {plan.contactSales ? (
+                                                                <div className="font-bold text-2xl text-gray-900 mb-1">Contact us</div>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="font-bold text-2xl text-gray-900 mb-1">
+                                                                        {priceDisplay.main}
+                                                                        <span className="text-sm font-semibold text-gray-500">{priceDisplay.suffix}</span>
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-500 mb-2">{priceDisplay.caption}</div>
+                                                                </>
+                                                            )}
                                                         </div>
 
                                                         {/* Features List */}
                                                         {plan.limits.features && plan.limits.features.length > 0 && (
                                                             <div className="mb-4">
                                                                 <ul className="space-y-2">
-                                                                    {plan.limits.features.map((feature, idx) => (
+                                                                    {getDisplayFeatures(plan).map((feature, idx) => (
                                                                         <li key={idx} className="flex items-start text-sm text-gray-700">
                                                                             <svg
                                                                                 className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0"
@@ -920,6 +980,27 @@ const Subscription = () => {
                         <div className="text-center mb-8">
                             <h2 className="text-2xl font-bold text-gray-900 mb-4">Choose Your Plan</h2>
                             <p className="text-lg text-gray-600 mb-6">Select the plan that fits your business needs</p>
+
+                            <div className="inline-flex items-center bg-gray-50 border-2 border-gray-200 rounded-full p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setBillingCycle("yearly")}
+                                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+                                        billingCycle === "yearly" ? "bg-blue-500 text-white shadow" : "text-gray-600"
+                                    }`}
+                                >
+                                    Billed Yearly
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setBillingCycle("monthly")}
+                                    className={`px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+                                        billingCycle === "monthly" ? "bg-blue-500 text-white shadow" : "text-gray-600"
+                                    }`}
+                                >
+                                    Billed Monthly
+                                </button>
+                            </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -947,6 +1028,9 @@ const Subscription = () => {
                                     );
                                 }
 
+                                const isOneTimePlan = plan.isOneTime || plan.type === "one-time";
+                                const priceDisplay = isOneTimePlan ? null : getPriceDisplay(plan);
+
                                 return (
                                     <div
                                         key={plan.id}
@@ -965,11 +1049,16 @@ const Subscription = () => {
 
                                             <div className="mb-4">
                                                 {/* Current Price */}
-                                                <div className="text-3xl font-bold text-gray-900">{formatPrice(getCurrentPrice(plan))}</div>
-
-                                                {/* Only show "per year" for subscription plans, not one-time */}
-                                                {!(plan.isOneTime || plan.type === "one-time") && (
-                                                    <div className="text-sm text-gray-700">per year</div>
+                                                {isOneTimePlan ? (
+                                                    <div className="text-3xl font-bold text-gray-900">{formatPrice(getCurrentPrice(plan))}</div>
+                                                ) : (
+                                                    <>
+                                                        <div className="text-3xl font-bold text-gray-900">
+                                                            {priceDisplay.main}
+                                                            <span className="text-base font-semibold text-gray-500">{priceDisplay.suffix}</span>
+                                                        </div>
+                                                        <div className="text-sm text-gray-700">{priceDisplay.caption}</div>
+                                                    </>
                                                 )}
                                             </div>
 
@@ -977,7 +1066,7 @@ const Subscription = () => {
                                             {plan.limits && plan.limits.features && plan.limits.features.length > 0 && (
                                                 <div className="mb-4">
                                                     <ul className="space-y-2 text-left">
-                                                        {plan.limits.features.map((feature, idx) => (
+                                                        {getDisplayFeatures(plan).map((feature, idx) => (
                                                             <li key={idx} className="flex items-start text-sm text-gray-700">
                                                                 <svg
                                                                     className="w-4 h-4 text-green-500 mr-2 mt-0.5 flex-shrink-0"

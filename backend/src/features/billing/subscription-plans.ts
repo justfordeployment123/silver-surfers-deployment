@@ -1,4 +1,6 @@
 export interface SubscriptionPlanLimits {
+  // Annual scan allotment when billed yearly. When billed monthly, the
+  // effective per-period limit is this value divided by 12 (see getLimitsForCycle).
   scansPerMonth: number;
   maxUsers: number;
   features: string[];
@@ -12,6 +14,7 @@ export interface SubscriptionPlan {
   yearlyPrice?: number | null;
   yearlyPriceId?: string;
   monthlyPrice?: number | null;
+  monthlyPriceId?: string;
   currency: string;
   type?: string;
   isOneTime?: boolean;
@@ -22,6 +25,8 @@ export interface SubscriptionPlan {
   contactSales?: boolean;
   buttonText?: string;
 }
+
+export type BillingCycle = 'monthly' | 'yearly';
 
 export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
   oneTime: {
@@ -53,7 +58,9 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     name: 'Starter',
     description: '',
     yearlyPriceId: process.env.STRIPE_STARTER_YEARLY_PRICE_ID,
-    yearlyPrice: 199700,
+    yearlyPrice: 144000, // $120/month billed yearly ($1,440/year)
+    monthlyPriceId: process.env.STRIPE_STARTER_MONTHLY_PRICE_ID,
+    monthlyPrice: 14000, // $140/month billed monthly ($1,680/year)
     currency: 'usd',
     limits: {
       scansPerMonth: 60,
@@ -76,7 +83,9 @@ export const SUBSCRIPTION_PLANS: Record<string, SubscriptionPlan> = {
     name: 'Pro',
     description: '',
     yearlyPriceId: process.env.STRIPE_PRO_YEARLY_PRICE_ID,
-    yearlyPrice: 299700,
+    yearlyPrice: 478800, // $399/month billed annually ($4,788/year)
+    monthlyPriceId: process.env.STRIPE_PRO_MONTHLY_PRICE_ID,
+    monthlyPrice: 46000, // $460/month billed monthly ($5,520/year)
     currency: 'usd',
     limits: {
       scansPerMonth: 144,
@@ -132,12 +141,37 @@ export function getPlanById(planId: string | null | undefined): SubscriptionPlan
   return SUBSCRIPTION_PLANS[planId] || null;
 }
 
-export function getPlanByPriceId(priceId: string | null | undefined): SubscriptionPlan | null {
+export function getPlanByPriceId(
+  priceId: string | null | undefined,
+): { plan: SubscriptionPlan; billingCycle: BillingCycle } | null {
   if (!priceId) {
     return null;
   }
 
-  return Object.values(SUBSCRIPTION_PLANS).find((plan) => plan.yearlyPriceId === priceId) || null;
+  for (const plan of Object.values(SUBSCRIPTION_PLANS)) {
+    if (plan.yearlyPriceId === priceId) {
+      return { plan, billingCycle: 'yearly' };
+    }
+    if (plan.monthlyPriceId === priceId) {
+      return { plan, billingCycle: 'monthly' };
+    }
+  }
+
+  return null;
+}
+
+export function getPriceIdForCycle(plan: SubscriptionPlan, billingCycle: BillingCycle): string | undefined {
+  return billingCycle === 'monthly' ? plan.monthlyPriceId : plan.yearlyPriceId;
+}
+
+// The monthly-billed plan grants the annual scan allotment divided by 12 per (monthly) period.
+export function getLimitsForCycle(plan: SubscriptionPlan, billingCycle: BillingCycle): SubscriptionPlanLimits {
+  const { scansPerMonth } = plan.limits;
+  if (billingCycle !== 'monthly' || scansPerMonth === -1) {
+    return plan.limits;
+  }
+
+  return { ...plan.limits, scansPerMonth: Math.floor(scansPerMonth / 12) };
 }
 
 export function getAvailablePlans(): SubscriptionPlan[] {
@@ -151,6 +185,7 @@ export function getPublicPlans(): Array<Record<string, unknown>> {
     description: plan.description,
     price: plan.price,
     yearlyPrice: plan.yearlyPrice,
+    monthlyPrice: plan.monthlyPrice,
     currency: plan.currency,
     type: plan.type,
     isOneTime: plan.isOneTime,

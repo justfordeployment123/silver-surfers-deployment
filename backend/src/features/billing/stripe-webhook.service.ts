@@ -8,7 +8,7 @@ import {
   sendSubscriptionReinstatementEmail,
   sendSubscriptionWelcomeEmail,
 } from './billing-email.service.ts';
-import { getPlanById, getPlanByPriceId } from './subscription-plans.ts';
+import { getLimitsForCycle, getPlanById, getPlanByPriceId } from './subscription-plans.ts';
 import { getStripeClient } from './stripe-client.ts';
 
 function getStripePeriodDate(value: number | null | undefined): Date | null {
@@ -69,12 +69,13 @@ export async function handleSubscriptionCreated(subscription: Stripe.Subscriptio
   }
 
   const priceId = subscription.items.data[0]?.price.id;
-  const plan = getPlanByPriceId(priceId);
-  const billingCycle = subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly';
+  const match = getPlanByPriceId(priceId);
+  const billingCycle = match?.billingCycle
+    || (subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly');
   const currentPeriodEnd = getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end);
 
   try {
-    await sendSubscriptionWelcomeEmail(user.email, plan?.name || 'Unknown Plan', billingCycle, currentPeriodEnd);
+    await sendSubscriptionWelcomeEmail(user.email, match?.plan.name || 'Unknown Plan', billingCycle, currentPeriodEnd);
   } catch (error) {
     console.error('Failed to send subscription welcome email:', error);
   }
@@ -87,7 +88,8 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
   }
 
   const priceId = subscription.items.data[0]?.price.id;
-  const plan = getPlanByPriceId(priceId);
+  const match = getPlanByPriceId(priceId);
+  const plan = match?.plan ?? null;
   const currentPeriodStart = getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start);
   const currentPeriodEnd = getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end);
 
@@ -103,7 +105,7 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
   const subscriptionUpdate: Record<string, unknown> = {
     status: subscription.status,
     cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    ...(plan ? { planId: plan.id, limits: plan.limits } : {}),
+    ...(plan && match ? { planId: plan.id, billingCycle: match.billingCycle, limits: getLimitsForCycle(plan, match.billingCycle) } : {}),
   };
 
   if (currentPeriodStart) {
@@ -162,7 +164,8 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
 
   if (wasInactive && isNowActive && updatedUser?.email) {
     try {
-      const billingCycle = subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly';
+      const billingCycle = match?.billingCycle
+        || (subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly');
       await sendSubscriptionWelcomeEmail(updatedUser.email, planName, billingCycle, currentPeriodEnd);
     } catch (error) {
       console.error('Failed to send welcome email after activation:', error);
@@ -196,14 +199,14 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
       )
     : null;
 
-  const plan = getPlanByPriceId(subscription.items.data[0]?.price.id);
+  const match = getPlanByPriceId(subscription.items.data[0]?.price.id);
   const currentPeriodEnd = getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end);
 
   if (user?.email) {
     try {
       await sendSubscriptionCancellationEmail(
         user.email,
-        plan?.name || 'Unknown Plan',
+        match?.plan.name || 'Unknown Plan',
         Boolean(subscription.cancel_at_period_end),
         currentPeriodEnd,
       );

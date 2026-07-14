@@ -7,7 +7,12 @@ import {
   sendSubscriptionCancellationEmail,
 } from './billing-email.service.ts';
 import { getStripeClient } from './stripe-client.ts';
-import { getPlanById, getPublicPlans, SUBSCRIPTION_PLANS } from './subscription-plans.ts';
+import type { BillingCycle } from './subscription-plans.ts';
+import { getLimitsForCycle, getPlanById, getPriceIdForCycle, getPublicPlans } from './subscription-plans.ts';
+
+function normalizeBillingCycle(value: unknown): BillingCycle {
+  return value === 'monthly' ? 'monthly' : 'yearly';
+}
 
 function resolveFrontendUrl(): string {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -98,6 +103,7 @@ export async function getSubscription(request: Request, response: Response): Pro
           status: normalizedEmbeddedStatus,
           planId: user.subscription?.planId,
           plan: getPlanById(user.subscription?.planId || ''),
+          billingCycle: 'yearly',
           currentPeriodStart: user.subscription?.currentPeriodStart,
           currentPeriodEnd: user.subscription?.currentPeriodEnd,
           cancelAtPeriodEnd: Boolean(user.subscription?.cancelAtPeriodEnd),
@@ -122,6 +128,7 @@ export async function getSubscription(request: Request, response: Response): Pro
         status: subscription.status,
         planId: subscription.planId,
         plan,
+        billingCycle: subscription.billingCycle || 'yearly',
         currentPeriodStart: subscription.currentPeriodStart,
         currentPeriodEnd: subscription.currentPeriodEnd,
         cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
@@ -141,7 +148,7 @@ export async function createCheckoutSession(request: Request, response: Response
   try {
     const { planId } = request.body ?? {};
     const userId = request.user?.id;
-    const billingCycle = 'yearly';
+    const billingCycle = normalizeBillingCycle(request.body?.billingCycle);
 
     if (!userId) {
       response.status(401).json({ error: 'Unauthorized' });
@@ -230,8 +237,9 @@ export async function createCheckoutSession(request: Request, response: Response
       return;
     }
 
-    if (!plan.yearlyPriceId) {
-      response.status(400).json({ error: 'Price ID not configured for this plan.' });
+    const priceId = getPriceIdForCycle(plan, billingCycle);
+    if (!priceId) {
+      response.status(400).json({ error: 'Price ID not configured for this plan and billing cycle.' });
       return;
     }
 
@@ -239,7 +247,7 @@ export async function createCheckoutSession(request: Request, response: Response
       mode: 'subscription',
       payment_method_types: ['card'],
       customer: customerId,
-      line_items: [{ price: plan.yearlyPriceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         metadata: {
           userId,
@@ -317,6 +325,7 @@ export async function upgradeSubscription(request: Request, response: Response):
   try {
     const { planId } = request.body ?? {};
     const userId = request.user?.id;
+    const billingCycle = normalizeBillingCycle(request.body?.billingCycle);
 
     if (!userId) {
       response.status(401).json({ error: 'Unauthorized' });
@@ -344,8 +353,9 @@ export async function upgradeSubscription(request: Request, response: Response):
       return;
     }
 
-    if (!plan.yearlyPriceId) {
-      response.status(400).json({ error: 'Price ID not configured for this plan.' });
+    const priceId = getPriceIdForCycle(plan, billingCycle);
+    if (!priceId) {
+      response.status(400).json({ error: 'Price ID not configured for this plan and billing cycle.' });
       return;
     }
 
@@ -360,12 +370,12 @@ export async function upgradeSubscription(request: Request, response: Response):
       mode: 'subscription',
       payment_method_types: ['card'],
       customer: user.stripeCustomerId,
-      line_items: [{ price: plan.yearlyPriceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         metadata: {
           userId,
           planId: plan.id,
-          billingCycle: 'yearly',
+          billingCycle,
           isUpgrade: 'true',
           oldSubscriptionId: currentSubscription.stripeSubscriptionId,
         },
@@ -373,7 +383,7 @@ export async function upgradeSubscription(request: Request, response: Response):
       metadata: {
         userId,
         planId: plan.id,
-        billingCycle: 'yearly',
+        billingCycle,
         isUpgrade: 'true',
         oldSubscriptionId: currentSubscription.stripeSubscriptionId,
       },
@@ -583,6 +593,8 @@ export async function subscriptionSuccess(request: Request, response: Response):
       return;
     }
 
+    const billingCycle = normalizeBillingCycle(session.metadata?.billingCycle);
+
     if (isUpgrade && oldSubscriptionId) {
       try {
         await stripe.subscriptions.cancel(oldSubscriptionId);
@@ -606,11 +618,12 @@ export async function subscriptionSuccess(request: Request, response: Response):
         status: subscription.status,
         planId,
         priceId,
+        billingCycle,
         currentPeriodStart: getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start, new Date()),
         currentPeriodEnd: getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end, new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
         trialStart: getStripePeriodDate((subscription as unknown as { trial_start?: number | null }).trial_start, null),
         trialEnd: getStripePeriodDate((subscription as unknown as { trial_end?: number | null }).trial_end, null),
-        limits: plan.limits,
+        limits: getLimitsForCycle(plan, billingCycle),
         usage: {
           scansThisMonth: 0,
           lastResetDate: new Date(),

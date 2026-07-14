@@ -15,6 +15,7 @@ const subscriptionSchema = new mongoose.Schema({
     required: true,
   },
   priceId: { type: String, required: true },
+  billingCycle: { type: String, enum: ['monthly', 'yearly'], default: 'yearly' },
   currentPeriodStart: { type: Date, required: true },
   currentPeriodEnd: { type: Date, required: true },
   cancelAtPeriodEnd: { type: Boolean, default: false },

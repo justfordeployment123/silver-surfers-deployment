@@ -4,7 +4,7 @@ import { getSubscriptionPlans, getSubscription, createCheckoutSession } from '..
 const Services = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [billingCycle] = useState('yearly'); // Always yearly - no monthly option
+  const [billingCycle, setBillingCycle] = useState('yearly');
   const [currentSubscription, setCurrentSubscription] = useState(null);
 
   useEffect(() => {
@@ -40,7 +40,8 @@ const Services = () => {
       name: "Starter",
       icon: "🚀",
       description: "",
-      yearlyPrice: 199700,
+      yearlyPrice: 144000, // $120/month billed yearly ($1,440/year)
+      monthlyPrice: 14000, // $140/month billed monthly ($1,680/year)
       currency: 'usd',
       limits: {
         scansPerMonth: 60, // 60 scans per year
@@ -63,7 +64,8 @@ const Services = () => {
       name: "Pro",
       icon: "⭐",
       description: "",
-      yearlyPrice: 299700,
+      yearlyPrice: 478800, // $399/month billed annually ($4,788/year)
+      monthlyPrice: 46000, // $460/month billed monthly ($5,520/year)
       currency: 'usd',
       limits: {
         scansPerMonth: 144, // 144 scans per year
@@ -151,12 +153,33 @@ const Services = () => {
     return billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
   };
 
-  const getSavings = (plan) => {
-    if (!plan.monthlyPrice || !plan.yearlyPrice) return null;
-    const monthlyTotal = plan.monthlyPrice * 12;
-    const yearlyTotal = plan.yearlyPrice;
-    const savings = monthlyTotal - yearlyTotal;
-    return savings > 0 ? Math.round(savings / 100) : 0;
+  // Returns { main, suffix, caption } for subscription plan pricing based on the selected billing cycle.
+  const getPriceDisplay = (plan) => {
+    if (billingCycle === 'yearly') {
+      const perMonth = plan.yearlyPrice / 12;
+      return {
+        main: formatPrice(perMonth),
+        suffix: '/month',
+        caption: `billed yearly (${formatPrice(plan.yearlyPrice)}/year)`,
+      };
+    }
+    return {
+      main: formatPrice(plan.monthlyPrice),
+      suffix: '/Month',
+      caption: `(${formatPrice(plan.monthlyPrice * 12)}/year)`,
+    };
+  };
+
+  // Starter/Pro plans list their scan allotment as the first feature; recompute it for the selected cycle.
+  const getDisplayFeatures = (plan) => {
+    const scanLimit = plan.limits?.scansPerMonth;
+    if (plan.isOneTime || plan.type === 'one-time' || plan.contactSales || scanLimit === -1 || scanLimit === undefined) {
+      return plan.limits.features;
+    }
+
+    const effectiveScans = billingCycle === 'monthly' ? Math.floor(scanLimit / 12) : scanLimit;
+    const scanLabel = `${effectiveScans} report${effectiveScans === 1 ? '' : 's'} per ${billingCycle === 'monthly' ? 'month' : 'year'}`;
+    return [scanLabel, ...plan.limits.features.slice(1)];
   };
 
   const handleOneTimePurchase = async (planId) => {
@@ -363,8 +386,29 @@ const Services = () => {
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Our Plans & Pricing</h2>
             <p className="text-xl text-gray-600 mb-8">Choose the plan that fits your business needs</p>
+
+            <div className="inline-flex items-center bg-white border-2 border-gray-200 rounded-full p-1 shadow-sm">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('yearly')}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
+                  billingCycle === 'yearly' ? 'bg-gradient-to-r from-blue-500 to-green-500 text-white shadow' : 'text-gray-600'
+                }`}
+              >
+                Billed Yearly
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
+                  billingCycle === 'monthly' ? 'bg-gradient-to-r from-blue-500 to-green-500 text-white shadow' : 'text-gray-600'
+                }`}
+              >
+                Billed Monthly
+              </button>
+            </div>
           </div>
-          
+
           {loading ? (
             <div className="flex justify-center items-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -373,7 +417,7 @@ const Services = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
               {plans.map((plan) => {
                 const currentPrice = getCurrentPrice(plan);
-                const savings = getSavings(plan);
+                const priceDisplay = plan.contactSales || plan.isOneTime || plan.type === 'one-time' ? null : getPriceDisplay(plan);
                 const isCurrentPlan = currentSubscription && currentSubscription.planId === plan.id && currentSubscription.status === 'active';
                 const isTeamMember = currentSubscription && currentSubscription.isTeamMember;
                 
@@ -415,11 +459,12 @@ const Services = () => {
                     <div className="mb-2">
                             {/* Current Price */}
                             <div className={`text-3xl font-bold bg-gradient-to-r ${plan.gradient} bg-clip-text text-transparent`}>
-                              {formatPrice(currentPrice)}
+                              {priceDisplay.main}
+                              <span className="text-lg font-semibold text-gray-500">{priceDisplay.suffix}</span>
                             </div>
-                            
+
                             <div className="text-sm text-gray-500">
-                              per year
+                              {priceDisplay.caption}
                       </div>
                     </div>
                   )}
@@ -430,7 +475,7 @@ const Services = () => {
                         
 
                   <ul className="space-y-3">
-                          {plan.limits.features.map((feature, index) => (
+                          {getDisplayFeatures(plan).map((feature, index) => (
                       <li key={index} className="flex items-start text-gray-700">
                         <svg className="w-5 h-5 text-green-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
