@@ -350,16 +350,32 @@ export async function upgradeSubscription(request: Request, response: Response):
     }
 
     const user = await User.findById(userId);
-    if (!user || !user.stripeCustomerId) {
-      response.status(404).json({ error: 'User or Stripe customer not found.' });
+    if (!user) {
+      response.status(404).json({ error: 'User not found.' });
       return;
     }
 
     const stripe = getStripeClient();
+
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const existingCustomers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (existingCustomers.data.length > 0) {
+        customerId = existingCustomers.data[0]?.id;
+      } else {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { userId },
+        });
+        customerId = customer.id;
+      }
+      await User.findByIdAndUpdate(userId, { stripeCustomerId: customerId });
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
-      customer: user.stripeCustomerId,
+      customer: customerId,
       line_items: [{ price: plan.yearlyPriceId, quantity: 1 }],
       subscription_data: {
         metadata: {
