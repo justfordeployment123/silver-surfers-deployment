@@ -9,7 +9,6 @@ import User from '../../models/user.model.ts';
 import { buildCandidateUrls, precheckCandidateUrl } from '../audits/precheck.service.ts';
 import { getAuditQueues } from '../audits/audits.runtime.ts';
 import { getPlanById } from '../billing/subscription-plans.ts';
-import { getStripeClient } from '../billing/stripe-client.ts';
 
 const MANAGEABLE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'];
 const TERMINAL_STRIPE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired']);
@@ -106,10 +105,6 @@ async function resolveBulkQuickScanUrl(rawUrl: string): Promise<{
   };
 }
 
-function getStripePeriodDate(unixTimestamp: unknown, fallbackValue: Date | null = null): Date | null {
-  const timestamp = Number(unixTimestamp);
-  return Number.isFinite(timestamp) ? new Date(timestamp * 1000) : fallbackValue;
-}
 
 export async function rerunAnalysis(request: Request, response: Response): Promise<void> {
   try {
@@ -702,226 +697,61 @@ export async function updateUserSubscription(request: Request, response: Respons
       return;
     }
 
-    if (!plan.yearlyPriceId) {
-      response.status(400).json({ error: 'Price ID not configured for this plan.' });
-      return;
-    }
+    const now = new Date();
+    const periodEnd = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
 
-    const stripe = getStripeClient();
-    let currentSubscription = await Subscription.findOne({
+    // Cancel any existing active subscription in the database
+    const existing = await Subscription.findOne({
       user: userId,
       status: { $in: MANAGEABLE_SUBSCRIPTION_STATUSES },
     });
-    let stripeSub: Record<string, unknown> | null = null;
 
-    if (currentSubscription) {
-      try {
-        stripeSub = await stripe.subscriptions.retrieve(currentSubscription.stripeSubscriptionId) as unknown as Record<string, unknown>;
-      } catch (error) {
-        const stripeError = error as { statusCode?: number; code?: string };
-        if (stripeError.statusCode !== 404 && stripeError.code !== 'resource_missing') {
-          throw error;
-        }
-
-        await Subscription.findByIdAndUpdate(currentSubscription._id, {
-          status: 'canceled',
-          canceledAt: new Date(),
-          cancelAtPeriodEnd: false,
-        });
-
-        await User.findByIdAndUpdate(userId, {
-          'subscription.stripeSubscriptionId': currentSubscription.stripeSubscriptionId,
-          'subscription.status': 'canceled',
-          'subscription.cancelAtPeriodEnd': false,
-        });
-
-        currentSubscription = null;
-      }
-    }
-
-    if (currentSubscription && stripeSub && TERMINAL_STRIPE_SUBSCRIPTION_STATUSES.has(String(stripeSub.status))) {
-      const canceledPeriodStart = getStripePeriodDate(
-        stripeSub.current_period_start,
-        currentSubscription.currentPeriodStart || null,
-      );
-      const canceledPeriodEnd = getStripePeriodDate(
-        stripeSub.current_period_end,
-        currentSubscription.currentPeriodEnd || null,
-      );
-      const canceledAt = getStripePeriodDate(stripeSub.canceled_at, new Date());
-
-      const canceledSubscriptionUpdate: Record<string, unknown> = {
+    if (existing) {
+      await Subscription.findByIdAndUpdate(existing._id, {
         status: 'canceled',
-        canceledAt,
-        cancelAtPeriodEnd: Boolean(stripeSub.cancel_at_period_end),
-      };
-
-      if (canceledPeriodStart) {
-        canceledSubscriptionUpdate.currentPeriodStart = canceledPeriodStart;
-      }
-      if (canceledPeriodEnd) {
-        canceledSubscriptionUpdate.currentPeriodEnd = canceledPeriodEnd;
-      }
-
-      await Subscription.findByIdAndUpdate(currentSubscription._id, canceledSubscriptionUpdate);
-
-      const canceledUserUpdate: Record<string, unknown> = {
-        'subscription.stripeSubscriptionId': currentSubscription.stripeSubscriptionId,
-        'subscription.status': 'canceled',
-        'subscription.cancelAtPeriodEnd': Boolean(stripeSub.cancel_at_period_end),
-      };
-
-      if (canceledPeriodStart) {
-        canceledUserUpdate['subscription.currentPeriodStart'] = canceledPeriodStart;
-      }
-      if (canceledPeriodEnd) {
-        canceledUserUpdate['subscription.currentPeriodEnd'] = canceledPeriodEnd;
-      }
-
-      await User.findByIdAndUpdate(userId, canceledUserUpdate);
-      currentSubscription = null;
-      stripeSub = null;
+        canceledAt: now,
+        cancelAtPeriodEnd: false,
+      });
     }
 
-    if (!currentSubscription) {
-      if (!user.stripeCustomerId) {
-        const customer = await stripe.customers.create({
-          email: user.email,
-          name: user.email,
-          metadata: {
-            userId: String(userId),
-            createdBy: 'admin',
-          },
-        });
-        user.stripeCustomerId = customer.id;
-        await user.save();
-      }
-
-      const stripeSubscription = await stripe.subscriptions.create({
-        customer: user.stripeCustomerId,
-        items: [{ price: plan.yearlyPriceId }],
-        payment_behavior: 'default_incomplete',
-        payment_settings: { save_default_payment_method: 'on_subscription' },
-        expand: ['latest_invoice.payment_intent'],
-        metadata: {
-          userId: String(userId),
-          planId: String(planId),
-          createdBy: 'admin',
-        },
-      }) as unknown as Record<string, unknown>;
-
-      const currentPeriodStart = getStripePeriodDate(stripeSubscription.current_period_start, new Date()) || new Date();
-      const currentPeriodEnd = getStripePeriodDate(
-        stripeSubscription.current_period_end,
-        new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
-      ) || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-
-      const newSubscription = new Subscription({
-        user: userId,
-        stripeSubscriptionId: stripeSubscription.id,
-        stripeCustomerId: user.stripeCustomerId,
-        planId: plan.id,
-        priceId: plan.yearlyPriceId,
-        status: normalizeAdminManagedSubscriptionStatus(stripeSubscription.status),
-        limits: plan.limits,
-        usage: {
-          scansThisMonth: 0,
-          totalScans: 0,
-        },
-        currentPeriodStart,
-        currentPeriodEnd,
-        cancelAtPeriodEnd: Boolean(stripeSubscription.cancel_at_period_end),
-        metadata: {
-          createdBy: 'admin',
-        },
-      });
-
-      await newSubscription.save();
-
-      await User.findByIdAndUpdate(userId, {
-        'subscription.stripeSubscriptionId': stripeSubscription.id,
-        'subscription.status': normalizeAdminManagedSubscriptionStatus(stripeSubscription.status),
-        'subscription.planId': plan.id,
-        'subscription.priceId': plan.yearlyPriceId,
-        'subscription.usage.scansThisMonth': 0,
-        'subscription.currentPeriodStart': currentPeriodStart,
-        'subscription.currentPeriodEnd': currentPeriodEnd,
-        'subscription.cancelAtPeriodEnd': Boolean(stripeSubscription.cancel_at_period_end),
-      });
-
-      response.json({
-        message: 'New subscription created successfully',
-        subscription: newSubscription,
-        created: true,
-      });
-      return;
-    }
-
-    const subscriptionItemId = (stripeSub?.items as { data?: Array<{ id?: string }> } | undefined)?.data?.[0]?.id;
-    if (!subscriptionItemId) {
-      response.status(500).json({ error: 'Could not determine subscription item to update.' });
-      return;
-    }
-
-    const updatedSubscription = await stripe.subscriptions.update(
-      currentSubscription.stripeSubscriptionId,
-      {
-        items: [{ id: subscriptionItemId, price: plan.yearlyPriceId }],
-        proration_behavior: 'create_prorations',
-        metadata: {
-          planId: String(planId),
-          billingCycle: 'yearly',
-          adminUpdated: 'true',
-        },
-      },
-    ) as unknown as Record<string, unknown>;
-
-    const updatedPeriodStart = getStripePeriodDate(
-      updatedSubscription.current_period_start,
-      currentSubscription.currentPeriodStart || null,
-    );
-    const updatedPeriodEnd = getStripePeriodDate(
-      updatedSubscription.current_period_end,
-      currentSubscription.currentPeriodEnd || null,
-    );
-
-    const subscriptionUpdate: Record<string, unknown> = {
+    // Create new subscription record directly — no Stripe required for admin assignments
+    const newSubscription = new Subscription({
+      user: userId,
+      stripeSubscriptionId: `admin-${Date.now()}`,
+      stripeCustomerId: user.stripeCustomerId || `admin-customer-${String(userId)}`,
       planId: plan.id,
-      priceId: plan.yearlyPriceId,
+      priceId: plan.yearlyPriceId || `admin-price-${plan.id}`,
+      status: 'active',
       limits: plan.limits,
-      status: normalizeAdminManagedSubscriptionStatus(updatedSubscription.status),
-      cancelAtPeriodEnd: Boolean(updatedSubscription.cancel_at_period_end),
-      metadata: {
-        ...(currentSubscription.metadata || {}),
-        createdBy: 'admin',
+      usage: {
+        scansThisMonth: existing?.usage?.scansThisMonth ?? 0,
+        totalScans: existing?.usage?.totalScans ?? 0,
       },
-    };
-    if (updatedPeriodStart) {
-      subscriptionUpdate.currentPeriodStart = updatedPeriodStart;
-    }
-    if (updatedPeriodEnd) {
-      subscriptionUpdate.currentPeriodEnd = updatedPeriodEnd;
-    }
-    await Subscription.findByIdAndUpdate(currentSubscription._id, subscriptionUpdate);
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      cancelAtPeriodEnd: false,
+      metadata: {
+        createdBy: 'admin',
+        adminAssigned: true,
+      },
+    });
 
-    const userSubscriptionUpdate: Record<string, unknown> = {
-      'subscription.stripeSubscriptionId': updatedSubscription.id,
-      'subscription.status': normalizeAdminManagedSubscriptionStatus(updatedSubscription.status),
+    await newSubscription.save();
+
+    await User.findByIdAndUpdate(userId, {
+      'subscription.stripeSubscriptionId': newSubscription.stripeSubscriptionId,
+      'subscription.status': 'active',
       'subscription.planId': plan.id,
-      'subscription.priceId': plan.yearlyPriceId,
-      'subscription.cancelAtPeriodEnd': Boolean(updatedSubscription.cancel_at_period_end),
-    };
-    if (updatedPeriodStart) {
-      userSubscriptionUpdate['subscription.currentPeriodStart'] = updatedPeriodStart;
-    }
-    if (updatedPeriodEnd) {
-      userSubscriptionUpdate['subscription.currentPeriodEnd'] = updatedPeriodEnd;
-    }
-    await User.findByIdAndUpdate(userId, userSubscriptionUpdate);
+      'subscription.priceId': newSubscription.priceId,
+      'subscription.currentPeriodStart': now,
+      'subscription.currentPeriodEnd': periodEnd,
+      'subscription.cancelAtPeriodEnd': false,
+    });
 
     response.json({
-      message: 'Subscription updated successfully by admin.',
-      subscription: updatedSubscription,
+      message: `Subscription updated to ${plan.name} plan successfully.`,
+      subscription: newSubscription,
+      created: true,
     });
   } catch (error) {
     console.error('Admin update subscription error:', error);
