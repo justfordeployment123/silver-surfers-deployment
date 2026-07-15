@@ -159,8 +159,6 @@ const Subscription = () => {
         }
     };
 
-    const isAdminManaged = Boolean(currentSubscription?.id?.toString().startsWith('admin-'));
-
     const handleManageSubscription = async () => {
         try {
             setActionLoading(true);
@@ -525,25 +523,16 @@ const Subscription = () => {
                                     {!currentSubscription.isTeamMember && (
                                         <>
                                             <div className="pt-4 border-t border-gray-200">
-                                                {isAdminManaged ? (
-                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-center">
-                                                        <p className="text-blue-800 text-sm font-medium">Managed by SilverSurfers</p>
-                                                        <p className="text-blue-600 text-xs mt-1">Contact support to update billing or cancel your plan.</p>
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <button
-                                                            onClick={handleManageSubscription}
-                                                            disabled={actionLoading}
-                                                            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                                                        >
-                                                            {actionLoading ? "Opening Portal..." : "Manage Subscription"}
-                                                        </button>
-                                                        <p className="text-xs text-gray-500 mt-2 text-center">
-                                                            Change plan, update billing, or cancel subscription
-                                                        </p>
-                                                    </>
-                                                )}
+                                                <button
+                                                    onClick={handleManageSubscription}
+                                                    disabled={actionLoading}
+                                                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+                                                >
+                                                    {actionLoading ? "Opening Portal..." : "Manage Subscription"}
+                                                </button>
+                                                <p className="text-xs text-gray-500 mt-2 text-center">
+                                                    Change plan, update billing, or cancel subscription
+                                                </p>
                                             </div>
 
                                             {currentSubscription.cancelAtPeriodEnd && (
@@ -573,29 +562,21 @@ const Subscription = () => {
                                     </div>
                                 ) : (
                                     <div className="mt-8 space-y-3">
-                                        {isAdminManaged ? (
-                                            <p className="text-xs text-gray-500 text-center">
-                                                To cancel your subscription, please contact SilverSurfers support.
-                                            </p>
-                                        ) : (
-                                            <>
-                                                <button
-                                                    onClick={() => handleCancelSubscription(false)}
-                                                    disabled={actionLoading || currentSubscription.cancelAtPeriodEnd}
-                                                    className="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                                                >
-                                                    {currentSubscription.cancelAtPeriodEnd ? "Cancellation Scheduled" : "Cancel at Period End"}
-                                                </button>
+                                        <button
+                                            onClick={() => handleCancelSubscription(false)}
+                                            disabled={actionLoading || currentSubscription.cancelAtPeriodEnd}
+                                            className="w-full py-2 px-4 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+                                        >
+                                            {currentSubscription.cancelAtPeriodEnd ? "Cancellation Scheduled" : "Cancel at Period End"}
+                                        </button>
 
-                                                <button
-                                                    onClick={() => handleCancelSubscription(true)}
-                                                    disabled={actionLoading}
-                                                    className="w-full py-2 px-4 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                                                >
-                                                    Cancel Immediately
-                                                </button>
-                                            </>
-                                        )}
+                                        <button
+                                            onClick={() => handleCancelSubscription(true)}
+                                            disabled={actionLoading}
+                                            className="w-full py-2 px-4 bg-red-500 hover:bg-red-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+                                        >
+                                            Cancel Immediately
+                                        </button>
                                     </div>
                                 )}
                             </div>

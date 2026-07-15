@@ -260,8 +260,7 @@ export async function createCheckoutSession(request: Request, response: Response
 
     response.json({ url: session.url });
   } catch (error) {
-    const stripeErr = error as { type?: string; message?: string; code?: string };
-    console.error('Stripe checkout session error:', JSON.stringify({ type: stripeErr.type, message: stripeErr.message, code: stripeErr.code }));
+    console.error('Stripe session error:', error);
     response.status(500).json({ error: 'Failed to create checkout session.' });
   }
 }
@@ -277,20 +276,6 @@ export async function createPortalSession(request: Request, response: Response):
     const user = await User.findById(userId);
     if (!user) {
       response.status(404).json({ error: 'User not found.' });
-      return;
-    }
-
-    // Block portal for admin-managed subscriptions: they have no real Stripe subscription to show
-    const embeddedSubId = String(user.subscription?.stripeSubscriptionId || '');
-    const realStripeSub = await Subscription.findOne({
-      user: userId,
-      status: { $in: ['active', 'trialing', 'past_due'] },
-    });
-    if (!realStripeSub && embeddedSubId.startsWith('admin-')) {
-      response.status(400).json({
-        error: 'Your subscription is managed by SilverSurfers. Please contact support to make changes to your plan.',
-        isAdminManaged: true,
-      });
       return;
     }
 
@@ -359,6 +344,16 @@ export async function upgradeSubscription(request: Request, response: Response):
       return;
     }
 
+    const currentSubscription = await Subscription.findOne({
+      user: userId,
+      status: { $in: ['active', 'trialing'] },
+    });
+
+    if (!currentSubscription) {
+      response.status(404).json({ error: 'No active subscription found.' });
+      return;
+    }
+
     if (!plan.yearlyPriceId) {
       response.status(400).json({ error: 'Price ID not configured for this plan.' });
       return;
@@ -367,20 +362,6 @@ export async function upgradeSubscription(request: Request, response: Response):
     const user = await User.findById(userId);
     if (!user) {
       response.status(404).json({ error: 'User not found.' });
-      return;
-    }
-
-    const currentSubscription = await Subscription.findOne({
-      user: userId,
-      status: { $in: ['active', 'trialing'] },
-    });
-
-    // Also accept admin-assigned (embedded) active subscriptions that have no Subscription document
-    const embeddedSubStatus = String(user.subscription?.status || '').toLowerCase();
-    const hasActiveEmbedded = ['active', 'trialing'].includes(embeddedSubStatus);
-
-    if (!currentSubscription && !hasActiveEmbedded) {
-      response.status(404).json({ error: 'No active subscription found.' });
       return;
     }
 
@@ -401,10 +382,6 @@ export async function upgradeSubscription(request: Request, response: Response):
       await User.findByIdAndUpdate(userId, { stripeCustomerId: customerId });
     }
 
-    // Use the real Stripe subscription ID if available; fall back to embedded (admin-assigned)
-    const oldSubscriptionId = currentSubscription?.stripeSubscriptionId
-      || String(user.subscription?.stripeSubscriptionId || '');
-
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -416,7 +393,7 @@ export async function upgradeSubscription(request: Request, response: Response):
           planId: plan.id,
           billingCycle: 'yearly',
           isUpgrade: 'true',
-          oldSubscriptionId,
+          oldSubscriptionId: currentSubscription.stripeSubscriptionId,
         },
       },
       metadata: {
@@ -424,7 +401,7 @@ export async function upgradeSubscription(request: Request, response: Response):
         planId: plan.id,
         billingCycle: 'yearly',
         isUpgrade: 'true',
-        oldSubscriptionId,
+        oldSubscriptionId: currentSubscription.stripeSubscriptionId,
       },
       success_url: `${resolveFrontendUrl()}/subscription-success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${resolveFrontendUrl()}/subscription?canceled=1`,
@@ -673,7 +650,6 @@ export async function subscriptionSuccess(request: Request, response: Response):
       'subscription.status': subscription.status,
       'subscription.planId': planId,
       'subscription.priceId': priceId,
-      'subscription.stripeSubscriptionId': subscription.id,
       'subscription.currentPeriodStart': getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start, new Date()),
       'subscription.currentPeriodEnd': getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end, new Date()),
     });
