@@ -279,16 +279,26 @@ export async function createPortalSession(request: Request, response: Response):
       return;
     }
 
-    if (!user.stripeCustomerId) {
-      response.status(400).json({ error: 'No Stripe customer found. Please create a subscription first.' });
-      return;
-    }
-
     const stripe = getStripeClient();
+
+    let portalCustomerId = user.stripeCustomerId;
+    if (!portalCustomerId) {
+      const existingCustomers = await stripe.customers.list({ email: user.email, limit: 1 });
+      if (existingCustomers.data.length > 0) {
+        portalCustomerId = existingCustomers.data[0]?.id;
+      } else {
+        const customer = await stripe.customers.create({
+          email: user.email,
+          metadata: { userId },
+        });
+        portalCustomerId = customer.id;
+      }
+      await User.findByIdAndUpdate(userId, { stripeCustomerId: portalCustomerId });
+    }
 
     try {
       const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
+        customer: portalCustomerId,
         return_url: `${resolveFrontendUrl()}/subscription`,
       });
 
