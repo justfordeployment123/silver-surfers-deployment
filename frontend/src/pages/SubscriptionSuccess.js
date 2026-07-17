@@ -28,7 +28,7 @@ const SubscriptionSuccess = () => {
     try {
       const result = await getSubscription();
       if (result && !result.error) {
-        setSubscription(result);
+        setSubscription(result.subscription);
       }
     } catch (err) {
       console.error('Failed to fetch subscription:', err);

@@ -11,8 +11,113 @@ import {
 import { getLimitsForCycle, getPlanById, getPlanByPriceId } from './subscription-plans.ts';
 import { getStripeClient } from './stripe-client.ts';
 
+const LOCAL_SUBSCRIPTION_STATUSES = new Set(['active', 'canceled', 'past_due', 'unpaid', 'incomplete', 'trialing', 'paused']);
+
 function getStripePeriodDate(value: number | null | undefined): Date | null {
   return Number.isFinite(value) ? new Date(Number(value) * 1000) : null;
+}
+
+function normalizeBillingCycle(value: unknown): 'monthly' | 'yearly' {
+  return value === 'monthly' ? 'monthly' : 'yearly';
+}
+
+function getStripeCustomerId(subscription: Stripe.Subscription): string | null {
+  return typeof subscription.customer === 'string'
+    ? subscription.customer
+    : subscription.customer?.id || null;
+}
+
+async function syncSubscriptionFromStripe(subscription: Stripe.Subscription): Promise<{
+  user: { email?: string } | null;
+  planName: string;
+  billingCycle: 'monthly' | 'yearly';
+  currentPeriodEnd: Date | null;
+} | null> {
+  const customerId = getStripeCustomerId(subscription);
+  if (!customerId) {
+    return null;
+  }
+
+  const user = await User.findOne({ stripeCustomerId: customerId });
+  if (!user) {
+    return null;
+  }
+
+  if (!LOCAL_SUBSCRIPTION_STATUSES.has(subscription.status)) {
+    return null;
+  }
+
+  const priceId = subscription.items.data[0]?.price.id;
+  const match = getPlanByPriceId(priceId);
+  const plan = match?.plan || getPlanById(subscription.metadata?.planId || '');
+  if (!priceId || !plan) {
+    return {
+      user,
+      planName: 'Unknown Plan',
+      billingCycle: normalizeBillingCycle(subscription.metadata?.billingCycle),
+      currentPeriodEnd: getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end),
+    };
+  }
+
+  const metadataBillingCycle = subscription.metadata?.billingCycle === 'monthly' || subscription.metadata?.billingCycle === 'yearly'
+    ? subscription.metadata.billingCycle
+    : null;
+  const billingCycle = match?.billingCycle
+    || metadataBillingCycle
+    || (subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly');
+  const currentPeriodStart = getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start) || new Date();
+  const currentPeriodEnd = getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end)
+    || new Date(Date.now() + (billingCycle === 'monthly' ? 31 : 365) * 24 * 60 * 60 * 1000);
+  const existingSubscription = await Subscription.findOne({ stripeSubscriptionId: subscription.id });
+  const subscriptionUpdate: Record<string, unknown> = {
+    user: user._id,
+    stripeSubscriptionId: subscription.id,
+    stripeCustomerId: customerId,
+    status: subscription.status,
+    planId: plan.id,
+    priceId,
+    billingCycle,
+    currentPeriodStart,
+    currentPeriodEnd,
+    trialStart: getStripePeriodDate((subscription as unknown as { trial_start?: number | null }).trial_start),
+    trialEnd: getStripePeriodDate((subscription as unknown as { trial_end?: number | null }).trial_end),
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    limits: getLimitsForCycle(plan, billingCycle),
+  };
+
+  if (!existingSubscription) {
+    subscriptionUpdate.usage = {
+      scansThisMonth: 0,
+      lastResetDate: new Date(),
+      totalScans: 0,
+    };
+  }
+
+  await Subscription.findOneAndUpdate(
+    { stripeSubscriptionId: subscription.id },
+    subscriptionUpdate,
+    { upsert: true, new: true },
+  );
+
+  await User.findOneAndUpdate(
+    { stripeCustomerId: customerId },
+    {
+      'subscription.stripeSubscriptionId': subscription.id,
+      'subscription.status': subscription.status,
+      'subscription.planId': plan.id,
+      'subscription.priceId': priceId,
+      'subscription.currentPeriodStart': currentPeriodStart,
+      'subscription.currentPeriodEnd': currentPeriodEnd,
+      'subscription.cancelAtPeriodEnd': subscription.cancel_at_period_end,
+    },
+  );
+
+  return {
+    user,
+    planName: plan.name,
+    billingCycle,
+    currentPeriodEnd,
+  };
 }
 
 export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
@@ -56,26 +161,20 @@ export async function handleSubscriptionCreated(subscription: Stripe.Subscriptio
     return;
   }
 
-  const customerId = typeof subscription.customer === 'string'
-    ? subscription.customer
-    : subscription.customer?.id;
-  if (!customerId) {
+  const syncedSubscription = await syncSubscriptionFromStripe(subscription);
+  if (!syncedSubscription) {
     return;
   }
-
-  const user = await User.findOne({ stripeCustomerId: customerId });
-  if (!user) {
-    return;
-  }
-
-  const priceId = subscription.items.data[0]?.price.id;
-  const match = getPlanByPriceId(priceId);
-  const billingCycle = match?.billingCycle
-    || (subscription.items.data[0]?.price.recurring?.interval === 'year' ? 'yearly' : 'monthly');
-  const currentPeriodEnd = getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end);
 
   try {
-    await sendSubscriptionWelcomeEmail(user.email, match?.plan.name || 'Unknown Plan', billingCycle, currentPeriodEnd);
+    if (syncedSubscription.user?.email) {
+      await sendSubscriptionWelcomeEmail(
+        syncedSubscription.user.email,
+        syncedSubscription.planName,
+        syncedSubscription.billingCycle,
+        syncedSubscription.currentPeriodEnd,
+      );
+    }
   } catch (error) {
     console.error('Failed to send subscription welcome email:', error);
   }
@@ -84,6 +183,7 @@ export async function handleSubscriptionCreated(subscription: Stripe.Subscriptio
 export async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
   const localSubscription = await Subscription.findOne({ stripeSubscriptionId: subscription.id });
   if (!localSubscription) {
+    await syncSubscriptionFromStripe(subscription);
     return;
   }
 

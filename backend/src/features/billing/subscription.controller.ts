@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import type Stripe from 'stripe';
 
 import Subscription from '../../models/subscription.model.ts';
 import User from '../../models/user.model.ts';
@@ -10,6 +11,10 @@ import { getStripeClient } from './stripe-client.ts';
 import type { BillingCycle } from './subscription-plans.ts';
 import { getLimitsForCycle, getPlanById, getPriceIdForCycle, getPublicPlans } from './subscription-plans.ts';
 
+const ACTIVE_LOCAL_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due'];
+const LIVE_STRIPE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due']);
+const TERMINAL_STRIPE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired']);
+
 function normalizeBillingCycle(value: unknown): BillingCycle {
   return value === 'monthly' ? 'monthly' : 'yearly';
 }
@@ -19,6 +24,12 @@ function isMissingStripeSubscriptionError(error: unknown): boolean {
   return stripeError.statusCode === 404 || stripeError.code === 'resource_missing';
 }
 
+function getStripeSubscriptionCustomerId(subscription: Stripe.Subscription): string | null {
+  return typeof subscription.customer === 'string'
+    ? subscription.customer
+    : subscription.customer?.id || null;
+}
+
 function resolveFrontendUrl(): string {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
 }
@@ -26,6 +37,108 @@ function resolveFrontendUrl(): string {
 function getStripePeriodDate(value: unknown, fallback: Date | null = null): Date | null {
   const timestamp = Number(value);
   return Number.isFinite(timestamp) ? new Date(timestamp * 1000) : fallback;
+}
+
+async function markLocalSubscriptionCanceled(options: {
+  userId: string;
+  stripeSubscriptionId?: string | null;
+  localSubscriptionId?: unknown;
+  canceledAt?: Date | null;
+  cancelAtPeriodEnd?: boolean;
+}): Promise<void> {
+  const canceledAt = options.canceledAt || new Date();
+  const subscriptionUpdate = {
+    status: 'canceled',
+    canceledAt,
+    cancelAtPeriodEnd: Boolean(options.cancelAtPeriodEnd),
+  };
+
+  if (options.localSubscriptionId) {
+    await Subscription.findByIdAndUpdate(options.localSubscriptionId, subscriptionUpdate);
+  } else if (options.stripeSubscriptionId) {
+    await Subscription.findOneAndUpdate(
+      { stripeSubscriptionId: options.stripeSubscriptionId },
+      subscriptionUpdate,
+    );
+  }
+
+  await User.findByIdAndUpdate(options.userId, {
+    ...(options.stripeSubscriptionId ? { 'subscription.stripeSubscriptionId': options.stripeSubscriptionId } : {}),
+    'subscription.status': 'canceled',
+    'subscription.cancelAtPeriodEnd': Boolean(options.cancelAtPeriodEnd),
+  });
+}
+
+async function upsertLocalSubscriptionFromStripe(
+  stripeSubscription: Stripe.Subscription,
+  userId: string,
+  fallbackBillingCycle: BillingCycle = 'yearly',
+): Promise<unknown | null> {
+  const customerId = getStripeSubscriptionCustomerId(stripeSubscription);
+  const priceId = stripeSubscription.items.data[0]?.price.id;
+  const planId = stripeSubscription.metadata?.planId;
+  const plan = getPlanById(planId || '');
+
+  if (!customerId || !priceId || !plan) {
+    return null;
+  }
+
+  const currentPeriodStart = getStripePeriodDate(
+    (stripeSubscription as unknown as { current_period_start?: number }).current_period_start,
+    new Date(),
+  );
+  const currentPeriodEnd = getStripePeriodDate(
+    (stripeSubscription as unknown as { current_period_end?: number }).current_period_end,
+    new Date(Date.now() + (fallbackBillingCycle === 'monthly' ? 31 : 365) * 24 * 60 * 60 * 1000),
+  );
+
+  if (!currentPeriodStart || !currentPeriodEnd) {
+    return null;
+  }
+
+  const existingSubscription = await Subscription.findOne({ stripeSubscriptionId: stripeSubscription.id });
+  const subscriptionUpdate: Record<string, unknown> = {
+    user: userId,
+    stripeSubscriptionId: stripeSubscription.id,
+    stripeCustomerId: customerId,
+    status: stripeSubscription.status,
+    planId: plan.id,
+    priceId,
+    billingCycle: fallbackBillingCycle,
+    currentPeriodStart,
+    currentPeriodEnd,
+    trialStart: getStripePeriodDate((stripeSubscription as unknown as { trial_start?: number | null }).trial_start, null),
+    trialEnd: getStripePeriodDate((stripeSubscription as unknown as { trial_end?: number | null }).trial_end, null),
+    cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+    limits: getLimitsForCycle(plan, fallbackBillingCycle),
+  };
+
+  if (!existingSubscription) {
+    subscriptionUpdate.usage = {
+      scansThisMonth: 0,
+      lastResetDate: new Date(),
+      totalScans: 0,
+    };
+  }
+
+  const localSubscription = await Subscription.findOneAndUpdate(
+    { stripeSubscriptionId: stripeSubscription.id },
+    subscriptionUpdate,
+    { upsert: true, new: true },
+  );
+
+  await User.findByIdAndUpdate(userId, {
+    stripeCustomerId: customerId,
+    'subscription.stripeSubscriptionId': stripeSubscription.id,
+    'subscription.status': stripeSubscription.status,
+    'subscription.planId': plan.id,
+    'subscription.priceId': priceId,
+    'subscription.currentPeriodStart': currentPeriodStart,
+    'subscription.currentPeriodEnd': currentPeriodEnd,
+    'subscription.cancelAtPeriodEnd': stripeSubscription.cancel_at_period_end,
+  });
+
+  return localSubscription;
 }
 
 function normalizeAdminManagedEmbeddedStatus(
@@ -298,10 +411,93 @@ export async function createPortalSession(request: Request, response: Response):
     }
 
     const stripe = getStripeClient();
+    let portalCustomerId = user.stripeCustomerId;
+    const localSubscription = await Subscription.findOne({
+      user: userId,
+      status: { $in: ACTIVE_LOCAL_SUBSCRIPTION_STATUSES },
+    }).sort({ createdAt: -1 });
+
+    const embeddedSubscriptionId = ACTIVE_LOCAL_SUBSCRIPTION_STATUSES.includes(String(user.subscription?.status || ''))
+      ? user.subscription?.stripeSubscriptionId
+      : null;
+    const stripeSubscriptionId = localSubscription?.stripeSubscriptionId || embeddedSubscriptionId;
+
+    if (stripeSubscriptionId) {
+      try {
+        const stripeSubscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        const stripeCustomerId = getStripeSubscriptionCustomerId(stripeSubscription);
+
+        if (TERMINAL_STRIPE_SUBSCRIPTION_STATUSES.has(stripeSubscription.status)) {
+          await markLocalSubscriptionCanceled({
+            userId,
+            stripeSubscriptionId,
+            localSubscriptionId: localSubscription?._id,
+            canceledAt: getStripePeriodDate((stripeSubscription as unknown as { canceled_at?: number | null }).canceled_at, new Date()),
+            cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+          });
+          response.status(409).json({
+            error: 'This subscription is no longer active in Stripe. Your account has been refreshed; please choose a new plan if you want to continue.',
+          });
+          return;
+        }
+
+        if (!LIVE_STRIPE_SUBSCRIPTION_STATUSES.has(stripeSubscription.status)) {
+          response.status(400).json({
+            error: `This subscription is currently ${stripeSubscription.status}. Please contact support or choose a new plan.`,
+          });
+          return;
+        }
+
+        if (stripeCustomerId) {
+          portalCustomerId = stripeCustomerId;
+          if (stripeCustomerId !== user.stripeCustomerId) {
+            await User.findByIdAndUpdate(userId, { stripeCustomerId });
+          }
+        }
+      } catch (error) {
+        if (!isMissingStripeSubscriptionError(error)) {
+          throw error;
+        }
+
+        await markLocalSubscriptionCanceled({
+          userId,
+          stripeSubscriptionId,
+          localSubscriptionId: localSubscription?._id,
+        });
+        response.status(409).json({
+          error: 'This subscription no longer exists in Stripe. Your account has been refreshed; please choose a new plan if you want to continue.',
+        });
+        return;
+      }
+    } else {
+      const liveSubscriptions = await stripe.subscriptions.list({
+        customer: portalCustomerId,
+        status: 'all',
+        limit: 10,
+      });
+      const liveSubscription = liveSubscriptions.data.find((subscription) =>
+        LIVE_STRIPE_SUBSCRIPTION_STATUSES.has(subscription.status));
+
+      if (!liveSubscription) {
+        response.status(400).json({ error: 'No active Stripe subscription found to manage. Please choose a plan first.' });
+        return;
+      }
+
+      const fallbackCycle = liveSubscription.items.data[0]?.price.recurring?.interval === 'month' ? 'monthly' : 'yearly';
+      const recoveredSubscription = await upsertLocalSubscriptionFromStripe(liveSubscription, userId, fallbackCycle);
+      const recoveredCustomerId = getStripeSubscriptionCustomerId(liveSubscription);
+
+      if (!recoveredSubscription || !recoveredCustomerId) {
+        response.status(400).json({ error: 'Could not recover your Stripe subscription. Please contact support.' });
+        return;
+      }
+
+      portalCustomerId = recoveredCustomerId;
+    }
 
     try {
       const session = await stripe.billingPortal.sessions.create({
-        customer: user.stripeCustomerId,
+        customer: portalCustomerId,
         return_url: `${resolveFrontendUrl()}/subscription`,
       });
 
@@ -442,9 +638,10 @@ export async function cancelSubscription(request: Request, response: Response): 
         }
 
         // Stripe has no record of this subscription (e.g. deleted directly in Stripe) - treat it as already gone.
-        await Subscription.findByIdAndUpdate(subscription._id, {
-          status: 'canceled',
-          canceledAt: new Date(),
+        await markLocalSubscriptionCanceled({
+          userId,
+          stripeSubscriptionId: subscription.stripeSubscriptionId,
+          localSubscriptionId: subscription._id,
         });
 
         response.json({ message: 'Subscription was already canceled.' });
@@ -453,6 +650,9 @@ export async function cancelSubscription(request: Request, response: Response): 
 
       await Subscription.findByIdAndUpdate(subscription._id, {
         cancelAtPeriodEnd: true,
+      });
+      await User.findByIdAndUpdate(userId, {
+        'subscription.cancelAtPeriodEnd': true,
       });
 
       try {
@@ -482,6 +682,13 @@ export async function cancelSubscription(request: Request, response: Response): 
     await Subscription.findByIdAndUpdate(subscription._id, {
       status: 'canceled',
       canceledAt: new Date(),
+      cancelAtPeriodEnd: false,
+    });
+
+    await User.findByIdAndUpdate(userId, {
+      'subscription.stripeSubscriptionId': subscription.stripeSubscriptionId,
+      'subscription.status': 'canceled',
+      'subscription.cancelAtPeriodEnd': false,
     });
 
     try {
@@ -614,6 +821,12 @@ export async function subscriptionSuccess(request: Request, response: Response):
       return;
     }
 
+    const user = await User.findById(userId);
+    if (!user) {
+      response.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
     const plan = getPlanById(planId);
     if (!plan) {
       response.status(400).json({ error: 'Invalid plan.' });
@@ -623,50 +836,28 @@ export async function subscriptionSuccess(request: Request, response: Response):
     const billingCycle = normalizeBillingCycle(session.metadata?.billingCycle);
 
     if (isUpgrade && oldSubscriptionId) {
+      let shouldRemoveOldLocalSubscription = false;
       try {
         await stripe.subscriptions.cancel(oldSubscriptionId);
-        await Subscription.deleteOne({ stripeSubscriptionId: oldSubscriptionId });
+        shouldRemoveOldLocalSubscription = true;
       } catch (error) {
-        console.error('Failed to cancel old subscription:', error);
+        if (isMissingStripeSubscriptionError(error)) {
+          shouldRemoveOldLocalSubscription = true;
+        } else {
+          console.error('Failed to cancel old subscription:', error);
+        }
+      }
+
+      if (shouldRemoveOldLocalSubscription) {
+        await Subscription.deleteOne({ stripeSubscriptionId: oldSubscriptionId });
       }
     }
 
-    const priceId = subscription.items.data[0]?.price.id;
-    const customerId = typeof subscription.customer === 'string'
-      ? subscription.customer
-      : subscription.customer?.id;
-
-    await Subscription.findOneAndUpdate(
-      { stripeSubscriptionId: subscription.id },
-      {
-        user: userId,
-        stripeSubscriptionId: subscription.id,
-        stripeCustomerId: customerId,
-        status: subscription.status,
-        planId,
-        priceId,
-        billingCycle,
-        currentPeriodStart: getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start, new Date()),
-        currentPeriodEnd: getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end, new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)),
-        trialStart: getStripePeriodDate((subscription as unknown as { trial_start?: number | null }).trial_start, null),
-        trialEnd: getStripePeriodDate((subscription as unknown as { trial_end?: number | null }).trial_end, null),
-        limits: getLimitsForCycle(plan, billingCycle),
-        usage: {
-          scansThisMonth: 0,
-          lastResetDate: new Date(),
-          totalScans: 0,
-        },
-      },
-      { upsert: true, new: true },
-    );
-
-    await User.findByIdAndUpdate(userId, {
-      'subscription.status': subscription.status,
-      'subscription.planId': planId,
-      'subscription.priceId': priceId,
-      'subscription.currentPeriodStart': getStripePeriodDate((subscription as unknown as { current_period_start?: number }).current_period_start, new Date()),
-      'subscription.currentPeriodEnd': getStripePeriodDate((subscription as unknown as { current_period_end?: number }).current_period_end, new Date()),
-    });
+    const localSubscription = await upsertLocalSubscriptionFromStripe(subscription, userId, billingCycle);
+    if (!localSubscription) {
+      response.status(400).json({ error: 'Could not sync subscription details. Please contact support.' });
+      return;
+    }
 
     response.json({ message: 'Subscription activated successfully.' });
   } catch (error) {
