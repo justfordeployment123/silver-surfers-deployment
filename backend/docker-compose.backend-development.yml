@@ -1,0 +1,155 @@
+# SilverSurfers - backend local development/staging compose
+#
+# Services:
+#   mongo   - Primary database (port 27017)
+#   redis   - BullMQ job queue and cache broker
+#   api     - Express API server (port 8000)
+#   worker  - Background audit job processor
+#   scanner - Headless Chromium / Lighthouse scanner service (port 8001)
+#
+# Usage:
+#   docker compose -f docker-compose.backend-development.yml up --build
+#   docker compose -f docker-compose.backend-development.yml logs -f worker
+#   docker compose -f docker-compose.backend-development.yml down -v
+#
+# Environment:
+#   Copy .env.example to .env and fill in secrets before running.
+
+services:
+    mongo:
+        image: mongo:7.0-jammy
+        container_name: ss-mongo
+        restart: unless-stopped
+        environment:
+            MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
+            MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+            MONGO_INITDB_DATABASE: ${MONGO_URL}
+        ports:
+            - "27017:27017"
+        volumes:
+            - mongo_data:/data/db
+        networks:
+            - ssnet
+        healthcheck:
+            test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    redis:
+        image: redis:7-alpine
+        container_name: ss-redis
+        restart: unless-stopped
+        command: redis-server --save 60 1 --loglevel warning
+        ports:
+            - "6380:6379"
+        volumes:
+            - redis_data:/data
+        networks:
+            - ssnet
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    api:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: ss-api
+        restart: unless-stopped
+        depends_on:
+            mongo:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        env_file:
+            - .env
+        environment:
+            NODE_ENV: production
+            PORT: 8000
+            MONGO_URL: ${MONGO_URL}
+            REDIS_URL: redis://redis:6379
+            QUEUE_BACKEND: bullmq
+            SCANNER_SERVICE_URL: http://scanner:8001
+        ports:
+            - "8000:8000"
+        networks:
+            - ssnet
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    'node -e "require(''http'').get(''http://localhost:8000/healthz'', r => process.exit(r.statusCode===200?0:1)).on(''error'',()=>process.exit(1))"',
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 20s
+
+    worker:
+        build:
+            context: .
+            dockerfile: Dockerfile.worker
+        container_name: ss-worker
+        restart: unless-stopped
+        depends_on:
+            mongo:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            scanner:
+                condition: service_healthy
+        env_file:
+            - .env
+        environment:
+            NODE_ENV: production
+            MONGO_URL: ${MONGO_URL}
+            REDIS_URL: redis://redis:6379
+            QUEUE_BACKEND: bullmq
+            SCANNER_SERVICE_URL: http://scanner:8001
+        networks:
+            - ssnet
+
+    scanner:
+        build:
+            context: .
+            dockerfile: Dockerfile.scanner
+        container_name: ss-scanner
+        restart: unless-stopped
+        depends_on:
+            redis:
+                condition: service_healthy
+        env_file:
+            - .env
+        environment:
+            NODE_ENV: production
+            SCANNER_PORT: 8001
+            REDIS_URL: redis://redis:6379
+        security_opt:
+            - seccomp:unconfined
+        ports:
+            - "8001:8001"
+        networks:
+            - ssnet
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    'node -e "require(''http'').get(''http://localhost:8001/healthz'', r => process.exit(r.statusCode===200?0:1)).on(''error'',()=>process.exit(1))"',
+                ]
+            interval: 30s
+            timeout: 15s
+            retries: 3
+            start_period: 30s
+
+networks:
+    ssnet:
+        driver: bridge
+
+volumes:
+    mongo_data:
+        driver: local
+    redis_data:
+        driver: local
