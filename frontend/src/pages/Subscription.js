@@ -554,16 +554,26 @@ const Subscription = () => {
                                     {!currentSubscription.isTeamMember && (
                                         <>
                                             <div className="pt-4 border-t border-gray-200">
-                                                <button
-                                                    onClick={handleManageSubscription}
-                                                    disabled={actionLoading}
-                                                    className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
-                                                >
-                                                    {actionLoading ? "Opening Portal..." : "Manage Subscription"}
-                                                </button>
-                                                <p className="text-xs text-gray-500 mt-2 text-center">
-                                                    Change plan, update billing, or cancel subscription
-                                                </p>
+                                                {currentSubscription.canManageInStripe !== false ? (
+                                                    <>
+                                                        <button
+                                                            onClick={handleManageSubscription}
+                                                            disabled={actionLoading}
+                                                            className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-300 text-white font-semibold rounded-lg transition-colors"
+                                                        >
+                                                            {actionLoading ? "Opening Portal..." : "Manage Subscription"}
+                                                        </button>
+                                                        <p className="text-xs text-gray-500 mt-2 text-center">
+                                                            Change plan, update billing, or cancel subscription
+                                                        </p>
+                                                    </>
+                                                ) : (
+                                                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                                                        <p className="text-blue-800 text-sm text-center">
+                                                            This subscription is managed locally by an admin, so Stripe billing portal is not available.
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {currentSubscription.cancelAtPeriodEnd && (

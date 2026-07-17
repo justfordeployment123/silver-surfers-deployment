@@ -15,6 +15,14 @@ const ACTIVE_LOCAL_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due'];
 const LIVE_STRIPE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due']);
 const TERMINAL_STRIPE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired']);
 
+function hasActiveLocalSubscriptionStatus(status: unknown): boolean {
+  return ACTIVE_LOCAL_SUBSCRIPTION_STATUSES.includes(String(status || '').toLowerCase());
+}
+
+function isStripeSubscriptionId(value: unknown): value is string {
+  return typeof value === 'string' && value.startsWith('sub_');
+}
+
 function normalizeBillingCycle(value: unknown): BillingCycle {
   return value === 'monthly' ? 'monthly' : 'yearly';
 }
@@ -208,7 +216,10 @@ export async function getSubscription(request: Request, response: Response): Pro
       user.subscription?.status,
     );
 
-    if (!subscription && normalizedEmbeddedStatus && ['active', 'trialing', 'past_due'].includes(normalizedEmbeddedStatus)) {
+    if (!subscription && normalizedEmbeddedStatus && hasActiveLocalSubscriptionStatus(normalizedEmbeddedStatus)) {
+      const embeddedStripeSubscriptionId = user.subscription?.stripeSubscriptionId || null;
+      const embeddedPlan = getPlanById(user.subscription?.planId || '');
+
       response.json({
         user: {
           id: user._id,
@@ -220,14 +231,18 @@ export async function getSubscription(request: Request, response: Response): Pro
           id: user.subscription?.stripeSubscriptionId || null,
           status: normalizedEmbeddedStatus,
           planId: user.subscription?.planId,
-          plan: getPlanById(user.subscription?.planId || ''),
+          plan: embeddedPlan,
           billingCycle: 'yearly',
           currentPeriodStart: user.subscription?.currentPeriodStart,
           currentPeriodEnd: user.subscription?.currentPeriodEnd,
           cancelAtPeriodEnd: Boolean(user.subscription?.cancelAtPeriodEnd),
           usage: user.subscription?.usage,
-          limits: undefined,
+          limits: embeddedPlan ? getLimitsForCycle(embeddedPlan, 'yearly') : undefined,
           isTeamMember: Boolean(user.subscription?.isTeamMember),
+          stripeSubscriptionId: embeddedStripeSubscriptionId,
+          stripeCustomerId: user.stripeCustomerId || null,
+          canManageInStripe: isStripeSubscriptionId(embeddedStripeSubscriptionId),
+          managedLocally: !isStripeSubscriptionId(embeddedStripeSubscriptionId),
         },
         oneTimeScans: user.oneTimeScans || 0,
       });
@@ -253,6 +268,10 @@ export async function getSubscription(request: Request, response: Response): Pro
         usage: subscription.usage,
         limits: subscription.limits,
         isTeamMember,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        stripeCustomerId: subscription.stripeCustomerId,
+        canManageInStripe: isStripeSubscriptionId(subscription.stripeSubscriptionId),
+        managedLocally: !isStripeSubscriptionId(subscription.stripeSubscriptionId),
       } : null,
       oneTimeScans: user.oneTimeScans || 0,
     });
@@ -405,12 +424,39 @@ export async function createPortalSession(request: Request, response: Response):
       return;
     }
 
-    const stripe = getStripeClient();
-    let portalCustomerId = user.stripeCustomerId;
     const localSubscription = await Subscription.findOne({
       user: userId,
       status: { $in: ACTIVE_LOCAL_SUBSCRIPTION_STATUSES },
     }).sort({ createdAt: -1 });
+    const normalizedEmbeddedStatus = normalizeAdminManagedEmbeddedStatus(
+      request.user?.role,
+      user.subscription?.planId,
+      user.subscription?.status,
+    );
+    const hasManageableEmbeddedSubscription = hasActiveLocalSubscriptionStatus(normalizedEmbeddedStatus);
+    const embeddedSubscriptionId = hasManageableEmbeddedSubscription
+      ? user.subscription?.stripeSubscriptionId
+      : null;
+    const stripeSubscriptionId = localSubscription?.stripeSubscriptionId || embeddedSubscriptionId;
+
+    if (stripeSubscriptionId && !isStripeSubscriptionId(stripeSubscriptionId)) {
+      response.status(400).json({
+        error: 'This subscription was assigned by an admin and is managed locally, so there is no Stripe billing portal for it. You can cancel it from this page or contact support.',
+        managedLocally: true,
+      });
+      return;
+    }
+
+    if (!stripeSubscriptionId && hasManageableEmbeddedSubscription) {
+      response.status(400).json({
+        error: 'This subscription is managed locally, so there is no Stripe billing portal for it. You can cancel it from this page or contact support.',
+        managedLocally: true,
+      });
+      return;
+    }
+
+    const stripe = getStripeClient();
+    let portalCustomerId = user.stripeCustomerId;
 
     if (!portalCustomerId && localSubscription?.stripeCustomerId) {
       portalCustomerId = localSubscription.stripeCustomerId;
@@ -430,11 +476,6 @@ export async function createPortalSession(request: Request, response: Response):
       }
       await User.findByIdAndUpdate(userId, { stripeCustomerId: portalCustomerId });
     }
-
-    const embeddedSubscriptionId = ACTIVE_LOCAL_SUBSCRIPTION_STATUSES.includes(String(user.subscription?.status || ''))
-      ? user.subscription?.stripeSubscriptionId
-      : null;
-    const stripeSubscriptionId = localSubscription?.stripeSubscriptionId || embeddedSubscriptionId;
 
     if (stripeSubscriptionId) {
       try {
@@ -560,7 +601,7 @@ export async function upgradeSubscription(request: Request, response: Response):
 
     const currentSubscription = await Subscription.findOne({
       user: userId,
-      status: { $in: ['active', 'trialing'] },
+      status: { $in: ACTIVE_LOCAL_SUBSCRIPTION_STATUSES },
     });
 
     if (!currentSubscription) {
@@ -645,17 +686,172 @@ export async function cancelSubscription(request: Request, response: Response): 
       return;
     }
 
+    const user = await User.findById(userId);
+    if (!user) {
+      response.status(404).json({ error: 'User not found.' });
+      return;
+    }
+
     const subscription = await Subscription.findOne({
       user: userId,
-      status: { $in: ['active', 'trialing'] },
+      status: { $in: ACTIVE_LOCAL_SUBSCRIPTION_STATUSES },
     });
 
     if (!subscription) {
-      response.status(404).json({ error: 'No active subscription found.' });
+      const normalizedEmbeddedStatus = normalizeAdminManagedEmbeddedStatus(
+        request.user?.role,
+        user.subscription?.planId,
+        user.subscription?.status,
+      );
+
+      if (!hasActiveLocalSubscriptionStatus(normalizedEmbeddedStatus)) {
+        response.status(404).json({ error: 'No active subscription found.' });
+        return;
+      }
+
+      const embeddedSubscriptionId = user.subscription?.stripeSubscriptionId || null;
+      const planName = getPlanById(user.subscription?.planId || '')?.name || 'Unknown Plan';
+
+      if (!isStripeSubscriptionId(embeddedSubscriptionId)) {
+        if (cancelAtPeriodEnd) {
+          await User.findByIdAndUpdate(userId, {
+            'subscription.cancelAtPeriodEnd': true,
+          });
+
+          try {
+            await sendSubscriptionCancellationEmail(
+              userEmail,
+              planName,
+              true,
+              user.subscription?.currentPeriodEnd || null,
+            );
+          } catch (error) {
+            console.error('Failed to send cancellation email:', error);
+          }
+
+          response.json({ message: 'Subscription will be canceled locally at the end of the current period.' });
+          return;
+        }
+
+        await markLocalSubscriptionCanceled({
+          userId,
+          stripeSubscriptionId: embeddedSubscriptionId,
+        });
+
+        try {
+          await sendSubscriptionCancellationEmail(userEmail, planName, false);
+        } catch (error) {
+          console.error('Failed to send immediate cancellation email:', error);
+        }
+
+        response.json({ message: 'Subscription canceled immediately.' });
+        return;
+      }
+
+      const stripe = getStripeClient();
+      if (cancelAtPeriodEnd) {
+        try {
+          await stripe.subscriptions.update(embeddedSubscriptionId, {
+            cancel_at_period_end: true,
+          });
+        } catch (error) {
+          if (!isMissingStripeSubscriptionError(error)) {
+            throw error;
+          }
+
+          await markLocalSubscriptionCanceled({
+            userId,
+            stripeSubscriptionId: embeddedSubscriptionId,
+          });
+
+          response.json({ message: 'Subscription was already canceled.' });
+          return;
+        }
+
+        await User.findByIdAndUpdate(userId, {
+          'subscription.cancelAtPeriodEnd': true,
+        });
+
+        try {
+          await sendSubscriptionCancellationEmail(
+            userEmail,
+            planName,
+            true,
+            user.subscription?.currentPeriodEnd || null,
+          );
+        } catch (error) {
+          console.error('Failed to send cancellation email:', error);
+        }
+
+        response.json({ message: 'Subscription will be canceled at the end of the current period.' });
+        return;
+      }
+
+      try {
+        await stripe.subscriptions.cancel(embeddedSubscriptionId);
+      } catch (error) {
+        if (!isMissingStripeSubscriptionError(error)) {
+          throw error;
+        }
+      }
+
+      await markLocalSubscriptionCanceled({
+        userId,
+        stripeSubscriptionId: embeddedSubscriptionId,
+      });
+
+      try {
+        await sendSubscriptionCancellationEmail(userEmail, planName, false);
+      } catch (error) {
+        console.error('Failed to send immediate cancellation email:', error);
+      }
+
+      response.json({ message: 'Subscription canceled immediately.' });
       return;
     }
 
     const planName = getPlanById(subscription.planId)?.name || 'Unknown Plan';
+
+    if (!isStripeSubscriptionId(subscription.stripeSubscriptionId)) {
+      if (cancelAtPeriodEnd) {
+        await Subscription.findByIdAndUpdate(subscription._id, {
+          cancelAtPeriodEnd: true,
+        });
+        await User.findByIdAndUpdate(userId, {
+          'subscription.cancelAtPeriodEnd': true,
+        });
+
+        try {
+          await sendSubscriptionCancellationEmail(
+            userEmail,
+            planName,
+            true,
+            subscription.currentPeriodEnd || null,
+          );
+        } catch (error) {
+          console.error('Failed to send cancellation email:', error);
+        }
+
+        response.json({ message: 'Subscription will be canceled locally at the end of the current period.' });
+        return;
+      }
+
+      await markLocalSubscriptionCanceled({
+        userId,
+        stripeSubscriptionId: subscription.stripeSubscriptionId,
+        localSubscriptionId: subscription._id,
+      });
+
+      try {
+        await sendSubscriptionCancellationEmail(userEmail, planName, false);
+      } catch (error) {
+        console.error('Failed to send immediate cancellation email:', error);
+      }
+
+      response.json({ message: 'Subscription canceled immediately.' });
+      return;
+    }
+
     const stripe = getStripeClient();
     if (cancelAtPeriodEnd) {
       try {
