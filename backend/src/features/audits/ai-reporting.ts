@@ -2,6 +2,8 @@ import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import type { AuditScorecard } from './audit-scorecard.ts';
 import type { AnalysisRemediationItem } from './analysis-details.ts';
+import type { WcagMatrixRow } from './wcag-mapping.ts';
+import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 
 const aiReportingLogger = logger.child('feature:audits:ai-reporting');
 const MAX_AI_FINDING_GUIDANCE = 20;
@@ -473,6 +475,99 @@ export async function generateAuditAiReport(options: GenerateAuditAiReportOption
     aiReportingLogger.warn('Claude audit summary generation failed. Falling back to local narrative.', {
       url: options.url,
       model: env.anthropicModel,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return fallback;
+  }
+}
+
+export async function generateWcagRemediations(
+  failedCriteria: WcagMatrixRow[],
+): Promise<Record<string, string>> {
+  const fallback: Record<string, string> = {};
+  for (const row of failedCriteria) {
+    fallback[row.criterion] = WCAG_REMEDIATION_FALLBACKS[row.criterion]
+      || `Review and remediate WCAG ${row.criterion}: ${row.title}.`;
+  }
+
+  const actionableCriteria = failedCriteria.filter(
+    (row) => row.status === 'fail' || (row.status === 'needs-review' && !row.manualReviewRequired),
+  );
+
+  if (actionableCriteria.length === 0 || !env.anthropicApiKey) {
+    return fallback;
+  }
+
+  try {
+    const criteriaList = actionableCriteria.map((row) => ({
+      criterion: row.criterion,
+      title: row.title,
+      level: row.level,
+      issueCount: row.issueCount,
+    }));
+
+    const systemPrompt = [
+      'You are a WCAG 2.2 accessibility expert writing concise remediation guidance for web developers.',
+      'For each WCAG criterion provided, write one actionable sentence (max 20 words) describing the most important fix.',
+      'Be specific and developer-focused. Start each sentence with a verb.',
+      'Return ONLY a single valid JSON object mapping each criterion ID to its guidance string.',
+      'Example: { "1.1.1": "Add descriptive alt attributes to all informational images.", "1.4.3": "Increase text contrast to at least 4.5:1 against the background color." }',
+    ].join('\n');
+
+    const userPrompt = [
+      'Generate one-sentence remediation guidance for each of these failing WCAG criteria:',
+      '',
+      JSON.stringify(criteriaList, null, 2),
+    ].join('\n');
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
+
+    let responseText: string;
+    try {
+      const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.anthropicApiKey || '',
+          'anthropic-version': env.anthropicVersion,
+        },
+        body: JSON.stringify({
+          model: env.anthropicModel,
+          max_tokens: 2000,
+          temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
+      }
+
+      const payload = await response.json();
+      responseText = extractResponseText(payload);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const jsonText = extractJsonObject(responseText);
+    const parsed = JSON.parse(jsonText) as Record<string, unknown>;
+
+    const result = { ...fallback };
+    for (const [criterion, guidance] of Object.entries(parsed)) {
+      const text = String(guidance || '').trim();
+      if (text && criterion in fallback) {
+        result[criterion] = text;
+      }
+    }
+
+    return result;
+  } catch (error) {
+    aiReportingLogger.warn('WCAG remediation AI generation failed; using static fallbacks.', {
+      criteriaCount: actionableCriteria.length,
       error: error instanceof Error ? error.message : String(error),
     });
     return fallback;

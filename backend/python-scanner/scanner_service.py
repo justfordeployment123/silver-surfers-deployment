@@ -8,12 +8,13 @@ import asyncio
 import json
 import logging
 import os
+import random
 import re
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Optional, Dict, Any
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -397,7 +398,7 @@ _NON_HTML_ASSET_RE = re.compile(
     re.I,
 )
 _BLOCKED_AUDIT_PATH_RE = re.compile(
-    r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty)(/|$)",
+    r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty|feed|rss|tag|author)(/|$)",
     re.I,
 )
 _CATALOGUE_ID_SEGMENT_RE = re.compile(r"^(pcm(?:cat|id)\d{4,}.*|(?:ab)?cat\d{4,}\.c)$", re.I)
@@ -527,6 +528,276 @@ def _scanner_build_landing_fallback_urls(
     return result
 
 
+_SCANNER_SITEMAP_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.I | re.S)
+_SCANNER_URL_RE = re.compile(r"https?://[^\s<>'\"]+", re.I)
+_SCANNER_ROUTE_RE = re.compile(r"""["'](\/(?!\/)[A-Za-z0-9][^"'<>\\\s?#]{1,180})["']""")
+_LINK_EXTRACTION_VERSION = "camoufox-homepage-nav-v2"
+
+
+def _scanner_origin_variants(raw_url: str) -> list[str]:
+    parsed = urlparse(raw_url)
+    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+        return []
+
+    host = (parsed.hostname or parsed.netloc).lower()
+    hosts = [host]
+    if host.startswith("www."):
+        hosts.append(host[4:])
+    else:
+        hosts.append(f"www.{host}")
+
+    origins: list[str] = []
+    seen: set[str] = set()
+    for candidate_host in hosts:
+        origin = f"{parsed.scheme}://{candidate_host}"
+        if origin not in seen:
+            seen.add(origin)
+            origins.append(origin)
+    return origins
+
+
+def _scanner_text_sample(text: str, limit: int = 160) -> str:
+    cleaned = re.sub(r"<script\b[^>]*>.*?</script>", " ", safe_text(text), flags=re.I | re.S)
+    cleaned = re.sub(r"<style\b[^>]*>.*?</style>", " ", cleaned, flags=re.I | re.S)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned[:limit]
+
+
+def _scanner_page_text_and_content(page) -> tuple[str, str]:
+    text = ""
+    content = ""
+    try:
+        text = safe_text(page.evaluate("() => document.body ? document.body.innerText : ''"))
+    except Exception:
+        text = ""
+    try:
+        content = safe_text(page.content())
+    except Exception:
+        content = ""
+    return text, content
+
+
+def _scanner_sitemap_candidates_from_text(text: str) -> list[str]:
+    candidates: list[str] = []
+    for line in safe_text(text).splitlines():
+        match = re.match(r"\s*sitemap\s*:\s*(\S+)", line, re.I)
+        if match:
+            candidates.append(match.group(1).strip())
+    for candidate in _SCANNER_URL_RE.findall(safe_text(text)):
+        if "sitemap" in candidate.lower() and candidate.lower().split("?", 1)[0].endswith(".xml"):
+            candidates.append(candidate.rstrip(".,;"))
+    return candidates
+
+
+def _scanner_parse_sitemap_page_links(text: str, content: str) -> list[str]:
+    combined = f"{safe_text(text)}\n{safe_text(content)}"
+    candidates = [safe_text(match).strip() for match in _SCANNER_SITEMAP_LOC_RE.findall(combined)]
+    candidates.extend(candidate.rstrip(".,;") for candidate in _SCANNER_URL_RE.findall(combined))
+    return [candidate for candidate in candidates if candidate]
+
+
+def _scanner_extract_same_site_candidates_from_text(text: str, base_url: str) -> list[str]:
+    candidates: list[str] = []
+    for candidate in _SCANNER_URL_RE.findall(safe_text(text)):
+        candidates.append(candidate.rstrip(".,;:)"))
+    for match in _SCANNER_ROUTE_RE.findall(safe_text(text)):
+        candidates.append(urljoin(base_url, match))
+    return candidates
+
+
+def _scanner_is_sitemap_url(raw_url: str) -> bool:
+    try:
+        path = urlparse(raw_url).path.lower()
+        return path.endswith(".xml") and "sitemap" in path
+    except Exception:
+        return False
+
+
+def _scanner_discover_links_from_sitemaps_with_page(
+    page,
+    final_url: str,
+    home_key: str,
+    seen_links: set[str],
+    max_links: int,
+    deadline: float,
+) -> tuple[list[str], Dict[str, Any]]:
+    diagnostics: Dict[str, Any] = {"sources": [], "errors": []}
+    origins = _scanner_origin_variants(final_url)
+    expected_host = _scanner_normalize_host(urlparse(final_url).hostname or urlparse(final_url).netloc)
+    sitemap_queue: list[str] = []
+    visited_sources: set[str] = set()
+    discovered: list[str] = []
+
+    def remaining_timeout(default_ms: int) -> int:
+        remaining_ms = int((deadline - time.monotonic()) * 1000)
+        return max(1_000, min(default_ms, remaining_ms))
+
+    def record_source(source_url: str, text: str, content: str) -> None:
+        diagnostics["sources"].append({
+            "url": source_url,
+            "textBytes": len(text),
+            "contentBytes": len(content),
+            "locCount": len(_SCANNER_SITEMAP_LOC_RE.findall(f"{text}\n{content}")),
+            "urlCount": len(_SCANNER_URL_RE.findall(f"{text}\n{content}")),
+            "sample": _scanner_text_sample(text or content),
+        })
+
+    def add_candidate(raw_link: str) -> None:
+        if len(discovered) >= max_links:
+            return
+        canonical = _scanner_canonicalize_url(raw_link)
+        if not canonical or not _scanner_is_auditable_url(canonical["url"], home_key):
+            return
+        candidate_host = _scanner_normalize_host(urlparse(canonical["url"]).hostname or "")
+        if not expected_host or candidate_host != expected_host:
+            return
+        clean_key = canonical["key"]
+        if clean_key in seen_links:
+            return
+        seen_links.add(clean_key)
+        discovered.append(canonical["url"])
+
+    for origin in origins:
+        robots_url = f"{origin}/robots.txt"
+        try:
+            page.goto(robots_url, wait_until="domcontentloaded", timeout=remaining_timeout(8_000))
+            text, content = _scanner_page_text_and_content(page)
+            record_source(robots_url, text, content)
+            sitemap_queue.extend(_scanner_sitemap_candidates_from_text(f"{text}\n{content}"))
+        except Exception as error:
+            diagnostics["errors"].append(f"{robots_url}: {safe_text(str(error))[:220]}")
+
+        sitemap_queue.extend([
+            f"{origin}/sitemap.xml",
+            f"{origin}/sitemap_index.xml",
+            f"{origin}/wp-sitemap.xml",
+        ])
+
+    while sitemap_queue and len(visited_sources) < 12 and len(discovered) < max_links:
+        sitemap_url = sitemap_queue.pop(0)
+        if sitemap_url in visited_sources:
+            continue
+        visited_sources.add(sitemap_url)
+        try:
+            page.goto(sitemap_url, wait_until="domcontentloaded", timeout=remaining_timeout(10_000))
+            text, content = _scanner_page_text_and_content(page)
+            record_source(sitemap_url, text, content)
+            for candidate in _scanner_parse_sitemap_page_links(text, content):
+                absolute_candidate = urljoin(sitemap_url, candidate)
+                if _scanner_is_sitemap_url(absolute_candidate) and absolute_candidate not in visited_sources:
+                    sitemap_queue.append(absolute_candidate)
+                    continue
+                add_candidate(absolute_candidate)
+                if len(discovered) >= max_links:
+                    break
+        except Exception as error:
+            diagnostics["errors"].append(f"{sitemap_url}: {safe_text(str(error))[:220]}")
+
+    diagnostics["sources"] = diagnostics["sources"][:12]
+    diagnostics["errors"] = diagnostics["errors"][:8]
+    return discovered, diagnostics
+
+
+def _scanner_collect_rendered_page_links(page, final_url: str) -> list[str]:
+    try:
+        return page.evaluate(
+            """
+            ({ baseUrl }) => {
+                const result = [];
+                const seen = new Set();
+                const base = new URL(baseUrl);
+                const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
+                const expectedHost = normalizeHost(base.hostname);
+                const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
+                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi)(\\/|$)/i;
+
+                const addCandidate = (raw) => {
+                    const href = String(raw || '').trim();
+                    if (!href || /^(javascript|mailto|tel):/i.test(href)) return;
+                    try {
+                        const u = new URL(href, window.location.href);
+                        if (!['http:', 'https:'].includes(u.protocol)) return;
+                        if (normalizeHost(u.hostname) !== expectedHost) return;
+                        if (NON_HTML.test(u.pathname)) return;
+                        if (blockedPath.test(u.pathname)) return;
+                        u.hash = '';
+                        u.search = '';
+                        const clean = u.href.replace(/\\/$/, '');
+                        if (clean && clean !== u.origin && !seen.has(clean)) {
+                            seen.add(clean);
+                            result.push(clean);
+                        }
+                    } catch (_) {}
+                };
+
+                document.querySelectorAll('a[href], area[href], link[href], [href], [to], [data-href], [data-url], [data-link], [data-permalink], [data-path], [data-route]').forEach(el => {
+                    addCandidate(el.getAttribute('href') || el.href);
+                    addCandidate(el.getAttribute('to'));
+                    addCandidate(el.getAttribute('data-href'));
+                    addCandidate(el.getAttribute('data-url'));
+                    addCandidate(el.getAttribute('data-link'));
+                    addCandidate(el.getAttribute('data-permalink'));
+                    addCandidate(el.getAttribute('data-path'));
+                    addCandidate(el.getAttribute('data-route'));
+                });
+
+                document.querySelectorAll('[onclick]').forEach(el => {
+                    const onclick = el.getAttribute('onclick') || '';
+                    for (const match of onclick.matchAll(/['"]((?:https?:\\/\\/[^'"]+)|(?:\\/[A-Za-z0-9][^'"]+))['"]/g)) {
+                        addCandidate(match[1]);
+                    }
+                });
+
+                const text = document.documentElement ? document.documentElement.innerHTML : '';
+                for (const match of text.matchAll(/["'](\\/(?!\\/)[A-Za-z0-9][^"'<>\\s?#]{1,180})["']/g)) {
+                    addCandidate(match[1]);
+                    if (result.length >= 500) break;
+                }
+
+                return result;
+            }
+            """,
+            {"baseUrl": final_url},
+        ) or []
+    except Exception:
+        return []
+
+
+def _scanner_click_navigation_controls(page, deadline: float) -> list[Dict[str, Any]]:
+    diagnostics: list[Dict[str, Any]] = []
+    selectors = [
+        "button[aria-label*='menu' i]",
+        "button[aria-label*='navigation' i]",
+        "button[aria-expanded='false']",
+        "[role='button'][aria-label*='menu' i]",
+        ".menu-toggle",
+        ".navbar-toggle",
+        ".hamburger",
+        "[class*='hamburger' i]",
+        "[class*='menu-toggle' i]",
+        "[class*='nav-toggle' i]",
+    ]
+    seen_selectors: set[str] = set()
+    for selector in selectors:
+        if selector in seen_selectors:
+            continue
+        seen_selectors.add(selector)
+        remaining_ms = int((deadline - time.monotonic()) * 1000)
+        if remaining_ms <= 1000:
+            break
+        try:
+            locator = page.locator(selector).first
+            if locator.count() <= 0:
+                continue
+            locator.click(timeout=min(2_000, max(750, remaining_ms)), force=True)
+            page.wait_for_timeout(700)
+            diagnostics.append({"selector": selector, "clicked": True})
+        except Exception as error:
+            diagnostics.append({"selector": selector, "error": safe_text(str(error))[:160]})
+    return diagnostics[:10]
+
+
 def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay_ms: int = 500) -> Dict[str, Any]:
     """
     Navigate to a URL using Camoufox and return all same-origin internal links.
@@ -572,6 +843,9 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                     home_key = ""
                     landing_recovery_enqueued = False
                     warnings = []
+                    browser_sitemap_diagnostics: Dict[str, Any] = {}
+                    interaction_diagnostics: list[Dict[str, Any]] = []
+                    homepage_diagnostics: Dict[str, Any] = {}
 
                     while queue and len(links) < max_links:
                         if len(visited_keys) >= max_pages:
@@ -583,6 +857,9 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                                 "links": links[:max_links],
                                 "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
                                 "error": f"Link extraction stopped after {timeout_ms}ms timeout with partial results",
+                                "extractionVersion": _LINK_EXTRACTION_VERSION,
+                                "homepageDiagnostics": homepage_diagnostics or None,
+                                "interactionDiagnostics": interaction_diagnostics or None,
                             }
 
                         current_url, depth = queue.pop(0)
@@ -593,7 +870,8 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                         visited_keys.add(current_key)
 
                         if len(visited) > 1 and delay_ms > 0:
-                            page.wait_for_timeout(delay_ms)
+                            jitter = random.randint(0, min(2000, delay_ms))
+                            page.wait_for_timeout(delay_ms + jitter)
 
                         try:
                             page.goto(current_url, wait_until="domcontentloaded", timeout=min(navigation_timeout_ms, max(1_000, remaining_ms)))
@@ -614,6 +892,22 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                         if current_url == url:
                             final_url = page.url
                             home_key = (_scanner_canonicalize_url(final_url) or {}).get("key", "")
+                            # Simulate human reading the page before following links
+                            page.wait_for_timeout(random.randint(1500, 3500))
+                            try:
+                                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 400) + 200); }")
+                                page.wait_for_timeout(random.randint(500, 1200))
+                                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 300) + 100); }")
+                            except Exception:
+                                pass
+                            interaction_diagnostics.extend(_scanner_click_navigation_controls(page, deadline))
+                            try:
+                                page.evaluate("() => { window.scrollTo(0, document.body ? document.body.scrollHeight : 0); }")
+                                page.wait_for_timeout(random.randint(700, 1400))
+                                page.evaluate("() => { window.scrollTo(0, 0); }")
+                                page.wait_for_timeout(random.randint(300, 900))
+                            except Exception:
+                                pass
 
                         parsed = urlparse(final_url)
                         base_scheme = parsed.scheme
@@ -674,6 +968,29 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                         if not isinstance(page_links, list):
                             page_links = []
 
+                        rendered_links = _scanner_collect_rendered_page_links(page, final_url)
+                        if rendered_links:
+                            page_links.extend(rendered_links)
+
+                        try:
+                            page_text, page_content = _scanner_page_text_and_content(page)
+                            content_links = _scanner_extract_same_site_candidates_from_text(page_content, final_url)
+                            text_links = _scanner_extract_same_site_candidates_from_text(page_text, final_url)
+                            page_links.extend(content_links)
+                            page_links.extend(text_links)
+                            if current_url == url:
+                                homepage_diagnostics = {
+                                    "domCandidateCount": len(page_links),
+                                    "renderedCandidateCount": len(rendered_links),
+                                    "contentCandidateCount": len(content_links),
+                                    "textCandidateCount": len(text_links),
+                                    "textBytes": len(page_text),
+                                    "contentBytes": len(page_content),
+                                    "sample": _scanner_text_sample(page_text or page_content),
+                                }
+                        except Exception:
+                            pass
+
                         for link in page_links:
                             canonical = _scanner_canonicalize_url(link)
                             if not canonical or not _scanner_is_auditable_url(canonical["url"], home_key):
@@ -708,11 +1025,28 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                                 queued_keys.add(fallback_key)
                             landing_recovery_enqueued = True
 
+                    if len(links) < 3:
+                        sitemap_home_key = home_key or (_scanner_canonicalize_url(final_url) or {}).get("key", "")
+                        sitemap_links, browser_sitemap_diagnostics = _scanner_discover_links_from_sitemaps_with_page(
+                            page,
+                            final_url,
+                            sitemap_home_key,
+                            seen_links,
+                            max_links - len(links),
+                            deadline,
+                        )
+                        if sitemap_links:
+                            links.extend(sitemap_links)
+
                     return {
                         "success": True,
                         "links": links[:max_links],
                         "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
                         "error": "; ".join(warnings[:3]) if warnings else None,
+                        "extractionVersion": _LINK_EXTRACTION_VERSION,
+                        "homepageDiagnostics": homepage_diagnostics or None,
+                        "browserSitemapDiagnostics": browser_sitemap_diagnostics or None,
+                        "interactionDiagnostics": interaction_diagnostics or None,
                     }
 
 
@@ -723,6 +1057,10 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                             "links": links[:max_links],
                             "finalUrl": (_scanner_canonicalize_url(final_url) or {"url": final_url})["url"],
                             "error": f"Link extraction returned partial results after error: {str(nav_error)}",
+                            "extractionVersion": _LINK_EXTRACTION_VERSION,
+                            "homepageDiagnostics": homepage_diagnostics or None,
+                            "browserSitemapDiagnostics": browser_sitemap_diagnostics or None,
+                            "interactionDiagnostics": interaction_diagnostics or None,
                         }
                     return {"success": False, "links": [], "finalUrl": final_url, "error": f"Navigation failed: {str(nav_error)}"}
                 finally:

@@ -569,6 +569,15 @@ export const adminUpdateUserStatus = async (userId, status, reason = '') => {
   }
 };
 
+export const adminToggleInternalFlag = async (userId) => {
+  try {
+    const res = await api.put(`/admin/users/${userId}/internal`);
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
 // User subscription management
 export const createPortalSession = async () => {
   try { 

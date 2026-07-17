@@ -46,6 +46,10 @@ export interface AuditReportEmailOptions {
     quickScanScore?: string | number | null;
     deviceFilter?: string | null;
     tracking?: EmailTrackingContext;
+    planName?: string | null;
+    deviceName?: string | null;
+    pagesAudited?: number | null;
+    recipientName?: string | null;
 }
 
 export interface StoredAuditReportEmailOptions {
@@ -56,6 +60,11 @@ export interface StoredAuditReportEmailOptions {
     isQuickScan?: boolean;
     quickScanScore?: string | number | null;
     tracking?: EmailTrackingContext;
+    websiteUrl?: string | null;
+    planName?: string | null;
+    deviceName?: string | null;
+    pagesAudited?: number | null;
+    recipientName?: string | null;
 }
 
 export interface AuditReportEmailResult {
@@ -96,6 +105,14 @@ interface MailTransportResult {
 
 export interface EmailTrackingContext {
     trackingId: string;
+}
+
+interface AuditReportEmailMetadata {
+    websiteUrl?: string | null;
+    planName?: string | null;
+    deviceName?: string | null;
+    pagesAudited?: number | null;
+    recipientName?: string | null;
 }
 
 function resetCachedTransport(): void {
@@ -392,7 +409,318 @@ function formatQuickScanDisplayName(fileName: string, quickScanScore: string | n
     return `Website Results for: ${baseName}${scoreText}`;
 }
 
+function escapeHtml(value: unknown): string {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+function titleCase(value: string): string {
+    return value
+        .replace(/[-_]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function formatPlanName(value: string | null | undefined, fallbackText: string): string {
+    const raw = String(value || "").trim();
+    if (raw) {
+        if (/one\s*time|onetime/i.test(raw)) return "One-Time";
+        return titleCase(raw);
+    }
+
+    if (/starter/i.test(fallbackText)) return "Starter";
+    if (/one[-\s]?time/i.test(fallbackText)) return "One-Time";
+    if (/quick/i.test(fallbackText)) return "Quick Scan";
+    if (/pro/i.test(fallbackText)) return "Pro";
+    return "Pro";
+}
+
+function formatDeviceName(value: string | null | undefined, isQuickScan?: boolean): string {
+    const raw = String(value || "").trim();
+    if (raw) return titleCase(raw);
+    return isQuickScan ? "Selected Device" : "All Devices";
+}
+
+function extractHostName(value: string | null | undefined): string {
+    const raw = String(value || "").trim();
+    if (!raw) return "your website";
+
+    try {
+        return new URL(raw).hostname.replace(/^www\./i, "");
+    } catch {
+        return raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split(/[/?#]/)[0] || raw;
+    }
+}
+
+function humanizeReportName(filename: string): string {
+    const base = path.basename(filename).replace(/\.pdf$/i, "");
+    const withoutDevice = base
+        .replace(/^combined[-_]/i, "")
+        .replace(/[-_](desktop|mobile|tablet|report|full|audit|summary)$/gi, "")
+        .replace(/[-_]+/g, " ");
+    return titleCase(withoutDevice || base);
+}
+
+function isExecutiveSummaryFile(file: UploadedReportFile): boolean {
+    const name = `${file.filename} ${file.key || ""}`.toLowerCase();
+    return name.includes("ai-executive-summary") || name.includes("executive-summary");
+}
+
+function isCombinedReportFile(file: UploadedReportFile): boolean {
+    const name = `${file.filename} ${file.key || ""}`.toLowerCase();
+    return name.includes("combined") || name.includes("full-combined");
+}
+
+function isStandaloneSummaryFile(file: UploadedReportFile): boolean {
+    const name = `${file.filename} ${file.key || ""}`.toLowerCase();
+    return !isExecutiveSummaryFile(file) && /(^|[-_/])summary([-_.]|$)/i.test(name);
+}
+
+function selectPrimaryFile(files: UploadedReportFile[], predicate: (file: UploadedReportFile) => boolean): UploadedReportFile | undefined {
+    return files.find(predicate);
+}
+
 export function buildAuditReportEmailBody(options: {
+    baseText: string;
+    uploadedFiles: UploadedReportFile[];
+    storage: QueueReportStorage | undefined;
+    storageErrors?: string[];
+    isQuickScan?: boolean;
+    quickScanScore?: string | number | null;
+    tracking?: EmailTrackingContext;
+    metadata?: AuditReportEmailMetadata;
+}): string {
+    const hasFiles = options.uploadedFiles.length > 0;
+    const hasErrors = Boolean(options.storageErrors?.length);
+    const usesSignedUrls = options.storage?.provider === "s3" && usesSignedS3Urls()
+        && options.uploadedFiles.some((file) => file.downloadUrl === file.providerUrl);
+    const metadata = options.metadata || {};
+    const textForInference = `${options.baseText} ${metadata.planName || ""}`;
+    const planName = formatPlanName(metadata.planName, textForInference);
+    const deviceName = formatDeviceName(metadata.deviceName, options.isQuickScan);
+    const hostName = extractHostName(metadata.websiteUrl);
+    const recipientName = String(metadata.recipientName || "").trim();
+    const greetingName = recipientName ? recipientName.split(/\s+/)[0] : "";
+    const generatedDate = new Date().toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+
+    const executiveSummaryFile = selectPrimaryFile(options.uploadedFiles, isExecutiveSummaryFile);
+    const combinedReportFile = selectPrimaryFile(options.uploadedFiles, isCombinedReportFile);
+    const standaloneSummaryFile = selectPrimaryFile(options.uploadedFiles, isStandaloneSummaryFile);
+    const primaryQuickFile = options.isQuickScan ? options.uploadedFiles[0] : undefined;
+    const primarySummaryFile = executiveSummaryFile || standaloneSummaryFile;
+    const individualReports = options.uploadedFiles.filter((file) => (
+        file !== primaryQuickFile
+        && file !== primarySummaryFile
+        && file !== combinedReportFile
+        && !isStandaloneSummaryFile(file)
+    ));
+    const pagesAudited = typeof metadata.pagesAudited === "number" && metadata.pagesAudited > 0
+        ? Math.round(metadata.pagesAudited)
+        : options.isQuickScan
+            ? 1
+            : Math.max(individualReports.length, options.uploadedFiles.length || 0);
+
+    const baseTextHtml = options.baseText
+        .split("\n")
+        .filter((line) => line.trim().length > 0)
+        .map((line) => escapeHtml(line.trim()))
+        .join(" ");
+
+    const introHtml = options.isQuickScan
+        ? `Hi${greetingName ? ` ${escapeHtml(greetingName)}` : ""}, your ${escapeHtml(planName)} report for <strong>${escapeHtml(hostName)}</strong> is complete. Start below to review the results.`
+        : `Hi${greetingName ? ` ${escapeHtml(greetingName)}` : ""}, your ${escapeHtml(planName)} plan ${escapeHtml(deviceName.toLowerCase())} audit for <strong>${escapeHtml(hostName)}</strong> is complete. Start with the executive summary below for the headline findings, or go straight to the full report for page-by-page detail.`;
+
+    const buildButton = (file: UploadedReportFile, label: string): string => `
+        <a href="${escapeHtml(wrapTrackedDownloadUrl(file.downloadUrl, options.tracking))}" target="_blank" rel="noopener noreferrer" style="background:#1f5be3;color:#ffffff;display:inline-block;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;line-height:16px;padding:9px 24px;text-align:center;text-decoration:none;">
+            ${escapeHtml(label)}
+        </a>
+    `;
+
+    const buildSectionCard = (file: UploadedReportFile | undefined, title: string, description: string, label: string, startHere = false): string => {
+        if (!file) return "";
+        const displayTitle = options.isQuickScan && file === primaryQuickFile
+            ? formatQuickScanDisplayName(file.filename, options.quickScanScore)
+            : title;
+        return `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #d7dde8;border-collapse:collapse;margin:0 0 24px 0;">
+                <tr>
+                    <td style="padding:26px 28px;font-family:Arial,sans-serif;">
+                        ${startHere ? '<div style="background:#fff2c4;color:#6b5b15;display:inline-block;font-size:10px;font-weight:bold;letter-spacing:.8px;margin:0 0 18px 0;padding:5px 18px;text-transform:uppercase;">Start Here</div>' : ""}
+                        <div style="color:#111827;font-size:20px;font-weight:bold;line-height:24px;margin:0 0 4px 0;">${escapeHtml(displayTitle)}</div>
+                        <div style="color:#344055;font-size:14px;line-height:19px;margin:0 0 15px 0;">${escapeHtml(description)}</div>
+                        ${buildButton(file, label)}
+                    </td>
+                </tr>
+            </table>
+        `;
+    };
+
+    const quickReportHtml = primaryQuickFile
+        ? buildSectionCard(
+            primaryQuickFile,
+            "Quick Scan Report",
+            "A focused view of the submitted page with older adult accessibility findings and recommended next steps.",
+            "Download Quick Scan",
+            true,
+        )
+        : "";
+
+    const fullReportHtml = options.isQuickScan
+        ? quickReportHtml
+        : `
+            ${buildSectionCard(
+                primarySummaryFile,
+                "Executive Summary",
+                "A one-page overview for decision-makers - key findings and priority recommendations.",
+                "Download Executive Summary",
+                true,
+            )}
+            ${buildSectionCard(
+                combinedReportFile || (!primarySummaryFile && options.uploadedFiles.length === 1 ? options.uploadedFiles[0] : undefined),
+                "Full Combined Report",
+                "Every page in one document - built for your web developer or IT team to work from.",
+                "Download Full Report",
+            )}
+        `;
+
+    const individualReportsHtml = !options.isQuickScan && individualReports.length > 0
+        ? `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:4px 0 32px 0;">
+                <tr>
+                    <td style="font-family:Arial,sans-serif;color:#4b5563;font-size:11px;font-weight:bold;letter-spacing:.8px;line-height:15px;padding:4px 0 0 0;text-transform:uppercase;">Individual Page Reports</td>
+                </tr>
+                <tr>
+                    <td style="font-family:Arial,sans-serif;color:#4b5563;font-size:13px;line-height:18px;padding:4px 0 10px 0;">
+                        Already included in the full report above - download separately only if you need a single page on its own.
+                    </td>
+                </tr>
+                ${individualReports.map((file) => `
+                    <tr>
+                        <td style="border-bottom:1px solid #dfe5ef;padding:8px 0;">
+                            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                <tr>
+                                    <td style="font-family:Arial,sans-serif;color:#111827;font-size:14px;line-height:18px;padding:0 12px 0 0;">${escapeHtml(humanizeReportName(file.filename))}</td>
+                                    <td align="right" style="font-family:Arial,sans-serif;font-size:13px;line-height:18px;white-space:nowrap;">
+                                        <a href="${escapeHtml(wrapTrackedDownloadUrl(file.downloadUrl, options.tracking))}" target="_blank" rel="noopener noreferrer" style="color:#1f5be3;font-weight:bold;text-decoration:none;">Download PDF -&gt;</a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                `).join("")}
+            </table>
+        `
+        : "";
+
+    const storageNoticeHtml = hasFiles && usesSignedUrls
+        ? `
+            <tr>
+                <td style="font-family:Arial,sans-serif;color:#6b7280;font-size:12px;line-height:17px;padding:0 0 18px 0;">
+                    Links expire in ${S3_EXPIRY_DAYS} day${S3_EXPIRY_DAYS === 1 ? "" : "s"}. Please save your files as soon as possible.
+                </td>
+            </tr>
+        `
+        : "";
+
+    const errorBoxHtml = hasErrors
+        ? `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fff3f3;border:1px solid #efb4b4;border-collapse:collapse;margin:0 0 24px 0;">
+                <tr>
+                    <td style="font-family:Arial,sans-serif;color:#8a1f1f;font-size:14px;line-height:19px;padding:16px 18px;">
+                        <strong>Some files could not be uploaded</strong><br />
+                        ${options.storageErrors!.map((error) => escapeHtml(error)).join("<br />")}
+                    </td>
+                </tr>
+            </table>
+        `
+        : "";
+
+    return `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <title>Your Accessibility Audit Is Ready</title>
+        </head>
+        <body style="margin:0;padding:0;background:#ffffff;">
+            <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${baseTextHtml}</div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-collapse:collapse;margin:0;padding:0;">
+                <tr>
+                    <td align="center" style="padding:16px 12px;">
+                        <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:640px;max-width:640px;">
+                            <tr>
+                                <td align="center" style="background:#102447;padding:22px 24px 24px 24px;">
+                                    <div style="color:#b9c8df;font-family:Arial,sans-serif;font-size:9px;font-weight:bold;letter-spacing:.7px;line-height:12px;text-transform:uppercase;">Silversurfers AI - The Authority on Silver Digital Readiness</div>
+                                    <div style="color:#ffffff;font-family:Arial,sans-serif;font-size:24px;font-weight:bold;line-height:30px;margin-top:5px;">Your Accessibility Audit Is Ready</div>
+                                    <div style="color:#dbe5f3;font-family:Arial,sans-serif;font-size:12px;line-height:16px;margin-top:3px;">${escapeHtml(hostName)} &nbsp; - &nbsp; Generated ${escapeHtml(generatedDate)}</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border-bottom:1px solid #d7dde8;padding:22px 0 0 0;">
+                                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+                                        <tr>
+                                            <td align="center" width="33.33%" style="border-right:1px solid #d7dde8;font-family:Arial,sans-serif;padding:9px 6px 13px 6px;">
+                                                <div style="color:#596274;font-size:9px;letter-spacing:.8px;line-height:12px;text-transform:uppercase;">Plan</div>
+                                                <div style="color:#111827;font-size:14px;font-weight:bold;line-height:18px;">${escapeHtml(planName)}</div>
+                                            </td>
+                                            <td align="center" width="33.33%" style="border-right:1px solid #d7dde8;font-family:Arial,sans-serif;padding:9px 6px 13px 6px;">
+                                                <div style="color:#596274;font-size:9px;letter-spacing:.8px;line-height:12px;text-transform:uppercase;">Device</div>
+                                                <div style="color:#111827;font-size:14px;font-weight:bold;line-height:18px;">${escapeHtml(deviceName)}</div>
+                                            </td>
+                                            <td align="center" width="33.33%" style="font-family:Arial,sans-serif;padding:9px 6px 13px 6px;">
+                                                <div style="color:#596274;font-size:9px;letter-spacing:.8px;line-height:12px;text-transform:uppercase;">Pages Audited</div>
+                                                <div style="color:#111827;font-size:14px;font-weight:bold;line-height:18px;">${escapeHtml(String(pagesAudited))}</div>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="font-family:Arial,sans-serif;color:#4b5563;font-size:16px;line-height:20px;padding:30px 0 18px 0;">
+                                    ${introHtml}
+                                </td>
+                            </tr>
+                            ${storageNoticeHtml}
+                            <tr>
+                                <td>
+                                    ${fullReportHtml}
+                                    ${individualReportsHtml}
+                                    ${errorBoxHtml}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td style="border-top:1px solid #d7dde8;font-family:Arial,sans-serif;padding:28px 0 24px 0;">
+                                    <div style="color:#111827;font-size:16px;font-weight:bold;line-height:20px;margin:0 0 4px 0;">What's next?</div>
+                                    <div style="color:#4b5563;font-size:15px;line-height:19px;">Have questions about your results? Email us at <a href="mailto:hello@silversurfers.ai" style="color:#1f5be3;font-weight:bold;text-decoration:none;">hello@silversurfers.ai</a> and we'll walk through the findings together.</div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td align="center" style="background:#f5f7fb;font-family:Arial,sans-serif;color:#6b7280;font-size:10px;line-height:15px;padding:16px 20px;">
+                                    This email was generated automatically - please don't reply directly.<br />
+                                    Questions? Reach our team at hello@silversurfers.ai.
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+            </table>
+            ${buildOpenPixelHtml(options.tracking)}
+        </body>
+        </html>
+    `.trim();
+}
+
+function buildAuditReportEmailBodyLegacy(options: {
     baseText: string;
     uploadedFiles: UploadedReportFile[];
     storage: QueueReportStorage | undefined;
@@ -810,6 +1138,13 @@ export async function sendAuditReportEmail(options: AuditReportEmailOptions): Pr
         isQuickScan: options.isQuickScan,
         quickScanScore: options.quickScanScore,
         tracking: options.tracking,
+        metadata: {
+            websiteUrl: options.websiteUrl,
+            planName: options.planName,
+            deviceName: options.deviceName || options.deviceFilter,
+            pagesAudited: options.pagesAudited,
+            recipientName: options.recipientName,
+        },
     });
 
     try {
@@ -901,6 +1236,13 @@ export async function sendStoredAuditReportEmail(options: StoredAuditReportEmail
         isQuickScan: options.isQuickScan,
         quickScanScore: options.quickScanScore,
         tracking: options.tracking,
+        metadata: {
+            websiteUrl: options.websiteUrl,
+            planName: options.planName,
+            deviceName: options.deviceName,
+            pagesAudited: options.pagesAudited,
+            recipientName: options.recipientName,
+        },
     });
 
     try {

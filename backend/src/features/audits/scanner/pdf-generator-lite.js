@@ -228,86 +228,106 @@ class LiteAccessibilityPDFGenerator {
 
         // Results in 2-column card grid
         const cardWidth = (this.pageWidth - 15) / 2;
-        const cardHeight = 100;
         const cardSpacing = 15;
+        const badgeWidth = 90;
+        const badgeHeight = 22;
+        const titleLeftPad = 12;
+        const titleRightGap = 10; // gap between title text and badge
+        const titleWidth = cardWidth - badgeWidth - titleLeftPad - titleRightGap;
+
+        // Pre-compute each card's required height so paired cards in the same row share the same height
+        const cardItems = Object.keys(LITE_AUDIT_INFO)
+            .map((auditId) => {
+                const auditResult = audits[auditId];
+                const auditInfo = LITE_AUDIT_INFO[auditId];
+                if (!auditResult || !auditInfo || auditResult.score === null) return null;
+                return { auditId, auditResult, auditInfo };
+            })
+            .filter(Boolean);
+
+        // Calculate each card's height before drawing so paired rows share max height
+        const cardHeights = cardItems.map(({ auditInfo }) => {
+            this.doc.fontSize(14).font('BoldFont');
+            const titleH = this.doc.heightOfString(auditInfo.title, { width: titleWidth });
+            this.doc.fontSize(11).font('RegularFont');
+            const descH = this.doc.heightOfString(auditInfo.impact, { width: cardWidth - 24, lineGap: 3 });
+            const neededH = 12 + titleH + 8 + Math.min(descH, 44) + 12; // top + title + gap + desc (capped) + bottom
+            return Math.max(neededH, 100);
+        });
+
         let column = 0;
         let rowStartY = this.currentY;
 
-        Object.keys(LITE_AUDIT_INFO).forEach((auditId, index) => {
-            const auditResult = audits[auditId];
-            const auditInfo = LITE_AUDIT_INFO[auditId];
+        cardItems.forEach(({ auditResult, auditInfo }, index) => {
+            const score = auditResult.score;
+            const status = score >= 0.8 ? 'PASS' : score >= 0.7 ? 'NEEDS IMP.' : 'FAIL';
 
-            // Skip audits that are N/A (score is null) or don't exist
-            if (auditResult && auditInfo && auditResult.score !== null) {
-                const score = auditResult.score;
-                let status = score >= 0.8 ? 'PASS' :
-                    score >= 0.7 ? 'NEEDS IMPROVEMENT' : 'FAIL';
+            let bgColor, borderColor, badgeBg;
+            if (score >= 0.8) {
+                bgColor = '#ECFDF5'; borderColor = '#10B981'; badgeBg = '#10B981';
+            } else if (score >= 0.7) {
+                bgColor = '#FEF3C7'; borderColor = '#F59E0B'; badgeBg = '#F59E0B';
+            } else {
+                bgColor = '#FEE2E2'; borderColor = '#EF4444'; badgeBg = '#EF4444';
+            }
 
-                let bgColor, borderColor, statusColor, badgeBg;
-                if (score >= 0.8) {
-                    bgColor = '#ECFDF5';
-                    borderColor = '#10B981';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#10B981';
-                } else if (score >= 0.7) {
-                    bgColor = '#FEF3C7';
-                    borderColor = '#F59E0B';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#F59E0B';
-                } else {
-                    bgColor = '#FEE2E2';
-                    borderColor = '#EF4444';
-                    statusColor = '#FFFFFF';
-                    badgeBg = '#EF4444';
-                }
+            // Row height = max of this card and its partner (if it exists)
+            const partnerIndex = column === 0 ? index + 1 : index - 1;
+            const rowHeight = Math.max(
+                cardHeights[index],
+                partnerIndex < cardHeights.length ? cardHeights[partnerIndex] : 0
+            );
 
-                // Check if we need a new page
-                if (rowStartY + cardHeight > this.doc.page.height - 50) {
-                    this.addPage();
-                    rowStartY = this.currentY;
-                    column = 0;
-                }
+            if (column === 0 && rowStartY + rowHeight > this.doc.page.height - 50) {
+                this.addPage();
+                rowStartY = this.currentY;
+            }
 
-                const cardX = this.margin + (column * (cardWidth + cardSpacing));
-                const cardY = rowStartY;
+            const cardX = this.margin + (column * (cardWidth + cardSpacing));
+            const cardY = rowStartY;
 
-                // Draw card with left border
-                this.doc.rect(cardX, cardY, cardWidth, cardHeight).fill(bgColor);
-                this.doc.rect(cardX, cardY, 4, cardHeight).fill(borderColor);
+            // Card background and left accent border
+            this.doc.rect(cardX, cardY, cardWidth, rowHeight).fill(bgColor);
+            this.doc.rect(cardX, cardY, 4, rowHeight).fill(borderColor);
 
-                // Status badge in top right
-                const badgeWidth = 90;
-                const badgeHeight = 20;
-                const badgeX = cardX + cardWidth - badgeWidth - 10;
-                const badgeY = cardY + 8;
-                this.doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 10).fill(badgeBg);
-                this.doc.fontSize(11).font('BoldFont').fillColor(statusColor)
-                    .text(status, badgeX, badgeY + 5, { width: badgeWidth, align: 'center' });
+            // Status badge — top right, clear of title area
+            const badgeX = cardX + cardWidth - badgeWidth - 8;
+            const badgeY = cardY + 8;
+            this.doc.roundedRect(badgeX, badgeY, badgeWidth, badgeHeight, 10).fill(badgeBg);
+            this.doc.fontSize(8).font('BoldFont').fillColor('#FFFFFF')
+                .text(status, badgeX, badgeY + 6, { width: badgeWidth, align: 'center', lineBreak: false });
 
-                // Title
-                this.doc.fontSize(14).font('BoldFont').fillColor('#1F2937')
-                    .text(auditInfo.title, cardX + 12, cardY + 12, { width: cardWidth - 95 });
+            // Title — constrained to left zone, never reaching badge column
+            this.doc.fontSize(14).font('BoldFont').fillColor('#1F2937');
+            const titleH = this.doc.heightOfString(auditInfo.title, { width: titleWidth });
+            this.doc.text(auditInfo.title, cardX + titleLeftPad, cardY + 12, { width: titleWidth });
 
-                // Description
+            // Description — positioned below actual title height
+            const descY = cardY + 12 + titleH + 8;
+            const descMaxH = rowHeight - (descY - cardY) - 10;
+            if (descMaxH > 10) {
                 this.doc.fontSize(11).font('RegularFont').fillColor('#6B7280')
-                    .text(auditInfo.impact, cardX + 12, cardY + 46, { 
-                        width: cardWidth - 24, 
-                        height: cardHeight - 64,
+                    .text(auditInfo.impact, cardX + titleLeftPad, descY, {
+                        width: cardWidth - 24,
+                        height: descMaxH,
                         ellipsis: true,
-                        lineGap: 3
+                        lineGap: 3,
                     });
+            }
 
-                // Move to next column or row
-                column++;
-                if (column >= 2) {
-                    column = 0;
-                    rowStartY += cardHeight + cardSpacing;
-                }
+            column++;
+            if (column >= 2) {
+                column = 0;
+                rowStartY += rowHeight + cardSpacing;
             }
         });
-        
+
         // Update currentY to after the last row
-        this.currentY = rowStartY + (column > 0 ? cardHeight + cardSpacing : 0);
+        const lastRowHeight = cardItems.length > 0 ? Math.max(
+            cardHeights[cardHeights.length - 1],
+            cardHeights.length >= 2 ? cardHeights[cardHeights.length - 2] : 0
+        ) : 0;
+        this.currentY = rowStartY + (column > 0 ? lastRowHeight + cardSpacing : 0);
     }
 
     addPremiumComparisonPage() {
@@ -432,6 +452,115 @@ class LiteAccessibilityPDFGenerator {
         this.addBodyText('Premium Version: Comprehensive analysis of 18+ audits with visual highlighting, detailed recommendations, and professional reporting', 14, '#27AE60');
     }
 
+    addLiteWcagSection(reportData) {
+        const wcagMatrix = Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix : [];
+        if (!wcagMatrix.length) return;
+
+        this.addPage();
+
+        this.doc.fontSize(18).font('BoldFont').fillColor('#1F2937')
+            .text('WCAG 2.2 AA Coverage Overview', this.margin, this.currentY);
+        this.doc.moveTo(this.margin, this.currentY + 24)
+            .lineTo(this.margin + this.pageWidth, this.currentY + 24)
+            .lineWidth(2).stroke('#3B82F6');
+        this.currentY += 44;
+
+        // 4-card summary banner
+        const passed = wcagMatrix.filter(r => r.status === 'pass').length;
+        const failed = wcagMatrix.filter(r => r.status === 'fail').length;
+        const needsReview = wcagMatrix.filter(r => r.status === 'needs-review').length;
+        const notApplicable = wcagMatrix.filter(r => r.status === 'not-applicable').length;
+
+        const summaryCards = [
+            { label: 'Passed', value: String(passed), color: '#10B981' },
+            { label: 'Failed', value: String(failed), color: '#DC3545' },
+            { label: 'Needs Review', value: String(needsReview), color: '#F59E0B' },
+            { label: 'Not Applicable', value: String(notApplicable), color: '#6B7280' },
+        ];
+
+        const cardWidth = (this.pageWidth - 18) / 4;
+        summaryCards.forEach((card, index) => {
+            const x = this.margin + index * (cardWidth + 6);
+            this.doc.roundedRect(x, this.currentY, cardWidth, 54, 6).fill('#F8FAFC').stroke('#E5E7EB');
+            this.doc.fontSize(20).font('BoldFont').fillColor(card.color)
+                .text(card.value, x + 8, this.currentY + 9, { width: cardWidth - 16, align: 'center' });
+            this.doc.fontSize(7).font('BoldFont').fillColor('#6B7280')
+                .text(card.label.toUpperCase(), x + 6, this.currentY + 36, { width: cardWidth - 12, align: 'center' });
+        });
+        this.currentY += 70;
+
+        // Top 5 failed criteria
+        const topFailed = wcagMatrix
+            .filter(r => r.status === 'fail')
+            .slice(0, 5);
+
+        if (topFailed.length) {
+            this.doc.fontSize(13).font('BoldFont').fillColor('#1F2937')
+                .text('Top Failed Criteria', this.margin, this.currentY);
+            this.currentY += 20;
+
+            const colWidths = [50, 175, 290];
+            const headers = ['Criterion', 'Title', 'Action Required'];
+
+            // Table header
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, 28).fill('#3D5A80');
+            this.doc.font('BoldFont').fontSize(9).fillColor('#FFFFFF');
+            let x = this.margin;
+            headers.forEach((header, i) => {
+                this.doc.text(header, x + 5, this.currentY + 9, {
+                    width: colWidths[i] - 10,
+                    align: i === 0 ? 'center' : 'left',
+                });
+                x += colWidths[i];
+            });
+            this.currentY += 28;
+
+            topFailed.forEach((row, rowIndex) => {
+                const actionText = row.remediationGuidance || '';
+                this.doc.fontSize(9).font('RegularFont');
+                const cellTexts = [row.criterion || '', row.title || '', actionText];
+                const rowHeights = cellTexts.map((text, i) =>
+                    this.doc.heightOfString(text, { width: colWidths[i] - 10, lineGap: 1.5 })
+                );
+                const rowHeight = Math.max(26, Math.max(...rowHeights) + 12);
+
+                if (this.currentY + rowHeight > this.doc.page.height - 50) {
+                    this.addPage();
+                }
+
+                this.doc.rect(this.margin, this.currentY, this.pageWidth, rowHeight)
+                    .fill(rowIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FA');
+
+                x = this.margin;
+                cellTexts.forEach((text, i) => {
+                    this.doc.font('RegularFont').fontSize(9).fillColor('#2C3E50')
+                        .text(text, x + 5, this.currentY + 6, {
+                            width: colWidths[i] - 10,
+                            lineGap: 1.5,
+                            align: i === 0 ? 'center' : 'left',
+                        });
+                    x += colWidths[i];
+                });
+
+                this.doc.moveTo(this.margin, this.currentY + rowHeight)
+                    .lineTo(this.margin + this.pageWidth, this.currentY + rowHeight)
+                    .strokeColor('#DEE2E6').lineWidth(0.5).stroke();
+
+                this.currentY += rowHeight;
+            });
+
+            this.currentY += 10;
+        }
+
+        // Disclaimer
+        const disclaimer = 'Criteria marked Needs Review cannot be fully assessed by automated scanning. They require manual review by a qualified accessibility specialist. This report does not constitute a legal conformance certification.';
+        this.doc.rect(this.margin, this.currentY, this.pageWidth, 1).fill('#DEE2E6');
+        this.currentY += 8;
+        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+            .text(disclaimer, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(disclaimer, { width: this.pageWidth, lineGap: 2 }) + 12;
+    }
+
     async generateLiteReport(inputFile, outputFile) { // <-- REMOVED THE DEFAULT VALUE
         try {
             const reportData = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
@@ -510,6 +639,9 @@ class LiteAccessibilityPDFGenerator {
 
             // Results
             this.addLiteResults(reportData);
+
+            // WCAG matrix overview
+            this.addLiteWcagSection(reportData);
 
             // Add premium comparison page
             this.addPremiumComparisonPage();

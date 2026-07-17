@@ -82,7 +82,7 @@ function titleCaseSiteName(value) {
 function extractSiteNameFromUrl(url, fallback = 'Website') {
     try {
         const urlObj = new URL(String(url || '').startsWith('http') ? url : `https://${url}`);
-        const hostname = urlObj.hostname.replace(/^www\./i, '');
+        const hostname = urlObj.hostname.replace(/^(?:www|m|mobile|amp)\./i, '');
         const name = titleCaseSiteName(getBrandSegmentFromHostname(hostname));
         return name || hostname || fallback;
     } catch (e) {
@@ -772,12 +772,25 @@ addOverallScoreDisplay(scoreData) {
         this.currentY += 35;
 
         const scorecard = scoreData.scorecard || buildAuditScorecard(reportData);
-        const tableItems = (scorecard.evaluationDimensions || []).map((dimension) => {
+        const dimensions = scorecard.evaluationDimensions || [];
+
+        // Largest remainder method — ensures displayed integer weights always sum to exactly 100
+        const activeDims = dimensions.filter(d => d.weight);
+        const floors = activeDims.map(d => Math.floor(d.weight));
+        const deficit = 100 - floors.reduce((s, f) => s + f, 0);
+        activeDims
+            .map((d, i) => ({ i, r: d.weight - floors[i] }))
+            .sort((a, b) => b.r - a.r)
+            .slice(0, deficit)
+            .forEach(({ i }) => { floors[i] += 1; });
+        const weightMap = new Map(activeDims.map((d, i) => [d.key, floors[i]]));
+
+        const tableItems = dimensions.map((dimension) => {
             const excluded = !dimension.weight;
             return {
                 name: dimension.label,
                 score: excluded ? 'N/A' : `${Math.round(dimension.score)}%`,
-                weight: excluded ? 'Excluded' : `${Math.round(dimension.weight)}%`,
+                weight: excluded ? 'Excluded' : `${weightMap.get(dimension.key) ?? Math.round(dimension.weight)}%`,
                 contribution: excluded ? 'N/A' : String(Math.round((dimension.score * dimension.weight) / 100)),
             };
         });
@@ -955,6 +968,7 @@ addOverallScoreDisplay(scoreData) {
         this.addPage();
 
         const siteName = extractSiteNameFromUrl(reportData.finalUrl || '', 'website');
+        const pageUrl = reportData.finalUrl || '';
         const score = Math.round(scoreData.finalScore);
         // For messaging on this page, treat 80% as the minimum recommended standard (Pass threshold)
         const meetsMinimum = score >= 80;
@@ -962,15 +976,27 @@ addOverallScoreDisplay(scoreData) {
         // Executive Summary heading (blue)
         this.doc.fontSize(24).font('BoldFont').fillColor('#2C5F9C')
             .text('Executive Summary', this.margin, this.currentY);
-        this.currentY += 35;
+        this.currentY += 30;
+
+        // Page URL subtitle — lets reader immediately identify which page this section covers
+        if (pageUrl) {
+            this.doc.fontSize(9).font('RegularFont').fillColor('#7F8C8D')
+                .text(`Page: ${pageUrl}`, this.margin, this.currentY, {
+                    width: this.pageWidth,
+                    lineBreak: false,
+                    ellipsis: true
+                });
+            this.currentY += 18;
+        }
+        this.currentY += 8;
 
         // Opening paragraph with site name
         const openingText = `This comprehensive accessibility audit evaluates the ${siteName} website specifically for digital users. The assessment focuses on digital user challenges including vision changes, motor skill considerations, cognitive processing needs, and technology familiarity.`;
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-            .text(openingText, this.margin, this.currentY, { 
-                width: this.pageWidth, 
+            .text(openingText, this.margin, this.currentY, {
+                width: this.pageWidth,
                 align: 'justify',
-                lineGap: 3 
+                lineGap: 3
             });
         this.currentY += this.doc.heightOfString(openingText, { width: this.pageWidth, lineGap: 3 }) + 30;
 
@@ -990,47 +1016,66 @@ addOverallScoreDisplay(scoreData) {
             'link-name': 'link text clarity',
             'label': 'form labels and inputs',
             'cumulative-layout-shift': 'layout stability',
-            'is-on-https': 'security (HTTPS)'
+            'is-on-https': 'security (HTTPS)',
+            'image-alt': 'image alt text',
+            'heading-order': 'heading structure',
+            'duplicate-id': 'duplicate element IDs',
+            'aria-hidden-focus': 'hidden focusable elements',
+            'video-caption': 'video captions',
+            'identical-links-same-purpose': 'ambiguous repeated links'
         };
 
+        // Collect weak/strong audits with per-page violation counts from Lighthouse items
         const weakAudits = [];
         const strongAudits = [];
 
         Object.keys(IMPORTANT_AUDITS).forEach(id => {
             const audit = audits[id];
             if (!audit || typeof audit.score !== 'number') return;
+            const count = Array.isArray(audit.details?.items) ? audit.details.items.length : null;
             if (audit.score < 0.7) {
-                weakAudits.push(IMPORTANT_AUDITS[id]);
+                weakAudits.push({ id, label: IMPORTANT_AUDITS[id], count });
             } else if (audit.score >= 0.9) {
-                strongAudits.push(IMPORTANT_AUDITS[id]);
+                strongAudits.push({ id, label: IMPORTANT_AUDITS[id], count });
             }
         });
 
-        const formatList = (items) => {
-            if (!items.length) return '';
-            if (items.length === 1) return items[0];
-            if (items.length === 2) return `${items[0]} and ${items[1]}`;
-            return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+        // Sort weak audits by violation count descending so the most impactful lead
+        weakAudits.sort((a, b) => (b.count ?? 0) - (a.count ?? 0));
+
+        const formatLabelList = (items) => {
+            const labels = items.map(i => i.label || i);
+            if (!labels.length) return '';
+            if (labels.length === 1) return labels[0];
+            if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+            return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
         };
 
         const keyFindings = [];
 
-        // 1) Score statement – remove the word "Overall"
+        // 1) Score statement
         keyFindings.push(
             `Score of ${score}% ${meetsMinimum ? 'meets' : 'falls below'} the 80% minimum standard for user-friendly accessibility on this page`
         );
 
-        // 2) Areas needing improvement on this specific page
+        // 2) Weak areas with violation counts to differentiate across pages
         if (weakAudits.length) {
-            keyFindings.push(
-                `Key accessibility gaps on this page: ${formatList(weakAudits)}.`
+            const withCounts = weakAudits.map(a =>
+                a.count != null ? `${a.label} (${a.count} ${a.count === 1 ? 'issue' : 'issues'})` : a.label
             );
+            const formatStringList = (items) => {
+                if (!items.length) return '';
+                if (items.length === 1) return items[0];
+                if (items.length === 2) return `${items[0]} and ${items[1]}`;
+                return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+            };
+            keyFindings.push(`Key accessibility gaps on this page: ${formatStringList(withCounts)}.`);
         }
 
         // 3) Strong areas on this specific page
         if (strongAudits.length) {
             keyFindings.push(
-                `Strong performance on this page in: ${formatList(strongAudits)}.`
+                `Strong performance on this page in: ${formatLabelList(strongAudits)}.`
             );
         }
 
@@ -1044,20 +1089,20 @@ addOverallScoreDisplay(scoreData) {
         keyFindings.forEach(finding => {
             const bulletX = this.margin + 20;
             const textX = bulletX + 15;
-            
+
             // Draw bullet point
             this.doc.circle(bulletX, this.currentY + 5, 2.5).fill('#2C3E50');
-            
+
             // Draw finding text
             this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
                 .text(finding, textX, this.currentY, {
                     width: this.pageWidth - 35,
                     lineGap: 2
                 });
-            
-            const findingHeight = this.doc.heightOfString(finding, { 
-                width: this.pageWidth - 35, 
-                lineGap: 2 
+
+            const findingHeight = this.doc.heightOfString(finding, {
+                width: this.pageWidth - 35,
+                lineGap: 2
             });
             this.currentY += findingHeight + 10;
         });
@@ -1071,29 +1116,53 @@ addOverallScoreDisplay(scoreData) {
 
         // Priority actions based on weakest audits for THIS page
         const ACTIONS_BY_AUDIT = {
-            'color-contrast': 'Improve color contrast ratios for text and interactive elements so older adults can easily read content.',
-            'target-size': 'Increase the size and spacing of buttons and links to make them easier to tap, especially on touch devices.',
-            'text-font-audit': 'Increase text sizes and ensure consistent typography for comfortable reading.',
-            'user-scalable-audit': 'Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.',
-            'horizontal-scroll-audit': 'Fix content overflow so the page fits within the screen width without requiring horizontal scrolling.',
-            'text-size-adjust-audit': 'Remove CSS that disables mobile text scaling to allow browsers to adjust text size for readability.',
-            'link-name': 'Rewrite vague links (e.g., “Learn more”) into descriptive text that explains the destination or action.',
-            'label': 'Add clear labels and instructions to all form fields so users understand what to enter.',
-            'cumulative-layout-shift': 'Stabilize layout elements to prevent content from shifting as the page loads.',
-            'is-on-https': 'Ensure all pages load over HTTPS to protect user privacy and security.'
+            'color-contrast': (count) => count
+                ? `Fix ${count} color contrast ${count === 1 ? 'violation' : 'violations'}: improve contrast ratios for text and interactive elements so older adults can easily read content.`
+                : 'Improve color contrast ratios for text and interactive elements so older adults can easily read content.',
+            'target-size': (count) => count
+                ? `Fix ${count} touch target ${count === 1 ? 'issue' : 'issues'}: increase the size and spacing of buttons and links to make them easier to tap on touch devices.`
+                : 'Increase the size and spacing of buttons and links to make them easier to tap, especially on touch devices.',
+            'text-font-audit': (count) => count
+                ? `Fix ${count} text size ${count === 1 ? 'issue' : 'issues'}: increase text sizes and ensure consistent typography for comfortable reading.`
+                : 'Increase text sizes and ensure consistent typography for comfortable reading.',
+            'user-scalable-audit': () => 'Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.',
+            'horizontal-scroll-audit': () => 'Fix content overflow so the page fits within the screen width without requiring horizontal scrolling.',
+            'text-size-adjust-audit': () => 'Remove CSS that disables mobile text scaling to allow browsers to adjust text size for readability.',
+            'link-name': (count) => count
+                ? `Fix ${count} vague ${count === 1 ? 'link' : 'links'}: rewrite link text (e.g., “Learn more”) to clearly describe the destination or action.`
+                : 'Rewrite vague links (e.g., “Learn more”) into descriptive text that explains the destination or action.',
+            'label': (count) => count
+                ? `Fix ${count} unlabelled form ${count === 1 ? 'field' : 'fields'}: add clear labels and instructions so users understand what to enter.`
+                : 'Add clear labels and instructions to all form fields so users understand what to enter.',
+            'cumulative-layout-shift': () => 'Stabilize layout elements to prevent content from shifting as the page loads.',
+            'is-on-https': () => 'Ensure all pages load over HTTPS to protect user privacy and security.',
+            'image-alt': (count) => count
+                ? `Fix ${count} ${count === 1 ? 'image' : 'images'} missing alt text so screen readers can describe them to visually impaired users.`
+                : 'Add descriptive alt text to all images so screen readers can convey their meaning.',
+            'heading-order': (count) => count
+                ? `Fix ${count} heading order ${count === 1 ? 'issue' : 'issues'}: ensure headings follow a logical hierarchy (H1 → H2 → H3) for easier navigation.`
+                : 'Ensure headings follow a logical order (H1 → H2 → H3) so users can navigate page structure easily.',
+            'duplicate-id': (count) => count
+                ? `Fix ${count} duplicate HTML ${count === 1 ? 'ID' : 'IDs'}: each element ID must be unique or assistive technologies may behave unpredictably.`
+                : 'Remove duplicate HTML element IDs to prevent assistive technology errors.',
+            'aria-hidden-focus': (count) => count
+                ? `Fix ${count} focusable ${count === 1 ? 'element' : 'elements'} hidden from screen readers: keyboard and assistive technology users cannot interact with them.`
+                : 'Ensure focusable elements are not hidden from assistive technologies.',
+            'video-caption': (count) => count
+                ? `Add captions to ${count} ${count === 1 ? 'video' : 'videos'} on this page so deaf and hard-of-hearing users can access the content.`
+                : 'Add captions to all videos so deaf and hard-of-hearing users can access the content.',
+            'identical-links-same-purpose': (count) => count
+                ? `Fix ${count} ambiguous repeated ${count === 1 ? 'link' : 'links'} (e.g. multiple "Read more"): give each a unique label that explains where it leads.`
+                : 'Give repeated links unique, descriptive labels so users know where each one leads.'
         };
 
         const priorityActions = [];
 
-        // Use the same weak audits list but keep only the first 4 for actions
-        const weakAuditIdsInOrder = Object.keys(IMPORTANT_AUDITS).filter(id => {
-            const audit = audits[id];
-            return audit && typeof audit.score === 'number' && audit.score < 0.7;
-        });
-
-        weakAuditIdsInOrder.slice(0, 4).forEach(id => {
-            if (ACTIONS_BY_AUDIT[id]) {
-                priorityActions.push(ACTIONS_BY_AUDIT[id]);
+        // Use weak audits already sorted by violation count — highest-impact action leads for this page
+        weakAudits.slice(0, 4).forEach(({ id, count }) => {
+            const actionFn = ACTIONS_BY_AUDIT[id];
+            if (actionFn) {
+                priorityActions.push(actionFn(count));
             }
         });
 
@@ -1108,20 +1177,20 @@ addOverallScoreDisplay(scoreData) {
         priorityActions.forEach(action => {
             const bulletX = this.margin + 20;
             const textX = bulletX + 15;
-            
+
             // Draw bullet point
             this.doc.circle(bulletX, this.currentY + 5, 2.5).fill('#2C3E50');
-            
+
             // Draw action text (bold for priority actions)
             this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50')
                 .text(action, textX, this.currentY, {
                     width: this.pageWidth - 35,
                     lineGap: 2
                 });
-            
-            const actionHeight = this.doc.heightOfString(action, { 
-                width: this.pageWidth - 35, 
-                lineGap: 2 
+
+            const actionHeight = this.doc.heightOfString(action, {
+                width: this.pageWidth - 35,
+                lineGap: 2
             });
             this.currentY += actionHeight + 10;
         });
@@ -2986,9 +3055,195 @@ addOverallScoreDisplay(scoreData) {
         this.currentY = tableY + 20;
     }
 
+    addWcagMatrixSection(reportData) {
+        const wcagMatrix = Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix : [];
+        if (!wcagMatrix.length) return;
+
+        this.addPage();
+
+        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C')
+            .text('WCAG 2.2 AA Coverage Matrix', this.margin, this.currentY);
+        this.currentY += 28;
+
+        const explanation = 'This matrix shows the automated coverage of all WCAG 2.2 Level A and AA success criteria. Criteria marked Needs Review cannot be fully assessed by automated scanning and require manual review by a qualified accessibility specialist.';
+        this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
+            .text(explanation, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(explanation, { width: this.pageWidth, lineGap: 2 }) + 16;
+
+        // Summary banner — 4 stat cards
+        const passed = wcagMatrix.filter(r => r.status === 'pass').length;
+        const failed = wcagMatrix.filter(r => r.status === 'fail').length;
+        const needsReview = wcagMatrix.filter(r => r.status === 'needs-review').length;
+        const notApplicable = wcagMatrix.filter(r => r.status === 'not-applicable').length;
+
+        const summaryCards = [
+            { label: 'Passed', value: String(passed), color: '#10B981' },
+            { label: 'Failed', value: String(failed), color: '#DC3545' },
+            { label: 'Needs Review', value: String(needsReview), color: '#F59E0B' },
+            { label: 'Not Applicable', value: String(notApplicable), color: '#6B7280' },
+        ];
+
+        const cardWidth = (this.pageWidth - 18) / 4;
+        summaryCards.forEach((card, index) => {
+            const x = this.margin + index * (cardWidth + 6);
+            this.doc.roundedRect(x, this.currentY, cardWidth, 54, 6).fill('#F8FAFC').stroke('#E5E7EB');
+            this.doc.fontSize(20).font('BoldFont').fillColor(card.color)
+                .text(card.value, x + 8, this.currentY + 9, { width: cardWidth - 16, align: 'center' });
+            this.doc.fontSize(7).font('BoldFont').fillColor('#6B7280')
+                .text(card.label.toUpperCase(), x + 6, this.currentY + 36, { width: cardWidth - 12, align: 'center' });
+        });
+        this.currentY += 70;
+
+        const colWidths = [50, 145, 35, 80, 45, 160];
+        const headers = ['Criterion', 'Title', 'Level', 'Status', 'Issues', 'Action Required'];
+        const pageBottom = () => this.doc.page.height - 50;
+
+        const getStatusColor = (status) => {
+            if (status === 'pass') return '#10B981';
+            if (status === 'fail') return '#DC3545';
+            if (status === 'needs-review') return '#F59E0B';
+            return '#6B7280';
+        };
+
+        const getStatusLabel = (status) => {
+            if (status === 'pass') return 'Pass';
+            if (status === 'fail') return 'Fail';
+            if (status === 'needs-review') return 'Needs Review';
+            return 'N/A';
+        };
+
+        const principleOrder = ['perceivable', 'operable', 'understandable', 'robust'];
+        const principleLabels = {
+            perceivable: 'Perceivable',
+            operable: 'Operable',
+            understandable: 'Understandable',
+            robust: 'Robust',
+        };
+
+        const drawTableHeader = () => {
+            const headerHeight = 32;
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, headerHeight).fill('#3D5A80');
+            this.doc.font('BoldFont').fontSize(9).fillColor('#FFFFFF');
+            let x = this.margin;
+            headers.forEach((header, i) => {
+                this.doc.text(header, x + 5, this.currentY + 10, {
+                    width: colWidths[i] - 10,
+                    align: i === 0 || i === 1 || i === 5 ? 'left' : 'center',
+                });
+                x += colWidths[i];
+            });
+            this.currentY += headerHeight;
+        };
+
+        const groups = {};
+        principleOrder.forEach(p => { groups[p] = []; });
+        wcagMatrix.forEach(row => {
+            const p = row.principle || 'perceivable';
+            if (groups[p]) groups[p].push(row);
+        });
+
+        drawTableHeader();
+        let rowIndex = 0;
+
+        principleOrder.forEach(principle => {
+            const rows = groups[principle];
+            if (!rows.length) return;
+
+            const subHeaderHeight = 24;
+            if (this.currentY + subHeaderHeight > pageBottom()) {
+                this.addPage();
+                drawTableHeader();
+            }
+            this.doc.rect(this.margin, this.currentY, this.pageWidth, subHeaderHeight).fill('#E8EEF4');
+            this.doc.fontSize(10).font('BoldFont').fillColor('#2C5F9C')
+                .text(principleLabels[principle], this.margin + 8, this.currentY + 7, { width: this.pageWidth - 16 });
+            this.currentY += subHeaderHeight;
+
+            rows.forEach(row => {
+                const actionText = (() => {
+                    if (row.status === 'pass') {
+                        return 'Automated checks passed — no violations detected on this criterion.';
+                    }
+                    if (row.status === 'fail') {
+                        const n = row.issueCount || 0;
+                        const base = `${n} violation${n !== 1 ? 's' : ''} detected.`;
+                        return row.remediationGuidance
+                            ? `${base} ${row.remediationGuidance}`
+                            : `${base} Review the Priority Recommendations section for step-by-step fixes.`;
+                    }
+                    if (row.status === 'needs-review') {
+                        return row.manualReviewReason || 'Manual review required — cannot be fully assessed by automated scanning.';
+                    }
+                    // not-applicable
+                    return row.manualReviewReason || 'Not applicable under WCAG 2.2.';
+                })();
+
+                this.doc.fontSize(9).font('RegularFont');
+                const cellTexts = [
+                    row.criterion || '',
+                    row.title || '',
+                    row.level || '',
+                    getStatusLabel(row.status),
+                    row.issueCount != null ? String(row.issueCount) : '0',
+                    actionText,
+                ];
+
+                const rowHeights = cellTexts.map((text, i) =>
+                    this.doc.heightOfString(text, { width: colWidths[i] - 10, lineGap: 1.5 })
+                );
+                const rowHeight = Math.max(28, Math.max(...rowHeights) + 14);
+
+                if (this.currentY + rowHeight > pageBottom()) {
+                    this.addPage();
+                    drawTableHeader();
+                }
+
+                this.doc.rect(this.margin, this.currentY, this.pageWidth, rowHeight)
+                    .fill(rowIndex % 2 === 0 ? '#FFFFFF' : '#F8F9FA');
+
+                let x = this.margin;
+                cellTexts.forEach((text, i) => {
+                    const color = i === 3 ? getStatusColor(row.status) : '#2C3E50';
+                    const font = i === 3 ? 'BoldFont' : 'RegularFont';
+                    const align = i === 0 || i === 1 || i === 5 ? 'left' : 'center';
+                    this.doc.font(font).fontSize(9).fillColor(color)
+                        .text(text, x + 5, this.currentY + 7, {
+                            width: colWidths[i] - 10,
+                            lineGap: 1.5,
+                            align,
+                        });
+                    x += colWidths[i];
+                });
+
+                this.doc.moveTo(this.margin, this.currentY + rowHeight)
+                    .lineTo(this.margin + this.pageWidth, this.currentY + rowHeight)
+                    .strokeColor('#DEE2E6').lineWidth(0.5).stroke();
+
+                this.currentY += rowHeight;
+                rowIndex++;
+            });
+        });
+
+        this.currentY += 16;
+
+        const disclaimer = 'Criteria marked Needs Review cannot be fully assessed by automated scanning. They require manual review by a qualified accessibility specialist. This report does not constitute a legal conformance certification.';
+        this.checkPageBreak(40);
+        this.doc.rect(this.margin, this.currentY, this.pageWidth, 1).fill('#DEE2E6');
+        this.currentY += 8;
+        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+            .text(disclaimer, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
+        this.currentY += this.doc.heightOfString(disclaimer, { width: this.pageWidth, lineGap: 2 }) + 12;
+    }
+
     async generateReport(inputFile, outputFile, options = {}) {
         try {
             const reportData = JSON.parse(await fsPromises.readFile(inputFile, 'utf8'));
+            const _wm = options.wcagMatrix;
+            console.log(`[PDF-rcv] wcagMatrix: type=${typeof _wm} isArr=${Array.isArray(_wm)} len=${_wm != null ? (Array.isArray(_wm) ? _wm.length : 'not-arr') : 'null/undef'}`);
+            if (_wm && Array.isArray(_wm) && _wm.length > 0) {
+                reportData.wcagMatrix = _wm;
+            }
+            console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';
             const url = reportData.finalUrl || 'unknown-url';
@@ -3040,7 +3295,7 @@ addOverallScoreDisplay(scoreData) {
             this.addIntroPage(reportData, scoreData, options.planType || 'pro');
             this.addExecutiveSummary(reportData, scoreData);
             this.addScoreCalculationPage(reportData, scoreData);
-            this.addAutomatedWcagResultsPage(reportData);
+            this.addWcagMatrixSection(reportData);
             this.addSummaryPage(reportData);
             this.addPriorityRecommendations(reportData);
             this.addAreasOfStrength(reportData);

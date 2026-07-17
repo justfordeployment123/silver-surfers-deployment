@@ -27,6 +27,7 @@ const analysisRecordSchema = new mongoose.Schema({
   score: { type: Number, default: null },
   scoreCard: { type: scoreCardSchema, default: undefined },
   aiReport: { type: aiReportSchema, default: undefined },
+  wcagMatrix: { type: mongoose.Schema.Types.Mixed, default: undefined },
   status: { type: String, enum: ['queued', 'processing', 'completed', 'completed_with_warnings', 'failed'], default: 'queued' },
   emailStatus: { type: String, enum: ['pending', 'sending', 'sent', 'failed'], default: 'pending' },
   scannerJobId: { type: String, index: true, default: null },

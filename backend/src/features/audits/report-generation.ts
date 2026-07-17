@@ -12,6 +12,7 @@ import { generateLiteAccessibilityReport as tsGenerateLiteAccessibilityReport } 
 import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
 import type { AuditScorecard } from './audit-scorecard.ts';
+import type { WcagMatrix } from './wcag-matrix.ts';
 
 export interface LitePdfResult {
   reportPath: string;
@@ -387,6 +388,7 @@ export async function generateSeniorAccessibilityReport(options: {
   outputDir: string;
   formFactor: FullAuditDevice;
   planType: string;
+  wcagMatrix?: WcagMatrix;
 }): Promise<SeniorPdfResult> {
   return tsGenerateSeniorAccessibilityReport(options);
 }
@@ -511,6 +513,7 @@ export async function generateAuditAiSummaryPdf(
     title?: string;
     scorecard?: AuditScorecard;
     platformSummary?: PlatformSummaryEntry[];
+    planType?: string;
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -627,12 +630,15 @@ export async function generateAuditAiSummaryPdf(
 
     const renderHero = (): void => {
       const heroHeight = 110;
+      const packageLabel = getPackageDisplayName(options.planType || 'pro');
       doc.save();
       doc.rect(0, 0, doc.page.width, heroHeight).fill('#0F172A');
       doc.fillColor('#FFFFFF').font('BoldFont').fontSize(22)
         .text(options.title || 'AI Executive Summary', pageMarginLeft, 28, { width: contentWidth });
       doc.font('RegularFont').fontSize(10).fillColor('#CBD5F5')
-        .text(options.url, pageMarginLeft, 60, { width: contentWidth, lineBreak: false, ellipsis: true });
+        .text(options.url, pageMarginLeft, 60, { width: contentWidth - 120, lineBreak: false, ellipsis: true });
+      doc.font('BoldFont').fontSize(9).fillColor('#7DD3FC')
+        .text(`Package: ${packageLabel}`, doc.page.width - pageMarginRight - 115, 60, { width: 115, align: 'right', lineBreak: false });
       doc.font('RegularFont').fontSize(9).fillColor('#94A3B8')
         .text(`Generated ${generatedAtLabel}  •  Source: ${aiReport.provider}${aiReport.model ? ` (${aiReport.model})` : ''}`,
           pageMarginLeft, 78, { width: contentWidth });
@@ -806,7 +812,14 @@ export async function generateAuditAiSummaryPdf(
           }
           const textX = showBulletDots ? innerLeft + 16 : innerLeft;
           const textWidth = showBulletDots ? innerWidth - 16 : innerWidth;
-          doc.fillColor('#334155').text(item, textX, lineY, { width: textWidth, lineGap: 3 });
+          if (item.startsWith('Fix: ')) {
+            doc.font('BoldFont').fillColor('#1E40AF')
+              .text('Fix: ', textX, lineY, { continued: true, lineGap: 3 });
+            doc.font('RegularFont').fillColor('#334155')
+              .text(item.slice(5), { width: textWidth, lineGap: 3 });
+          } else {
+            doc.font('RegularFont').fillColor('#334155').text(item, textX, lineY, { width: textWidth, lineGap: 3 });
+          }
           doc.moveDown(0.2);
         });
       }

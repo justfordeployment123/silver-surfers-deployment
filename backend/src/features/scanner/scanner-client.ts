@@ -20,6 +20,13 @@ export interface ScannerServiceAuditRequest {
   scannerQueue?: 'quick' | 'full';
   scannerJobId?: string;
   scannerTier?: 'aws' | 'vps';
+  reportGeneration?: {
+    enabled?: boolean;
+    email?: string;
+    quickScanId?: string;
+    url?: string;
+    fullName?: string;
+  };
 }
 
 export interface ScannerFullAuditBatchTarget {
@@ -100,6 +107,7 @@ export interface ScannerSqsResultPayload {
   message?: string;
   error?: string;
   errorCode?: string;
+  score?: number;
   reportStorage?: QueueReportStorage;
   reportsGeneratedInWorker?: boolean;
   aiReport?: AuditAiReport;
@@ -502,6 +510,15 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
       region: env.scannerSqsArtifactRegion,
       prefix: env.scannerSqsArtifactPrefix,
     },
+    ...(request.reportGeneration ? {
+      reportGeneration: {
+        enabled: Boolean(request.reportGeneration.enabled),
+        email: request.reportGeneration.email,
+        quickScanId: request.reportGeneration.quickScanId,
+        url: request.reportGeneration.url,
+        fullName: request.reportGeneration.fullName,
+      },
+    } : {}),
   };
 
   scannerClientLogger.info('Queueing scanner-service audit through SQS.', {

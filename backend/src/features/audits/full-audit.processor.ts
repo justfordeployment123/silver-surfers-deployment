@@ -19,8 +19,11 @@ import {
   requestScannerLoadSnapshot,
   type ScannerSqsResultPayload,
 } from '../scanner/scanner-client.ts';
-import { generateAuditAiReport } from './ai-reporting.ts';
+import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.ts';
+import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
+import { buildWcagMatrix } from './wcag-matrix.ts';
+import type { WcagMatrix } from './wcag-mapping.ts';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import { resolveBackendPath } from '../../config/paths.ts';
@@ -655,6 +658,7 @@ async function generatePlatformReports(
   email: string,
   planId: string,
   finalReportFolder: string,
+  wcagMatrix?: WcagMatrix,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -675,6 +679,7 @@ async function generatePlatformReports(
           outputDir: finalReportFolder,
           formFactor: device,
           planType: planId,
+          wcagMatrix,
         });
 
         if (seniorPdfResult?.reportPath) {
@@ -752,7 +757,7 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
 async function persistAggregateScorecard(
   record: AnalysisRecordDocument,
   reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>,
-): Promise<void> {
+): Promise<WcagMatrix | undefined> {
   const platformScorecards: AuditPlatformScore[] = [];
   const allScorecards: AuditScorecard[] = [];
 
@@ -779,7 +784,7 @@ async function persistAggregateScorecard(
   }
 
   if (allScorecards.length === 0) {
-    return;
+    return undefined;
   }
 
   const aggregateScorecard = buildAggregateAuditScorecard(allScorecards, {
@@ -789,12 +794,43 @@ async function persistAggregateScorecard(
 
   record.score = aggregateScorecard.overallScore;
   record.scoreCard = aggregateScorecard;
+  const wcagMatrix = buildWcagMatrix(aggregateScorecard.issues);
+  record.wcagMatrix = wcagMatrix.map((row) => ({
+    ...row,
+    remediationGuidance: row.manualReviewRequired
+      ? row.remediationGuidance
+      : WCAG_REMEDIATION_FALLBACKS[row.criterion] ?? row.remediationGuidance,
+  }));
   await record.save().catch((error) => {
     fullAuditLogger.warn('Failed to persist aggregate full-audit scorecard.', {
       taskId: record.taskId,
       error: error instanceof Error ? error.message : String(error),
     });
   });
+  const failedWcagRows = wcagMatrix.filter(
+    (row) => (row.status === 'fail' || row.status === 'needs-review') && !row.manualReviewRequired,
+  );
+  void generateWcagRemediations(failedWcagRows).then((wcagRemediationMap) => {
+    const remediatedWcagMatrix = wcagMatrix.map((row) => ({
+      ...row,
+      remediationGuidance: row.manualReviewRequired
+        ? row.remediationGuidance
+        : wcagRemediationMap[row.criterion] ?? row.remediationGuidance,
+    }));
+    const AnalysisRecordModel = record.constructor as {
+      updateOne(query: Record<string, unknown>, update: Record<string, unknown>): Promise<unknown>;
+    };
+    return AnalysisRecordModel.updateOne(
+      { _id: record._id },
+      { $set: { wcagMatrix: remediatedWcagMatrix } },
+    );
+  }).catch((error) => {
+    fullAuditLogger.warn('WCAG AI remediation upgrade failed; static fallbacks remain.', {
+      taskId: record.taskId,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  });
+  return wcagMatrix;
 }
 
 async function sendAuditEmail(
@@ -802,6 +838,11 @@ async function sendAuditEmail(
   planId: string,
   selectedDevice: string | null | undefined,
   finalReportFolder: string,
+  metadata?: {
+    websiteUrl?: string;
+    pagesAudited?: number;
+    recipientName?: string;
+  },
 ): Promise<FullAuditEmailResult> {
   const emailContent = buildFullAuditEmailContent(planId, selectedDevice);
 
@@ -812,6 +853,11 @@ async function sendAuditEmail(
       text: emailContent.text,
       folderPath: finalReportFolder,
       deviceFilter: emailContent.deviceFilter,
+      websiteUrl: metadata?.websiteUrl,
+      planName: planId,
+      deviceName: emailContent.deviceFilter || 'All Devices',
+      pagesAudited: metadata?.pagesAudited,
+      recipientName: metadata?.recipientName,
     }),
     new Promise<never>((_resolve, reject) => {
       setTimeout(() => reject(new Error('Email sending timed out after 5 minutes')), 300_000);
@@ -1227,12 +1273,23 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
     ];
     await record.save();
 
+    const pagesAuditedForEmail = new Set(
+      scanTargets
+        .filter((target) => target.status === 'completed')
+        .map((target) => target.url),
+    ).size || successfulTargetCount;
+    const recipientNameForEmail = [record.firstName, record.lastName].filter(Boolean).join(' ');
     const emailContent = buildFullAuditEmailContent(effectivePlanId, record.device);
     const sendResult = await sendStoredAuditReportEmail({
       to: email,
       subject: emailContent.subject,
       text: emailContent.text,
       storage: reportStorage,
+      websiteUrl,
+      planName: effectivePlanId,
+      deviceName: emailContent.deviceFilter || 'All Devices',
+      pagesAudited: pagesAuditedForEmail,
+      recipientName: recipientNameForEmail,
     }).catch((error) => ({
       success: false,
       error: error instanceof Error ? error.message : String(error),
@@ -1988,10 +2045,15 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
       };
     }
 
+    const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined);
+    } else {
+      addAuditWarning(
+        warningSet,
+        'Final PDF reports were generated and uploaded by the scanner Fargate task.',
+      );
     }
-    await persistAggregateScorecard(record, reportsByPlatform);
 
     if (record.scoreCard && !batchWorkerReportStorage) {
       const remediationRoadmap = buildRemediationRoadmap(record.scoreCard);
@@ -2014,6 +2076,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         title: 'AI Executive Summary',
         scorecard: record.scoreCard,
         platformSummary: buildPlatformSummary(reportsByPlatform),
+        planType: effectivePlanId,
       }).catch((error) => {
         fullAuditLogger.warn('Failed to generate AI executive summary PDF.', {
           taskId: effectiveTaskId,
@@ -2058,17 +2121,33 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         });
       });
 
+      const pagesAuditedForEmail = new Set(
+        scanTargets
+          .filter((target) => target.status === 'completed')
+          .map((target) => target.url),
+      ).size || record.successfulTargetCount || record.attachmentCount || 1;
+      const recipientNameForEmail = [job.firstName, job.lastName].filter(Boolean).join(' ');
+      const emailContentForSend = buildFullAuditEmailContent(effectivePlanId, job.selectedDevice);
       const sendResult = batchWorkerReportStorage
         ? await sendStoredAuditReportEmail({
           to: job.email,
-          subject: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).subject,
-          text: buildFullAuditEmailContent(effectivePlanId, job.selectedDevice).text,
+          subject: emailContentForSend.subject,
+          text: emailContentForSend.text,
           storage: batchWorkerReportStorage,
+          websiteUrl: job.url,
+          planName: effectivePlanId,
+          deviceName: emailContentForSend.deviceFilter || 'All Devices',
+          pagesAudited: pagesAuditedForEmail,
+          recipientName: recipientNameForEmail,
         }).catch((error) => ({
           success: false,
           error: error instanceof Error ? error.message : String(error),
         }))
-        : await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder)
+        : await sendAuditEmail(job.email, effectivePlanId, job.selectedDevice, finalReportFolder, {
+          websiteUrl: job.url,
+          pagesAudited: pagesAuditedForEmail,
+          recipientName: recipientNameForEmail,
+        })
         .catch((error) => ({
           success: false,
           error: error instanceof Error ? error.message : String(error),

@@ -8,6 +8,7 @@ import User from '../../models/user.model.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
 import type { AuditScorecard } from './audit-scorecard.ts';
 import type { FullAuditDevice, FullAuditScannerMode } from './full-audit.helpers.ts';
+import type { WcagMatrix } from './wcag-mapping.ts';
 
 export interface SubscriptionDocument {
   _id?: string;
@@ -40,6 +41,7 @@ export interface AnalysisRecordDocument {
   score?: number | null;
   scoreCard?: AuditScorecard;
   aiReport?: AuditAiReport;
+  wcagMatrix?: WcagMatrix;
   status?: string;
   emailStatus?: string;
   scannerJobId?: string | null;
@@ -109,6 +111,7 @@ export interface QuickScanDocument {
   scannerAttemptHistory?: Array<Record<string, unknown>>;
   scanScore?: number | null;
   scoreCard?: AuditScorecard;
+  wcagMatrix?: WcagMatrix;
   scanDate?: Date;
   reportGenerated?: boolean;
   reportPath?: string | null;

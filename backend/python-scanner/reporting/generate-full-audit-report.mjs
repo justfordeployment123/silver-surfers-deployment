@@ -12,6 +12,7 @@ import {
   buildAggregateAuditScorecard,
   buildAuditScorecard,
 } from './src/features/audits/audit-scorecard.ts';
+import { buildWcagMatrix } from './src/features/audits/wcag-matrix.ts';
 import { buildRemediationRoadmap } from './src/features/audits/analysis-details.ts';
 import { generateAuditAiReport } from './src/features/audits/ai-reporting.ts';
 
@@ -125,7 +126,9 @@ async function main() {
   const aggregate = JSON.parse(await fs.readFile(aggregatePath, 'utf8'));
   const reportsByPlatform = {};
   const scorecards = [];
+  const pdfQueue = [];
 
+  // Phase 1: collect scan data and build scorecards (no PDF generation yet)
   for (const [index, target] of (aggregate.targets || []).entries()) {
     if (!target?.success || !target.report) {
       continue;
@@ -152,6 +155,26 @@ async function main() {
     reportsByPlatform[device] ||= [];
     reportsByPlatform[device].push(reportEntry);
 
+    pdfQueue.push({ jsonReportPath, url, device });
+  }
+
+  // Phase 2: build aggregate scorecard and wcagMatrix
+  let wcagMatrix;
+  if (scorecards.length > 0) {
+    const aggregateScorecardForMatrix = buildAggregateAuditScorecard(scorecards, {
+      pageCount: scorecards.length,
+      platforms: buildPlatformScores(reportsByPlatform),
+    });
+    wcagMatrix = buildWcagMatrix(aggregateScorecardForMatrix.issues);
+    console.log(`[PDF] wcagMatrix built: ${wcagMatrix.length} rows`);
+  }
+
+  // Phase 3: generate PDFs now that wcagMatrix is available
+  const wcagInfo = wcagMatrix ? `${wcagMatrix.length}r` : 'UNDEF';
+  console.log(`[P1A-v4] Phase3 start: queue=${pdfQueue.length} scorecards=${scorecards.length} wcag=${wcagInfo}`);
+  for (let _pdfIdx = 0; _pdfIdx < pdfQueue.length; _pdfIdx++) {
+    const { jsonReportPath, url, device } = pdfQueue[_pdfIdx];
+    console.log(`[P1A-v4] PDF ${_pdfIdx + 1}/${pdfQueue.length} device=${device} wcag=${wcagInfo}`);
     await generateSeniorAccessibilityReport({
       inputFile: jsonReportPath,
       url,
@@ -161,6 +184,7 @@ async function main() {
       outputDir,
       formFactor: device,
       planType: planId,
+      wcagMatrix,
     });
   }
 

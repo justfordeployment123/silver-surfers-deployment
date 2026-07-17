@@ -20,7 +20,8 @@ import {
     type StoredReportFile,
 } from "./report-files.ts";
 import { getCertificationEligibility, type CertificationEligibility } from "./certification-eligibility.ts";
-import type { WcagPourPrinciple, WcagReference } from "./wcag-mapping.ts";
+import type { WcagMatrix, WcagMatrixSummary, WcagPourPrinciple, WcagReference } from "./wcag-mapping.ts";
+import { buildWcagMatrix, buildWcagMatrixSummary } from "./wcag-matrix.ts";
 
 export type AnalysisStatus = "queued" | "processing" | "completed" | "completed_with_warnings" | "failed";
 export type AnalysisEmailStatus = "pending" | "sending" | "sent" | "failed";
@@ -64,6 +65,7 @@ export interface AnalysisRecordLike {
         errorCode?: string;
         statusCode?: number;
     }>;
+    wcagMatrix?: WcagMatrix;
     createdAt?: Date | string;
     updatedAt?: Date | string;
 }
@@ -150,6 +152,8 @@ export interface AnalysisDetailView {
     remediationRoadmap: AnalysisRemediationItem[];
     remediationBuckets: AnalysisRemediationBucket[];
     certificationEligibility?: CertificationEligibility;
+    wcagMatrix: WcagMatrix;
+    wcagSummary: WcagMatrixSummary;
 }
 
 interface RemediationTemplate {
@@ -804,6 +808,10 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
         normalizeStoredReportFiles((record.reportFiles || []) as StoredReportFile[]),
     );
     const remediationRoadmap = buildRemediationRoadmap(scorecard);
+    const wcagMatrix = Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0
+        ? record.wcagMatrix
+        : buildWcagMatrix(scorecard?.issues || []);
+    const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
 
     return {
         ...(record._id ? { id: String(record._id) } : {}),
@@ -853,5 +861,7 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
         remediationRoadmap,
         remediationBuckets: buildRemediationBuckets(remediationRoadmap),
         ...(scorecard?.overallScore !== undefined ? { certificationEligibility: getCertificationEligibility(scorecard.overallScore) } : {}),
+        wcagMatrix,
+        wcagSummary,
     };
 }

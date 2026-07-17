@@ -1,4 +1,5 @@
 import os
+import random
 import time
 from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse
@@ -217,9 +218,16 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
         
         try:
             navigate_for_audit(page, url)
-            
-            # Wait a bit for dynamic content (sync)
-            page.wait_for_timeout(2000)
+
+            # Jittered post-navigation wait to look human and let dynamic content settle
+            page.wait_for_timeout(random.randint(2000, 4500))
+            try:
+                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 350) + 150); }")
+                page.wait_for_timeout(random.randint(400, 1000))
+                page.evaluate("() => { window.scrollBy(0, Math.floor(Math.random() * 250) + 100); }")
+                page.wait_for_timeout(random.randint(300, 800))
+            except Exception:
+                pass
             
             # Get page content (sync)
             html_content = page.content()
@@ -1541,6 +1549,1265 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         "items": autoplay_results.get("items", []),
                     } if autoplay_count else None,
                 }
+
+                # --- 2.1 Orientation lock (WCAG 1.3.4) ---
+                try:
+                    orientation_results = page.evaluate("""
+                        () => {
+                            const sheets = Array.from(document.styleSheets);
+                            const issues = [];
+                            for (const sheet of sheets) {
+                                let rules = [];
+                                try { rules = Array.from(sheet.cssRules || []); } catch (e) { continue; }
+                                for (const rule of rules) {
+                                    if (rule.type === CSSRule.MEDIA_RULE) {
+                                        const media = rule.conditionText || rule.media.mediaText || '';
+                                        if (/orientation\\s*:\\s*(portrait|landscape)/i.test(media)) {
+                                            issues.push({ media, cssText: rule.cssText.slice(0, 200) });
+                                        }
+                                    }
+                                    if (rule.style) {
+                                        const transform = rule.style.transform || '';
+                                        if (/rotate\\s*\\(\\s*(?:90|270|-90|-270)/.test(transform)) {
+                                            issues.push({ selector: rule.selectorText || '', transform });
+                                        }
+                                    }
+                                }
+                            }
+                            return { issueCount: issues.length, items: issues.slice(0, 20) };
+                        }
+                    """)
+                    orientation_count = orientation_results.get("issueCount", 0)
+                    audits["ss-orientation-audit"] = {
+                        "id": "ss-orientation-audit",
+                        "title": "Page does not lock orientation (WCAG 1.3.4)",
+                        "description": (
+                            "Detects CSS that forces a single screen orientation via orientation media queries "
+                            "or fixed rotation transforms, which prevents users from viewing content in their preferred orientation."
+                        ),
+                        "score": 1.0 if orientation_count == 0 else 0.0,
+                        "numericValue": orientation_count,
+                        "scoreDisplayMode": "binary",
+                        "displayValue": (
+                            "No orientation lock detected"
+                            if orientation_count == 0
+                            else f"{orientation_count} orientation-locking CSS rule(s) found"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "media", "itemType": "text", "text": "Media Query / Selector"},
+                                {"key": "cssText", "itemType": "code", "text": "Rule"},
+                            ],
+                            "items": orientation_results.get("items", []),
+                        } if orientation_count else None,
+                    }
+                except Exception as e:
+                    audits["ss-orientation-audit"] = {
+                        "id": "ss-orientation-audit",
+                        "title": "Page does not lock orientation (WCAG 1.3.4)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # --- 2.2 Identify input purpose (WCAG 1.3.5) ---
+                try:
+                    input_purpose_results = page.evaluate("""
+                        () => {
+                            // Personal data field types that require autocomplete per WCAG 1.3.5
+                            const personalFieldMap = {
+                                name: 'name', fname: 'given-name', firstname: 'given-name',
+                                'given-name': 'given-name', lname: 'family-name', lastname: 'family-name',
+                                'family-name': 'family-name', email: 'email', phone: 'tel',
+                                telephone: 'tel', tel: 'tel', mobile: 'tel', address: 'street-address',
+                                street: 'street-address', city: 'address-level2', state: 'address-level1',
+                                zip: 'postal-code', postcode: 'postal-code', country: 'country',
+                                username: 'username', user: 'username', password: 'current-password',
+                                'new-password': 'new-password', birthday: 'bday', bday: 'bday',
+                                cc: 'cc-number', 'credit-card': 'cc-number', cardnumber: 'cc-number',
+                            };
+                            const validAutocompleteTokens = new Set([
+                                'name','honorific-prefix','given-name','additional-name','family-name',
+                                'honorific-suffix','nickname','username','new-password','current-password',
+                                'one-time-code','organization-title','organization','street-address',
+                                'address-line1','address-line2','address-line3','address-level4',
+                                'address-level3','address-level2','address-level1','country',
+                                'country-name','postal-code','cc-name','cc-given-name','cc-additional-name',
+                                'cc-family-name','cc-number','cc-exp','cc-exp-month','cc-exp-year',
+                                'cc-csc','cc-type','transaction-currency','transaction-amount',
+                                'language','bday','bday-day','bday-month','bday-year','sex',
+                                'url','photo','tel','tel-country-code','tel-national',
+                                'tel-area-code','tel-local','tel-extension','impp','email',
+                                'off','on',
+                            ]);
+                            const inputs = Array.from(document.querySelectorAll('input, select, textarea'));
+                            const failing = [];
+                            for (const el of inputs) {
+                                const type = (el.type || 'text').toLowerCase();
+                                if (['hidden','submit','reset','button','image','file'].includes(type)) continue;
+                                const ac = (el.getAttribute('autocomplete') || '').toLowerCase().trim();
+                                const id = (el.id || '').toLowerCase();
+                                const name = (el.name || '').toLowerCase();
+                                const placeholder = (el.placeholder || '').toLowerCase();
+                                const label = (el.labels && el.labels[0] ? el.labels[0].textContent : '').toLowerCase();
+                                const hint = id + ' ' + name + ' ' + placeholder + ' ' + label;
+                                let expectedToken = null;
+                                for (const [key, token] of Object.entries({
+                                    name:'name',fname:'given-name',firstname:'given-name',
+                                    lname:'family-name',lastname:'family-name',email:'email',
+                                    phone:'tel',telephone:'tel',tel:'tel',mobile:'tel',
+                                    address:'street-address',street:'street-address',city:'address-level2',
+                                    state:'address-level1',zip:'postal-code',postcode:'postal-code',
+                                    country:'country',username:'username',user:'username',
+                                    password:'current-password',bday:'bday',birthday:'bday',
+                                    cardnumber:'cc-number',
+                                })) {
+                                    if (hint.includes(key)) { expectedToken = token; break; }
+                                }
+                                if (!expectedToken) continue;
+                                const hasValid = ac && validAutocompleteTokens.has(ac.split(' ').pop());
+                                if (!hasValid) {
+                                    let selector = el.tagName.toLowerCase();
+                                    if (el.id) selector += '#' + el.id;
+                                    else if (el.name) selector += '[name="' + el.name + '"]';
+                                    failing.push({
+                                        node: { nodeLabel: el.name || el.id || el.placeholder || el.type, selector },
+                                        expectedAutocomplete: expectedToken,
+                                        currentAutocomplete: ac || '(none)',
+                                    });
+                                }
+                            }
+                            const total = inputs.filter(el => {
+                                const type = (el.type || 'text').toLowerCase();
+                                return !['hidden','submit','reset','button','image','file'].includes(type);
+                            }).length;
+                            return { total, failCount: failing.length, items: failing.slice(0, 50) };
+                        }
+                    """)
+                    fail_count = input_purpose_results.get("failCount", 0)
+                    total_inputs = input_purpose_results.get("total", 0)
+                    audits["ss-input-purpose-audit"] = {
+                        "id": "ss-input-purpose-audit",
+                        "title": "Input fields collecting personal data have autocomplete attributes (WCAG 1.3.5)",
+                        "description": (
+                            f"Checks that form inputs collecting personal data (name, email, phone, address, etc.) "
+                            f"include a valid autocomplete attribute so browsers and assistive technology can autofill them. "
+                            f"Found {fail_count} input(s) missing required autocomplete out of {total_inputs} total."
+                        ),
+                        "score": 1.0 if fail_count == 0 else 0.0,
+                        "numericValue": fail_count,
+                        "scoreDisplayMode": "binary",
+                        "displayValue": (
+                            "All personal data inputs have autocomplete"
+                            if fail_count == 0
+                            else f"{fail_count} of {total_inputs} personal data inputs missing autocomplete"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "node", "itemType": "node", "text": "Input"},
+                                {"key": "expectedAutocomplete", "itemType": "code", "text": "Expected autocomplete"},
+                                {"key": "currentAutocomplete", "itemType": "text", "text": "Current value"},
+                            ],
+                            "items": input_purpose_results.get("items", []),
+                        } if fail_count else None,
+                    }
+                except Exception as e:
+                    audits["ss-input-purpose-audit"] = {
+                        "id": "ss-input-purpose-audit",
+                        "title": "Input fields collecting personal data have autocomplete attributes (WCAG 1.3.5)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # --- 2.3 Use of color (WCAG 1.4.1) ---
+                try:
+                    use_of_color_results = page.evaluate("""
+                        () => {
+                            const colorWords = [
+                                'red','green','blue','yellow','orange','purple','pink',
+                                'grey','gray','black','white','brown','cyan','magenta',
+                            ];
+                            const colorOnlyPattern = new RegExp(
+                                '\\\\b(' + colorWords.join('|') + ')\\\\b',
+                                'i'
+                            );
+                            const actionWords = /\\b(click|press|select|choose|tap|see|look for|find|use|go to|follow|check)\\b/i;
+                            const issues = [];
+
+                            // 1. Text instructions that reference color as the sole differentiator
+                            const textNodes = document.createTreeWalker(
+                                document.body,
+                                NodeFilter.SHOW_TEXT,
+                                { acceptNode: n => n.textContent.trim().length > 10 ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP }
+                            );
+                            let node;
+                            while ((node = textNodes.nextNode())) {
+                                const text = node.textContent.trim();
+                                if (colorOnlyPattern.test(text) && actionWords.test(text)) {
+                                    const parent = node.parentElement;
+                                    if (!parent) continue;
+                                    const tag = parent.tagName.toLowerCase();
+                                    if (['script','style','noscript'].includes(tag)) continue;
+                                    let selector = tag;
+                                    if (parent.id) selector += '#' + parent.id;
+                                    issues.push({
+                                        type: 'color-instruction',
+                                        text: text.slice(0, 120),
+                                        node: { nodeLabel: text.slice(0, 80), selector },
+                                    });
+                                }
+                            }
+
+                            // 2. Form fields where the only error indicator is a color change
+                            const inputs = Array.from(document.querySelectorAll('input, select, textarea'));
+                            for (const el of inputs) {
+                                const style = window.getComputedStyle(el);
+                                const borderColor = style.borderColor;
+                                const outlineColor = style.outlineColor;
+                                const bgColor = style.backgroundColor;
+                                // Look for red-tinted borders or backgrounds with no associated error text nearby
+                                const hasRedBorder = /rgb\\(\\s*(?:2[0-9]{2}|1[5-9][0-9])\\s*,\\s*(?:[0-9]|[1-5][0-9])\\s*,\\s*(?:[0-9]|[1-5][0-9])\\s*\\)/.test(borderColor);
+                                if (hasRedBorder) {
+                                    // Check if there is visible error text near this input
+                                    const parent = el.closest('form, fieldset, div, section') || el.parentElement;
+                                    const nearbyText = parent ? parent.textContent.toLowerCase() : '';
+                                    const hasErrorText = /error|invalid|required|please|must|cannot|warning/.test(nearbyText);
+                                    if (!hasErrorText) {
+                                        let selector = el.tagName.toLowerCase();
+                                        if (el.id) selector += '#' + el.id;
+                                        else if (el.name) selector += '[name="' + el.name + '"]';
+                                        issues.push({
+                                            type: 'color-only-error',
+                                            text: 'Input has red-tinted border with no nearby error text',
+                                            node: { nodeLabel: el.name || el.id || el.type, selector },
+                                        });
+                                    }
+                                }
+                            }
+
+                            return { issueCount: issues.length, items: issues.slice(0, 30) };
+                        }
+                    """)
+                    color_issue_count = use_of_color_results.get("issueCount", 0)
+                    audits["ss-use-of-color-audit"] = {
+                        "id": "ss-use-of-color-audit",
+                        "title": "Color is not used as the sole means of conveying information (WCAG 1.4.1)",
+                        "description": (
+                            "Detects text instructions that reference color as the only differentiator "
+                            "(e.g. 'click the red button') and form fields that use only a color change to "
+                            f"communicate an error state. Found {color_issue_count} potential issue(s)."
+                        ),
+                        "score": 1.0 if color_issue_count == 0 else 0.0,
+                        "numericValue": color_issue_count,
+                        "scoreDisplayMode": "binary",
+                        "displayValue": (
+                            "No color-only information patterns detected"
+                            if color_issue_count == 0
+                            else f"{color_issue_count} color-only information pattern(s) found"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "node", "itemType": "node", "text": "Element"},
+                                {"key": "type", "itemType": "text", "text": "Issue type"},
+                                {"key": "text", "itemType": "text", "text": "Details"},
+                            ],
+                            "items": use_of_color_results.get("items", []),
+                        } if color_issue_count else None,
+                    }
+                except Exception as e:
+                    audits["ss-use-of-color-audit"] = {
+                        "id": "ss-use-of-color-audit",
+                        "title": "Color is not used as the sole means of conveying information (WCAG 1.4.1)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # --- 2.4 Non-text contrast (WCAG 1.4.11) ---
+                try:
+                    ntc_results = page.evaluate("""
+                        () => {
+                            function getLuminance(r, g, b) {
+                                const [rs, gs, bs] = [r, g, b].map(c => {
+                                    const s = c / 255;
+                                    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+                                });
+                                return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+                            }
+                            function contrastRatio(l1, l2) {
+                                const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
+                                return (hi + 0.05) / (lo + 0.05);
+                            }
+                            function parseRgb(str) {
+                                const m = str.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
+                                return m ? [+m[1], +m[2], +m[3]] : null;
+                            }
+                            const selectors = [
+                                { sel: 'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=image])', label: 'Input border' },
+                                { sel: 'select', label: 'Select border' },
+                                { sel: 'textarea', label: 'Textarea border' },
+                                { sel: 'button:not([disabled])', label: 'Button outline' },
+                                { sel: '[role=checkbox], [role=radio], [role=switch]', label: 'Custom control' },
+                                { sel: 'svg[aria-hidden=false], img[role=img]', label: 'Informational icon' },
+                            ];
+                            const failing = [];
+                            const MIN_RATIO = 3.0;
+                            for (const { sel, label } of selectors) {
+                                const els = Array.from(document.querySelectorAll(sel)).slice(0, 10);
+                                for (const el of els) {
+                                    if (!el.offsetParent && el.tagName !== 'BODY') continue;
+                                    const st = window.getComputedStyle(el);
+                                    const parentSt = window.getComputedStyle(el.parentElement || document.body);
+                                    const fgRgb = parseRgb(st.borderColor || st.outlineColor || st.color);
+                                    const bgRgb = parseRgb(parentSt.backgroundColor) || [255, 255, 255];
+                                    if (!fgRgb) continue;
+                                    const ratio = contrastRatio(getLuminance(...fgRgb), getLuminance(...bgRgb));
+                                    if (ratio < MIN_RATIO) {
+                                        let selector = el.tagName.toLowerCase();
+                                        if (el.id) selector += '#' + el.id;
+                                        else if (typeof el.className === 'string' && el.className.trim()) selector += '.' + el.className.trim().split(/\\s+/)[0];
+                                        failing.push({
+                                            node: { nodeLabel: label + ': ' + selector, selector },
+                                            ratio: ratio.toFixed(2) + ':1',
+                                            required: MIN_RATIO + ':1',
+                                        });
+                                    }
+                                }
+                            }
+                            return { failCount: failing.length, items: failing.slice(0, 30) };
+                        }
+                    """)
+                    ntc_fail = ntc_results.get("failCount", 0)
+                    audits["ss-non-text-contrast-audit"] = {
+                        "id": "ss-non-text-contrast-audit",
+                        "title": "UI components and graphical objects have sufficient contrast (WCAG 1.4.11)",
+                        "description": (
+                            f"Checks that input borders, button outlines, focus rings, and informational icons "
+                            f"have at least a 3:1 contrast ratio against their background. "
+                            f"Found {ntc_fail} component(s) below the required ratio."
+                        ),
+                        "score": 1.0 if ntc_fail == 0 else 0.0,
+                        "numericValue": ntc_fail,
+                        "scoreDisplayMode": "binary",
+                        "displayValue": (
+                            "All sampled UI components meet 3:1 contrast"
+                            if ntc_fail == 0
+                            else f"{ntc_fail} UI component(s) below 3:1 contrast ratio"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "node", "itemType": "node", "text": "Element"},
+                                {"key": "ratio", "itemType": "text", "text": "Contrast ratio"},
+                                {"key": "required", "itemType": "text", "text": "Required"},
+                            ],
+                            "items": ntc_results.get("items", []),
+                        } if ntc_fail else None,
+                    }
+                except Exception as e:
+                    audits["ss-non-text-contrast-audit"] = {
+                        "id": "ss-non-text-contrast-audit",
+                        "title": "UI components and graphical objects have sufficient contrast (WCAG 1.4.11)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # --- 2.5 Content on hover or focus (WCAG 1.4.13) ---
+                try:
+                    hover_results = page.evaluate("""
+                        () => {
+                            // Find elements that likely show tooltip/popover content on hover or focus
+                            const triggers = Array.from(document.querySelectorAll(
+                                '[title], [aria-describedby], [data-tooltip], [data-tippy-content], ' +
+                                '[data-toggle=tooltip], [data-bs-toggle=tooltip], .tooltip-trigger, ' +
+                                '[role=tooltip], .has-tooltip'
+                            ));
+                            const interactiveTags = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'summary']);
+                            const issues = [];
+                            for (const el of triggers.slice(0, 30)) {
+                                const problems = [];
+                                // Check 1: title attribute only — only flag interactive elements.
+                                // Non-interactive elements (abbr, td, img) use title for semantic
+                                // annotation, not as a tooltip triggered on focus/hover.
+                                const isInteractiveEl = interactiveTags.has(el.tagName.toLowerCase())
+                                    || !!el.getAttribute('role')
+                                    || el.onclick !== null
+                                    || !!el.getAttribute('onclick');
+                                if (el.hasAttribute('title') && !el.getAttribute('aria-describedby') && !el.getAttribute('data-tooltip') && isInteractiveEl) {
+                                    problems.push('Uses native title attribute only — not keyboard accessible in all browsers');
+                                }
+                                // Check 2: aria-describedby points to hidden element (tooltip not visible/hoverable)
+                                const describedBy = el.getAttribute('aria-describedby');
+                                if (describedBy) {
+                                    const target = document.getElementById(describedBy);
+                                    if (target) {
+                                        const st = window.getComputedStyle(target);
+                                        const isHidden = st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0';
+                                        if (isHidden) {
+                                            // Tooltip target exists but is currently hidden — check if it has pointer-events
+                                            if (st.pointerEvents === 'none') {
+                                                problems.push('Tooltip content has pointer-events:none — cannot be hovered to keep open');
+                                            }
+                                        }
+                                    }
+                                }
+                                if (problems.length) {
+                                    let selector = el.tagName.toLowerCase();
+                                    if (el.id) selector += '#' + el.id;
+                                    issues.push({
+                                        node: { nodeLabel: el.textContent?.trim().slice(0, 60) || selector, selector },
+                                        problems: problems.join('; '),
+                                    });
+                                }
+                            }
+                            return { triggerCount: triggers.length, issueCount: issues.length, items: issues.slice(0, 20) };
+                        }
+                    """)
+                    hover_issues = hover_results.get("issueCount", 0)
+                    trigger_count = hover_results.get("triggerCount", 0)
+                    audits["ss-hover-focus-audit"] = {
+                        "id": "ss-hover-focus-audit",
+                        "title": "Content shown on hover or focus is dismissible, hoverable, and persistent (WCAG 1.4.13)",
+                        "description": (
+                            f"Detects tooltip and popover triggers and checks that shown content can be dismissed "
+                            f"without moving focus, can be hovered by pointer, and does not disappear automatically. "
+                            f"Found {trigger_count} trigger(s), {hover_issues} with potential issue(s)."
+                        ),
+                        "score": 1.0 if hover_issues == 0 else max(0.0, 1.0 - (hover_issues / max(trigger_count, 1))),
+                        "numericValue": hover_issues,
+                        "scoreDisplayMode": "numeric" if hover_issues > 0 else "binary",
+                        "displayValue": (
+                            f"No hover/focus content issues detected ({trigger_count} trigger(s) checked)"
+                            if hover_issues == 0
+                            else f"{hover_issues} of {trigger_count} tooltip trigger(s) have issues"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "node", "itemType": "node", "text": "Trigger element"},
+                                {"key": "problems", "itemType": "text", "text": "Issue"},
+                            ],
+                            "items": hover_results.get("items", []),
+                        } if hover_issues else None,
+                    }
+                except Exception as e:
+                    audits["ss-hover-focus-audit"] = {
+                        "id": "ss-hover-focus-audit",
+                        "title": "Content shown on hover or focus is dismissible, hoverable, and persistent (WCAG 1.4.13)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # --- 2.6 Keyboard accessibility (WCAG 2.1.1) ---
+                try:
+                    keyboard_results = page.evaluate("""
+                        () => {
+                            const interactiveTags = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'summary']);
+                            const interactiveRoles = new Set([
+                                'button', 'link', 'checkbox', 'radio', 'textbox', 'combobox',
+                                'listbox', 'menuitem', 'menuitemcheckbox', 'menuitemradio',
+                                'option', 'slider', 'spinbutton', 'switch', 'tab', 'treeitem',
+                            ]);
+                            const elements = Array.from(document.querySelectorAll('*'));
+                            const failing = [];
+                            for (const el of elements) {
+                                if (!el.offsetParent && el.tagName !== 'BODY') continue;
+                                const tag = el.tagName.toLowerCase();
+                                const role = (el.getAttribute('role') || '').toLowerCase();
+                                const isInteractiveTag = interactiveTags.has(tag);
+                                const isInteractiveRole = interactiveRoles.has(role);
+                                const hasClickHandler = el.onclick !== null || el.getAttribute('onclick');
+                                const hasTabIndex = el.hasAttribute('tabindex');
+                                const tabIndexVal = parseInt(el.getAttribute('tabindex') || '0', 10);
+                                if (!isInteractiveTag && !isInteractiveRole && !hasClickHandler) continue;
+                                // Skip elements that are natively focusable and not disabled
+                                if (isInteractiveTag && !el.disabled && !hasTabIndex) continue;
+                                if (isInteractiveTag && !el.disabled && tabIndexVal >= 0) continue;
+                                // Flag: explicitly removed from tab order with tabindex=-1.
+                                // Native interactive elements (button, a, input) legitimately use
+                                // tabindex=-1 for focus management in carousels, tab panels, and
+                                // accordions — only flag them when an inline onclick is also present,
+                                // which indicates the element is intended to be activated by click.
+                                if (hasTabIndex && tabIndexVal === -1 && (!isInteractiveTag || hasClickHandler)) {
+                                    // Only flag if visible and not inside a modal/dialog that manages focus
+                                    const isInDialog = el.closest('[role=dialog], [role=alertdialog], dialog');
+                                    if (!isInDialog) {
+                                        let selector = tag;
+                                        if (el.id) selector += '#' + el.id;
+                                        else if (typeof el.className === 'string' && el.className.trim()) selector += '.' + el.className.trim().split(/\\s+/)[0];
+                                        failing.push({
+                                            node: { nodeLabel: el.textContent?.trim().slice(0, 60) || el.getAttribute('aria-label') || selector, selector },
+                                            reason: 'tabindex="-1" removes element from keyboard tab order',
+                                            tag,
+                                            role: role || '(none)',
+                                        });
+                                    }
+                                }
+                                // Flag: div/span with click handler but no keyboard role or tabindex
+                                if (!isInteractiveTag && (isInteractiveRole || hasClickHandler) && !hasTabIndex) {
+                                    let selector = tag;
+                                    if (el.id) selector += '#' + el.id;
+                                    else if (typeof el.className === 'string' && el.className.trim()) selector += '.' + el.className.trim().split(/\\s+/)[0];
+                                    failing.push({
+                                        node: { nodeLabel: el.textContent?.trim().slice(0, 60) || selector, selector },
+                                        reason: 'Interactive element is not keyboard focusable (missing tabindex)',
+                                        tag,
+                                        role: role || '(none)',
+                                    });
+                                }
+                            }
+                            const totalInteractive = elements.filter(el => {
+                                const tag = el.tagName.toLowerCase();
+                                return interactiveTags.has(tag) || interactiveRoles.has((el.getAttribute('role') || '').toLowerCase());
+                            }).length;
+                            return { totalInteractive, failCount: failing.length, items: failing.slice(0, 50) };
+                        }
+                    """)
+                    kb_fail = keyboard_results.get("failCount", 0)
+                    kb_total = keyboard_results.get("totalInteractive", 0)
+                    kb_score = 1.0 if kb_fail == 0 else max(0.0, 1.0 - (kb_fail / max(kb_total, 1)))
+                    audits["ss-keyboard-audit"] = {
+                        "id": "ss-keyboard-audit",
+                        "title": "All interactive elements are keyboard accessible (WCAG 2.1.1)",
+                        "description": (
+                            f"Checks that all interactive elements (links, buttons, inputs, custom controls) "
+                            f"can receive keyboard focus and are not removed from the tab order without justification. "
+                            f"Found {kb_fail} issue(s) across {kb_total} interactive element(s)."
+                        ),
+                        "score": kb_score,
+                        "numericValue": kb_fail,
+                        "scoreDisplayMode": "numeric" if kb_fail > 0 else "binary",
+                        "displayValue": (
+                            f"All {kb_total} interactive elements are keyboard accessible"
+                            if kb_fail == 0
+                            else f"{kb_fail} of {kb_total} interactive element(s) have keyboard access issues"
+                        ),
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "node", "itemType": "node", "text": "Element"},
+                                {"key": "reason", "itemType": "text", "text": "Issue"},
+                                {"key": "tag", "itemType": "code", "text": "Tag"},
+                                {"key": "role", "itemType": "text", "text": "Role"},
+                            ],
+                            "items": keyboard_results.get("items", []),
+                        } if kb_fail else None,
+                    }
+                except Exception as e:
+                    audits["ss-keyboard-audit"] = {
+                        "id": "ss-keyboard-audit",
+                        "title": "All interactive elements are keyboard accessible (WCAG 2.1.1)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.7 No Keyboard Trap (WCAG 2.1.2) ──────────────────────────
+                try:
+                    trap_results = page.evaluate("""
+                        () => {
+                            const focusable = Array.from(document.querySelectorAll(
+                                'a[href], button, input, select, textarea, [tabindex]'
+                            )).filter(el => {
+                                const ti = el.getAttribute('tabindex');
+                                return ti === null || parseInt(ti, 10) >= 0;
+                            });
+                            // Detect modal/dialog elements without proper close mechanism.
+                            // Check all visible dialogs, not only those with aria-modal="true".
+                            const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog');
+                            let trapCount = 0;
+                            dialogs.forEach(dlg => {
+                                const st = window.getComputedStyle(dlg);
+                                const isVisible = st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
+                                // Native <dialog> is only "open" when it has the open attribute
+                                const isNativeDialog = dlg.tagName.toLowerCase() === 'dialog';
+                                const isOpen = isNativeDialog ? dlg.hasAttribute('open') : isVisible;
+                                if (!isOpen) return;
+                                const hasClose = dlg.querySelector(
+                                    'button[aria-label*="close" i], button[aria-label*="dismiss" i], ' +
+                                    'button[aria-label*="cancel" i], [data-dismiss], .close, .modal-close, ' +
+                                    '[data-bs-dismiss], button[class*="close"]'
+                                );
+                                if (!hasClose) trapCount++;
+                            });
+                            return { trapCount, dialogCount: dialogs.length, focusableCount: focusable.length };
+                        }
+                    """)
+                    trap_count = trap_results.get("trapCount", 0)
+                    audits["ss-no-keyboard-trap-audit"] = {
+                        "id": "ss-no-keyboard-trap-audit",
+                        "title": "No keyboard trap (WCAG 2.1.2)",
+                        "description": (
+                            f"Checks dialogs and modal regions for missing close controls that could trap "
+                            f"keyboard users. Found {trap_results.get('dialogCount', 0)} dialog(s), "
+                            f"{trap_count} potential trap(s)."
+                        ),
+                        "score": 1.0 if trap_count == 0 else 0.0,
+                        "numericValue": float(trap_count),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": f"{trap_count} dialog(s) with aria-modal=true but no visible close button"}] if trap_count else [],
+                        } if trap_count else None,
+                    }
+                except Exception as e:
+                    audits["ss-no-keyboard-trap-audit"] = {
+                        "id": "ss-no-keyboard-trap-audit",
+                        "title": "No keyboard trap (WCAG 2.1.2)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.8 Timing Adjustable (WCAG 2.2.1) ─────────────────────────
+                try:
+                    timing_results = page.evaluate("""
+                        () => {
+                            // Look for meta refresh, countdown timers, session-timeout indicators
+                            const metaRefresh = document.querySelector('meta[http-equiv="refresh" i]');
+                            let metaSeconds = null;
+                            if (metaRefresh) {
+                                const content = metaRefresh.getAttribute('content') || '';
+                                const match = content.match(/^(\\d+)/);
+                                if (match) metaSeconds = parseInt(match[1], 10);
+                            }
+                            // Short meta-refresh (< 20 seconds) without user control = fail
+                            const hasForcedRedirect = metaSeconds !== null && metaSeconds < 20;
+                            // Look for countdown/timer elements
+                            const timerEls = document.querySelectorAll(
+                                '[class*="countdown" i], [class*="timer" i], [id*="countdown" i], [id*="timer" i]'
+                            );
+                            const extendButtons = document.querySelectorAll(
+                                'button[class*="extend" i], button[class*="renew" i], [aria-label*="extend" i]'
+                            );
+                            return {
+                                hasForcedRedirect,
+                                metaSeconds,
+                                timerCount: timerEls.length,
+                                hasExtendControl: extendButtons.length > 0,
+                            };
+                        }
+                    """)
+                    forced = timing_results.get("hasForcedRedirect", False)
+                    audits["ss-timing-adjustable-audit"] = {
+                        "id": "ss-timing-adjustable-audit",
+                        "title": "Timing adjustable (WCAG 2.2.1)",
+                        "description": (
+                            f"Checks for short meta-refresh redirects (< 20s) that remove user control over timing. "
+                            f"Meta refresh seconds: {timing_results.get('metaSeconds', 'none')}."
+                        ),
+                        "score": 0.0 if forced else 1.0,
+                        "numericValue": float(timing_results.get("metaSeconds") or 0),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": f"Meta refresh set to {timing_results.get('metaSeconds')}s with no user control"}],
+                        } if forced else None,
+                    }
+                except Exception as e:
+                    audits["ss-timing-adjustable-audit"] = {
+                        "id": "ss-timing-adjustable-audit",
+                        "title": "Timing adjustable (WCAG 2.2.1)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.9 Pause, Stop, Hide (WCAG 2.2.2) ─────────────────────────
+                try:
+                    motion_results = page.evaluate("""
+                        () => {
+                            const videos = Array.from(document.querySelectorAll('video'));
+                            const autoplayVideos = videos.filter(v => v.autoplay && !v.muted);
+                            // Carousels / marquees / auto-advancing sliders
+                            const marquees = document.querySelectorAll('marquee, [class*="carousel" i], [class*="slider" i], [class*="ticker" i]');
+                            const pauseControls = document.querySelectorAll(
+                                '[aria-label*="pause" i], [aria-label*="stop" i], button[class*="pause" i], button[class*="stop" i]'
+                            );
+                            const issues = [];
+                            if (autoplayVideos.length > 0) issues.push(`${autoplayVideos.length} auto-playing video(s) without mute`);
+                            if (marquees.length > 0 && pauseControls.length === 0) issues.push(`${marquees.length} moving/scrolling element(s) without pause/stop control`);
+                            return { issueCount: issues.length, issues };
+                        }
+                    """)
+                    motion_issues = motion_results.get("issueCount", 0)
+                    audits["ss-pause-stop-hide-audit"] = {
+                        "id": "ss-pause-stop-hide-audit",
+                        "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                        "description": (
+                            f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
+                            f"Found {motion_issues} issue(s)."
+                        ),
+                        "score": 1.0 if motion_issues == 0 else 0.0,
+                        "numericValue": float(motion_issues),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": i} for i in motion_results.get("issues", [])],
+                        } if motion_issues else None,
+                    }
+                except Exception as e:
+                    audits["ss-pause-stop-hide-audit"] = {
+                        "id": "ss-pause-stop-hide-audit",
+                        "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.10 Focus Order (WCAG 2.4.3) ───────────────────────────────
+                try:
+                    focus_order_results = page.evaluate("""
+                        () => {
+                            const focusable = Array.from(document.querySelectorAll(
+                                'a[href], button, input, select, textarea, [tabindex]'
+                            )).filter(el => {
+                                const ti = el.getAttribute('tabindex');
+                                return ti === null || parseInt(ti, 10) >= 0;
+                            });
+                            // Detect positive tabindex values which disrupt natural focus order
+                            const positiveTabindex = focusable.filter(el => {
+                                const ti = parseInt(el.getAttribute('tabindex') || '0', 10);
+                                return ti > 0;
+                            });
+                            return { positiveCount: positiveTabindex.length, totalFocusable: focusable.length };
+                        }
+                    """)
+                    pos_count = focus_order_results.get("positiveCount", 0)
+                    total_focus = focus_order_results.get("totalFocusable", 1)
+                    score = 1.0 if pos_count == 0 else 0.0
+                    audits["ss-focus-order-audit"] = {
+                        "id": "ss-focus-order-audit",
+                        "title": "Focus order preserves meaning (WCAG 2.4.3)",
+                        "description": (
+                            f"Detects positive tabindex values that override natural DOM focus order. "
+                            f"Found {pos_count} element(s) with tabindex > 0 out of {total_focus} focusable."
+                        ),
+                        "score": score,
+                        "numericValue": float(pos_count),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": f"{pos_count} element(s) use positive tabindex, disrupting natural focus order"}],
+                        } if pos_count else None,
+                    }
+                except Exception as e:
+                    audits["ss-focus-order-audit"] = {
+                        "id": "ss-focus-order-audit",
+                        "title": "Focus order preserves meaning (WCAG 2.4.3)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.11 Focus Visible (WCAG 2.4.7) ────────────────────────────
+                try:
+                    focus_visible_results = page.evaluate("""
+                        () => {
+                            const sheet_texts = Array.from(document.styleSheets).flatMap(ss => {
+                                try { return Array.from(ss.cssRules || []).map(r => r.cssText || ''); }
+                                catch { return []; }
+                            });
+                            const full_css = sheet_texts.join('\\n');
+                            // Detect global outline:none / outline:0 on :focus without replacement
+                            const outlineNone = (full_css.match(/:focus[^{]*\\{[^}]*outline\\s*:\\s*(?:none|0)/gi) || []).length;
+                            const hasCustomFocus = (full_css.match(/:focus[^{]*\\{[^}]*(?:box-shadow|border|background|ring)/gi) || []).length;
+                            const issue = outlineNone > 0 && hasCustomFocus === 0;
+                            return { outlineNone, hasCustomFocus, issue };
+                        }
+                    """)
+                    fv_issue = focus_visible_results.get("issue", False)
+                    audits["ss-focus-visible-audit"] = {
+                        "id": "ss-focus-visible-audit",
+                        "title": "Focus indicator is visible (WCAG 2.4.7)",
+                        "description": (
+                            f"Checks CSS for outline:none on :focus selectors without a replacement visual indicator. "
+                            f"outline:none rules: {focus_visible_results.get('outlineNone', 0)}, "
+                            f"custom focus styles: {focus_visible_results.get('hasCustomFocus', 0)}."
+                        ),
+                        "score": 0.0 if fv_issue else 1.0,
+                        "numericValue": float(focus_visible_results.get("outlineNone", 0)),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": "CSS removes focus outline globally with no visible replacement"}],
+                        } if fv_issue else None,
+                    }
+                except Exception as e:
+                    audits["ss-focus-visible-audit"] = {
+                        "id": "ss-focus-visible-audit",
+                        "title": "Focus indicator is visible (WCAG 2.4.7)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.12 Focus Not Obscured (WCAG 2.4.11) ───────────────────────
+                try:
+                    obscure_results = page.evaluate("""
+                        () => {
+                            // Check for sticky/fixed headers or footers that may cover focused elements
+                            const fixed = Array.from(document.querySelectorAll('*')).filter(el => {
+                                const st = window.getComputedStyle(el).position;
+                                return st === 'fixed' || st === 'sticky';
+                            });
+                            const fixedHeader = fixed.filter(el => {
+                                const rect = el.getBoundingClientRect();
+                                return rect.top < 120 && rect.height > 20 && rect.width > window.innerWidth * 0.5;
+                            });
+                            const fixedFooter = fixed.filter(el => {
+                                const rect = el.getBoundingClientRect();
+                                return rect.bottom > window.innerHeight - 120 && rect.height > 20 && rect.width > window.innerWidth * 0.5;
+                            });
+                            return {
+                                fixedHeaderCount: fixedHeader.length,
+                                fixedFooterCount: fixedFooter.length,
+                                totalFixed: fixed.length,
+                            };
+                        }
+                    """)
+                    header_count = obscure_results.get("fixedHeaderCount", 0)
+                    footer_count = obscure_results.get("fixedFooterCount", 0)
+                    has_risk = header_count > 0 or footer_count > 0
+                    if has_risk:
+                        # Sticky/fixed elements are a risk factor but cannot be confirmed as a violation
+                        # without testing each focused element's visibility — flag for manual review.
+                        audits["ss-focus-not-obscured-audit"] = {
+                            "id": "ss-focus-not-obscured-audit",
+                            "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                            "description": (
+                                f"Detected {header_count} sticky header(s) and {footer_count} sticky footer(s). "
+                                f"Manually verify that no focused element is fully hidden behind these overlays."
+                            ),
+                            "score": None,
+                            "numericValue": float(header_count + footer_count),
+                            "scoreDisplayMode": "manual",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Risk"}],
+                                "items": (
+                                    ([{"description": f"{header_count} sticky/fixed header(s) detected — verify focused elements remain visible"}] if header_count else []) +
+                                    ([{"description": f"{footer_count} sticky/fixed footer(s) detected — verify focused elements remain visible"}] if footer_count else [])
+                                ),
+                            },
+                        }
+                    else:
+                        audits["ss-focus-not-obscured-audit"] = {
+                            "id": "ss-focus-not-obscured-audit",
+                            "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                            "description": "No fixed/sticky headers or footers detected that could obscure focused elements.",
+                            "score": 1.0,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "binary",
+                            "details": None,
+                        }
+                except Exception as e:
+                    audits["ss-focus-not-obscured-audit"] = {
+                        "id": "ss-focus-not-obscured-audit",
+                        "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.13 Label in Name (WCAG 2.5.3) ────────────────────────────
+                try:
+                    label_name_results = page.evaluate("""
+                        () => {
+                            const issues = [];
+                            // Find elements with both visible text and aria-label
+                            const interactive = document.querySelectorAll(
+                                'a[aria-label], button[aria-label], [role="button"][aria-label], [role="link"][aria-label]'
+                            );
+                            interactive.forEach(el => {
+                                const ariaLabel = (el.getAttribute('aria-label') || '').trim().toLowerCase();
+                                const visibleText = (el.textContent || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+                                if (visibleText.length > 0 && ariaLabel.length > 0 && !ariaLabel.includes(visibleText) && !visibleText.includes(ariaLabel)) {
+                                    issues.push({ tag: el.tagName, aria: ariaLabel.substring(0, 60), visible: visibleText.substring(0, 60) });
+                                }
+                            });
+                            return { issueCount: issues.length, issues: issues.slice(0, 10) };
+                        }
+                    """)
+                    ln_issues = label_name_results.get("issueCount", 0)
+                    audits["ss-label-in-name-audit"] = {
+                        "id": "ss-label-in-name-audit",
+                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "description": (
+                            f"Checks that aria-label values on interactive elements contain the visible text, "
+                            f"so speech users can activate controls by speaking what they see. "
+                            f"Found {ln_issues} mismatch(es)."
+                        ),
+                        "score": 1.0 if ln_issues == 0 else 0.0,
+                        "numericValue": float(ln_issues),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [
+                                {"key": "aria", "label": "aria-label"},
+                                {"key": "visible", "label": "Visible text"},
+                            ],
+                            "items": label_name_results.get("issues", []),
+                        } if ln_issues else None,
+                    }
+                except Exception as e:
+                    audits["ss-label-in-name-audit"] = {
+                        "id": "ss-label-in-name-audit",
+                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.14 On Focus (WCAG 3.2.1) ──────────────────────────────────
+                try:
+                    on_focus_results = page.evaluate("""
+                        () => {
+                            // Detect onfocus attributes that trigger navigation or form submission
+                            const onfocusEls = document.querySelectorAll('[onfocus]');
+                            const risky = [];
+                            onfocusEls.forEach(el => {
+                                const handler = el.getAttribute('onfocus') || '';
+                                if (/submit|location|href|navigate|window\\.open/i.test(handler)) {
+                                    risky.push({ tag: el.tagName, handler: handler.substring(0, 80) });
+                                }
+                            });
+                            return { riskyCount: risky.length, total: onfocusEls.length, items: risky.slice(0, 10) };
+                        }
+                    """)
+                    of_issues = on_focus_results.get("riskyCount", 0)
+                    audits["ss-on-focus-audit"] = {
+                        "id": "ss-on-focus-audit",
+                        "title": "No context change on focus (WCAG 3.2.1)",
+                        "description": (
+                            f"Checks for onfocus event handlers that trigger navigation or form submission, "
+                            f"which causes unexpected context changes for keyboard users. "
+                            f"Found {of_issues} risky handler(s) out of {on_focus_results.get('total', 0)} onfocus element(s)."
+                        ),
+                        "score": 1.0 if of_issues == 0 else 0.0,
+                        "numericValue": float(of_issues),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "tag", "label": "Element"}, {"key": "handler", "label": "Handler"}],
+                            "items": on_focus_results.get("items", []),
+                        } if of_issues else None,
+                    }
+                except Exception as e:
+                    audits["ss-on-focus-audit"] = {
+                        "id": "ss-on-focus-audit",
+                        "title": "No context change on focus (WCAG 3.2.1)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.15 On Input (WCAG 3.2.2) ──────────────────────────────────
+                try:
+                    on_input_results = page.evaluate("""
+                        () => {
+                            // Detect onchange on selects/radios that auto-submit or navigate
+                            const changingEls = document.querySelectorAll('select[onchange], input[type="radio"][onchange], input[type="checkbox"][onchange]');
+                            const risky = [];
+                            changingEls.forEach(el => {
+                                const handler = el.getAttribute('onchange') || '';
+                                if (/submit|location|href|navigate|window\\.open|this\\.form/i.test(handler)) {
+                                    risky.push({ tag: el.tagName, type: el.type || 'select', handler: handler.substring(0, 80) });
+                                }
+                            });
+                            return { riskyCount: risky.length, items: risky.slice(0, 10) };
+                        }
+                    """)
+                    oi_issues = on_input_results.get("riskyCount", 0)
+                    audits["ss-on-input-audit"] = {
+                        "id": "ss-on-input-audit",
+                        "title": "No context change on input (WCAG 3.2.2)",
+                        "description": (
+                            f"Checks for onchange handlers on select/radio/checkbox elements that auto-submit forms "
+                            f"or navigate without a submit button. Found {oi_issues} instance(s)."
+                        ),
+                        "score": 1.0 if oi_issues == 0 else 0.0,
+                        "numericValue": float(oi_issues),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "tag", "label": "Element"}, {"key": "handler", "label": "Handler"}],
+                            "items": on_input_results.get("items", []),
+                        } if oi_issues else None,
+                    }
+                except Exception as e:
+                    audits["ss-on-input-audit"] = {
+                        "id": "ss-on-input-audit",
+                        "title": "No context change on input (WCAG 3.2.2)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.16 Consistent Navigation (WCAG 3.2.3) ─────────────────────
+                try:
+                    nav_results = page.evaluate("""
+                        () => {
+                            const navEls = document.querySelectorAll('nav, [role="navigation"]');
+                            // Check if nav landmarks have accessible names (best-practice indicator)
+                            const unnamed = Array.from(navEls).filter(n =>
+                                !n.getAttribute('aria-label') && !n.getAttribute('aria-labelledby')
+                            );
+                            // Multiple unlabeled navs = cannot distinguish = potential inconsistency risk
+                            const multipleUnnamed = navEls.length > 1 && unnamed.length > 1;
+                            return {
+                                navCount: navEls.length,
+                                unnamedCount: unnamed.length,
+                                multipleUnnamed,
+                            };
+                        }
+                    """)
+                    multi_unnamed = nav_results.get("multipleUnnamed", False)
+                    nav_count = nav_results.get("navCount", 0)
+                    unnamed_count = nav_results.get("unnamedCount", 0)
+                    if multi_unnamed:
+                        # Multiple nav landmarks without aria-label are indistinguishable — hard fail.
+                        audits["ss-consistent-navigation-audit"] = {
+                            "id": "ss-consistent-navigation-audit",
+                            "title": "Navigation is consistent (WCAG 3.2.3)",
+                            "description": (
+                                f"Found {unnamed_count} of {nav_count} navigation landmark(s) without an aria-label. "
+                                f"Screen reader users cannot distinguish between them."
+                            ),
+                            "score": 0.0,
+                            "numericValue": float(unnamed_count),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": [{"description": f"{unnamed_count} of {nav_count} nav elements lack aria-label — screen reader users cannot distinguish them"}],
+                            },
+                        }
+                    else:
+                        # No indistinguishable landmark issue detected. WCAG 3.2.3 also requires
+                        # navigation to appear in the same order across pages, which requires manual
+                        # verification across multiple pages of the site.
+                        audits["ss-consistent-navigation-audit"] = {
+                            "id": "ss-consistent-navigation-audit",
+                            "title": "Navigation is consistent (WCAG 3.2.3)",
+                            "description": (
+                                f"Found {nav_count} navigation landmark(s), all with accessible names. "
+                                f"Manually verify that navigation appears in the same order across all pages."
+                            ),
+                            "score": None,
+                            "numericValue": float(unnamed_count),
+                            "scoreDisplayMode": "manual",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Note"}],
+                                "items": [{"description": "Cross-page navigation order consistency requires manual verification."}],
+                            },
+                        }
+                except Exception as e:
+                    audits["ss-consistent-navigation-audit"] = {
+                        "id": "ss-consistent-navigation-audit",
+                        "title": "Navigation is consistent (WCAG 3.2.3)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.17 Consistent Help (WCAG 3.2.6) ───────────────────────────
+                try:
+                    help_results = page.evaluate("""
+                        () => {
+                            // Look for help mechanisms: contact links, chat widgets, help pages
+                            const helpLinks = document.querySelectorAll(
+                                'a[href*="help" i], a[href*="support" i], a[href*="contact" i], ' +
+                                'a[href*="faq" i], [aria-label*="help" i], [aria-label*="support" i], ' +
+                                '[class*="chat" i][class*="support" i], [id*="help-widget" i]'
+                            );
+                            const helpInHeader = Array.from(helpLinks).some(el => {
+                                const header = el.closest('header, [role="banner"], nav, [role="navigation"]');
+                                return !!header;
+                            });
+                            return { helpCount: helpLinks.length, helpInHeader };
+                        }
+                    """)
+                    help_count = help_results.get("helpCount", 0)
+                    help_in_header = help_results.get("helpInHeader", False)
+                    if help_count == 0:
+                        # WCAG 3.2.6 only applies when the page provides a help mechanism;
+                        # pages with no help at all are not subject to this criterion.
+                        audits["ss-consistent-help-audit"] = {
+                            "id": "ss-consistent-help-audit",
+                            "title": "Consistent help mechanism (WCAG 3.2.6)",
+                            "description": "No help or support mechanism detected on this page. WCAG 3.2.6 does not apply.",
+                            "score": None,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "notApplicable",
+                            "details": None,
+                        }
+                    else:
+                        location_note = "Help is in the header/nav (consistent location)." if help_in_header else "Help is not in the header/nav — verify consistent placement across pages."
+                        audits["ss-consistent-help-audit"] = {
+                            "id": "ss-consistent-help-audit",
+                            "title": "Consistent help mechanism (WCAG 3.2.6)",
+                            "description": (
+                                f"Found {help_count} help link(s)/widget(s). {location_note} "
+                                f"Cross-page consistency requires manual verification."
+                            ),
+                            "score": 1.0,
+                            "numericValue": float(help_count),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Note"}],
+                                "items": [{"description": location_note}, {"description": "Manually verify help appears in the same location on all pages of the site."}],
+                            },
+                        }
+                except Exception as e:
+                    audits["ss-consistent-help-audit"] = {
+                        "id": "ss-consistent-help-audit",
+                        "title": "Consistent help mechanism (WCAG 3.2.6)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.18 Error Identification (WCAG 3.3.1) ───────────────────────
+                try:
+                    error_results = page.evaluate("""
+                        () => {
+                            const forms = document.querySelectorAll('form');
+                            const requiredInputs = document.querySelectorAll(
+                                'input[required], select[required], textarea[required], ' +
+                                '[aria-required="true"]'
+                            );
+                            // Check required inputs have associated labels
+                            const unlabeled = Array.from(requiredInputs).filter(inp => {
+                                const id = inp.id;
+                                const hasLabel = id && document.querySelector(`label[for="${id}"]`);
+                                const hasAria = inp.getAttribute('aria-label') || inp.getAttribute('aria-labelledby');
+                                const wrapped = inp.closest('label');
+                                return !hasLabel && !hasAria && !wrapped;
+                            });
+                            // Check for aria-describedby on required inputs (error message pattern)
+                            const withErrDesc = Array.from(requiredInputs).filter(inp =>
+                                inp.getAttribute('aria-describedby') || inp.getAttribute('aria-errormessage')
+                            );
+                            return {
+                                formCount: forms.length,
+                                requiredCount: requiredInputs.length,
+                                unlabeledRequired: unlabeled.length,
+                                withErrorDescription: withErrDesc.length,
+                            };
+                        }
+                    """)
+                    unlabeled_req = error_results.get("unlabeledRequired", 0)
+                    req_count = error_results.get("requiredCount", 0)
+                    score = 1.0 if unlabeled_req == 0 else max(0.0, 1.0 - (unlabeled_req / max(req_count, 1)))
+                    audits["ss-error-identification-audit"] = {
+                        "id": "ss-error-identification-audit",
+                        "title": "Error identification on required fields (WCAG 3.3.1)",
+                        "description": (
+                            f"Checks that required form fields have accessible labels so errors can be identified. "
+                            f"{req_count} required field(s) found, {unlabeled_req} missing accessible label."
+                        ),
+                        "score": score,
+                        "numericValue": float(unlabeled_req),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": f"{unlabeled_req} required input(s) have no associated label or aria-label"}],
+                        } if unlabeled_req else None,
+                    }
+                except Exception as e:
+                    audits["ss-error-identification-audit"] = {
+                        "id": "ss-error-identification-audit",
+                        "title": "Error identification on required fields (WCAG 3.3.1)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
+
+                # ── 2.19 Status Messages (WCAG 4.1.3) ───────────────────────────
+                try:
+                    status_results = page.evaluate("""
+                        () => {
+                            // Look for live regions (proper status message pattern)
+                            const liveRegions = document.querySelectorAll(
+                                '[aria-live], [role="status"], [role="alert"], [role="log"], [role="timer"]'
+                            );
+                            // Look for common toast/notification/alert patterns without live region
+                            const toasts = document.querySelectorAll(
+                                '[class*="toast" i], [class*="notification" i], [class*="alert" i], ' +
+                                '[class*="snackbar" i], [class*="banner" i][class*="message" i]'
+                            );
+                            const toastsWithoutLive = Array.from(toasts).filter(t =>
+                                !t.getAttribute('aria-live') && !t.closest('[aria-live]') &&
+                                !['status','alert','log'].includes(t.getAttribute('role') || '')
+                            );
+                            return {
+                                liveRegionCount: liveRegions.length,
+                                toastCount: toasts.length,
+                                toastsWithoutLive: toastsWithoutLive.length,
+                            };
+                        }
+                    """)
+                    missing_live = status_results.get("toastsWithoutLive", 0)
+                    live_count = status_results.get("liveRegionCount", 0)
+                    audits["ss-status-messages-audit"] = {
+                        "id": "ss-status-messages-audit",
+                        "title": "Status messages use live regions (WCAG 4.1.3)",
+                        "description": (
+                            f"Checks that toast/notification elements use aria-live regions so screen readers "
+                            f"announce status updates without focus change. "
+                            f"Found {live_count} live region(s), {missing_live} notification element(s) missing aria-live."
+                        ),
+                        "score": 1.0 if missing_live == 0 else 0.0,
+                        "numericValue": float(missing_live),
+                        "scoreDisplayMode": "binary",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Issue"}],
+                            "items": [{"description": f"{missing_live} notification/toast element(s) lack aria-live attribute"}],
+                        } if missing_live else None,
+                    }
+                except Exception as e:
+                    audits["ss-status-messages-audit"] = {
+                        "id": "ss-status-messages-audit",
+                        "title": "Status messages use live regions (WCAG 4.1.3)",
+                        "description": f"Check could not run: {e}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
 
             # axe-core is the canonical WCAG engine for the Camoufox path. It runs
             # inside the same browser page that bypassed bot protection, then its

@@ -1,9 +1,10 @@
 """
 SQS scanner worker for production/Fargate deployments.
 
-The Node backend owns users, DB updates, PDF generation, and email delivery.
-This worker owns scanner-side browser work, stores raw JSON/PDF artifacts in S3,
-and emits a small completion message back to the result queue.
+The Node backend owns users, DB updates, and email delivery.
+This worker owns scanner-side browser work, report PDF generation, stores
+raw JSON/PDF artifacts in S3, and emits a small completion message back to
+the result queue.
 """
 
 import json
@@ -19,7 +20,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 from urllib import request as url_request
-from urllib.parse import urlparse
+from urllib.error import HTTPError
+from urllib.parse import urljoin, urlparse
 
 import boto3
 
@@ -225,11 +227,19 @@ def _is_orchestration_candidate(url: str, home_key: str) -> bool:
         return False
     if re.search(r"\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3)$", path):
         return False
+    if re.search(r"/(feed|rss|tag|author|wp-json|xmlrpc)(/|$)", path):
+        return False
+    if re.search(r"/(privacy|terms|legal|cookie|accessibility|sitemap)(/|$)", path):
+        return False
+    if any(token in path for token in ("privacy-policy", "terms-of", "cookie-policy", "legal-notice")):
+        return False
     if re.search(r"/(translate|writing)/", path) or path.startswith("/translate") or path.startswith("/writing"):
         return False
     if path.startswith("/images/i/"):
         return False
     if re.search(r"/(cart|checkout|identity|login|signin|sign-in|register|profile|account|orderlookup|searchpage)", path):
+        return False
+    if re.search(r"/(5xx-error|error|blocked|forbidden|access-denied)(/|$)", path):
         return False
     return True
 
@@ -243,26 +253,269 @@ def _orchestration_page_score(url: str, home_key: str) -> int:
 
     path = canonical["path"].lower().strip("/")
     first = path.split("/", 1)[0]
+    segments = [segment for segment in path.split("/") if segment]
     score = 20
 
     primary_keywords = {
         "pricing", "plans", "services", "service", "products", "product", "features", "solutions",
-        "business", "enterprise", "industries", "platform", "codex",
+        "business", "enterprise", "industries", "platform", "codex", "primary-care", "wellness",
+        "treatments", "treatment", "care", "medical", "appointment", "schedule", "locations",
+        "location", "providers", "provider",
     }
-    secondary_keywords = {"about", "contact", "support", "help", "company", "faq", "faqs"}
+    secondary_keywords = {
+        "about", "contact", "support", "help", "company", "faq", "faqs", "team", "doctor", "dr",
+        "reviews", "review", "blog", "news", "photos", "gallery", "videos", "office",
+    }
+    low_value_keywords = {
+        "privacy", "terms", "legal", "cookie", "accessibility", "sitemap", "feed", "rss",
+        "tag", "author", "wp-json", "xmlrpc",
+    }
 
-    if first in primary_keywords or any(f"/{keyword}/" in f"/{path}/" for keyword in primary_keywords):
+    wrapped_path = f"/{path}/"
+    if first in primary_keywords or any(keyword in segment for segment in segments for keyword in primary_keywords):
         score += 50
-    if first in secondary_keywords or any(f"/{keyword}" in f"/{path}" for keyword in secondary_keywords):
+    if first in secondary_keywords or any(keyword in segment for segment in segments for keyword in secondary_keywords):
         score += 35
-    if re.search(r"/(privacy|terms|legal|cookie|accessibility)(/|$)", f"/{path}/"):
-        score -= 20
+
+    if any(keyword in first for keyword in ("services", "service", "care", "wellness")):
+        score += 18
+    if any(keyword in segment for segment in segments for keyword in ("queen-creek", "therapy", "exam", "physical", "management", "treatment")):
+        score += 12
+    if any(keyword in wrapped_path for keyword in low_value_keywords):
+        score -= 45
     if re.search(r"(pcmcat|pcmid|abcat|cat[0-9]{3,})", path):
         score -= 18
-    if len(path.split("/")) > 2:
-        score -= min(24, (len(path.split("/")) - 2) * 8)
+    if len(segments) > 3:
+        score -= min(24, (len(segments) - 3) * 8)
 
     return score
+
+
+_DISCOVERY_HREF_RE = re.compile(r"""(?:href|data-href|to)\s*=\s*["']([^"'<>]+)["']""", re.I)
+_DISCOVERY_LOC_RE = re.compile(r"<loc>\s*(.*?)\s*</loc>", re.I | re.S)
+
+
+def _discovery_text_sample(text: str, limit: int = 180) -> str:
+    cleaned = re.sub(r"<script\b[^>]*>.*?</script>", " ", safe_text(text), flags=re.I | re.S)
+    cleaned = re.sub(r"<style\b[^>]*>.*?</style>", " ", cleaned, flags=re.I | re.S)
+    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned[:limit]
+
+
+def _record_discovery_source(diagnostics: Optional[Dict[str, Any]], url: str, text: str) -> None:
+    if diagnostics is None:
+        return
+    diagnostics.setdefault("sources", []).append({
+        "url": url,
+        "bytes": len(text),
+        "hrefCount": len(_DISCOVERY_HREF_RE.findall(text)),
+        "locCount": len(_DISCOVERY_LOC_RE.findall(text)),
+        "sample": _discovery_text_sample(text),
+    })
+
+
+def _fetch_discovery_text(url: str, timeout_seconds: int = 10) -> str:
+    request = url_request.Request(
+        url,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/131.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml,text/xml;q=0.9,*/*;q=0.8",
+        },
+    )
+    try:
+        with url_request.urlopen(request, timeout=timeout_seconds) as response:
+            content_type = safe_text(response.headers.get("content-type") or "").lower()
+            if not any(token in content_type for token in ("text/", "html", "xml", "application/xhtml")):
+                return ""
+            raw = response.read(2_000_000)
+    except HTTPError as error:
+        content_type = safe_text(error.headers.get("content-type") if error.headers else "").lower()
+        if error.code not in {401, 403, 429, 503}:
+            raise
+        if not any(token in content_type for token in ("text/", "html", "xml", "application/xhtml")):
+            raise
+        raw = error.read(2_000_000)
+        if not raw:
+            raise
+    return raw.decode("utf-8", errors="ignore")
+
+
+def _same_site_host(hostname: str, expected_host: str) -> bool:
+    normalized = safe_text(hostname).lower()
+    expected = safe_text(expected_host).lower()
+    if normalized.startswith("www."):
+        normalized = normalized[4:]
+    if expected.startswith("www."):
+        expected = expected[4:]
+    return bool(normalized and expected and normalized == expected)
+
+
+def _normalize_discovered_internal_url(raw_url: str, base_url: str, root_url: str) -> Optional[str]:
+    raw = safe_text(raw_url).strip()
+    if not raw or re.match(r"^(javascript|mailto|tel):", raw, re.I):
+        return None
+    try:
+        root = urlparse(root_url)
+        resolved = urlparse(urljoin(base_url, raw))
+        if resolved.scheme not in {"http", "https"} or not resolved.netloc:
+            return None
+        if not _same_site_host(resolved.hostname or resolved.netloc, root.hostname or root.netloc):
+            return None
+
+        path = re.sub(r"/{2,}", "/", resolved.path or "/")
+        if path != "/" and path.endswith("/"):
+            path = path[:-1]
+        if re.search(r"\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3)$", path, re.I):
+            return None
+        if re.search(r"/(api|_next|static|assets|cdn-cgi)(/|$)", path, re.I):
+            return None
+
+        netloc = (resolved.hostname or resolved.netloc).lower()
+        if resolved.port:
+            netloc = f"{netloc}:{resolved.port}"
+        return f"{root.scheme}://{netloc}{path if path != '/' else ''}"
+    except Exception:
+        return None
+
+
+def _looks_like_sitemap_url(url: str) -> bool:
+    try:
+        path = urlparse(url).path.lower()
+        return path.endswith(".xml") and "sitemap" in path
+    except Exception:
+        return False
+
+
+def _plain_discovery_fallback_enabled() -> bool:
+    return safe_text(os.getenv("SCANNER_PLAIN_DISCOVERY_FALLBACK_ENABLED", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _discovery_origin_variants(canonical_root_url: str) -> list[str]:
+    parsed = urlparse(canonical_root_url)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return []
+
+    host = (parsed.hostname or parsed.netloc).lower()
+    hosts = [host]
+    if host.startswith("www."):
+        hosts.append(host[4:])
+    else:
+        hosts.append(f"www.{host}")
+
+    origins: list[str] = []
+    seen: set[str] = set()
+    for candidate_host in hosts:
+        origin = f"{parsed.scheme}://{candidate_host}"
+        if origin not in seen:
+            seen.add(origin)
+            origins.append(origin)
+    return origins
+
+
+def _discover_plain_internal_links(
+    root_url: str,
+    max_links: int = 100,
+    diagnostics: Optional[Dict[str, Any]] = None,
+) -> list[str]:
+    canonical_root = _canonical_page_url(root_url)
+    if not canonical_root:
+        if diagnostics is not None:
+            diagnostics.setdefault("errors", []).append("Could not canonicalize root URL.")
+        return []
+
+    parsed_root = urlparse(canonical_root["url"])
+    origin = f"{parsed_root.scheme}://{parsed_root.netloc}"
+    origin_variants = _discovery_origin_variants(canonical_root["url"]) or [origin]
+    home_key = canonical_root["key"]
+    max_links = max(1, min(int(max_links or 100), 300))
+
+    discovered: list[str] = []
+    seen_keys: set[str] = set()
+
+    def add_link(raw: str, base_url: str) -> None:
+        if len(discovered) >= max_links:
+            return
+        normalized = _normalize_discovered_internal_url(raw, base_url, canonical_root["url"])
+        canonical = _canonical_page_url(normalized or "")
+        if not canonical or canonical["key"] == home_key or canonical["key"] in seen_keys:
+            return
+        if not _is_orchestration_candidate(canonical["url"], home_key):
+            return
+        seen_keys.add(canonical["key"])
+        discovered.append(canonical["url"])
+
+    sitemap_queue: list[str] = []
+    for candidate_origin in origin_variants:
+        try:
+            robots_url = f"{candidate_origin}/robots.txt"
+            robots = _fetch_discovery_text(robots_url, timeout_seconds=6)
+            _record_discovery_source(diagnostics, robots_url, robots)
+            for line in robots.splitlines():
+                match = re.match(r"\s*sitemap\s*:\s*(\S+)", line, re.I)
+                if match:
+                    sitemap_queue.append(match.group(1).strip())
+        except Exception as error:
+            if diagnostics is not None:
+                diagnostics.setdefault("errors", []).append(f"{candidate_origin}/robots.txt: {safe_text(str(error))[:240]}")
+
+        sitemap_queue.extend([
+            f"{candidate_origin}/sitemap.xml",
+            f"{candidate_origin}/sitemap_index.xml",
+            f"{candidate_origin}/wp-sitemap.xml",
+        ])
+
+    visited_sitemaps: set[str] = set()
+    while sitemap_queue and len(visited_sitemaps) < 10 and len(discovered) < max_links:
+        sitemap_url = sitemap_queue.pop(0)
+        if sitemap_url in visited_sitemaps:
+            continue
+        visited_sitemaps.add(sitemap_url)
+        try:
+            sitemap_text = _fetch_discovery_text(sitemap_url, timeout_seconds=8)
+            _record_discovery_source(diagnostics, sitemap_url, sitemap_text)
+        except Exception as error:
+            if diagnostics is not None:
+                diagnostics.setdefault("errors", []).append(f"{sitemap_url}: {safe_text(str(error))[:240]}")
+            continue
+        for loc in _DISCOVERY_LOC_RE.findall(sitemap_text):
+            candidate = safe_text(loc).strip()
+            if not candidate:
+                continue
+            if _looks_like_sitemap_url(candidate) and candidate not in visited_sitemaps:
+                sitemap_queue.append(candidate)
+                continue
+            add_link(candidate, sitemap_url)
+            if len(discovered) >= max_links:
+                break
+
+    homepage_urls = [canonical_root["url"], *origin_variants]
+    seen_homepage_urls: set[str] = set()
+    for homepage_url in homepage_urls:
+        if homepage_url in seen_homepage_urls or len(discovered) >= max_links:
+            continue
+        seen_homepage_urls.add(homepage_url)
+        try:
+            homepage_html = _fetch_discovery_text(homepage_url, timeout_seconds=10)
+            _record_discovery_source(diagnostics, homepage_url, homepage_html)
+            for href in _DISCOVERY_HREF_RE.findall(homepage_html):
+                add_link(href, homepage_url)
+                if len(discovered) >= max_links:
+                    break
+        except Exception as error:
+            if diagnostics is not None:
+                diagnostics.setdefault("errors", []).append(f"{homepage_url}: {safe_text(str(error))[:240]}")
+
+    return discovered
 
 
 def _format_size_mb(size: int) -> str:
@@ -558,7 +811,9 @@ class ScannerSqsWorker:
         self.prefix = os.getenv("SCANNER_SQS_ARTIFACT_PREFIX", "silver-surfers/scanner-results").strip("/")
         self.wait_time_seconds = _optional_int("SCANNER_SQS_WAIT_TIME_SECONDS", 20)
         self.visibility_timeout_seconds = _optional_int("SCANNER_SQS_JOB_VISIBILITY_TIMEOUT_SECONDS", 900)
+        self.generate_quick_scan_reports = _optional_bool("SCANNER_QUICK_SCAN_GENERATE_REPORTS_ENABLED", True)
         self.generate_full_audit_reports = _optional_bool("SCANNER_FULL_AUDIT_GENERATE_REPORTS_ENABLED", False)
+        self.quick_report_prefix = os.getenv("SCANNER_SQS_QUICK_REPORT_PREFIX", "silver-surfers/quick-scans").strip("/")
         self.final_report_prefix = os.getenv("SCANNER_SQS_FINAL_REPORT_PREFIX", "silver-surfers/audit-reports").strip("/")
         self.s3_url_mode = os.getenv("AWS_S3_URL_MODE", "signed").strip().lower()
         self.signed_url_expires_seconds = _optional_int("AWS_S3_SIGNED_URL_EXPIRES_SECONDS", 7 * 24 * 60 * 60)
@@ -809,12 +1064,24 @@ class ScannerSqsWorker:
             },
         )
 
-        return {
+        report_storage = None
+        if is_lite_version and self.generate_quick_scan_reports:
+            generated_report_package = self._generate_and_upload_quick_scan_report(
+                scanner_job_id,
+                payload,
+                report,
+                url,
+                device,
+            )
+            report_storage = generated_report_package.get("reportStorage")
+
+        response = {
             "schemaVersion": 1,
             "scannerJobId": scanner_job_id,
             "queueKind": queue_kind,
             "scannerTier": scanner_tier,
             "success": True,
+            "score": final_score,
             "report": {
                 "bucket": self.bucket,
                 "region": self.region,
@@ -828,6 +1095,10 @@ class ScannerSqsWorker:
             "attemptNumber": 1,
             "message": f"{version} audit completed successfully by scanner SQS worker.",
         }
+        if report_storage:
+            response["reportStorage"] = report_storage
+            response["reportsGeneratedInWorker"] = True
+        return response
 
     def _refresh_job_visibility(self, scanner_job_id: str, receipt_handle: Optional[str]) -> None:
         if not receipt_handle:
@@ -1000,6 +1271,75 @@ class ScannerSqsWorker:
             max_depth,
             delay_ms,
         )
+        extraction_links = [safe_text(link) for link in extraction.get("links") or [] if safe_text(link)]
+        plain_discovery_attempted = False
+        plain_discovery_link_count = 0
+        plain_discovery_diagnostics: Dict[str, Any] = {}
+        if len(extraction_links) < 3 and _plain_discovery_fallback_enabled():
+            plain_discovery_attempted = True
+            plain_links = _discover_plain_internal_links(
+                safe_text(extraction.get("finalUrl") or root_url),
+                raw_link_limit,
+                plain_discovery_diagnostics,
+            )
+            plain_discovery_link_count = len(plain_links)
+            if plain_links:
+                merged_links: list[str] = []
+                merged_keys: set[str] = set()
+                for link in [*extraction_links, *plain_links]:
+                    canonical = _canonical_page_url(link)
+                    if not canonical or canonical["key"] in merged_keys:
+                        continue
+                    merged_keys.add(canonical["key"])
+                    merged_links.append(canonical["url"])
+                extraction = {
+                    **extraction,
+                    "success": True,
+                    "links": merged_links,
+                    "finalUrl": safe_text(extraction.get("finalUrl") or root_url),
+                    "error": safe_text(extraction.get("error") or "") or None,
+                }
+                logger.info(
+                    "Scanner full-audit link extraction supplemented by sitemap/html discovery.",
+                    extra={
+                        "scannerJobId": scanner_job_id,
+                        "url": root_url,
+                        "browserLinkCount": len(extraction_links),
+                        "extractionVersion": extraction.get("extractionVersion"),
+                        "homepageDiagnostics": extraction.get("homepageDiagnostics"),
+                        "browserSitemapDiagnostics": extraction.get("browserSitemapDiagnostics"),
+                        "interactionDiagnostics": extraction.get("interactionDiagnostics"),
+                        "plainDiscoveryLinkCount": len(plain_links),
+                        "mergedLinkCount": len(merged_links),
+                    },
+                )
+            else:
+                logger.warning(
+                    "Scanner full-audit plain sitemap/html discovery found no links.",
+                    extra={
+                        "scannerJobId": scanner_job_id,
+                        "url": root_url,
+                        "browserLinkCount": len(extraction_links),
+                        "extractionVersion": extraction.get("extractionVersion"),
+                        "homepageDiagnostics": extraction.get("homepageDiagnostics"),
+                        "browserSitemapDiagnostics": extraction.get("browserSitemapDiagnostics"),
+                        "interactionDiagnostics": extraction.get("interactionDiagnostics"),
+                        "plainDiscoveryDiagnostics": plain_discovery_diagnostics,
+                    },
+                )
+        elif len(extraction_links) < 3:
+            logger.warning(
+                "Scanner full-audit Camoufox link discovery found fewer than 3 links; plain discovery fallback is disabled.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "url": root_url,
+                    "browserLinkCount": len(extraction_links),
+                    "extractionVersion": extraction.get("extractionVersion"),
+                    "homepageDiagnostics": extraction.get("homepageDiagnostics"),
+                    "browserSitemapDiagnostics": extraction.get("browserSitemapDiagnostics"),
+                    "interactionDiagnostics": extraction.get("interactionDiagnostics"),
+                },
+            )
         if not extraction.get("success") and not extraction.get("links"):
             logger.warning(
                 "Scanner full-audit link extraction failed; continuing with root URL only.",
@@ -1028,6 +1368,8 @@ class ScannerSqsWorker:
         for candidate in candidates:
             canonical = _canonical_page_url(candidate)
             if not canonical or not _is_orchestration_candidate(canonical["url"], home_key):
+                continue
+            if canonical["host"] != root_canonical["host"]:
                 continue
             score = _orchestration_page_score(canonical["url"], home_key)
             existing = by_key.get(canonical["key"])
@@ -1087,6 +1429,13 @@ class ScannerSqsWorker:
                 "devices": devices,
                 "linkCount": len(extraction.get("links") or []),
                 "extractionWarning": extraction.get("error"),
+                "extractionVersion": extraction.get("extractionVersion"),
+                "homepageDiagnostics": extraction.get("homepageDiagnostics"),
+                "browserSitemapDiagnostics": extraction.get("browserSitemapDiagnostics"),
+                "interactionDiagnostics": extraction.get("interactionDiagnostics"),
+                "plainDiscoveryAttempted": plain_discovery_attempted,
+                "plainDiscoveryLinkCount": plain_discovery_link_count,
+                "plainDiscoveryDiagnostics": plain_discovery_diagnostics if plain_discovery_attempted else None,
             },
         )
 
@@ -1222,7 +1571,7 @@ class ScannerSqsWorker:
                 "isLiteVersion": is_lite_version,
                 "scanModeUsed": scan_mode_used,
                 "error": error_message,
-                "errorCode": "SCANNER_WORKER_FAILED",
+                "errorCode": _classify_scanner_error(error),
             }
 
     def _generate_and_upload_full_audit_reports(
@@ -1347,6 +1696,125 @@ class ScannerSqsWorker:
                 "aiReport": manifest.get("aiReport") if isinstance(manifest.get("aiReport"), dict) else None,
             }
 
+    def _generate_and_upload_quick_scan_report(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        report: Dict[str, Any],
+        url: str,
+        device: str,
+    ) -> Dict[str, Any]:
+        report_metadata = payload.get("reportGeneration") if isinstance(payload.get("reportGeneration"), dict) else {}
+        email = safe_text(report_metadata.get("email") or payload.get("email") or "unknown-client")
+        quick_scan_id = safe_text(report_metadata.get("quickScanId") or payload.get("quickScanId") or scanner_job_id)
+        website_url = safe_text(report_metadata.get("url") or payload.get("url") or url or "quick-scan")
+
+        with tempfile.TemporaryDirectory(prefix=f"scanner-quick-report-{_sanitize_key_segment(scanner_job_id)}-") as temp_dir:
+            temp_path = Path(temp_dir)
+            report_path = temp_path / "report.json"
+            output_dir = temp_path / "reports"
+            manifest_path = temp_path / "manifest.json"
+            report_path.write_text(json.dumps(report, ensure_ascii=False), encoding="utf-8")
+
+            command = [
+                "node",
+                "--import",
+                "/app/reporting/scripts/register-typescript-loader.mjs",
+                "/app/reporting/generate-quick-scan-report.mjs",
+                "--report",
+                str(report_path),
+                "--output-dir",
+                str(output_dir),
+                "--manifest",
+                str(manifest_path),
+                "--url",
+                website_url,
+                "--email",
+                email,
+                "--device",
+                device,
+            ]
+
+            logger.info(
+                "Generating quick-scan report PDF in scanner worker.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "quickScanId": quick_scan_id,
+                    "device": device,
+                },
+            )
+            completed = subprocess.run(
+                command,
+                cwd="/app/reporting",
+                text=True,
+                capture_output=True,
+                timeout=_optional_int("SCANNER_QUICK_SCAN_REPORT_GENERATION_TIMEOUT_SECONDS", 600),
+            )
+            if completed.stdout:
+                logger.info(
+                    "Quick-scan report generator output.",
+                    extra={"scannerJobId": scanner_job_id, "output": completed.stdout[-4000:]},
+                )
+            if completed.stderr:
+                logger.warning(
+                    "Quick-scan report generator stderr.",
+                    extra={"scannerJobId": scanner_job_id, "output": completed.stderr[-4000:]},
+                )
+            if completed.returncode != 0:
+                raise RuntimeError(f"Quick-scan report generator exited with code {completed.returncode}.")
+
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if not manifest.get("success"):
+                raise RuntimeError(safe_text(manifest.get("error") or "Quick-scan report generation produced no files."))
+
+            report_prefix = self._build_quick_report_prefix(email, quick_scan_id, website_url)
+            uploaded_objects = []
+            for file_info in manifest.get("files") or []:
+                file_path = Path(safe_text(file_info.get("path")))
+                if not file_path.is_file():
+                    continue
+
+                filename = safe_text(file_info.get("filename") or file_path.name)
+                key = f"{report_prefix}/{self._sanitize_storage_object_name(filename)}"
+                size = file_path.stat().st_size
+                self.s3.upload_file(
+                    str(file_path),
+                    self.bucket,
+                    key,
+                    ExtraArgs={"ContentType": "application/pdf"},
+                )
+                uploaded_objects.append({
+                    "filename": filename,
+                    "key": key,
+                    "size": size,
+                    "sizeMB": _format_size_mb(size),
+                    "providerUrl": self._build_object_access_url(key),
+                })
+
+            if not uploaded_objects:
+                raise RuntimeError("Quick-scan report generation completed but no PDF files were uploaded.")
+
+            logger.info(
+                "Uploaded quick-scan report PDF from scanner worker.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "quickScanId": quick_scan_id,
+                    "prefix": report_prefix,
+                    "uploadedCount": len(uploaded_objects),
+                },
+            )
+
+            report_storage = {
+                "provider": "s3",
+                "bucket": self.bucket,
+                "region": self.region,
+                "prefix": report_prefix,
+                "objectCount": len(uploaded_objects),
+                "signedUrlExpiresInSeconds": self.signed_url_expires_seconds,
+                "objects": uploaded_objects,
+            }
+            return {"reportStorage": report_storage}
+
     def _build_final_report_prefix(self, email: str, task_id: str, website_url: str) -> str:
         now = datetime.now(timezone.utc)
         email_segment = _sanitize_key_segment(email.replace("@", "-at-"), "anonymous")
@@ -1354,6 +1822,18 @@ class ScannerSqsWorker:
         task_segment = _sanitize_key_segment(task_id, "task")
         return (
             f"{self.final_report_prefix}/"
+            f"{now.strftime('%Y/%m/%d')}/"
+            f"{email_segment}/"
+            f"{task_segment}-{website_segment}"
+        )
+
+    def _build_quick_report_prefix(self, email: str, quick_scan_id: str, website_url: str) -> str:
+        now = datetime.now(timezone.utc)
+        email_segment = _sanitize_key_segment(email.replace("@", "-at-"), "anonymous")
+        website_segment = _sanitize_key_segment(website_url, "quick-scan")
+        task_segment = _sanitize_key_segment(quick_scan_id, "quick-scan")
+        return (
+            f"{self.quick_report_prefix}/"
             f"{now.strftime('%Y/%m/%d')}/"
             f"{email_segment}/"
             f"{task_segment}-{website_segment}"

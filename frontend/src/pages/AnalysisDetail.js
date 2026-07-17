@@ -158,6 +158,31 @@ function getDownloadActionLabel(reportFile) {
   return reportFile?.hasPreview ? 'Download PDF' : 'Download File';
 }
 
+function wcagUnderstandingUrl(title) {
+  const slug = String(title || '')
+    .toLowerCase()
+    .replace(/[()]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+  return `https://www.w3.org/WAI/WCAG22/Understanding/${slug}`;
+}
+
+function getWcagStatusTone(status) {
+  if (status === 'pass') return 'green';
+  if (status === 'fail') return 'red';
+  if (status === 'needs-review') return 'yellow';
+  return 'gray';
+}
+
+function getWcagStatusLabel(status) {
+  if (status === 'pass') return 'Pass';
+  if (status === 'fail') return 'Fail';
+  if (status === 'needs-review') return 'Needs Review';
+  return 'N/A';
+}
+
 function StatCard({ label, value, help }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
@@ -180,6 +205,10 @@ export default function AnalysisDetail() {
   const [rerunning, setRerunning] = useState(false);
   const [rescanning, setRescanning] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [wcagStatusFilter, setWcagStatusFilter] = useState('active');
+  const [wcagPrincipleFilter, setWcagPrincipleFilter] = useState('all');
+  const [wcagLevelFilter, setWcagLevelFilter] = useState('all');
+  const [wcagExpandedRow, setWcagExpandedRow] = useState(null);
 
   const loadDetail = async (cancelled = false) => {
     setLoading(true);
@@ -219,6 +248,18 @@ export default function AnalysisDetail() {
       : buildFallbackRemediationBuckets(roadmap);
   const aiReport = item?.aiReport || null;
   const reportFiles = item?.reportFiles || [];
+  const wcagMatrix = item?.wcagMatrix || [];
+  const wcagSummary = item?.wcagSummary || null;
+
+  const filteredWcagMatrix = wcagMatrix.filter((row) => {
+    const statusMatch =
+      wcagStatusFilter === 'all' ? true :
+      wcagStatusFilter === 'active' ? (row.status === 'fail' || row.status === 'needs-review') :
+      row.status === wcagStatusFilter;
+    const principleMatch = wcagPrincipleFilter === 'all' || row.principle === wcagPrincipleFilter;
+    const levelMatch = wcagLevelFilter === 'all' || row.level === wcagLevelFilter;
+    return statusMatch && principleMatch && levelMatch;
+  });
 
   const handleRerun = async () => {
     if (!taskId) return;
@@ -391,12 +432,11 @@ export default function AnalysisDetail() {
                 <div className="mb-4 flex flex-wrap gap-2">
                   <ScoreBadge value={`Degraded ${item.degradedTargetCount || 0}`} tone="yellow" />
                   <ScoreBadge value={`Failed ${item.failedTargetCount || 0}`} tone={item.failedTargetCount ? 'red' : 'gray'} />
-                  <ScoreBadge value={`Planned ${item.plannedTargetCount || 0}`} tone="gray" />
                 </div>
-                {item.warnings?.length > 0 ? (
+                {item.warnings?.filter(w => !w.includes('dispatched to the scanner service')).length > 0 ? (
                   <div className="space-y-2">
                     <h2 className="text-xl font-bold text-white">Warnings</h2>
-                    {item.warnings.map((warning) => (
+                    {item.warnings.filter(w => !w.includes('dispatched to the scanner service')).map((warning) => (
                       <p key={warning} className="text-sm text-amber-100">{warning}</p>
                     ))}
                   </div>
@@ -694,6 +734,197 @@ export default function AnalysisDetail() {
                 )}
               </div>
             </section>
+
+            {wcagMatrix.length > 0 ? (
+              <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
+                <div className="mb-5">
+                  <h2 className="text-2xl font-bold">WCAG 2.2 Matrix</h2>
+                  <p className="mt-1 text-sm text-gray-300">
+                    Automated coverage of all WCAG 2.2 Level A and AA success criteria across this audit.
+                  </p>
+                </div>
+
+                {wcagSummary ? (
+                  <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">Passed</p>
+                      <p className="mt-3 text-3xl font-bold text-emerald-400">{wcagSummary.passed ?? 0}</p>
+                      <p className="mt-2 text-sm text-emerald-300/70">criteria</p>
+                    </div>
+                    <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-rose-300">Failed</p>
+                      <p className="mt-3 text-3xl font-bold text-rose-400">{wcagSummary.failed ?? 0}</p>
+                      <p className="mt-2 text-sm text-rose-300/70">criteria</p>
+                    </div>
+                    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Needs Review</p>
+                      <p className="mt-3 text-3xl font-bold text-amber-400">{wcagSummary.needsReview ?? 0}</p>
+                      <p className="mt-2 text-sm text-amber-300/70">manual only</p>
+                    </div>
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                      <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Not Applicable</p>
+                      <p className="mt-3 text-3xl font-bold text-gray-400">{wcagSummary.notApplicable ?? 0}</p>
+                      <p className="mt-2 text-sm text-gray-500">criteria</p>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
+                  <div className="flex flex-wrap gap-1">
+                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Status</span>
+                    {[
+                      { value: 'active', label: 'Issues Only' },
+                      { value: 'all', label: 'All' },
+                      { value: 'pass', label: 'Pass' },
+                      { value: 'fail', label: 'Fail' },
+                      { value: 'needs-review', label: 'Needs Review' },
+                      { value: 'not-applicable', label: 'N/A' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setWcagStatusFilter(opt.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          wcagStatusFilter === opt.value
+                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
+                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Principle</span>
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'perceivable', label: 'Perceivable' },
+                      { value: 'operable', label: 'Operable' },
+                      { value: 'understandable', label: 'Understandable' },
+                      { value: 'robust', label: 'Robust' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setWcagPrincipleFilter(opt.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          wcagPrincipleFilter === opt.value
+                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
+                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1">
+                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Level</span>
+                    {[
+                      { value: 'all', label: 'All' },
+                      { value: 'A', label: 'A' },
+                      { value: 'AA', label: 'AA' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.value}
+                        onClick={() => setWcagLevelFilter(opt.value)}
+                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                          wcagLevelFilter === opt.value
+                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
+                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <span className="ml-auto text-xs text-gray-500">{filteredWcagMatrix.length} of {wcagMatrix.length} criteria</span>
+                </div>
+
+                {filteredWcagMatrix.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-gray-400">No criteria match the current filters.</p>
+                ) : (
+                  <div className="overflow-hidden rounded-xl border border-white/10">
+                    <div className="grid grid-cols-[60px_1fr_52px_110px_60px] border-b border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">
+                      <span>Criterion</span>
+                      <span>Title</span>
+                      <span className="text-center">Level</span>
+                      <span className="text-center">Status</span>
+                      <span className="text-center">Issues</span>
+                    </div>
+                    {filteredWcagMatrix.map((row, index) => {
+                      const isExpanded = wcagExpandedRow === row.criterion;
+                      return (
+                        <div key={row.criterion}>
+                          <button
+                            onClick={() => setWcagExpandedRow(isExpanded ? null : row.criterion)}
+                            className={`grid w-full grid-cols-[60px_1fr_52px_110px_60px] items-center gap-2 px-4 py-3 text-left transition hover:bg-white/5 ${
+                              index % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'
+                            } ${isExpanded ? 'bg-white/5' : ''}`}
+                          >
+                            <span className="text-xs font-mono font-semibold text-gray-300">{row.criterion}</span>
+                            <span className="text-sm text-white">{row.title}</span>
+                            <span className="text-center text-xs font-semibold text-gray-400">{row.level}</span>
+                            <span className="flex justify-center">
+                              <ScoreBadge value={getWcagStatusLabel(row.status)} tone={getWcagStatusTone(row.status)} />
+                            </span>
+                            <span className="text-center text-sm text-gray-300">{row.issueCount ?? 0}</span>
+                          </button>
+
+                          {isExpanded ? (
+                            <div className="border-t border-white/5 bg-black/20 px-4 py-4 space-y-3">
+                              {row.remediationGuidance ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Guidance</p>
+                                  <p className="text-sm text-gray-200">{row.remediationGuidance}</p>
+                                </div>
+                              ) : null}
+
+                              {row.manualReviewRequired && row.manualReviewReason ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.15em] text-amber-500 mb-1">Manual Review Required</p>
+                                  <p className="text-sm text-amber-200/80">{row.manualReviewReason}</p>
+                                </div>
+                              ) : null}
+
+                              {Array.isArray(row.affectedElements) && row.affectedElements.length > 0 ? (
+                                <div>
+                                  <p className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Affected Elements</p>
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {row.affectedElements.slice(0, 10).map((el, i) => (
+                                      <code key={i} className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-gray-300">{el}</code>
+                                    ))}
+                                    {row.affectedElements.length > 10 ? (
+                                      <span className="text-xs text-gray-500">+{row.affectedElements.length - 10} more</span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              <a
+                                href={wcagUnderstandingUrl(row.title)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-blue-300 transition hover:bg-white/10"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                WCAG Understanding Doc ↗
+                              </a>
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                <div className="mt-5 border-t border-white/10 pt-4">
+                  <p className="text-xs text-gray-300">
+                    Criteria marked Needs Review require manual review and cannot be fully assessed by automated scanning. This report does not constitute a legal conformance certification.
+                  </p>
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : null}
       </div>
