@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE, fetchJSON } from '../config/apiBase';
+import { getMe } from '../api';
 
 // Simple JWT auth simulation: expects backend to provide /api/login returning {token}
 export default function Login() {
@@ -44,6 +45,26 @@ export default function Login() {
   const [googleReady, setGoogleReady] = useState(false);
   const googleDivRef = useRef(null);
   const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID;
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+
+      const result = await getMe();
+      if (!mounted || !result?.user) {
+        return;
+      }
+
+      navigate(redirectTo, { replace: true });
+    })();
+
+    return () => { mounted = false; };
+  }, [navigate, redirectTo]);
 
   // Clean up invalid lastRoute on mount
   useEffect(() => {
@@ -106,6 +127,7 @@ export default function Login() {
       }
       
       localStorage.setItem('authToken', data.token);
+      localStorage.setItem('token', data.token);
   try { const payload = JSON.parse(atob(data.token.split('.')[1])); if(payload.role==='admin'){ navigate('/admin', { replace: true }); return; } } catch {}
   navigate(redirectTo, { replace: true });
     } catch (e) {
@@ -155,6 +177,7 @@ export default function Login() {
       }
       if (!ok || !data.token) throw new Error(data?.error || 'Login failed');
       localStorage.setItem('authToken', data.token);
+      localStorage.setItem('token', data.token);
   try { const payload = JSON.parse(atob(data.token.split('.')[1])); if(payload.role==='admin'){ navigate('/admin', { replace: true }); return; } } catch {}
   navigate(redirectTo, { replace: true });
     } catch (err) {
