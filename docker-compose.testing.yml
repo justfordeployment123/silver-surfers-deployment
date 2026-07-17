@@ -1,0 +1,137 @@
+# SilverSurfers - testing/local full stack compose
+#
+# Usage:
+#   docker compose -f docker-compose.testing.yml up --build
+
+services:
+    frontend:
+        build:
+            context: ./frontend
+            dockerfile: Dockerfile
+            args:
+                - REACT_APP_API_BASE_URL=http://localhost:8000
+        container_name: ss-frontend
+        restart: unless-stopped
+        ports:
+            - "3000:80"
+        networks:
+            - ssnet
+
+    redis:
+        image: redis:7-alpine
+        container_name: ss-redis
+        restart: unless-stopped
+        command: redis-server --save 60 1 --appendonly yes --loglevel warning
+        ports:
+            - "6380:6379"
+        volumes:
+            - redis_data:/data
+        networks:
+            - ssnet
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+    api:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile
+        container_name: ss-api
+        restart: unless-stopped
+        depends_on:
+            redis:
+                condition: service_healthy
+        env_file:
+            - ./backend/.env
+        environment:
+            PORT: 8000
+            REDIS_URL: redis://redis:6379
+            SCANNER_SERVICE_URL: http://scanner:8001
+            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
+            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
+            NODE_ENV: production
+        ports:
+            - "8000:8000"
+        networks:
+            - ssnet
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    'node -e "require(''http'').get(''http://localhost:8000/healthz'', r => process.exit(r.statusCode===200?0:1)).on(''error'',()=>process.exit(1))"',
+                ]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 20s
+
+    worker:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.worker
+        container_name: ss-worker
+        restart: unless-stopped
+        depends_on:
+            redis:
+                condition: service_healthy
+            scanner:
+                condition: service_healthy
+        env_file:
+            - ./backend/.env
+        environment:
+            REDIS_URL: redis://redis:6379
+            SCANNER_SERVICE_URL: http://scanner:8001
+            SCANNER_LITE_AUDIT_TIMEOUT_MS: ${SCANNER_LITE_AUDIT_TIMEOUT_MS:-240000}
+            SCANNER_FULL_AUDIT_TIMEOUT_MS: ${SCANNER_FULL_AUDIT_TIMEOUT_MS:-3600000}
+            NODE_ENV: production
+        networks:
+            - ssnet
+
+    scanner:
+        build:
+            context: ./backend
+            dockerfile: Dockerfile.scanner
+        container_name: ss-scanner
+        restart: unless-stopped
+        depends_on:
+            redis:
+                condition: service_healthy
+        env_file:
+            - ./backend/.env
+        environment:
+            SCANNER_PORT: 8001
+            PORT: 8001
+            TEMP_DIR: /tmp
+            PYTHONUNBUFFERED: 1
+            SCANNER_MAX_CONCURRENT_AUDITS: ${SCANNER_MAX_CONCURRENT_AUDITS:-1}
+            SCANNER_MAX_QUEUED_AUDITS: ${SCANNER_MAX_QUEUED_AUDITS:-8}
+            SCANNER_EXECUTOR_WORKERS: ${SCANNER_EXECUTOR_WORKERS:-2}
+            SCANNER_KEEP_TEMP_REPORTS: ${SCANNER_KEEP_TEMP_REPORTS:-false}
+            REDIS_URL: redis://redis:6379
+            NODE_ENV: production
+        security_opt:
+            - seccomp:unconfined
+        ports:
+            - "8001:8001"
+        networks:
+            - ssnet
+        healthcheck:
+            test:
+                [
+                    "CMD-SHELL",
+                    'node -e "require(''http'').get(''http://localhost:8001/healthz'', r => process.exit(r.statusCode===200?0:1)).on(''error'',()=>process.exit(1))"',
+                ]
+            interval: 30s
+            timeout: 15s
+            retries: 3
+            start_period: 30s
+
+networks:
+    ssnet:
+        driver: bridge
+
+volumes:
+    redis_data:
+        driver: local
