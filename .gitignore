@@ -9,6 +9,7 @@ dist/
 build/
 .next/
 out/
+frontend/mongo-backup.archive
 Silver-Surfers-backend/dist/
 Silver-Surfers-frontend/build/
 Silver-Surfers-frontend/dist/
