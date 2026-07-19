@@ -794,7 +794,7 @@ async function persistAggregateScorecard(
 
   record.score = aggregateScorecard.overallScore;
   record.scoreCard = aggregateScorecard;
-  const wcagMatrix = buildWcagMatrix(aggregateScorecard.issues);
+  const wcagMatrix = buildWcagMatrix(aggregateScorecard.issues, aggregateScorecard.notApplicableAuditIds);
   record.wcagMatrix = wcagMatrix.map((row) => ({
     ...row,
     remediationGuidance: row.manualReviewRequired

@@ -77,6 +77,7 @@ export interface AuditScorecard {
     issues: AuditIssueSummary[];
     platforms: AuditPlatformScore[];
     wcagSummary?: WcagSummary;
+    notApplicableAuditIds: string[];
 }
 
 interface CategoryAuditRef {
@@ -588,6 +589,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
     const evaluationWeightedScores = new Map<AuditEvaluationDimensionKey, number>();
     const evaluationWeights = new Map<AuditEvaluationDimensionKey, number>();
     const evaluationIssueCounts = new Map<AuditEvaluationDimensionKey, number>();
+    const notApplicableAuditIds: string[] = [];
 
     for (const key of EVALUATION_DIMENSION_ORDER) {
         evaluationIssues.set(key, []);
@@ -605,6 +607,10 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
             || audit.scoreDisplayMode === "notApplicable"
             || audit.scoreDisplayMode === "notChecked"
             || audit.scoreDisplayMode === "manual";
+
+        if (audit && (audit.notApplicable === true || audit.scoreDisplayMode === "notApplicable")) {
+            notApplicableAuditIds.push(auditRef.id);
+        }
 
         if (isExcluded) {
             continue;
@@ -679,6 +685,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         issues: allIssues,
         platforms: [],
         wcagSummary: buildWcagSummary(allIssues),
+        notApplicableAuditIds,
     };
 }
 
@@ -704,6 +711,7 @@ export function buildAggregateAuditScorecard(
             issues: [],
             platforms: options.platforms || [],
             wcagSummary: buildWcagSummary([]),
+            notApplicableAuditIds: [],
         };
     }
 
@@ -778,6 +786,11 @@ export function buildAggregateAuditScorecard(
     const allIssues = dedupeIssues([...evaluationDimensionIssues.values()].flat());
     const topIssues = sortIssues(allIssues).slice(0, 5);
 
+    // An audit is notApplicable at aggregate level only if every page said so (intersection)
+    const notApplicableSets = scorecards.map((sc) => new Set(sc.notApplicableAuditIds || []));
+    const firstSet = notApplicableSets[0] || new Set<string>();
+    const notApplicableAuditIds = [...firstSet].filter((id) => notApplicableSets.every((set) => set.has(id)));
+
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
         categoryId: options.categoryId || scorecards[0].categoryId || FULL_CATEGORY_ID,
@@ -792,5 +805,6 @@ export function buildAggregateAuditScorecard(
         issues: allIssues,
         platforms: options.platforms || [],
         wcagSummary: buildWcagSummary(allIssues),
+        notApplicableAuditIds,
     };
 }

@@ -38,7 +38,9 @@ function collectAffectedElements(issues: AuditIssueSummary[]): string[] {
     return [...elements].slice(0, 10);
 }
 
-export function buildWcagMatrix(issues: AuditIssueSummary[]): WcagMatrix {
+export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditIds: string[] = []): WcagMatrix {
+    const notApplicableSet = new Set(notApplicableAuditIds);
+
     // Build a map of failed criterion ID → matching issues
     const failedCriteriaMap = new Map<string, AuditIssueSummary[]>();
 
@@ -110,6 +112,22 @@ export function buildWcagMatrix(issues: AuditIssueSummary[]): WcagMatrix {
         // return needs-review so the client knows manual verification is still required.
         const mappedAuditIds = CRITERION_AUDIT_MAP[criterion] || [];
         if (mappedAuditIds.length > 0) {
+            // If every mapped audit explicitly returned notApplicable, the criterion doesn't apply
+            if (notApplicableSet.size > 0 && mappedAuditIds.every((id) => notApplicableSet.has(id))) {
+                return {
+                    criterion,
+                    title: def.title,
+                    level: def.level,
+                    principle: def.principle,
+                    status: "not-applicable",
+                    evidenceSource: resolveEvidenceSource(mappedAuditIds),
+                    affectedElements: [],
+                    issueCount: 0,
+                    remediationGuidance: "",
+                    manualReviewRequired: false,
+                };
+            }
+
             if (PARTIAL_COVERAGE_CRITERIA[criterion]) {
                 return {
                     criterion,
