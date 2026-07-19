@@ -78,6 +78,7 @@ export interface AuditScorecard {
     platforms: AuditPlatformScore[];
     wcagSummary?: WcagSummary;
     notApplicableAuditIds: string[];
+    manualReviewAuditIds: string[];
 }
 
 interface CategoryAuditRef {
@@ -590,6 +591,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
     const evaluationWeights = new Map<AuditEvaluationDimensionKey, number>();
     const evaluationIssueCounts = new Map<AuditEvaluationDimensionKey, number>();
     const notApplicableAuditIds: string[] = [];
+    const manualReviewAuditIds: string[] = [];
 
     for (const key of EVALUATION_DIMENSION_ORDER) {
         evaluationIssues.set(key, []);
@@ -610,6 +612,9 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
 
         if (audit && (audit.notApplicable === true || audit.scoreDisplayMode === "notApplicable")) {
             notApplicableAuditIds.push(auditRef.id);
+        }
+        if (audit && audit.scoreDisplayMode === "manual") {
+            manualReviewAuditIds.push(auditRef.id);
         }
 
         if (isExcluded) {
@@ -686,6 +691,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         platforms: [],
         wcagSummary: buildWcagSummary(allIssues),
         notApplicableAuditIds,
+        manualReviewAuditIds,
     };
 }
 
@@ -712,6 +718,7 @@ export function buildAggregateAuditScorecard(
             platforms: options.platforms || [],
             wcagSummary: buildWcagSummary([]),
             notApplicableAuditIds: [],
+            manualReviewAuditIds: [],
         };
     }
 
@@ -791,6 +798,9 @@ export function buildAggregateAuditScorecard(
     const firstSet = notApplicableSets[0] || new Set<string>();
     const notApplicableAuditIds = [...firstSet].filter((id) => notApplicableSets.every((set) => set.has(id)));
 
+    // An audit needs manual review at aggregate level if ANY page flagged it (union)
+    const manualReviewAuditIds = [...new Set(scorecards.flatMap((sc) => sc.manualReviewAuditIds || []))];
+
     return {
         methodologyVersion: SCORECARD_METHOD_VERSION,
         categoryId: options.categoryId || scorecards[0].categoryId || FULL_CATEGORY_ID,
@@ -806,5 +816,6 @@ export function buildAggregateAuditScorecard(
         platforms: options.platforms || [],
         wcagSummary: buildWcagSummary(allIssues),
         notApplicableAuditIds,
+        manualReviewAuditIds,
     };
 }

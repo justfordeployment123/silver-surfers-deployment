@@ -38,8 +38,9 @@ function collectAffectedElements(issues: AuditIssueSummary[]): string[] {
     return [...elements].slice(0, 10);
 }
 
-export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditIds: string[] = []): WcagMatrix {
+export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditIds: string[] = [], manualReviewAuditIds: string[] = []): WcagMatrix {
     const notApplicableSet = new Set(notApplicableAuditIds);
+    const manualReviewSet = new Set(manualReviewAuditIds);
 
     // Build a map of failed criterion ID → matching issues
     const failedCriteriaMap = new Map<string, AuditIssueSummary[]>();
@@ -125,6 +126,24 @@ export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditI
                     issueCount: 0,
                     remediationGuidance: "",
                     manualReviewRequired: false,
+                };
+            }
+
+            // If any mapped audit returned "manual" the scanner flagged a risk but cannot auto-confirm —
+            // surface as needs-review rather than silently passing.
+            if (mappedAuditIds.some((id) => manualReviewSet.has(id))) {
+                return {
+                    criterion,
+                    title: def.title,
+                    level: def.level,
+                    principle: def.principle,
+                    status: "needs-review",
+                    evidenceSource: resolveEvidenceSource(mappedAuditIds),
+                    affectedElements: [],
+                    issueCount: 0,
+                    remediationGuidance: "",
+                    manualReviewRequired: true,
+                    manualReviewReason: "The scanner detected a potential issue that requires manual verification to confirm.",
                 };
             }
 

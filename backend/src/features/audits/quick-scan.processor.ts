@@ -138,7 +138,7 @@ export async function completeQuickScanFromAuditResult(
       isLiteVersion: true,
       pageUrl: job.url,
     });
-    const rawWcagMatrix = buildWcagMatrix(liteScorecard.issues, liteScorecard.notApplicableAuditIds);
+    const rawWcagMatrix = buildWcagMatrix(liteScorecard.issues, liteScorecard.notApplicableAuditIds, liteScorecard.manualReviewAuditIds);
     const wcagMatrix = rawWcagMatrix.map((row) => ({
       ...row,
       remediationGuidance: row.manualReviewRequired

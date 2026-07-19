@@ -810,7 +810,7 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
     const remediationRoadmap = buildRemediationRoadmap(scorecard);
     const wcagMatrix = Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0
         ? record.wcagMatrix
-        : buildWcagMatrix(scorecard?.issues || []);
+        : buildWcagMatrix(scorecard?.issues || [], scorecard?.notApplicableAuditIds || [], scorecard?.manualReviewAuditIds || []);
     const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
 
     return {
