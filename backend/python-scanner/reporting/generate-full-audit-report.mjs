@@ -40,7 +40,7 @@ function buildFullAuditPdfFileName(url, device) {
       pathname = `${pathname.slice(0, 40)}_`;
     }
 
-    const hash = Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+    const hash = String(url.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
     return `${hostname}${pathname ? `_${pathname}` : ''}_${hash}-${device}.pdf`;
   } catch {
     return `report_${device}.pdf`;

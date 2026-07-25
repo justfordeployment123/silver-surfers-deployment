@@ -587,7 +587,7 @@ export function buildAuditReportEmailBody(options: {
             ${buildSectionCard(
                 combinedReportFile || (!primarySummaryFile && options.uploadedFiles.length === 1 ? options.uploadedFiles[0] : undefined),
                 "Full Combined Report",
-                "Every page in one document - built for your web developer or IT team to work from.",
+                "Every desktop page in one document - built for your web developer or IT team to work from.",
                 "Download Full Report",
             )}
         `;
