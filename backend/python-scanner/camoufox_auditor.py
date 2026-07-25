@@ -1600,25 +1600,34 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 }
 
                 # --- 2.1 Orientation lock (WCAG 1.3.4) ---
+                # Only true orientation locks are flagged:
+                #   1. JS screen.orientation.lock() calls in page scripts
+                #   2. CSS transform:rotate applied directly to html/body (rotates the whole viewport)
+                # Responsive @media (orientation:...) blocks are normal layout technique — NOT a lock.
+                # When no lock is found the check cannot be fully automated (mobile-only behaviour),
+                # so we return scoreDisplayMode:"manual" instead of a false pass.
                 try:
                     orientation_results = page.evaluate("""
                         () => {
-                            const sheets = Array.from(document.styleSheets);
                             const issues = [];
+                            // Check 1: JS orientation lock API
+                            const scriptText = Array.from(document.scripts)
+                                .map(s => s.textContent || '').join('\\n');
+                            if (/screen\\.orientation\\.lock\\s*\\(/.test(scriptText)) {
+                                issues.push({ type: 'js', description: 'screen.orientation.lock() detected in page scripts' });
+                            }
+                            // Check 2: CSS transform:rotate on html or body (rotates the whole frame)
+                            const sheets = Array.from(document.styleSheets);
                             for (const sheet of sheets) {
                                 let rules = [];
                                 try { rules = Array.from(sheet.cssRules || []); } catch (e) { continue; }
                                 for (const rule of rules) {
-                                    if (rule.type === CSSRule.MEDIA_RULE) {
-                                        const media = rule.conditionText || rule.media.mediaText || '';
-                                        if (/orientation\\s*:\\s*(portrait|landscape)/i.test(media)) {
-                                            issues.push({ media, cssText: rule.cssText.slice(0, 200) });
-                                        }
-                                    }
                                     if (rule.style) {
+                                        const sel = (rule.selectorText || '').trim().toLowerCase();
                                         const transform = rule.style.transform || '';
-                                        if (/rotate\\s*\\(\\s*(?:90|270|-90|-270)/.test(transform)) {
-                                            issues.push({ selector: rule.selectorText || '', transform });
+                                        if ((sel === 'html' || sel === 'body') &&
+                                                /rotate\\s*\\(\\s*(?:90|270|-90|-270)/.test(transform)) {
+                                            issues.push({ type: 'css', selector: rule.selectorText, transform });
                                         }
                                     }
                                 }
@@ -1627,30 +1636,40 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         }
                     """)
                     orientation_count = orientation_results.get("issueCount", 0)
-                    audits["ss-orientation-audit"] = {
-                        "id": "ss-orientation-audit",
-                        "title": "Page does not lock orientation (WCAG 1.3.4)",
-                        "description": (
-                            "Detects CSS that forces a single screen orientation via orientation media queries "
-                            "or fixed rotation transforms, which prevents users from viewing content in their preferred orientation."
-                        ),
-                        "score": 1.0 if orientation_count == 0 else 0.0,
-                        "numericValue": orientation_count,
-                        "scoreDisplayMode": "binary",
-                        "displayValue": (
-                            "No orientation lock detected"
-                            if orientation_count == 0
-                            else f"{orientation_count} orientation-locking CSS rule(s) found"
-                        ),
-                        "details": {
-                            "type": "table",
-                            "headings": [
-                                {"key": "media", "itemType": "text", "text": "Media Query / Selector"},
-                                {"key": "cssText", "itemType": "code", "text": "Rule"},
-                            ],
-                            "items": orientation_results.get("items", []),
-                        } if orientation_count else None,
-                    }
+                    if orientation_count > 0:
+                        audits["ss-orientation-audit"] = {
+                            "id": "ss-orientation-audit",
+                            "title": "Page does not lock orientation (WCAG 1.3.4)",
+                            "description": (
+                                "Detected CSS or JavaScript that locks the page to a single screen orientation, "
+                                "preventing users from rotating their device."
+                            ),
+                            "score": 0.0,
+                            "numericValue": orientation_count,
+                            "scoreDisplayMode": "binary",
+                            "displayValue": f"{orientation_count} orientation-locking pattern(s) found",
+                            "details": {
+                                "type": "table",
+                                "headings": [
+                                    {"key": "type", "itemType": "text", "text": "Type"},
+                                    {"key": "description", "itemType": "text", "text": "Detail"},
+                                ],
+                                "items": orientation_results.get("items", []),
+                            },
+                        }
+                    else:
+                        audits["ss-orientation-audit"] = {
+                            "id": "ss-orientation-audit",
+                            "title": "Page does not lock orientation (WCAG 1.3.4)",
+                            "description": (
+                                "No CSS or JavaScript orientation lock detected. "
+                                "Full verification requires manual testing on a physical mobile device."
+                            ),
+                            "score": None,
+                            "numericValue": 0,
+                            "scoreDisplayMode": "manual",
+                            "displayValue": "No automated lock detected — manual device test recommended",
+                        }
                 except Exception as e:
                     audits["ss-orientation-audit"] = {
                         "id": "ss-orientation-audit",
@@ -1974,38 +1993,27 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 try:
                     hover_results = page.evaluate("""
                         () => {
-                            // Find elements that likely show tooltip/popover content on hover or focus
+                            // WCAG 1.4.13 applies to CUSTOM tooltip/popover content controlled by the author.
+                            // Native browser title-attribute tooltips are a user-agent mechanism and are
+                            // outside the scope of 1.4.13 — do not include [title] in the trigger selector.
                             const triggers = Array.from(document.querySelectorAll(
-                                '[title], [aria-describedby], [data-tooltip], [data-tippy-content], ' +
+                                '[aria-describedby], [data-tooltip], [data-tippy-content], ' +
                                 '[data-toggle=tooltip], [data-bs-toggle=tooltip], .tooltip-trigger, ' +
-                                '[role=tooltip], .has-tooltip'
+                                '.has-tooltip'
                             ));
-                            const interactiveTags = new Set(['a', 'button', 'input', 'select', 'textarea', 'details', 'summary']);
                             const issues = [];
                             for (const el of triggers.slice(0, 30)) {
                                 const problems = [];
-                                // Check 1: title attribute only — only flag interactive elements.
-                                // Non-interactive elements (abbr, td, img) use title for semantic
-                                // annotation, not as a tooltip triggered on focus/hover.
-                                const isInteractiveEl = interactiveTags.has(el.tagName.toLowerCase())
-                                    || !!el.getAttribute('role')
-                                    || el.onclick !== null
-                                    || !!el.getAttribute('onclick');
-                                if (el.hasAttribute('title') && !el.getAttribute('aria-describedby') && !el.getAttribute('data-tooltip') && isInteractiveEl) {
-                                    problems.push('Uses native title attribute only — not keyboard accessible in all browsers');
-                                }
-                                // Check 2: aria-describedby points to hidden element (tooltip not visible/hoverable)
+                                // Check: aria-describedby points to an element with pointer-events:none
+                                // (the tooltip can appear but the user cannot hover over it to keep it open)
                                 const describedBy = el.getAttribute('aria-describedby');
                                 if (describedBy) {
                                     const target = document.getElementById(describedBy);
                                     if (target) {
                                         const st = window.getComputedStyle(target);
                                         const isHidden = st.display === 'none' || st.visibility === 'hidden' || st.opacity === '0';
-                                        if (isHidden) {
-                                            // Tooltip target exists but is currently hidden — check if it has pointer-events
-                                            if (st.pointerEvents === 'none') {
-                                                problems.push('Tooltip content has pointer-events:none — cannot be hovered to keep open');
-                                            }
+                                        if (isHidden && st.pointerEvents === 'none') {
+                                            problems.push('Tooltip content has pointer-events:none — cannot be hovered to keep it open');
                                         }
                                     }
                                 }
@@ -2282,16 +2290,33 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 try:
                     motion_results = page.evaluate("""
                         () => {
-                            const videos = Array.from(document.querySelectorAll('video'));
-                            const autoplayVideos = videos.filter(v => v.autoplay && !v.muted);
-                            // Carousels / marquees / auto-advancing sliders
-                            const marquees = document.querySelectorAll('marquee, [class*="carousel" i], [class*="slider" i], [class*="ticker" i]');
-                            const pauseControls = document.querySelectorAll(
-                                '[aria-label*="pause" i], [aria-label*="stop" i], button[class*="pause" i], button[class*="stop" i]'
-                            );
                             const issues = [];
-                            if (autoplayVideos.length > 0) issues.push(`${autoplayVideos.length} auto-playing video(s) without mute`);
-                            if (marquees.length > 0 && pauseControls.length === 0) issues.push(`${marquees.length} moving/scrolling element(s) without pause/stop control`);
+                            // Unmuted autoplay video — reliably auto-playing and always a WCAG 2.2.2 concern
+                            const autoplayVideos = Array.from(document.querySelectorAll('video'))
+                                .filter(v => v.autoplay && !v.muted);
+                            if (autoplayVideos.length > 0) {
+                                issues.push(`${autoplayVideos.length} auto-playing video(s) without mute`);
+                            }
+                            // <marquee> is always auto-scrolling by spec
+                            const marquees = document.querySelectorAll('marquee');
+                            // Tickers always scroll; carousels/sliders only auto-advance when
+                            // the author adds an explicit autoplay attribute — check for those signals.
+                            const autoplayCarousels = document.querySelectorAll(
+                                '[class*="ticker" i], ' +
+                                '[data-ride="carousel"]:not([data-pause="hover"]), ' +
+                                '[data-autoplay="true"], [data-auto-slide="true"], ' +
+                                '[data-slick*=\'"autoplay":true\']'
+                            );
+                            const movingEls = marquees.length + autoplayCarousels.length;
+                            if (movingEls > 0) {
+                                const pauseControls = document.querySelectorAll(
+                                    '[aria-label*="pause" i], [aria-label*="stop" i], ' +
+                                    'button[class*="pause" i], button[class*="stop" i]'
+                                );
+                                if (pauseControls.length === 0) {
+                                    issues.push(`${movingEls} auto-advancing element(s) without pause/stop control`);
+                                }
+                            }
                             return { issueCount: issues.length, issues };
                         }
                     """)
@@ -2624,60 +2649,42 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     nav_results = page.evaluate("""
                         () => {
                             const navEls = document.querySelectorAll('nav, [role="navigation"]');
-                            // Check if nav landmarks have accessible names (best-practice indicator)
                             const unnamed = Array.from(navEls).filter(n =>
                                 !n.getAttribute('aria-label') && !n.getAttribute('aria-labelledby')
                             );
-                            // Multiple unlabeled navs = cannot distinguish = potential inconsistency risk
-                            const multipleUnnamed = navEls.length > 1 && unnamed.length > 1;
-                            return {
-                                navCount: navEls.length,
-                                unnamedCount: unnamed.length,
-                                multipleUnnamed,
-                            };
+                            return { navCount: navEls.length, unnamedCount: unnamed.length };
                         }
                     """)
-                    multi_unnamed = nav_results.get("multipleUnnamed", False)
                     nav_count = nav_results.get("navCount", 0)
                     unnamed_count = nav_results.get("unnamedCount", 0)
-                    if multi_unnamed:
-                        # Multiple nav landmarks without aria-label are indistinguishable — hard fail.
-                        audits["ss-consistent-navigation-audit"] = {
-                            "id": "ss-consistent-navigation-audit",
-                            "title": "Navigation is consistent (WCAG 3.2.3)",
-                            "description": (
-                                f"Found {unnamed_count} of {nav_count} navigation landmark(s) without an aria-label. "
-                                f"Screen reader users cannot distinguish between them."
-                            ),
-                            "score": 0.0,
-                            "numericValue": float(unnamed_count),
-                            "scoreDisplayMode": "binary",
-                            "details": {
-                                "type": "table",
-                                "headings": [{"key": "description", "label": "Issue"}],
-                                "items": [{"description": f"{unnamed_count} of {nav_count} nav elements lack aria-label — screen reader users cannot distinguish them"}],
-                            },
-                        }
-                    else:
-                        # No indistinguishable landmark issue detected. WCAG 3.2.3 also requires
-                        # navigation to appear in the same order across pages, which requires manual
-                        # verification across multiple pages of the site.
-                        audits["ss-consistent-navigation-audit"] = {
-                            "id": "ss-consistent-navigation-audit",
-                            "title": "Navigation is consistent (WCAG 3.2.3)",
-                            "description": (
-                                f"Found {nav_count} navigation landmark(s), all with accessible names. "
-                                f"Manually verify that navigation appears in the same order across all pages."
-                            ),
-                            "score": None,
-                            "numericValue": float(unnamed_count),
-                            "scoreDisplayMode": "manual",
-                            "details": {
-                                "type": "table",
-                                "headings": [{"key": "description", "label": "Note"}],
-                                "items": [{"description": "Cross-page navigation order consistency requires manual verification."}],
-                            },
-                        }
+                    # WCAG 3.2.3 requires navigation to appear in the same location and order
+                    # across all pages — this can only be verified by comparing multiple pages.
+                    # A single-page scan cannot confirm or deny cross-page consistency, so this
+                    # audit always returns "Needs Manual Review" regardless of landmark labels.
+                    # (Multiple unlabelled nav elements are a 4.1.2 / best-practice concern,
+                    # not a 3.2.3 violation, and are not scored here.)
+                    label_note = (
+                        f"{unnamed_count} of {nav_count} navigation landmark(s) lack aria-label (best practice to add). "
+                        if unnamed_count > 0
+                        else f"{nav_count} navigation landmark(s) found, all with accessible names. "
+                    )
+                    audits["ss-consistent-navigation-audit"] = {
+                        "id": "ss-consistent-navigation-audit",
+                        "title": "Navigation is consistent (WCAG 3.2.3)",
+                        "description": (
+                            label_note +
+                            "WCAG 3.2.3 requires navigation to appear in the same order and location across all pages — "
+                            "verify manually by comparing the navigation across multiple pages of this site."
+                        ),
+                        "score": None,
+                        "numericValue": float(unnamed_count),
+                        "scoreDisplayMode": "manual",
+                        "details": {
+                            "type": "table",
+                            "headings": [{"key": "description", "label": "Note"}],
+                            "items": [{"description": "Cross-page navigation order and location consistency requires manual verification."}],
+                        },
+                    }
                 except Exception as e:
                     audits["ss-consistent-navigation-audit"] = {
                         "id": "ss-consistent-navigation-audit",
