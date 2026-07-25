@@ -118,7 +118,7 @@ const AUDIT_INFO = {
         category: 'Motor Accessibility',
         importance: 'Older adults often experience tremors or arthritis. Small buttons and links are difficult to accurately tap, creating barriers to use.',
         why: 'Age-related motor changes require larger, well-spaced interactive elements. Small targets lead to frustration and prevent task completion.',
-        recommendation: 'Ensure all buttons, links, and other interactive elements are at least 48x48 pixels. Provide ample spacing between targets to prevent accidental taps.',
+        recommendation: 'Ensure all buttons, links, and other interactive elements meet the 44×44px SilverSurfers standard (WCAG 2.5.8 AA requires 24×24px; 44×44 also satisfies WCAG 2.5.5 AAA). Provide ample spacing between targets to prevent accidental taps.',
     },
     'layout-brittle-audit': {
         title: 'Text Spacing Flexibility for Readability',

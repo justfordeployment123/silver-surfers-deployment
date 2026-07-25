@@ -350,7 +350,8 @@ a:hover, a:focus {
         codeSnippet: `/* Before — too small for reliable tapping */
 .btn { padding: 4px 8px; font-size: 12px; }
 
-/* After — 44×44px minimum per WCAG 2.5.8 */
+/* After — 44×44px: SilverSurfers senior-friendly standard.
+   WCAG 2.5.8 (AA) requires 24×24px; 44×44 also satisfies WCAG 2.5.5 (AAA). */
 .btn {
   min-width: 44px;
   min-height: 44px;
