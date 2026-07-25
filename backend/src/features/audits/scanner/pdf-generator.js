@@ -3259,8 +3259,7 @@ addOverallScoreDisplay(scoreData) {
                     let hostname = u.hostname.replace(/^www\./, '');
                     let pathname = u.pathname.replace(/[^a-zA-Z0-9]/g, '_');
                     if (pathname.length > 40) pathname = pathname.slice(0, 40) + '_';
-                    // Optionally, add a hash for uniqueness
-                    const hash = Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 8);
+                    const hash = String(url.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
                     return `${hostname}${pathname ? '_' + pathname : ''}_${hash}-${device}.pdf`;
                 } catch (e) {
                     // fallback for invalid URLs

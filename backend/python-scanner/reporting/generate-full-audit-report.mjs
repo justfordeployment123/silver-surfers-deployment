@@ -167,12 +167,16 @@ async function main() {
     pdfQueue.push({ jsonReportPath, url, device, wcagMatrix: pageWcagMatrix });
   }
 
-  // Phase 3: generate PDFs using each page's own wcagMatrix
+  // Phase 3: generate PDFs using each page's own wcagMatrix.
+  // Capture the returned reportPath so we can pair each PDF with its report entry
+  // by crawl order rather than by filesystem listing order (which is alphabetical
+  // and causes label mismatches when pages are dropped or reordered).
   console.log(`[P1A-v4] Phase3 start: queue=${pdfQueue.length} scorecards=${scorecards.length}`);
   for (let _pdfIdx = 0; _pdfIdx < pdfQueue.length; _pdfIdx++) {
-    const { jsonReportPath, url, device, wcagMatrix: pageWcagMatrix } = pdfQueue[_pdfIdx];
+    const entry = pdfQueue[_pdfIdx];
+    const { jsonReportPath, url, device, wcagMatrix: pageWcagMatrix } = entry;
     console.log(`[P1A-v4] PDF ${_pdfIdx + 1}/${pdfQueue.length} device=${device} wcag=${pageWcagMatrix?.length ?? 0}r`);
-    await generateSeniorAccessibilityReport({
+    const pdfResult = await generateSeniorAccessibilityReport({
       inputFile: jsonReportPath,
       url,
       email_address: email,
@@ -183,23 +187,31 @@ async function main() {
       planType: planId,
       wcagMatrix: pageWcagMatrix,
     });
+    if (pdfResult?.reportPath) {
+      entry.outputPdfPath = pdfResult.reportPath;
+    }
   }
 
   for (const [device, reports] of Object.entries(reportsByPlatform)) {
-    const individualPdfPaths = (await listPdfFiles(outputDir))
-      .filter((file) => file.filename.endsWith(`-${device}.pdf`))
-      .map((file) => file.path);
+    // Build aligned (pdfPath, report) pairs using the queue's crawl order.
+    // This guarantees pdfPaths[i] and reports[i] always describe the same page.
+    // Pages whose PDF generation failed (no outputPdfPath) are excluded from both
+    // arrays together, so no label can be silently assigned to the wrong content.
+    const deviceQueue = pdfQueue.filter((e) => e.device === device);
+    const successfulPairs = deviceQueue
+      .map((entry, i) => ({ pdfPath: entry.outputPdfPath, report: reports[i] }))
+      .filter((pair) => pair.pdfPath && pair.report);
 
-    if (individualPdfPaths.length === 0) {
+    if (successfulPairs.length === 0) {
       continue;
     }
 
     await mergePDFsByPlatform({
-      pdfPaths: individualPdfPaths,
+      pdfPaths: successfulPairs.map((p) => p.pdfPath),
       device,
       email_address: email,
       outputDir,
-      reports,
+      reports: successfulPairs.map((p) => p.report),
       planType: planId,
       platformSummary: buildPlatformSummary(reportsByPlatform),
     }).catch((error) => {
