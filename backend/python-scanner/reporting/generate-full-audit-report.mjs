@@ -144,6 +144,15 @@ async function main() {
       isLiteVersion,
     });
     scorecards.push(scorecard);
+
+    // Build a per-page WCAG matrix from this page's own scorecard so each PDF
+    // shows accurate issue counts for that page, not site-wide totals.
+    const pageWcagMatrix = buildWcagMatrix(
+      scorecard.issues,
+      scorecard.notApplicableAuditIds,
+      scorecard.manualReviewAuditIds,
+    );
+
     const reportEntry = {
       jsonReportPath,
       url,
@@ -155,26 +164,14 @@ async function main() {
     reportsByPlatform[device] ||= [];
     reportsByPlatform[device].push(reportEntry);
 
-    pdfQueue.push({ jsonReportPath, url, device });
+    pdfQueue.push({ jsonReportPath, url, device, wcagMatrix: pageWcagMatrix });
   }
 
-  // Phase 2: build aggregate scorecard and wcagMatrix
-  let wcagMatrix;
-  if (scorecards.length > 0) {
-    const aggregateScorecardForMatrix = buildAggregateAuditScorecard(scorecards, {
-      pageCount: scorecards.length,
-      platforms: buildPlatformScores(reportsByPlatform),
-    });
-    wcagMatrix = buildWcagMatrix(aggregateScorecardForMatrix.issues);
-    console.log(`[PDF] wcagMatrix built: ${wcagMatrix.length} rows`);
-  }
-
-  // Phase 3: generate PDFs now that wcagMatrix is available
-  const wcagInfo = wcagMatrix ? `${wcagMatrix.length}r` : 'UNDEF';
-  console.log(`[P1A-v4] Phase3 start: queue=${pdfQueue.length} scorecards=${scorecards.length} wcag=${wcagInfo}`);
+  // Phase 3: generate PDFs using each page's own wcagMatrix
+  console.log(`[P1A-v4] Phase3 start: queue=${pdfQueue.length} scorecards=${scorecards.length}`);
   for (let _pdfIdx = 0; _pdfIdx < pdfQueue.length; _pdfIdx++) {
-    const { jsonReportPath, url, device } = pdfQueue[_pdfIdx];
-    console.log(`[P1A-v4] PDF ${_pdfIdx + 1}/${pdfQueue.length} device=${device} wcag=${wcagInfo}`);
+    const { jsonReportPath, url, device, wcagMatrix: pageWcagMatrix } = pdfQueue[_pdfIdx];
+    console.log(`[P1A-v4] PDF ${_pdfIdx + 1}/${pdfQueue.length} device=${device} wcag=${pageWcagMatrix?.length ?? 0}r`);
     await generateSeniorAccessibilityReport({
       inputFile: jsonReportPath,
       url,
@@ -184,7 +181,7 @@ async function main() {
       outputDir,
       formFactor: device,
       planType: planId,
-      wcagMatrix,
+      wcagMatrix: pageWcagMatrix,
     });
   }
 
