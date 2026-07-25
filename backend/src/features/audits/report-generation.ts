@@ -1083,8 +1083,21 @@ export async function mergePDFsByPlatform(options: {
     }
   }
 
+  // Pre-compute how many PDF pages the TOC will occupy so we can assign
+  // correct startPage numbers before rendering. Constants mirror the PDFKit
+  // layout below: first page holds 23 rows (margin + title + header consume
+  // ~130pt, leaving 651pt ÷ 28pt/row = 23 rows); each subsequent page holds
+  // 25 rows (margin + header = 80pt, leaving 701pt ÷ 28pt/row = 25 rows).
+  const TOC_FIRST_PAGE_ROWS = 23;
+  const TOC_SUBSEQUENT_PAGE_ROWS = 25;
+  const numTocEntries = validReports.length;
+  const tocPageCount = numTocEntries <= TOC_FIRST_PAGE_ROWS
+    ? 1
+    : 1 + Math.ceil((numTocEntries - TOC_FIRST_PAGE_ROWS) / TOC_SUBSEQUENT_PAGE_ROWS);
+
   const tocEntries = [];
-  let currentPageNumber = 4;
+  // title(1) + cover(1) + tocPages(tocPageCount) → first report starts here
+  let currentPageNumber = 2 + tocPageCount + 1;
   for (let index = 0; index < validReports.length; index += 1) {
     const report = validReports[index];
     const scoreText = report.score !== null && report.score !== undefined ? `${Math.round(report.score)}%` : 'N/A';
@@ -1193,8 +1206,10 @@ export async function mergePDFsByPlatform(options: {
 
   const tocBytes = await fs.readFile(tocPagePath);
   const tocDocLib = await PDFLib.load(tocBytes);
-  const [tocPage] = await mergedPdf.copyPages(tocDocLib, [0]);
-  mergedPdf.addPage(tocPage);
+  // Copy ALL TOC pages — for >23 entries the TOC overflows onto a second page.
+  const allTocPageIndices = Array.from({ length: tocDocLib.getPageCount() }, (_, i) => i);
+  const allTocPages = await mergedPdf.copyPages(tocDocLib, allTocPageIndices);
+  for (const p of allTocPages) mergedPdf.addPage(p);
   await fs.unlink(tocPagePath).catch(() => undefined);
 
   for (let index = 0; index < validPdfPaths.length; index += 1) {

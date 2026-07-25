@@ -398,7 +398,12 @@ _NON_HTML_ASSET_RE = re.compile(
     re.I,
 )
 _BLOCKED_AUDIT_PATH_RE = re.compile(
-    r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty|feed|rss|tag|author)(/|$)",
+    # Standard non-content paths
+    r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty|feed|rss|tag|author)(/|$)"
+    # WordPress infrastructure endpoints (with optional .php extension)
+    r"|/(wp-login|xmlrpc|wp-cron|wp-trackback|wp-signup|wp-activate|wp-mail)(\.php)?(/|$)"
+    # WordPress plugin asset generators
+    r"|/wp-content/plugins/",
     re.I,
 )
 _CATALOGUE_ID_SEGMENT_RE = re.compile(r"^(pcm(?:cat|id)\d{4,}.*|(?:ab)?cat\d{4,}\.c)$", re.I)
@@ -710,7 +715,7 @@ def _scanner_collect_rendered_page_links(page, final_url: str) -> list[str]:
                 const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
                 const expectedHost = normalizeHost(base.hostname);
                 const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
-                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi)(\\/|$)/i;
+                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm)(\\/|$)/i;
 
                 const addCandidate = (raw) => {
                     const href = String(raw || '').trim();
@@ -749,8 +754,14 @@ def _scanner_collect_rendered_page_links(page, final_url: str) -> list[str]:
                     }
                 });
 
-                const text = document.documentElement ? document.documentElement.innerHTML : '';
-                for (const match of text.matchAll(/["'](\\/(?!\\/)[A-Za-z0-9][^"'<>\\s?#]{1,180})["']/g)) {
+                // Only scan structured JSON data scripts (Next.js, Nuxt, etc.) for
+                // embedded route paths. Scanning document.documentElement.innerHTML
+                // harvests path fragments from Shopify/WordPress JS bundles (/cdn,
+                // /wpm, /close, /next etc.) that are not real navigable pages.
+                const dataScripts = Array.from(document.querySelectorAll(
+                    'script[type="application/json"], script#__NEXT_DATA__, script[data-nuxt-data]'
+                )).map(s => s.textContent || '').join('\\n');
+                for (const match of dataScripts.matchAll(/["'](\\/(?!\\/)[A-Za-z0-9][^"'<>\\s?#]{1,180})["']/g)) {
                     addCandidate(match[1]);
                     if (result.length >= 500) break;
                 }
@@ -921,7 +932,7 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                                 const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
                                 const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
                                 const expectedHost = normalizeHost(baseHost);
-                                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi)(\\/|$)/i;
+                                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm)(\\/|$)/i;
 
                                 const addCandidate = (raw) => {
                                     const href = String(raw || '').trim();
