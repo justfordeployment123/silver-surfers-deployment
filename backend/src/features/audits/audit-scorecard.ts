@@ -11,7 +11,7 @@ import {
 export type AuditRiskTier = "low" | "medium" | "high";
 export type AuditScoreStatus = "pass" | "needs-improvement" | "fail";
 export type AuditPrimaryDimensionKey = "visualClarity" | "cognitiveLoad" | "motorAccessibility" | "contentTrust";
-export type AuditIssueSourceType = "wcag-aa" | "aging-heuristic" | "supporting-signal";
+export type AuditIssueSourceType = "wcag-a" | "wcag-aa" | "aging-heuristic" | "supporting-signal";
 export type AuditEvaluationDimensionKey =
     | "technicalAccessibility"
     | "visualClarityDesign"
@@ -192,7 +192,7 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     "interactive-color-audit": "visualClarityDesign",
     "target-size": "interactionForms",
     "link-name": "navigationArchitecture",
-    "button-name": "interactionForms",
+    "button-name": "technicalAccessibility",
     label: "interactionForms",
     "total-blocking-time": "cognitiveLoadComplexity",
     "is-on-https": "trustSecuritySignals",
@@ -202,6 +202,7 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     bypass: "navigationArchitecture",
     "line-spacing-audit": "visualClarityDesign",
     "autoplay-audit": "cognitiveLoadComplexity",
+    "ss-orientation-audit": "mobileOptimization",
 };
 
 const PRIMARY_DIMENSION_CONTRIBUTORS: Record<
@@ -252,13 +253,13 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         wcagCriteria: ["1.4.12"],
     },
     "link-name": {
-        auditSourceType: "wcag-aa",
-        auditSourceLabel: "WCAG AA",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
         wcagCriteria: ["2.4.4"],
     },
     "button-name": {
-        auditSourceType: "wcag-aa",
-        auditSourceLabel: "WCAG AA",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
         wcagCriteria: ["4.1.2", "2.5.3"],
     },
     label: {
@@ -287,18 +288,18 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceLabel: "Aging Heuristic",
     },
     "image-alt": {
-        auditSourceType: "wcag-aa",
-        auditSourceLabel: "WCAG AA",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
         wcagCriteria: ["1.1.1"],
     },
     "focus-traps": {
-        auditSourceType: "wcag-aa",
-        auditSourceLabel: "WCAG AA",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
         wcagCriteria: ["2.1.2"],
     },
     bypass: {
-        auditSourceType: "wcag-aa",
-        auditSourceLabel: "WCAG AA",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
         wcagCriteria: ["2.4.1"],
     },
     "line-spacing-audit": {
@@ -464,7 +465,7 @@ function getEvaluationDimensionKey(auditId: string, audit?: LighthouseAuditResul
     }
 
     if (auditId === "axe-button-name") {
-        return "interactionForms";
+        return "technicalAccessibility";
     }
 
     const wcagReferences = resolveWcagReferencesForAudit(auditId, audit);
@@ -634,9 +635,12 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
             const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
             const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
             const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];
+            const axeLevel = wcagReferences[0]?.level;
             const issueMetadata =
                 auditRef.id.startsWith("axe-") && wcagReferences.length
-                    ? { auditSourceType: "wcag-aa" as const, auditSourceLabel: "WCAG AA" }
+                    ? axeLevel === "A"
+                        ? { auditSourceType: "wcag-a" as const, auditSourceLabel: "WCAG A" }
+                        : { auditSourceType: "wcag-aa" as const, auditSourceLabel: "WCAG AA" }
                     : metadata;
 
             evaluationIssueCounts.set(evaluationKey, (evaluationIssueCounts.get(evaluationKey) || 0) + 1);

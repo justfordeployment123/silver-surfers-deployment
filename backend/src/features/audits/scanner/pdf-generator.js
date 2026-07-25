@@ -303,7 +303,7 @@ const AUDIT_PRD_DIMENSION_MAP = {
     bypass: 'navigationArchitecture',
     'flesch-kincaid-audit': 'contentReadability',
     'target-size': 'interactionForms',
-    'button-name': 'interactionForms',
+    'button-name': 'technicalAccessibility',
     label: 'interactionForms',
     'is-on-https': 'trustSecuritySignals',
     'geolocation-on-start': 'trustSecuritySignals',
@@ -311,6 +311,7 @@ const AUDIT_PRD_DIMENSION_MAP = {
     'user-scalable-audit': 'mobileOptimization',
     'horizontal-scroll-audit': 'mobileOptimization',
     'text-size-adjust-audit': 'mobileOptimization',
+    'ss-orientation-audit': 'mobileOptimization',
 };
 
 // Function to calculate the weighted "Senior Friendliness" score
