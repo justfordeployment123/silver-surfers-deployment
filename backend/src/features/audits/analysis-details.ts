@@ -157,6 +157,7 @@ export interface AnalysisDetailView {
 }
 
 interface RemediationTemplate {
+    title?: string;       // failure-phrased override; falls back to issue.title when absent
     action: string;
     whyItMatters: string;
     effort: RemediationEffort;
@@ -199,6 +200,7 @@ h2 { font-size: 1.5rem; }`,
 <meta name="viewport" content="width=device-width, initial-scale=1">`,
     },
     "user-scalable-audit": {
+        title: "Viewport meta blocks user zoom (WCAG 1.4.4)",
         action: "Remove viewport restrictions that block pinch-to-zoom so older adults can enlarge content as needed.",
         whyItMatters: "Many older adults rely on pinch-to-zoom to read small text or interact with small targets. Blocking it removes a critical accessibility mechanism.",
         effort: "low",
@@ -209,6 +211,7 @@ h2 { font-size: 1.5rem; }`,
 <meta name="viewport" content="width=device-width, initial-scale=1">`,
     },
     "horizontal-scroll-audit": {
+        title: "Page requires horizontal scrolling at mobile width",
         action: "Fix content overflow so the entire page fits within the screen width without requiring horizontal scrolling.",
         whyItMatters: "Horizontal scrolling is disorienting and tiring on touch devices. Older adults may miss content or become confused when the page extends beyond the screen edge.",
         effort: "medium",
@@ -223,6 +226,7 @@ body {
 }`,
     },
     "text-size-adjust-audit": {
+        title: "CSS disables mobile text scaling",
         action: "Remove CSS that disables mobile text scaling to allow browsers to automatically adjust text size for readability.",
         whyItMatters: "Mobile browsers include automatic text sizing to make content readable on small screens. Disabling this via CSS removes a built-in accessibility aid that older adults depend on.",
         effort: "low",
@@ -339,6 +343,7 @@ a:hover, a:focus {
 }`,
     },
     "target-size": {
+        title: "Touch targets are too small or too close together (WCAG 2.5.8)",
         action: "Increase tap and click target sizes for buttons, links, and controls across desktop and mobile flows.",
         whyItMatters: "Larger targets materially improve usability for people with reduced dexterity or precision.",
         effort: "medium",
@@ -409,6 +414,7 @@ worker.onmessage = (e) => renderResults(e.data);
 <script src="analytics.js" defer></script>`,
     },
     "is-on-https": {
+        title: "Page is not served over HTTPS",
         action: "Serve the full experience over HTTPS and remove insecure resource dependencies.",
         whyItMatters: "Security trust signals are essential for older adults sharing sensitive information.",
         effort: "medium",
@@ -423,6 +429,7 @@ server {
 <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">`,
     },
     "geolocation-on-start": {
+        title: "Page requests location permission on load without user action",
         action: "Avoid requesting location or other intrusive permissions before users understand the benefit.",
         whyItMatters: "Premature permission prompts increase distrust and drop-off.",
         effort: "low",
@@ -514,6 +521,7 @@ label,
 }`,
     },
     "autoplay-audit": {
+        title: "Audio or video autoplays without user action (WCAG 1.4.2)",
         action: "Remove the autoplay attribute from all audio and video elements and give users a visible play button to start media on their own terms.",
         whyItMatters:
             "Unexpected sounds and moving video are disorienting and distressing for older adults, particularly those using screen readers or with cognitive sensitivities.",
@@ -527,6 +535,59 @@ label,
   <track kind="captions" src="intro.vtt" srclang="en" label="English">
   Your browser does not support HTML5 video.
 </video>`,
+    },
+    "ss-pause-stop-hide-audit": {
+        title: "Auto-advancing content has no pause or stop control (WCAG 2.2.2)",
+        action: "Add a visible pause or stop button to all carousels, tickers, and auto-playing video elements so users can halt movement for as long as they need.",
+        whyItMatters:
+            "Moving or auto-advancing content is distracting and can prevent older adults from reading adjacent text, understanding context, or completing tasks.",
+        effort: "low",
+        codeSnippet: `<!-- Add a pause button next to the carousel or ticker -->
+<div class="carousel-wrapper">
+  <div class="carousel" aria-live="polite">...</div>
+  <button
+    aria-label="Pause auto-advancing content"
+    onclick="carousel.pause()"
+  >Pause</button>
+</div>`,
+    },
+    "ss-hover-focus-audit": {
+        title: "Hover/focus tooltip content cannot be kept open or dismissed (WCAG 1.4.13)",
+        action: "Ensure custom tooltips and popovers satisfy all three 1.4.13 requirements: (1) dismissible with Escape without moving focus, (2) hoverable — the tooltip itself can be moused-over to keep it open, (3) persistent — it stays open until the user actively closes it.",
+        whyItMatters:
+            "Tooltips that disappear before users can read them, or that cannot be hovered, exclude older adults who read slowly or navigate by keyboard.",
+        effort: "medium",
+        codeSnippet: `// Tooltip element must have pointer-events so it can be hovered
+.tooltip-content {
+  pointer-events: auto;  /* not 'none' */
+}
+
+// Dismiss on Escape without removing the triggering element's focus
+trigger.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') hideTooltip();
+});`,
+    },
+    "ss-orientation-audit": {
+        title: "Page appears to lock screen orientation (WCAG 1.3.4)",
+        action: "Remove the screen.orientation.lock() call or CSS transform rotation on <html>/<body> so users can view the page in portrait or landscape as they prefer.",
+        whyItMatters:
+            "Many older adults use tablets in a fixed mount or hold devices differently — locking orientation makes the page inaccessible in their preferred position.",
+        effort: "low",
+        codeSnippet: `// Before — programmatic orientation lock
+screen.orientation.lock('portrait');
+
+// After — remove the lock entirely; let the device decide
+// If you need layout changes, use CSS media queries instead:
+@media (orientation: landscape) {
+  .sidebar { display: flex; flex-direction: row; }
+}`,
+    },
+    "ss-consistent-navigation-audit": {
+        title: "Navigation consistency across pages needs manual verification (WCAG 3.2.3)",
+        action: "Manually verify that your site's primary navigation appears in the same location and order on every page. Document the navigation structure and compare at least five pages.",
+        whyItMatters:
+            "Older adults build strong mental models of site navigation. Inconsistent menus increase confusion and abandonment.",
+        effort: "low",
     },
 };
 
@@ -626,13 +687,24 @@ function getFallbackEffort(issue: AuditIssueSummary): RemediationEffort {
 }
 
 function getTemplate(issue: AuditIssueSummary): RemediationTemplate {
-    return (
-        REMEDIATION_TEMPLATES[issue.auditId] || {
-            action: "Review this failing audit and implement a code or content fix that removes the accessibility barrier for older adults.",
-            whyItMatters: "This issue is contributing to a lower Silver Score and a weaker user experience for the 50+ audience.",
-            effort: getFallbackEffort(issue),
-        }
-    );
+    // Exact match first, then strip the "axe-" prefix — axe-core audits duplicate many of
+    // the same checks that already have full templates (e.g. axe-color-contrast → color-contrast).
+    const baseId = issue.auditId.startsWith("axe-") ? issue.auditId.slice(4) : issue.auditId;
+    const template = REMEDIATION_TEMPLATES[issue.auditId] || REMEDIATION_TEMPLATES[baseId];
+    if (template) {
+        return template;
+    }
+
+    // Generic fallback — incorporate displayValue so the recommendation is specific
+    // to what the scanner actually found rather than being completely generic.
+    const detail = issue.displayValue
+        ? ` The scanner reported: "${issue.displayValue}".`
+        : "";
+    return {
+        action: `Review the failing elements identified in the evidence section above and apply the targeted fix.${detail}`,
+        whyItMatters: "This issue is contributing to a lower Silver Score and a weaker user experience for the 50+ audience.",
+        effort: getFallbackEffort(issue),
+    };
 }
 
 function getIssueIdentity(issue: Pick<AuditIssueSummary, "auditId" | "sourceUrl">): string {
@@ -728,7 +800,7 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
             items.set(dedupeKey, {
                 id: dedupeKey,
                 auditId: issue.auditId,
-                title: issue.title,
+                title: template.title ?? issue.title,
                 dimensionKey: dimension.key,
                 dimensionLabel: dimension.label,
                 ...(evaluationDimension
