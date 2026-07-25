@@ -166,14 +166,14 @@ const EVALUATION_DIMENSION_ORDER: AuditEvaluationDimensionKey[] = [
 ];
 
 const EVALUATION_DIMENSION_PRD_WEIGHTS: Record<AuditEvaluationDimensionKey, number> = {
-    technicalAccessibility: 6.67,
-    visualClarityDesign: 15,
-    cognitiveLoadComplexity: 8.33,
-    navigationArchitecture: 8.33,
-    contentReadability: 15,
-    interactionForms: 12.5,
-    trustSecuritySignals: 6.67,
-    mobileOptimization: 27.5,
+    technicalAccessibility: 10,      // was 6.67  — axe violations genuinely vary
+    visualClarityDesign: 22,         // was 15    — contrast and CLS genuinely vary
+    cognitiveLoadComplexity: 6.25,   // was 8.33  — small reduction
+    navigationArchitecture: 12.5,    // was 8.33  — Navigation ranged 50–100 across sites
+    contentReadability: 12.92,       // was 15    — often notApplicable; slight reduction
+    interactionForms: 17.5,          // was 12.5  — form labels, target size matter for seniors
+    trustSecuritySignals: 3.33,      // was 6.67  — HTTPS is near-universal; halved
+    mobileOptimization: 15.5,        // was 27.5  — 4 binary viewport checks rarely fail
 };
 
 const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey> = {
@@ -208,23 +208,25 @@ const PRIMARY_DIMENSION_CONTRIBUTORS: Record<
     AuditPrimaryDimensionKey,
     Array<{ key: AuditEvaluationDimensionKey; weight: number }>
 > = {
+    // Primary dimension totals are unchanged (30/25/25/20).
+    // Sub-weights shifted toward dimensions that actually vary across sites.
     visualClarity: [
-        { key: "visualClarityDesign", weight: 15 },
-        { key: "mobileOptimization", weight: 15 },
+        { key: "visualClarityDesign", weight: 22 },    // was 15 — contrast+CLS vary
+        { key: "mobileOptimization", weight: 8 },       // was 15 — viewport checks rarely fail
     ],
     cognitiveLoad: [
-        { key: "cognitiveLoadComplexity", weight: 8.33 },
-        { key: "navigationArchitecture", weight: 8.33 },
-        { key: "contentReadability", weight: 8.34 },
+        { key: "cognitiveLoadComplexity", weight: 6.25 },  // was 8.33
+        { key: "navigationArchitecture", weight: 12.5 },   // was 8.33 — nav genuinely varies
+        { key: "contentReadability", weight: 6.25 },       // was 8.34 — often notApplicable
     ],
     motorAccessibility: [
-        { key: "interactionForms", weight: 12.5 },
-        { key: "mobileOptimization", weight: 12.5 },
+        { key: "interactionForms", weight: 17.5 },     // was 12.5 — labels+target size matter
+        { key: "mobileOptimization", weight: 7.5 },    // was 12.5
     ],
     contentTrust: [
-        { key: "technicalAccessibility", weight: 6.67 },
-        { key: "contentReadability", weight: 6.67 },
-        { key: "trustSecuritySignals", weight: 6.66 },
+        { key: "technicalAccessibility", weight: 10 },   // was 6.67 — axe violations vary
+        { key: "contentReadability", weight: 6.67 },     // unchanged
+        { key: "trustSecuritySignals", weight: 3.33 },   // was 6.66 — HTTPS near-universal
     ],
 };
 

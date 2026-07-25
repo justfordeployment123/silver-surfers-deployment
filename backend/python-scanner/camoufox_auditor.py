@@ -215,6 +215,33 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 });
             })();
         """)
+
+        # Intercept navigator.geolocation before page load so we can detect
+        # whether the page calls getCurrentPosition / watchPosition on startup.
+        page.add_init_script("""
+            (() => {
+                let _geoRequested = false;
+                try {
+                    const geo = navigator.geolocation;
+                    if (geo) {
+                        const _wrap = (orig) => function(...args) {
+                            _geoRequested = true;
+                            return orig.apply(geo, args);
+                        };
+                        Object.defineProperty(geo, 'getCurrentPosition', {
+                            value: _wrap(geo.getCurrentPosition), writable: true, configurable: true
+                        });
+                        Object.defineProperty(geo, 'watchPosition', {
+                            value: _wrap(geo.watchPosition), writable: true, configurable: true
+                        });
+                    }
+                } catch (_) {}
+                Object.defineProperty(window, '__silverGeolocationRequested', {
+                    get: () => _geoRequested,
+                    configurable: true,
+                });
+            })();
+        """)
         
         try:
             navigate_for_audit(page, url)
@@ -875,17 +902,20 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "numericValue": 0.0 if zoom_blocked else 1.0,
             }
 
-            # 2. Horizontal Scroll Audit: content must not overflow viewport width
+            # 2. Horizontal Scroll Audit: content must not overflow at mobile viewport width.
+            # The scanner runs at desktop viewport (1920px), so we briefly resize to 375px
+            # (iPhone SE / common smallest phone), check for overflow, then restore the
+            # original viewport. This gives a meaningful mobile-specific result.
+            _original_viewport = page.viewport_size or {"width": 1920, "height": 1080}
             try:
+                page.set_viewport_size({"width": 375, "height": 812})
+                page.wait_for_timeout(300)  # allow reflow
                 h_scroll_result = page.evaluate("""
-                    () => {
-                        const overflows = document.documentElement.scrollWidth > window.innerWidth + 5;
-                        return {
-                            overflows: overflows,
-                            scrollWidth: document.documentElement.scrollWidth,
-                            innerWidth: window.innerWidth
-                        };
-                    }
+                    () => ({
+                        overflows: document.documentElement.scrollWidth > window.innerWidth + 5,
+                        scrollWidth: document.documentElement.scrollWidth,
+                        innerWidth: window.innerWidth,
+                    })
                 """)
                 h_overflows = h_scroll_result.get("overflows", False)
                 scroll_width = h_scroll_result.get("scrollWidth", 0)
@@ -894,16 +924,22 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 print(f"⚠️ horizontal-scroll-audit failed: {e}")
                 h_overflows = False
                 scroll_width = 0
-                inner_width = 0
+                inner_width = 375
+            finally:
+                try:
+                    page.set_viewport_size(_original_viewport)
+                    page.wait_for_timeout(200)
+                except Exception:
+                    pass
 
             audits["horizontal-scroll-audit"] = {
                 "id": "horizontal-scroll-audit",
                 "title": "Page does not require horizontal scrolling",
                 "description": (
-                    f"This audit checks if page content fits within the viewport width. "
-                    f"Content width: {scroll_width}px, viewport width: {inner_width}px. "
-                    + ("Horizontal scrolling detected — this confuses older adults on mobile devices." if h_overflows
-                       else "Content fits within the viewport — no horizontal scrolling required.")
+                    f"Checks if page content fits within a 375px mobile viewport. "
+                    f"Content width: {scroll_width}px, tested at: {inner_width}px. "
+                    + ("Horizontal scrolling detected at mobile width — this confuses older adults on mobile devices." if h_overflows
+                       else "Content fits within a 375px mobile viewport — no horizontal scrolling required.")
                 ),
                 "score": 0.0 if h_overflows else 1.0,
                 "numericValue": 0.0 if h_overflows else 1.0,
@@ -1543,14 +1579,13 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     } if error_count else None,
                 }
                 
-                # Geolocation on start - check if page requests geolocation immediately
-                geolocation_requested = page.evaluate("""
-                    () => {
-                        // Check if geolocation API was called
-                        // This would need to be monitored during page load
-                        return false;
-                    }
-                """)
+                # Geolocation on start - reads the flag set by the init-script interceptor.
+                # The interceptor wraps navigator.geolocation.getCurrentPosition /
+                # watchPosition before navigation so any synchronous or early-async call
+                # during page load is captured.
+                geolocation_requested = page.evaluate(
+                    "() => window.__silverGeolocationRequested === true"
+                )
                 audits["geolocation-on-start"] = {
                     "id": "geolocation-on-start",
                     "title": "Does not request geolocation on page load",
