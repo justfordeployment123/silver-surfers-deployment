@@ -238,7 +238,56 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
             
             # Get final URL after redirects
             final_url = page_url
-            
+
+            # --- Bot-protection and empty-page gate ---
+            # Run before any audit work so bad pages consume no further resources.
+
+            # Check 1: cross-domain redirect — bot-walls (e.g. ShieldSquare/Radware) silently
+            # redirect the browser to a validation host before returning a CAPTCHA page.
+            def _bare_host(h: str) -> str:
+                return (h or "").lower().removeprefix("www.")
+
+            requested_parsed = urlparse(url if url.startswith("http") else f"https://{url}")
+            final_parsed = urlparse(final_url)
+            req_host = _bare_host(requested_parsed.hostname or "")
+            fin_host = _bare_host(final_parsed.hostname or "")
+            if req_host and fin_host and req_host != fin_host:
+                return {
+                    "success": False,
+                    "error": f"Page redirected to a different domain ({final_parsed.hostname}) — bot protection suspected. URL skipped.",
+                }
+
+            # Check 2: bot-wall text fingerprints in the page body.
+            page_text_lower = soup.get_text(separator=" ", strip=True).lower()
+            _BOT_WALL_PHRASES = (
+                "your activity and behavior",
+                "we think you are a bot",
+                "please verify you are a human",
+                "access to this page has been blocked",
+                "request was blocked",
+                "shieldsquare",
+                "radware bot manager",
+                "perfdrive.com",
+            )
+            if any(phrase in page_text_lower for phrase in _BOT_WALL_PHRASES):
+                return {
+                    "success": False,
+                    "error": "Bot-protection wall detected on this page — content not auditable. URL skipped.",
+                }
+
+            # Check 3: near-empty DOM (UUID redirect stubs, blank interstitials).
+            # Real pages have hundreds of elements; stubs typically have < 20.
+            try:
+                dom_count = page.evaluate("() => document.querySelectorAll('*').length")
+                visible_chars = len(page_text_lower.strip())
+                if dom_count < 25 and visible_chars < 300:
+                    return {
+                        "success": False,
+                        "error": f"Page appears empty or a stub ({dom_count} DOM elements, {visible_chars} visible chars). URL skipped.",
+                    }
+            except Exception:
+                pass
+
             # Perform audits using sync Playwright API
             audits = {}
             
