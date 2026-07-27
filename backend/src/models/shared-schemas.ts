@@ -18,7 +18,7 @@ export const auditIssueSchema = new mongoose.Schema({
   score: { type: Number, default: 0 },
   weight: { type: Number, default: 0 },
   severity: { type: String, enum: ['low', 'medium', 'high'], default: 'medium' },
-  auditSourceType: { type: String, enum: ['wcag-aa', 'aging-heuristic', 'supporting-signal'], default: 'supporting-signal' },
+  auditSourceType: { type: String, enum: ['wcag-a', 'wcag-aa', 'aging-heuristic', 'supporting-signal'], default: 'supporting-signal' },
   auditSourceLabel: { type: String, default: 'Supporting Signal' },
   wcagCriteria: { type: [String], default: [] },
   wcagReferences: { type: [wcagReferenceSchema], default: [] },
