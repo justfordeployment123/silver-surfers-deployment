@@ -1079,42 +1079,132 @@ export async function mergePDFsByPlatform(options: {
       pageCounts.push(pc);
       validPdfPaths.push(pdfPath);
       validReports.push(report);
-      console.log(`[TOC-DEBUG] report[${validReports.length - 1}] url=${report.url} pageCount=${pc} contributing=${pc > 1 ? pc - 1 : 0}`);
     } catch {
       continue;
     }
   }
 
-  // Pre-compute how many PDF pages the TOC will occupy so we can assign
-  // correct startPage numbers before rendering. Constants mirror the PDFKit
-  // layout below: first page holds 23 rows (margin + title + header consume
-  // ~130pt, leaving 651pt ÷ 28pt/row = 23 rows); each subsequent page holds
-  // 25 rows (margin + header = 80pt, leaving 701pt ÷ 28pt/row = 25 rows).
-  const TOC_FIRST_PAGE_ROWS = 23;
-  const TOC_SUBSEQUENT_PAGE_ROWS = 25;
-  const numTocEntries = validReports.length;
-  const tocPageCount = numTocEntries <= TOC_FIRST_PAGE_ROWS
-    ? 1
-    : 1 + Math.ceil((numTocEntries - TOC_FIRST_PAGE_ROWS) / TOC_SUBSEQUENT_PAGE_ROWS);
+  // ── TOC: two-pass rendering ──────────────────────────────────────────────
+  // Collect page names, scores, and per-report page counts independently of
+  // the final TOC page numbers. We can't pre-compute how many pages the TOC
+  // will occupy without rendering it, so we do two passes: the first render
+  // uses placeholder page numbers and gives us the actual TOC page count; the
+  // second render uses the corrected numbers.
+  const tocEntryData = validReports.map((report, index) => ({
+    pageName: getReportPageName(report.url),
+    score: report.score !== null && report.score !== undefined
+      ? `${Math.round(report.score)}%`
+      : 'N/A',
+    actualPageCount: pageCounts[index] > 1 ? pageCounts[index] - 1 : 0,
+  }));
 
-  const tocEntries = [];
-  // title(1) + cover(1) + tocPages(tocPageCount) → first report starts here
-  let currentPageNumber = 2 + tocPageCount + 1;
-  for (let index = 0; index < validReports.length; index += 1) {
-    const report = validReports[index];
-    const scoreText = report.score !== null && report.score !== undefined ? `${Math.round(report.score)}%` : 'N/A';
-    const actualPageCount = pageCounts[index] > 1 ? pageCounts[index] - 1 : 0;
-    tocEntries.push({
-      pageName: getReportPageName(report.url),
-      score: scoreText,
-      startPage: currentPageNumber,
-      pageCount: actualPageCount,
+  const renderToc = async (
+    entries: Array<{ pageName: string; score: string; startPage: number }>,
+    filePath: string,
+  ): Promise<void> => {
+    const tocDoc = new PDFDocument({ margin: 40, size: 'A4' });
+    const tocStream = fsSync.createWriteStream(filePath);
+    tocDoc.pipe(tocStream);
+    tocDoc.registerFont('RegularFont', 'Helvetica');
+    tocDoc.registerFont('BoldFont', 'Helvetica-Bold');
+
+    let tocY = 40;
+    const tocMargin = 40;
+    const tocWidth = 515;
+    const tocHeaderHeight = 35;
+    const tocRowHeight = 28;
+    const colWidths = [320, 100, 95];
+
+    tocDoc.fontSize(24).font('BoldFont').fillColor('#2C3E50')
+      .text('Table of Contents', tocMargin, tocY, { width: tocWidth, align: 'center' });
+    tocY += 50;
+
+    const drawTocHeader = () => {
+      tocDoc.rect(tocMargin, tocY, tocWidth, tocHeaderHeight).fill('#6366F1');
+      tocDoc.fontSize(12).font('BoldFont').fillColor('#FFFFFF');
+      let x = tocMargin;
+      tocDoc.text('Page', x + 15, tocY + 12, { width: colWidths[0] - 30, align: 'left' });
+      x += colWidths[0];
+      tocDoc.text('Score', x, tocY + 12, { width: colWidths[1], align: 'center' });
+      x += colWidths[1];
+      tocDoc.text('Page #', x, tocY + 12, { width: colWidths[2], align: 'center' });
+      tocY += tocHeaderHeight + 5;
+    };
+
+    drawTocHeader();
+    tocDoc.fontSize(11).font('RegularFont').fillColor('#1F2937');
+
+    entries.forEach((entry, index) => {
+      if (tocY + tocRowHeight > tocDoc.page.height - 60) {
+        tocDoc.addPage();
+        tocY = tocMargin;
+        drawTocHeader();
+      }
+
+      if (index % 2 === 0) {
+        tocDoc.rect(tocMargin, tocY, tocWidth, tocRowHeight).fill('#F9FAFB');
+      }
+
+      let x = tocMargin;
+      tocDoc.fillColor('#1F2937').text(entry.pageName, x + 15, tocY + 8, {
+        width: colWidths[0] - 30,
+        align: 'left',
+      });
+      x += colWidths[0];
+
+      const status = entry.score === 'N/A' ? { color: '#6B7280' } : getScoreStatus(Number.parseFloat(entry.score));
+      tocDoc.fillColor(status.color).font('BoldFont').text(entry.score, x, tocY + 8, {
+        width: colWidths[1],
+        align: 'center',
+      });
+      tocDoc.font('RegularFont');
+      x += colWidths[1];
+
+      tocDoc.fillColor('#3498DB').font('BoldFont').text(`${entry.startPage}`, x, tocY + 8, {
+        width: colWidths[2],
+        align: 'center',
+      });
+      tocDoc.font('RegularFont');
+
+      tocDoc.strokeColor('#E5E7EB').lineWidth(0.5)
+        .moveTo(tocMargin, tocY + tocRowHeight)
+        .lineTo(tocMargin + tocWidth, tocY + tocRowHeight)
+        .stroke();
+
+      tocY += tocRowHeight;
     });
-    console.log(`[TOC-DEBUG] TOC entry[${index}] url=${report.url} startPage=${currentPageNumber} actualPageCount=${actualPageCount}`);
-    currentPageNumber += actualPageCount;
-  }
-  console.log(`[TOC-DEBUG] preamble: tocPageCount=${tocPageCount} formula-start=${2 + tocPageCount + 1}`);
 
+    addFooterToPdfDocument(tocDoc, 3);
+    tocDoc.end();
+
+    await new Promise<void>((resolve, reject) => {
+      tocStream.on('finish', resolve);
+      tocStream.on('error', reject);
+    });
+  };
+
+  // Pass 1: render with placeholder page numbers to measure actual TOC page count.
+  const tocPass1Path = path.join(outputDir, `toc-pass1-${device}-${Date.now()}.pdf`);
+  await renderToc(
+    tocEntryData.map((e) => ({ pageName: e.pageName, score: e.score, startPage: 0 })),
+    tocPass1Path,
+  );
+  const actualTocPageCount = (await PDFLib.load(await fs.readFile(tocPass1Path))).getPageCount();
+  await fs.unlink(tocPass1Path).catch(() => undefined);
+
+  // Pass 2: assign correct page numbers and render the final TOC.
+  // title(1) + cover(1) + toc(actualTocPageCount) → first report starts here
+  let currentPageNumber = 2 + actualTocPageCount + 1;
+  const tocEntries = tocEntryData.map((e) => {
+    const entry = { pageName: e.pageName, score: e.score, startPage: currentPageNumber };
+    currentPageNumber += e.actualPageCount;
+    return entry;
+  });
+
+  const tocPagePath = path.join(outputDir, `toc-${device}-${Date.now()}.pdf`);
+  await renderToc(tocEntries, tocPagePath);
+
+  // ── Merge: title → cover → TOC → individual report pages ─────────────────
   const titleBytes = await fs.readFile(titlePagePath);
   const titleDocLib = await PDFLib.load(titleBytes);
   const [titlePage] = await mergedPdf.copyPages(titleDocLib, [0]);
@@ -1127,90 +1217,8 @@ export async function mergePDFsByPlatform(options: {
   mergedPdf.addPage(coverPage);
   await fs.unlink(coverPagePath).catch(() => undefined);
 
-  const tocPagePath = path.join(outputDir, `toc-${device}-${Date.now()}.pdf`);
-  const tocDoc = new PDFDocument({ margin: 40, size: 'A4' });
-  const tocStream = fsSync.createWriteStream(tocPagePath);
-  tocDoc.pipe(tocStream);
-  tocDoc.registerFont('RegularFont', 'Helvetica');
-  tocDoc.registerFont('BoldFont', 'Helvetica-Bold');
-
-  let tocY = 40;
-  const tocMargin = 40;
-  const tocWidth = 515;
-  const tocHeaderHeight = 35;
-  const tocRowHeight = 28;
-  const colWidths = [320, 100, 95];
-
-  tocDoc.fontSize(24).font('BoldFont').fillColor('#2C3E50')
-    .text('Table of Contents', tocMargin, tocY, { width: tocWidth, align: 'center' });
-  tocY += 50;
-
-  const drawTocHeader = () => {
-    tocDoc.rect(tocMargin, tocY, tocWidth, tocHeaderHeight).fill('#6366F1');
-    tocDoc.fontSize(12).font('BoldFont').fillColor('#FFFFFF');
-    let x = tocMargin;
-    tocDoc.text('Page', x + 15, tocY + 12, { width: colWidths[0] - 30, align: 'left' });
-    x += colWidths[0];
-    tocDoc.text('Score', x, tocY + 12, { width: colWidths[1], align: 'center' });
-    x += colWidths[1];
-    tocDoc.text('Page #', x, tocY + 12, { width: colWidths[2], align: 'center' });
-    tocY += tocHeaderHeight + 5;
-  };
-
-  drawTocHeader();
-  tocDoc.fontSize(11).font('RegularFont').fillColor('#1F2937');
-
-  tocEntries.forEach((entry, index) => {
-    if (tocY + tocRowHeight > tocDoc.page.height - 60) {
-      tocDoc.addPage();
-      tocY = tocMargin;
-      drawTocHeader();
-    }
-
-    if (index % 2 === 0) {
-      tocDoc.rect(tocMargin, tocY, tocWidth, tocRowHeight).fill('#F9FAFB');
-    }
-
-    let x = tocMargin;
-    tocDoc.fillColor('#1F2937').text(entry.pageName, x + 15, tocY + 8, {
-      width: colWidths[0] - 30,
-      align: 'left',
-    });
-    x += colWidths[0];
-
-    const status = entry.score === 'N/A' ? { color: '#6B7280' } : getScoreStatus(Number.parseFloat(entry.score));
-    tocDoc.fillColor(status.color).font('BoldFont').text(entry.score, x, tocY + 8, {
-      width: colWidths[1],
-      align: 'center',
-    });
-    tocDoc.font('RegularFont');
-    x += colWidths[1];
-
-    tocDoc.fillColor('#3498DB').font('BoldFont').text(`${entry.startPage}`, x, tocY + 8, {
-      width: colWidths[2],
-      align: 'center',
-    });
-    tocDoc.font('RegularFont');
-
-    tocDoc.strokeColor('#E5E7EB').lineWidth(0.5)
-      .moveTo(tocMargin, tocY + tocRowHeight)
-      .lineTo(tocMargin + tocWidth, tocY + tocRowHeight)
-      .stroke();
-
-    tocY += tocRowHeight;
-  });
-
-  addFooterToPdfDocument(tocDoc, 3);
-  tocDoc.end();
-
-  await new Promise<void>((resolve, reject) => {
-    tocStream.on('finish', resolve);
-    tocStream.on('error', reject);
-  });
-
   const tocBytes = await fs.readFile(tocPagePath);
   const tocDocLib = await PDFLib.load(tocBytes);
-  // Copy ALL TOC pages — for >23 entries the TOC overflows onto a second page.
   const allTocPageIndices = Array.from({ length: tocDocLib.getPageCount() }, (_, i) => i);
   const allTocPages = await mergedPdf.copyPages(tocDocLib, allTocPageIndices);
   for (const p of allTocPages) mergedPdf.addPage(p);
