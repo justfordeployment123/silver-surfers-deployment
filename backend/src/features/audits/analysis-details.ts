@@ -386,6 +386,20 @@ a:hover, a:focus {
 <!-- Or use visible text -->
 <button>Close <svg aria-hidden="true">...</svg></button>`,
     },
+    "label-content-name-mismatch": {
+        title: "Accessible name does not contain the visible button or link text (WCAG 2.5.3)",
+        action: "Ensure the accessible name of each interactive element includes its visible label text so voice control users can activate it by speaking what they see.",
+        whyItMatters: "Voice control users speak the visible text to activate buttons and links — if the accessible name doesn't match, the control becomes unusable for anyone relying on speech input.",
+        effort: "low",
+        codeSnippet: `<!-- Before — aria-label overrides and doesn't contain the visible text -->
+<button aria-label="Submit form">Send</button>
+
+<!-- After — accessible name contains the visible label text -->
+<button aria-label="Send message">Send</button>
+
+<!-- Simplest fix — remove the redundant aria-label if it conflicts -->
+<button>Send</button>`,
+    },
     label: {
         action: "Add explicit form labels, instructions, and helper text for all important input fields.",
         whyItMatters: "Clear forms reduce errors and abandonment in high-friction journeys.",

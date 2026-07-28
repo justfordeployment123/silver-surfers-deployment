@@ -263,9 +263,29 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         wcagCriteria: ["4.1.2", "2.5.3"],
     },
     label: {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["1.3.1", "3.3.2"],
+    },
+    "label-content-name-mismatch": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.5.3"],
+    },
+    "axe-label-content-name-mismatch": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.5.3"],
+    },
+    "color-contrast-enhanced": {
         auditSourceType: "wcag-aa",
         auditSourceLabel: "WCAG AA",
-        wcagCriteria: ["3.3.2"],
+        wcagCriteria: ["1.4.11"],
+    },
+    "axe-color-contrast-enhanced": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.11"],
     },
     "text-font-audit": {
         auditSourceType: "aging-heuristic",
