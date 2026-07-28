@@ -902,13 +902,12 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "numericValue": 0.0 if zoom_blocked else 1.0,
             }
 
-            # 2. Horizontal Scroll Audit: content must not overflow at mobile viewport width.
-            # The scanner runs at desktop viewport (1920px), so we briefly resize to 375px
-            # (iPhone SE / common smallest phone), check for overflow, then restore the
-            # original viewport. This gives a meaningful mobile-specific result.
+            # 2. Horizontal Scroll Audit: content must not overflow at 320px — the exact
+            # viewport width required by WCAG 1.4.10 Reflow (AA). Content must reflow
+            # without horizontal scrolling or loss of information at this width.
             _original_viewport = page.viewport_size or {"width": 1920, "height": 1080}
             try:
-                page.set_viewport_size({"width": 375, "height": 812})
+                page.set_viewport_size({"width": 320, "height": 812})
                 page.wait_for_timeout(300)  # allow reflow
                 h_scroll_result = page.evaluate("""
                     () => ({
@@ -934,12 +933,12 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
 
             audits["horizontal-scroll-audit"] = {
                 "id": "horizontal-scroll-audit",
-                "title": "Page does not require horizontal scrolling",
+                "title": "Content reflows at 320px without horizontal scrolling (WCAG 1.4.10)",
                 "description": (
-                    f"Checks if page content fits within a 375px mobile viewport. "
+                    f"Checks if page content reflows within a 320px viewport (WCAG 1.4.10 Reflow AA requirement). "
                     f"Content width: {scroll_width}px, tested at: {inner_width}px. "
-                    + ("Horizontal scrolling detected at mobile width — this confuses older adults on mobile devices." if h_overflows
-                       else "Content fits within a 375px mobile viewport — no horizontal scrolling required.")
+                    + ("Horizontal scrolling required at 320px — content does not reflow correctly for mobile users." if h_overflows
+                       else "Content reflows within 320px — meets WCAG 1.4.10 Reflow requirement.")
                 ),
                 "score": 0.0 if h_overflows else 1.0,
                 "numericValue": 0.0 if h_overflows else 1.0,
@@ -976,7 +975,74 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                 "score": 0.0 if text_adjust_blocked else 1.0,
                 "numericValue": 0.0 if text_adjust_blocked else 1.0,
             }
-            
+
+            # 4. Text Spacing Audit (WCAG 1.4.12 AA)
+            # Override line-height, letter-spacing, and word-spacing to the WCAG minimum
+            # values, then check if any text content overflows or is clipped.
+            try:
+                text_spacing_result = page.evaluate("""
+                    () => {
+                        const style = document.createElement('style');
+                        style.id = '__ss_text_spacing_test__';
+                        style.textContent = `
+                            * {
+                                line-height: 1.5 !important;
+                                letter-spacing: 0.12em !important;
+                                word-spacing: 0.16em !important;
+                            }
+                            p { margin-bottom: 2em !important; }
+                        `;
+                        document.head.appendChild(style);
+
+                        const overflowing = [];
+                        const elements = document.querySelectorAll('p, li, dt, dd, h1, h2, h3, h4, h5, h6, label, span, a, button');
+                        for (const el of elements) {
+                            if (el.offsetWidth === 0 && el.offsetHeight === 0) continue;
+                            if (el.scrollWidth > el.clientWidth + 2 || el.scrollHeight > el.clientHeight + 2) {
+                                let selector = el.tagName.toLowerCase();
+                                if (el.id) selector += '#' + el.id;
+                                else if (el.className && typeof el.className === 'string') {
+                                    selector += '.' + el.className.trim().split(/\\s+/)[0];
+                                }
+                                overflowing.push({ selector, tag: el.tagName.toLowerCase() });
+                                if (overflowing.length >= 5) break;
+                            }
+                        }
+
+                        document.head.removeChild(style);
+                        return { overflowCount: overflowing.length, items: overflowing };
+                    }
+                """)
+                spacing_overflow_count = text_spacing_result.get("overflowCount", 0)
+                spacing_items = text_spacing_result.get("items", [])
+            except Exception as e:
+                print(f"⚠️ text-spacing-audit failed: {e}")
+                spacing_overflow_count = 0
+                spacing_items = []
+
+            audits["text-spacing-audit"] = {
+                "id": "text-spacing-audit",
+                "title": "Content does not clip or overflow when text spacing is increased (WCAG 1.4.12)",
+                "description": (
+                    "Applies WCAG 1.4.12 minimum text spacing overrides (line-height 1.5, "
+                    "letter-spacing 0.12em, word-spacing 0.16em) and checks for clipped or "
+                    "overflowing content. "
+                    + (f"{spacing_overflow_count} element(s) overflow when spacing is increased — "
+                       "text content becomes inaccessible for users who need wider spacing."
+                       if spacing_overflow_count > 0
+                       else "No overflow detected with increased text spacing — meets WCAG 1.4.12.")
+                ),
+                "score": 0.0 if spacing_overflow_count > 0 else 1.0,
+                "numericValue": float(spacing_overflow_count),
+                "scoreDisplayMode": "binary",
+                "details": {
+                    "type": "table",
+                    "headings": [{"key": "selector", "itemType": "code", "text": "Element"}],
+                    "items": [{"selector": item.get("selector", "")} for item in spacing_items],
+                } if spacing_items else None,
+                "wcagReferences": [{"criterion": "1.4.12", "level": "AA", "version": "2.1"}],
+            }
+
             # Cumulative Layout Shift (CLS) - measure actual CLS from performance entries
             # Note: CLS is measured during page load, so we read from existing performance entries
             try:

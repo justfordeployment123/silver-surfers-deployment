@@ -48,6 +48,7 @@ FULL_AUDIT_REFS = [
     {"id": "user-scalable-audit", "weight": 4},
     {"id": "horizontal-scroll-audit", "weight": 3},
     {"id": "text-size-adjust-audit", "weight": 3},
+    {"id": "text-spacing-audit", "weight": 4},
     {"id": "total-blocking-time", "weight": 5},
     {"id": "link-name", "weight": 5},
     {"id": "button-name", "weight": 5},

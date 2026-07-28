@@ -203,6 +203,7 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     "line-spacing-audit": "visualClarityDesign",
     "autoplay-audit": "cognitiveLoadComplexity",
     "ss-orientation-audit": "mobileOptimization",
+    "text-spacing-audit": "mobileOptimization",
 };
 
 const PRIMARY_DIMENSION_CONTRIBUTORS: Record<
@@ -286,6 +287,21 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceType: "wcag-aa",
         auditSourceLabel: "WCAG AA",
         wcagCriteria: ["1.4.11"],
+    },
+    "horizontal-scroll-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.10"],
+    },
+    "text-spacing-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.12"],
+    },
+    "user-scalable-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.4"],
     },
     "text-font-audit": {
         auditSourceType: "aging-heuristic",
