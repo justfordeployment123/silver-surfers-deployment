@@ -1075,9 +1075,11 @@ export async function mergePDFsByPlatform(options: {
 
       const pdfBytes = await fs.readFile(pdfPath);
       const pdfDoc = await PDFLib.load(pdfBytes);
-      pageCounts.push(pdfDoc.getPageCount());
+      const pc = pdfDoc.getPageCount();
+      pageCounts.push(pc);
       validPdfPaths.push(pdfPath);
       validReports.push(report);
+      console.log(`[TOC-DEBUG] report[${validReports.length - 1}] url=${report.url} pageCount=${pc} contributing=${pc > 1 ? pc - 1 : 0}`);
     } catch {
       continue;
     }
@@ -1108,8 +1110,10 @@ export async function mergePDFsByPlatform(options: {
       startPage: currentPageNumber,
       pageCount: actualPageCount,
     });
+    console.log(`[TOC-DEBUG] TOC entry[${index}] url=${report.url} startPage=${currentPageNumber} actualPageCount=${actualPageCount}`);
     currentPageNumber += actualPageCount;
   }
+  console.log(`[TOC-DEBUG] preamble: tocPageCount=${tocPageCount} formula-start=${2 + tocPageCount + 1}`);
 
   const titleBytes = await fs.readFile(titlePagePath);
   const titleDocLib = await PDFLib.load(titleBytes);
