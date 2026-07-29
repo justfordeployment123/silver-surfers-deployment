@@ -1,6 +1,40 @@
 import React, { useState, useEffect } from 'react';
 import { adminListQuickScans } from '../../api';
 
+const STYLES = `
+.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.ap-sub { font-size: 14px; color: var(--ink6); }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; }
+.ap-sel:focus { border-color: var(--t4); }
+.ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.ap-btn-p:hover:not(:disabled) { background: var(--t8); }
+.ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
+.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s:hover { background: var(--sand); }
+.ap-btn-green { background: #16a34a; color: #fff; padding: 7px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.ap-btn-green:hover:not(:disabled) { background: #15803d; }
+.ap-btn-green:disabled { opacity: 0.6; cursor: not-allowed; }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
+.ap-tbl { width: 100%; border-collapse: collapse; }
+.ap-tbl thead { background: var(--sand); }
+.ap-tbl th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.ap-tbl td { padding: 12px 16px; font-size: 13px; color: var(--ink); border-top: 1px solid var(--sandd); }
+.ap-tbl tr:hover td { background: var(--t05); }
+.ap-pg-btn { border: 1px solid var(--sandd); border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 500; color: var(--ink6); background: #fff; cursor: pointer; transition: background .15s; }
+.ap-pg-btn:hover:not(:disabled) { background: var(--sand); }
+.ap-pg-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ap-pg-btn-active { border-color: var(--t4); background: var(--t4); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 13px; font-weight: 600; cursor: default; }
+.ap-th-btn { background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 4px; }
+.ap-th-btn:hover { color: var(--ink); }
+.ap-spin { animation: ap-spin-kf 0.7s linear infinite; }
+@keyframes ap-spin-kf { to { transform: rotate(360deg); } }
+.ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
+@keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+`;
+
 const AdminQuickScans = () => {
   const [quickScans, setQuickScans] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,19 +47,8 @@ const AdminQuickScans = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
-  const [pagination, setPagination] = useState({
-    total: 0,
-    page: 1,
-    limit: 50,
-    pages: 1
-  });
-  const [statistics, setStatistics] = useState({
-    totalScans: 0,
-    completedScans: 0,
-    failedScans: 0,
-    uniqueEmails: 0,
-    uniqueUrls: 0
-  });
+  const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
+  const [statistics, setStatistics] = useState({ totalScans: 0, completedScans: 0, failedScans: 0, uniqueEmails: 0, uniqueUrls: 0 });
 
   useEffect(() => {
     loadQuickScans();
@@ -43,7 +66,6 @@ const AdminQuickScans = () => {
     try {
       setLoading(true);
       setError('');
-      
       const params = {
         page: currentPage,
         limit: pageSize,
@@ -52,19 +74,12 @@ const AdminQuickScans = () => {
         sortBy,
         sortOrder
       };
-      
       const result = await adminListQuickScans(params);
       if (result.error) {
         setError(result.error);
         setQuickScans([]);
         setPagination({ total: 0, page: 1, limit: pageSize, pages: 1 });
-        setStatistics({
-          totalScans: 0,
-          completedScans: 0,
-          failedScans: 0,
-          uniqueEmails: 0,
-          uniqueUrls: 0
-        });
+        setStatistics({ totalScans: 0, completedScans: 0, failedScans: 0, uniqueEmails: 0, uniqueUrls: 0 });
       } else {
         setQuickScans(result.items || []);
         setPagination({
@@ -73,13 +88,7 @@ const AdminQuickScans = () => {
           limit: Number(result.limit) || pageSize,
           pages: Math.max(1, Number(result.pages) || 1)
         });
-        setStatistics(result.statistics || {
-          totalScans: 0,
-          completedScans: 0,
-          failedScans: 0,
-          uniqueEmails: 0,
-          uniqueUrls: 0
-        });
+        setStatistics(result.statistics || { totalScans: 0, completedScans: 0, failedScans: 0, uniqueEmails: 0, uniqueUrls: 0 });
       }
     } catch (err) {
       setError('Failed to load quick scan data');
@@ -97,12 +106,10 @@ const AdminQuickScans = () => {
   };
 
   const handleExport = () => {
-    // Prepare CSV data with all available fields
     const headers = ['URL', 'Email', 'Name', 'Score (%)', 'Scan Date', 'Status', 'Report Generated', 'Created At'];
     const csvData = quickScans.map(scan => {
       const fullName = [scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A';
       const score = scan.scanScore !== null && scan.scanScore !== undefined ? Math.round(scan.scanScore) : 'N/A';
-      
       return [
         scan.url || '',
         scan.email || '',
@@ -114,18 +121,10 @@ const AdminQuickScans = () => {
         new Date(scan.createdAt).toLocaleString()
       ];
     });
-
-    // Create CSV content with proper newlines
     const csvContent = [
       headers.join(','),
-      ...csvData.map(row => row.map(cell => {
-        // Escape double quotes and wrap in quotes
-        const cellStr = String(cell).replace(/"/g, '""');
-        return `"${cellStr}"`;
-      }).join(','))
-    ].join('\n'); // Fixed: Use actual newline character, not escaped string
-
-    // Create and download file
+      ...csvData.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    ].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
@@ -138,12 +137,8 @@ const AdminQuickScans = () => {
   };
 
   const handleSort = (field) => {
-    if (sortBy === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(field);
-      setSortOrder('desc');
-    }
+    if (sortBy === field) { setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); }
+    else { setSortBy(field); setSortOrder('desc'); }
     setCurrentPage(1);
   };
 
@@ -158,11 +153,7 @@ const AdminQuickScans = () => {
     const start = Math.max(1, activePage - 2);
     const end = Math.min(totalPages, activePage + 2);
     const pages = [];
-
-    for (let page = start; page <= end; page += 1) {
-      pages.push(page);
-    }
-
+    for (let page = start; page <= end; page += 1) pages.push(page);
     return pages;
   };
 
@@ -170,314 +161,201 @@ const AdminQuickScans = () => {
   const visibleStart = totalRecords === 0 ? 0 : ((pagination.page || currentPage) - 1) * (pagination.limit || pageSize) + 1;
   const visibleEnd = Math.min(totalRecords, visibleStart + quickScans.length - 1);
 
+  const scoreColor = (score) => {
+    if (score >= 80) return '#16a34a';
+    if (score >= 60) return '#d97706';
+    return '#ef4444';
+  };
+
+  const SortArrow = ({ field }) => {
+    if (sortBy !== field) return null;
+    return <span style={{ fontSize: '10px' }}>{sortOrder === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="bg-white p-6 shadow rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
-          </div>
+      <>
+        <style>{STYLES}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="ap-sk" style={{ height: '32px', width: '200px' }} />
+          {[1, 2, 3].map(i => (
+            <div key={i} className="ap-card" style={{ padding: '24px' }}>
+              <div className="ap-sk" style={{ height: '16px', width: '70%', marginBottom: '8px' }} />
+              <div className="ap-sk" style={{ height: '12px', width: '40%' }} />
+            </div>
+          ))}
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quick Scans</h1>
-          <p className="mt-2 text-gray-600">Monitor all free quick scan requests</p>
+    <>
+      <style>{STYLES}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+          <div>
+            <h1 className="ap-h1">Quick Scans</h1>
+            <p className="ap-sub">Monitor all free quick scan requests</p>
+          </div>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button onClick={handleExport} disabled={quickScans.length === 0} className="ap-btn-green">
+              <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Export CSV
+            </button>
+            <button onClick={handleRefresh} disabled={refreshing} className="ap-btn-p">
+              {refreshing ? (
+                <>
+                  <svg className="ap-spin" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" style={{ opacity: 0.25 }} />
+                    <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" stroke="none" style={{ opacity: 0.75 }} />
+                  </svg>
+                  Refreshing...
+                </>
+              ) : 'Refresh'}
+            </button>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleExport}
-            disabled={quickScans.length === 0}
-            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
-          >
-            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            Export CSV
-          </button>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center"
-          >
-            {refreshing ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Refreshing...
-              </>
-            ) : (
-              'Refresh'
-            )}
-          </button>
-        </div>
-      </div>
 
-      {/* Filters */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex gap-4 flex-wrap">
-          <div className="flex-1 min-w-64">
+        <div className="ap-card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
             <input
               type="text"
               placeholder="Search by URL or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+              className="ap-inp"
+              style={{ flex: 1, minWidth: '200px' }}
             />
-          </div>
-          <select
-            value={`${sortBy}-${sortOrder}`}
-            onChange={(e) => {
-              const [field, order] = e.target.value.split('-');
-              setSortBy(field);
-              setSortOrder(order);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-          >
-            <option value="scanDate-desc">Newest First</option>
-            <option value="scanDate-asc">Oldest First</option>
-            <option value="email-asc">Email A-Z</option>
-            <option value="email-desc">Email Z-A</option>
-            <option value="url-asc">URL A-Z</option>
-            <option value="url-desc">URL Z-A</option>
-          </select>
-          <select
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-          >
-            <option value="all">All Statuses</option>
-            <option value="queued">Queued</option>
-            <option value="processing">Processing</option>
-            <option value="completed">Completed</option>
-            <option value="completed_with_warnings">Completed with warnings</option>
-            <option value="failed">Failed</option>
-          </select>
-          <select
-            value={pageSize}
-            onChange={handlePageSizeChange}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-          >
-            <option value={25}>25 per page</option>
-            <option value={50}>50 per page</option>
-            <option value={100}>100 per page</option>
-            <option value={200}>200 per page</option>
-          </select>
-          <button
-            onClick={() => {
-              setSearchQuery('');
-              setDebouncedSearchQuery('');
-              setStatusFilter('all');
-              setSortBy('scanDate');
-              setSortOrder('desc');
-              setCurrentPage(1);
-            }}
-            className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Clear Filters
-          </button>
-        </div>
-      </div>
-
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
+            <select
+              value={`${sortBy}-${sortOrder}`}
+              onChange={(e) => {
+                const [field, order] = e.target.value.split('-');
+                setSortBy(field); setSortOrder(order); setCurrentPage(1);
+              }}
+              className="ap-sel"
+            >
+              <option value="scanDate-desc">Newest First</option>
+              <option value="scanDate-asc">Oldest First</option>
+              <option value="email-asc">Email A-Z</option>
+              <option value="email-desc">Email Z-A</option>
+              <option value="url-asc">URL A-Z</option>
+              <option value="url-desc">URL Z-A</option>
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="ap-sel"
+            >
+              <option value="all">All Statuses</option>
+              <option value="queued">Queued</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="completed_with_warnings">Completed with warnings</option>
+              <option value="failed">Failed</option>
+            </select>
+            <select value={pageSize} onChange={handlePageSizeChange} className="ap-sel">
+              <option value={25}>25 per page</option>
+              <option value={50}>50 per page</option>
+              <option value={100}>100 per page</option>
+              <option value={200}>200 per page</option>
+            </select>
+            <button
+              onClick={() => {
+                setSearchQuery(''); setDebouncedSearchQuery('');
+                setStatusFilter('all'); setSortBy('scanDate'); setSortOrder('desc'); setCurrentPage(1);
+              }}
+              className="ap-btn-s"
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
-      )}
 
-      {/* Quick Scans Table */}
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900">
-            Quick Scan Records ({visibleStart}-{visibleEnd} of {totalRecords})
-          </h3>
-        </div>
-        
-        {quickScans.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button
-                      onClick={() => handleSort('url')}
-                      className="hover:text-gray-700 flex items-center"
-                    >
-                      URL
-                      {sortBy === 'url' && (
-                        <span className="ml-1">
-                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
-                        </span>
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button
-                      onClick={() => handleSort('email')}
-                      className="hover:text-gray-700 flex items-center"
-                    >
-                      Email
-                      {sortBy === 'email' && (
-                        <span className="ml-1">
-                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
-                        </span>
-                      )}
-                    </button>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    <button
-                      onClick={() => handleSort('scanDate')}
-                      className="hover:text-gray-700 flex items-center"
-                    >
-                      Scan Date
-                      {sortBy === 'scanDate' && (
-                        <span className="ml-1">
-                          {sortOrder === 'asc' ? 'ASC' : 'DESC'}
-                        </span>
-                      )}
-                    </button>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {quickScans.map((scan) => (
-                  <tr key={scan._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 max-w-xs truncate" title={scan.url}>
-                        {scan.url}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{scan.email}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {[scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {scan.scanScore !== null && scan.scanScore !== undefined ? (
-                        <div className="flex items-center">
-                          <span className={`text-sm font-semibold ${
-                            scan.scanScore >= 80 ? 'text-green-600' :
-                            scan.scanScore >= 60 ? 'text-yellow-600' :
-                            'text-red-600'
-                          }`}>
-                            {Math.round(scan.scanScore)}%
+        {error && <div className="ap-err">{error}</div>}
+
+        <div className="ap-card">
+          <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--sandd)' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+              Quick Scan Records ({visibleStart}–{visibleEnd} of {totalRecords})
+            </span>
+          </div>
+
+          {quickScans.length > 0 ? (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table className="ap-tbl">
+                  <thead>
+                    <tr>
+                      <th><button className="ap-th-btn" onClick={() => handleSort('url')}>URL <SortArrow field="url" /></button></th>
+                      <th><button className="ap-th-btn" onClick={() => handleSort('email')}>Email <SortArrow field="email" /></button></th>
+                      <th>Name</th>
+                      <th>Score</th>
+                      <th><button className="ap-th-btn" onClick={() => handleSort('scanDate')}>Scan Date <SortArrow field="scanDate" /></button></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quickScans.map((scan) => (
+                      <tr key={scan._id}>
+                        <td>
+                          <span style={{ display: 'block', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={scan.url}>
+                            {scan.url}
                           </span>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-400">N/A</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {new Date(scan.scanDate).toLocaleString()}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="flex flex-col gap-4 border-t border-gray-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-gray-600">
-                Showing {visibleStart}-{visibleEnd} of {totalRecords} quick scans
+                        </td>
+                        <td>{scan.email}</td>
+                        <td>{[scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A'}</td>
+                        <td>
+                          {scan.scanScore !== null && scan.scanScore !== undefined ? (
+                            <span style={{ fontWeight: 700, color: scoreColor(scan.scanScore) }}>
+                              {Math.round(scan.scanScore)}%
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--ink3)' }}>N/A</span>
+                          )}
+                        </td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{new Date(scan.scanDate).toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={(pagination.page || currentPage) <= 1}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  First
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                  disabled={(pagination.page || currentPage) <= 1}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Previous
-                </button>
-                {getPageNumbers().map((pageNumber) => (
-                  <button
-                    type="button"
-                    key={pageNumber}
-                    onClick={() => setCurrentPage(pageNumber)}
-                    className={`rounded-md border px-3 py-2 text-sm font-medium ${
-                      pageNumber === (pagination.page || currentPage)
-                        ? 'border-blue-600 bg-blue-600 text-white'
-                        : 'border-gray-300 text-gray-700 hover:bg-gray-50'
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage((page) => Math.min(pagination.pages || 1, page + 1))}
-                  disabled={(pagination.page || currentPage) >= (pagination.pages || 1)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Next
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage(pagination.pages || 1)}
-                  disabled={(pagination.page || currentPage) >= (pagination.pages || 1)}
-                  className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Last
-                </button>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '14px 20px', borderTop: '1px solid var(--sandd)' }}>
+                <span style={{ fontSize: '13px', color: 'var(--ink6)' }}>
+                  Showing {visibleStart}–{visibleEnd} of {totalRecords} quick scans
+                </span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                  <button type="button" onClick={() => setCurrentPage(1)} disabled={(pagination.page || currentPage) <= 1} className="ap-pg-btn">First</button>
+                  <button type="button" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={(pagination.page || currentPage) <= 1} className="ap-pg-btn">Prev</button>
+                  {getPageNumbers().map(pageNumber => (
+                    <button
+                      type="button"
+                      key={pageNumber}
+                      onClick={() => setCurrentPage(pageNumber)}
+                      className={pageNumber === (pagination.page || currentPage) ? 'ap-pg-btn-active' : 'ap-pg-btn'}
+                    >
+                      {pageNumber}
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => setCurrentPage(p => Math.min(pagination.pages || 1, p + 1))} disabled={(pagination.page || currentPage) >= (pagination.pages || 1)} className="ap-pg-btn">Next</button>
+                  <button type="button" onClick={() => setCurrentPage(pagination.pages || 1)} disabled={(pagination.page || currentPage) >= (pagination.pages || 1)} className="ap-pg-btn">Last</button>
+                </div>
               </div>
+            </>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--ink6)' }}>
+              <svg style={{ width: '48px', height: '48px', margin: '0 auto 16px', display: 'block', color: 'var(--ink3)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+              <p style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>No quick scans found</p>
+              <p style={{ fontSize: '13px' }}>No quick scan records found matching your criteria.</p>
             </div>
-          </div>
-        ) : (
-          <div className="text-center py-12">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No quick scans found</h3>
-            <p className="mt-1 text-sm text-gray-500">No quick scan records found matching your criteria.</p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

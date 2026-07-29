@@ -1,97 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  adminListBlog, 
-  adminListFaqs, 
-  adminListAnalysis, 
-  adminListContact,
-  getSubscription 
-} from '../../api';
+import { adminListBlog, adminListFaqs, adminListAnalysis, adminListContact } from '../../api';
+
+const STYLES = `
+.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.ap-sub { font-size: 14px; color: var(--ink6); }
+.ap-stat-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; display: flex; align-items: center; gap: 16px; }
+.ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
+.ap-stat-val { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
+.ap-stat-lbl { font-size: 13px; color: var(--ink6); margin-top: 2px; }
+.ap-stat-sub { font-size: 12px; color: var(--ink3); margin-top: 1px; }
+.ap-quick-btn { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: #fff; cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
+.ap-quick-btn:hover { border-color: var(--t4); background: var(--t05); }
+.ap-quick-btn-emoji { font-size: 28px; line-height: 1; }
+.ap-quick-btn-lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
+.ap-quick-btn:hover .ap-quick-btn-lbl { color: var(--t6); }
+.ap-activity-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--sandd); }
+.ap-activity-row:last-child { border-bottom: none; }
+.ap-activity-title { font-size: 13px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-activity-date { font-size: 11px; color: var(--ink3); white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.pill-g { background: #dcfce7; color: #166534; }
+.pill-a { background: #fef3c7; color: #92400e; }
+.pill-r { background: #fee2e2; color: #991b1b; }
+.pill-t { background: var(--t05); color: var(--t6); }
+.pill-y { background: #fef9c3; color: #713f12; }
+.pill-gr { background: #f3f4f6; color: #374151; }
+.ap-sys-dot { width: 10px; height: 10px; border-radius: 50%; background: #16a34a; flex-shrink: 0; }
+.ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
+@keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+`;
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
-    totalBlogs: 0,
-    totalFaqs: 0,
-    pendingAnalysis: 0,
-    completedAnalysis: 0,
-    newContacts: 0,
-    activeSubscriptions: 0
+    totalBlogs: 0, publishedBlogs: 0, totalFaqs: 0, publishedFaqs: 0,
+    pendingAnalysis: 0, completedAnalysis: 0, newContacts: 0, totalContacts: 0
   });
   const [loading, setLoading] = useState(true);
   const [recentActivity, setRecentActivity] = useState([]);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  useEffect(() => { loadDashboardData(); }, []);
 
   const loadDashboardData = async () => {
     try {
       setLoading(true);
-      
-      // Load all data in parallel
-      const [
-        blogsResult,
-        faqsResult,
-        analysisResult,
-        contactsResult
-      ] = await Promise.allSettled([
-        adminListBlog(),
-        adminListFaqs(),
-        adminListAnalysis({ limit: 100 }),
-        adminListContact()
+      const [blogsResult, faqsResult, analysisResult, contactsResult] = await Promise.allSettled([
+        adminListBlog(), adminListFaqs(), adminListAnalysis({ limit: 100 }), adminListContact()
       ]);
-
-      // Process blog stats
       const blogs = blogsResult.status === 'fulfilled' ? blogsResult.value.items || [] : [];
-      const publishedBlogs = blogs.filter(b => b.published);
-
-      // Process FAQ stats
       const faqs = faqsResult.status === 'fulfilled' ? faqsResult.value.items || [] : [];
-      const publishedFaqs = faqs.filter(f => f.published);
-
-      // Process analysis stats
       const analysis = analysisResult.status === 'fulfilled' ? analysisResult.value.items || [] : [];
-      const pendingAnalysis = analysis.filter(a => a.status === 'queued' || a.status === 'processing');
-      const completedAnalysis = analysis.filter(a => a.status === 'completed' || a.status === 'completed_with_warnings');
-
-      // Process contact stats
       const contacts = contactsResult.status === 'fulfilled' ? contactsResult.value.items || [] : [];
-      const newContacts = contacts.filter(c => c.status === 'new');
 
-      // Get recent activity (last 10 items)
       const recent = [
-        ...blogs.slice(0, 3).map(b => ({
-          type: 'blog',
-          title: b.title,
-          date: b.createdAt,
-          status: b.published ? 'published' : 'draft'
-        })),
-        ...analysis.slice(0, 5).map(a => ({
-          type: 'analysis',
-          title: a.url,
-          date: a.createdAt,
-          status: a.status
-        })),
-        ...contacts.slice(0, 2).map(c => ({
-          type: 'contact',
-          title: c.subject || 'Contact Message',
-          date: c.createdAt,
-          status: c.status
-        }))
+        ...blogs.slice(0, 3).map(b => ({ type: 'blog', title: b.title, date: b.createdAt, status: b.published ? 'published' : 'draft' })),
+        ...analysis.slice(0, 5).map(a => ({ type: 'analysis', title: a.url, date: a.createdAt, status: a.status })),
+        ...contacts.slice(0, 2).map(c => ({ type: 'contact', title: c.subject || 'Contact Message', date: c.createdAt, status: c.status }))
       ].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
 
       setStats({
         totalBlogs: blogs.length,
-        publishedBlogs: publishedBlogs.length,
+        publishedBlogs: blogs.filter(b => b.published).length,
         totalFaqs: faqs.length,
-        publishedFaqs: publishedFaqs.length,
-        pendingAnalysis: pendingAnalysis.length,
-        completedAnalysis: completedAnalysis.length,
-        newContacts: newContacts.length,
+        publishedFaqs: faqs.filter(f => f.published).length,
+        pendingAnalysis: analysis.filter(a => a.status === 'queued' || a.status === 'processing').length,
+        completedAnalysis: analysis.filter(a => a.status === 'completed' || a.status === 'completed_with_warnings').length,
+        newContacts: contacts.filter(c => c.status === 'new').length,
         totalContacts: contacts.length
       });
-
       setRecentActivity(recent);
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
@@ -100,236 +78,139 @@ const AdminDashboard = () => {
     }
   };
 
-  const StatCard = ({ title, value, subtitle, icon, color = 'blue', trend = null }) => {
-    const colorClasses = {
-      blue: 'from-blue-500 to-blue-600',
-      green: 'from-green-500 to-green-600',
-      yellow: 'from-yellow-500 to-yellow-600',
-      red: 'from-red-500 to-red-600',
-      purple: 'from-purple-500 to-purple-600',
-      indigo: 'from-indigo-500 to-indigo-600'
-    };
-
-    return (
-      <div className="bg-white overflow-hidden shadow-md rounded-xl hover:shadow-lg transition-shadow duration-300">
-        <div className="p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className={`w-12 h-12 bg-gradient-to-br ${colorClasses[color]} rounded-lg flex items-center justify-center shadow-md`}>
-                <span className="text-white text-xl">{icon}</span>
-              </div>
-            </div>
-            <div className="ml-5 w-0 flex-1">
-              <dl>
-                <dt className="text-sm font-medium text-gray-600 truncate">{title}</dt>
-                <dd className="flex items-baseline mt-1">
-                  <div className="text-3xl font-bold text-gray-900">{value}</div>
-                  {subtitle && (
-                    <div className="ml-2 text-sm font-medium text-gray-500">{subtitle}</div>
-                  )}
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  const getStatusPill = (status) => {
+    if (status === 'published' || status === 'completed') return <span className="pill pill-g">{status}</span>;
+    if (status === 'completed_with_warnings') return <span className="pill pill-a">completed w/ warnings</span>;
+    if (status === 'draft' || status === 'queued') return <span className="pill pill-y">{status}</span>;
+    if (status === 'processing') return <span className="pill pill-t">{status}</span>;
+    if (status === 'failed' || status === 'new') return <span className="pill pill-r">{status}</span>;
+    return <span className="pill pill-gr">{status || 'unknown'}</span>;
   };
 
-  const ActivityItem = ({ item }) => {
-    const getTypeIcon = (type) => {
-      switch (type) {
-        case 'blog': return '📝';
-        case 'analysis': return '🔍';
-        case 'contact': return '📧';
-        default: return '📄';
-      }
-    };
-
-    const getStatusColor = (status) => {
-      switch (status) {
-        case 'published':
-        case 'completed':
-          return 'text-green-600 bg-green-100';
-        case 'completed_with_warnings':
-          return 'text-amber-600 bg-amber-100';
-        case 'draft':
-        case 'queued':
-        case 'processing':
-          return 'text-yellow-600 bg-yellow-100';
-        case 'failed':
-        case 'new':
-          return 'text-red-600 bg-red-100';
-        default:
-          return 'text-gray-600 bg-gray-100';
-      }
-    };
-
-    return (
-      <div className="flex items-center space-x-3 py-2">
-        <div className="flex-shrink-0">
-          <span className="text-lg">{getTypeIcon(item.type)}</span>
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-900 truncate">{item.title}</p>
-          <p className="text-xs text-gray-500">
-            {new Date(item.date).toLocaleDateString()} at {new Date(item.date).toLocaleTimeString()}
-          </p>
-        </div>
-        <div className="flex-shrink-0">
-          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(item.status)}`}>
-            {item.status}
-          </span>
-        </div>
-      </div>
-    );
-  };
+  const typeIcon = (type) => ({ blog: '📝', analysis: '🔍', contact: '📧' }[type] || '📄');
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white p-5 shadow rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
-              </div>
-            ))}
+      <>
+        <style>{STYLES}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <div className="ap-sk" style={{ height: '80px', borderRadius: 'var(--r)' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+            {[1,2,3,4].map(i => <div key={i} className="ap-sk" style={{ height: '90px', borderRadius: 'var(--r)' }} />)}
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-8 text-white">
-        <h1 className="text-4xl font-bold">Admin Dashboard</h1>
-        <p className="mt-2 text-indigo-100">Welcome back! Here's your SilverSurfers administration overview</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Blog Posts"
-          value={stats.totalBlogs}
-          subtitle={`${stats.publishedBlogs} published`}
-          icon="📝"
-          color="indigo"
-        />
-        <StatCard
-          title="Total FAQs"
-          value={stats.totalFaqs}
-          subtitle={`${stats.publishedFaqs} published`}
-          icon="❓"
-          color="green"
-        />
-        <StatCard
-          title="Pending Analysis"
-          value={stats.pendingAnalysis}
-          subtitle={`${stats.completedAnalysis} completed`}
-          icon="🔍"
-          color="purple"
-        />
-        <StatCard
-          title="New Contacts"
-          value={stats.newContacts}
-          subtitle={`${stats.totalContacts} total`}
-          icon="📧"
-          color="blue"
-        />
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white shadow-md rounded-xl p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-6">Quick Actions</h3>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <button 
-            onClick={() => navigate('/admin/blog')}
-            className="flex flex-col items-center p-5 border-2 border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 group"
-          >
-            <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📝</span>
-            <span className="text-sm font-semibold text-gray-700 group-hover:text-indigo-600">New Blog Post</span>
-          </button>
-          <button 
-            onClick={() => navigate('/admin/faqs')}
-            className="flex flex-col items-center p-5 border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
-          >
-            <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">❓</span>
-            <span className="text-sm font-semibold text-gray-700 group-hover:text-green-600">Add FAQ</span>
-          </button>
-          <button 
-            onClick={() => navigate('/admin/users')}
-            className="flex flex-col items-center p-5 border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 group"
-          >
-            <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">👥</span>
-            <span className="text-sm font-semibold text-gray-700 group-hover:text-purple-600">Manage Users</span>
-          </button>
-          <button 
-            onClick={() => navigate('/admin/legal')}
-            className="flex flex-col items-center p-5 border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
-          >
-            <span className="text-3xl mb-2 group-hover:scale-110 transition-transform">📋</span>
-            <span className="text-sm font-semibold text-gray-700 group-hover:text-blue-600">Legal Docs</span>
-          </button>
+    <>
+      <style>{STYLES}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Header */}
+        <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '28px 32px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Admin Dashboard</h1>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)' }}>Welcome back! Here's your SilverSurfers administration overview.</p>
         </div>
-      </div>
 
-      {/* Recent Activity */}
-      <div className="bg-white shadow-md rounded-xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-          <h3 className="text-xl font-bold text-gray-900">Recent Activity</h3>
+        {/* Stats Grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+          <div className="ap-stat-card">
+            <div className="ap-stat-icon">📝</div>
+            <div>
+              <div className="ap-stat-val">{stats.totalBlogs}</div>
+              <div className="ap-stat-lbl">Blog Posts</div>
+              <div className="ap-stat-sub">{stats.publishedBlogs} published</div>
+            </div>
+          </div>
+          <div className="ap-stat-card">
+            <div className="ap-stat-icon">❓</div>
+            <div>
+              <div className="ap-stat-val">{stats.totalFaqs}</div>
+              <div className="ap-stat-lbl">FAQs</div>
+              <div className="ap-stat-sub">{stats.publishedFaqs} published</div>
+            </div>
+          </div>
+          <div className="ap-stat-card">
+            <div className="ap-stat-icon">🔍</div>
+            <div>
+              <div className="ap-stat-val">{stats.pendingAnalysis}</div>
+              <div className="ap-stat-lbl">Pending Analysis</div>
+              <div className="ap-stat-sub">{stats.completedAnalysis} completed</div>
+            </div>
+          </div>
+          <div className="ap-stat-card">
+            <div className="ap-stat-icon">📧</div>
+            <div>
+              <div className="ap-stat-val">{stats.newContacts}</div>
+              <div className="ap-stat-lbl">New Contacts</div>
+              <div className="ap-stat-sub">{stats.totalContacts} total</div>
+            </div>
+          </div>
         </div>
-        <div className="px-6 py-4">
-          {recentActivity.length > 0 ? (
-            <div className="space-y-1">
-              {recentActivity.map((item, index) => (
-                <ActivityItem key={index} item={item} />
+
+        {/* Quick Actions */}
+        <div className="ap-card" style={{ padding: '24px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '20px' }}>Quick Actions</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
+            {[
+              { emoji: '📝', label: 'New Blog Post', href: '/admin/blog' },
+              { emoji: '❓', label: 'Add FAQ', href: '/admin/faqs' },
+              { emoji: '👥', label: 'Manage Users', href: '/admin/users' },
+              { emoji: '📋', label: 'Legal Docs', href: '/admin/legal' },
+            ].map(({ emoji, label, href }) => (
+              <button key={href} onClick={() => navigate(href)} className="ap-quick-btn">
+                <span className="ap-quick-btn-emoji">{emoji}</span>
+                <span className="ap-quick-btn-lbl">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+          {/* Recent Activity */}
+          <div className="ap-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '16px' }}>Recent Activity</h3>
+            {recentActivity.length > 0 ? (
+              <div>
+                {recentActivity.map((item, index) => (
+                  <div key={index} className="ap-activity-row">
+                    <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>{typeIcon(item.type)}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="ap-activity-title">{item.title}</div>
+                      <div className="ap-activity-date">{new Date(item.date).toLocaleDateString()}</div>
+                    </div>
+                    {getStatusPill(item.status)}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p style={{ fontSize: '13px', color: 'var(--ink6)', textAlign: 'center', padding: '16px 0' }}>No recent activity</p>
+            )}
+          </div>
+
+          {/* System Status */}
+          <div className="ap-card" style={{ padding: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '16px' }}>System Status</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {[
+                { label: 'API Status', status: 'Operational' },
+                { label: 'Database', status: 'Connected' },
+                { label: 'Email Service', status: 'Active' },
+              ].map(({ label, status }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--t05)', borderRadius: '8px', border: '1px solid var(--t1)' }}>
+                  <div className="ap-sys-dot" />
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>{label}</div>
+                    <div style={{ fontSize: '12px', color: '#16a34a' }}>{status}</div>
+                  </div>
+                </div>
               ))}
             </div>
-          ) : (
-            <p className="text-gray-500 text-center py-4">No recent activity</p>
-          )}
-        </div>
-      </div>
-
-      {/* System Status */}
-      <div className="bg-white shadow-md rounded-xl p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-6">System Status</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div className="flex items-center p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex-shrink-0">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-semibold text-gray-900">API Status</p>
-              <p className="text-xs text-green-600 font-medium">Operational</p>
-            </div>
-          </div>
-          <div className="flex items-center p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex-shrink-0">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-semibold text-gray-900">Database</p>
-              <p className="text-xs text-green-600 font-medium">Connected</p>
-            </div>
-          </div>
-          <div className="flex items-center p-4 bg-green-50 rounded-lg border border-green-200">
-            <div className="flex-shrink-0">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-semibold text-gray-900">Email Service</p>
-              <p className="text-xs text-green-600 font-medium">Active</p>
-            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

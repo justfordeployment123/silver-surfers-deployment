@@ -1,6 +1,55 @@
 import React, { useState, useEffect } from 'react';
 import { adminListFaqs, adminCreateFaq, adminDeleteFaq, adminUpdateFaq } from '../../api';
 
+const STYLES = `
+.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.ap-sub { font-size: 14px; color: var(--ink6); }
+.ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; }
+.ap-sel:focus { border-color: var(--t4); }
+.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
+.ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-btn-p { background: var(--t4); color: #fff; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+.ap-btn-p:hover:not(:disabled) { background: var(--t8); }
+.ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
+.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s:hover { background: var(--sand); }
+.ap-btn-danger-sm { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: color .15s, background .15s; }
+.ap-btn-danger-sm:hover { color: #ef4444; background: #fee2e2; }
+.ap-btn-edit-sm { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: color .15s, background .15s; }
+.ap-btn-edit-sm:hover { color: var(--t4); background: var(--t05); }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
+.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
+.ap-stat-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
+.ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ap-faq-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
+.ap-faq-card:hover { box-shadow: 0 4px 16px rgba(4,46,34,0.08); }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.pill-g { background: #dcfce7; color: #166534; }
+.pill-gr { background: #f3f4f6; color: #374151; }
+.pill-t { background: var(--t05); color: var(--t6); }
+.pill-y { background: #fef9c3; color: #713f12; }
+.ap-vt-btn { border: 1px solid var(--sandd); background: #fff; cursor: pointer; padding: 8px 10px; color: var(--ink6); transition: background .15s, color .15s; display: flex; align-items: center; }
+.ap-vt-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
+.ap-vt-btn:last-child { border-radius: 0 8px 8px 0; }
+.ap-vt-btn-active { background: var(--t4); color: #fff; border-color: var(--t4); }
+.ap-vt-btn:not(.ap-vt-btn-active):hover { background: var(--sand); }
+.ap-modal-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
+.ap-modal { background: #fff; border-radius: var(--rl); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
+.ap-modal-hdr { padding: 20px 28px; border-bottom: 1px solid var(--sandd); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }
+.ap-modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: background .15s, color .15s; }
+.ap-modal-close:hover { background: var(--sand); color: var(--ink); }
+.ap-modal-body { overflow-y: auto; flex: 1; padding: 24px 28px; }
+.ap-modal-ftr { padding: 16px 28px; border-top: 1px solid var(--sandd); display: flex; justify-content: flex-end; gap: 10px; flex-shrink: 0; }
+.ap-chk { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.ap-chk input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--t4); margin-top: 2px; flex-shrink: 0; }
+.ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
+@keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+`;
+
 const AdminFAQs = () => {
   const [faqs, setFaqs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,714 +60,348 @@ const AdminFAQs = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('order');
-  const [viewMode, setViewMode] = useState('list'); // list or grid
-  
-  const [formData, setFormData] = useState({
-    question: '',
-    answer: '',
-    order: 0,
-    published: true,
-    category: ''
-  });
+  const [viewMode, setViewMode] = useState('list');
+  const [formData, setFormData] = useState({ question: '', answer: '', order: 0, published: true, category: '' });
+
+  useEffect(() => { loadFaqs(); }, []);
 
   useEffect(() => {
-    loadFaqs();
-  }, []);
-
-  // Handle ESC key to close modal
-  useEffect(() => {
-    const handleEscKey = (event) => {
-      if (event.key === 'Escape' && showForm) {
-        handleCancel();
-      }
-    };
-
-    if (showForm) {
-      document.addEventListener('keydown', handleEscKey);
-      document.body.style.overflow = 'hidden'; // Prevent background scrolling
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-      document.body.style.overflow = 'unset';
-    };
+    const handleEsc = (e) => { if (e.key === 'Escape' && showForm) handleCancel(); };
+    if (showForm) { document.addEventListener('keydown', handleEsc); document.body.style.overflow = 'hidden'; }
+    return () => { document.removeEventListener('keydown', handleEsc); document.body.style.overflow = 'unset'; };
   }, [showForm]);
 
   const loadFaqs = async () => {
     try {
       setLoading(true);
       const result = await adminListFaqs();
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setFaqs(result.items || []);
-      }
-    } catch (err) {
-      setError('Failed to load FAQs');
-    } finally {
-      setLoading(false);
-    }
+      if (result.error) setError(result.error);
+      else setFaqs(result.items || []);
+    } catch { setError('Failed to load FAQs'); }
+    finally { setLoading(false); }
   };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value
-    }));
+    setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : type === 'number' ? Number(value) : value }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
-    
+    setError(''); setSuccess('');
     try {
-      let result;
-      if (editingId) {
-        result = await adminUpdateFaq(editingId, formData);
-      } else {
-        result = await adminCreateFaq(formData);
-      }
-      
+      const result = editingId ? await adminUpdateFaq(editingId, formData) : await adminCreateFaq(formData);
       if (result.error) {
         setError(result.error);
       } else {
         setSuccess(editingId ? 'FAQ updated successfully!' : 'FAQ created successfully!');
-        setShowForm(false);
-        setEditingId(null);
-        setFormData({
-          question: '',
-          answer: '',
-          order: 0,
-          published: true,
-          category: ''
-        });
+        setShowForm(false); setEditingId(null);
+        setFormData({ question: '', answer: '', order: 0, published: true, category: '' });
         loadFaqs();
         setTimeout(() => setSuccess(''), 3000);
       }
-    } catch (err) {
-      setError('Failed to save FAQ');
-    }
+    } catch { setError('Failed to save FAQ'); }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this FAQ?')) {
-      return;
-    }
-    
+    if (!window.confirm('Are you sure you want to delete this FAQ?')) return;
     try {
       const result = await adminDeleteFaq(id);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setSuccess('FAQ deleted successfully!');
-        loadFaqs();
-        setTimeout(() => setSuccess(''), 3000);
-      }
-    } catch (err) {
-      setError('Failed to delete FAQ');
-    }
+      if (result.error) setError(result.error);
+      else { setSuccess('FAQ deleted successfully!'); loadFaqs(); setTimeout(() => setSuccess(''), 3000); }
+    } catch { setError('Failed to delete FAQ'); }
   };
 
   const handleEdit = (faq) => {
     setEditingId(faq._id);
-    setFormData({
-      question: faq.question || '',
-      answer: faq.answer || '',
-      order: faq.order || 0,
-      published: faq.published || false,
-      category: faq.category || ''
-    });
+    setFormData({ question: faq.question || '', answer: faq.answer || '', order: faq.order || 0, published: faq.published || false, category: faq.category || '' });
     setShowForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancel = () => {
-    setShowForm(false);
-    setEditingId(null);
-    setFormData({
-      question: '',
-      answer: '',
-      order: 0,
-      published: true,
-      category: ''
-    });
+    setShowForm(false); setEditingId(null);
+    setFormData({ question: '', answer: '', order: 0, published: true, category: '' });
     setError('');
   };
 
+  const getNextOrder = () => Math.max(...faqs.map(f => f.order || 0), 0) + 1;
+
   const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.question?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         faq.answer?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         faq.category?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = filterStatus === 'all' || 
-                         (filterStatus === 'published' && faq.published) ||
-                         (filterStatus === 'draft' && !faq.published);
-    
+    const q = searchQuery.toLowerCase();
+    const matchesSearch = !q || faq.question?.toLowerCase().includes(q) || faq.answer?.toLowerCase().includes(q) || faq.category?.toLowerCase().includes(q);
+    const matchesStatus = filterStatus === 'all' || (filterStatus === 'published' && faq.published) || (filterStatus === 'draft' && !faq.published);
     return matchesSearch && matchesStatus;
   });
 
-  // Sort FAQs
   const sortedFaqs = [...filteredFaqs].sort((a, b) => {
-    if (sortBy === 'order') {
-      return (a.order || 0) - (b.order || 0);
-    } else if (sortBy === 'date') {
-      return new Date(b.createdAt) - new Date(a.createdAt);
-    } else if (sortBy === 'question') {
-      return (a.question || '').localeCompare(b.question || '');
-    }
+    if (sortBy === 'order') return (a.order || 0) - (b.order || 0);
+    if (sortBy === 'date') return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sortBy === 'question') return (a.question || '').localeCompare(b.question || '');
     return 0;
   });
 
-  const formatDate = (dateString) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
+  const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : '';
 
-  const getNextOrder = () => {
-    const maxOrder = Math.max(...faqs.map(faq => faq.order || 0));
-    return maxOrder + 1;
-  };
+  const EditIcon = () => (
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+    </svg>
+  );
+
+  const TrashIcon = () => (
+    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+    </svg>
+  );
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="space-y-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-white p-6 shadow rounded-lg">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-full"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-              </div>
-            ))}
-          </div>
+      <>
+        <style>{STYLES}</style>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="ap-sk" style={{ height: '80px', borderRadius: 'var(--r)' }} />
+          {[1,2,3,4].map(i => <div key={i} className="ap-sk" style={{ height: '100px', borderRadius: 'var(--r)' }} />)}
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with Stats */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-white">
-        <div className="flex justify-between items-center">
+    <>
+      <style>{STYLES}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        {/* Header */}
+        <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <h1 className="text-3xl font-bold">FAQ Management</h1>
-            <p className="mt-2 text-blue-100">Create and manage frequently asked questions</p>
+            <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>FAQ Management</h1>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>Create and manage frequently asked questions</p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">{faqs.length}</div>
-            <div className="text-blue-100">Total FAQs</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Published</p>
-              <p className="text-2xl font-bold text-gray-900">{faqs.filter(f => f.published).length}</p>
-            </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '28px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{faqs.length}</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>Total FAQs</div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Drafts</p>
-              <p className="text-2xl font-bold text-gray-900">{faqs.filter(f => !f.published).length}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Categories</p>
-              <p className="text-2xl font-bold text-gray-900">{new Set(faqs.map(f => f.category).filter(Boolean)).size}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-          <div className="flex items-center">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Avg. Length</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {faqs.length > 0 ? Math.round(faqs.reduce((acc, faq) => acc + (faq.answer?.length || 0), 0) / faqs.length) : 0}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white shadow-sm rounded-lg p-6 border border-gray-200">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Search FAQs</label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+          {[
+            { icon: '✅', label: 'Published', val: faqs.filter(f => f.published).length },
+            { icon: '✏️', label: 'Drafts', val: faqs.filter(f => !f.published).length },
+            { icon: '🏷️', label: 'Categories', val: new Set(faqs.map(f => f.category).filter(Boolean)).size },
+            { icon: '📏', label: 'Avg. Length', val: faqs.length > 0 ? Math.round(faqs.reduce((acc, f) => acc + (f.answer?.length || 0), 0) / faqs.length) : 0 },
+          ].map(({ icon, label, val }) => (
+            <div key={label} className="ap-stat-card">
+              <div className="ap-stat-icon">{icon}</div>
+              <div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{val}</div>
+                <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>{label}</div>
               </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Filters */}
+        <div className="ap-card" style={{ padding: '20px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
+            <div style={{ flex: 2, minWidth: '200px' }}>
+              <label className="ap-lbl">Search FAQs</label>
               <input
                 type="text"
                 placeholder="Search by question, answer, or category..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
+                className="ap-inp"
               />
             </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-            >
-              <option value="all" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>All Status</option>
-              <option value="published" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>Published</option>
-              <option value="draft" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>Drafts</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Sort by</label>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-            >
-              <option value="order" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>Display Order</option>
-              <option value="date" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>Date Created</option>
-              <option value="question" style={{ color: '#1f2937', backgroundColor: '#ffffff' }}>Question A-Z</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">View</label>
-            <div className="flex border border-gray-300 rounded-lg">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-3 py-2 rounded-l-lg transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`px-3 py-2 rounded-r-lg transition-colors ${
-                  viewMode === 'grid' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
-              </button>
+            <div>
+              <label className="ap-lbl">Filter by Status</label>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="ap-sel">
+                <option value="all">All Status</option>
+                <option value="published">Published</option>
+                <option value="draft">Drafts</option>
+              </select>
+            </div>
+            <div>
+              <label className="ap-lbl">Sort by</label>
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="ap-sel">
+                <option value="order">Display Order</option>
+                <option value="date">Date Created</option>
+                <option value="question">Question A-Z</option>
+              </select>
+            </div>
+            <div>
+              <label className="ap-lbl">View</label>
+              <div style={{ display: 'flex' }}>
+                <button onClick={() => setViewMode('list')} className={`ap-vt-btn${viewMode === 'list' ? ' ap-vt-btn-active' : ''}`} title="List view">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                  </svg>
+                </button>
+                <button onClick={() => setViewMode('grid')} className={`ap-vt-btn${viewMode === 'grid' ? ' ap-vt-btn-active' : ''}`} title="Grid view">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Success Message */}
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-green-800">{success}</p>
-            </div>
-          </div>
+        {success && <div className="ap-ok">{success}</div>}
+        {error && <div className="ap-err">{error}</div>}
+
+        {/* Action bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '13px', color: 'var(--ink6)' }}>Showing {sortedFaqs.length} of {faqs.length} FAQs</span>
+          <button
+            onClick={() => { setFormData(prev => ({ ...prev, order: getNextOrder() })); setShowForm(true); }}
+            className="ap-btn-p"
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add New FAQ
+          </button>
         </div>
-      )}
 
-      {/* Error Message */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-800">{error}</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Action Bar */}
-      <div className="flex justify-between items-center">
-        <div className="text-sm text-gray-600">
-          Showing {sortedFaqs.length} of {faqs.length} FAQs
-        </div>
-        <button
-          onClick={() => {
-            setFormData(prev => ({ ...prev, order: getNextOrder() }));
-            setShowForm(true);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center space-x-2"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          <span>Add New FAQ</span>
-        </button>
-      </div>
-
-      {/* FAQ Modal Form */}
-      {showForm && (
-        <div 
-          className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              handleCancel();
-            }
-          }}
-        >
-          <div className="bg-white shadow-2xl rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-6 rounded-t-xl">
-              <div className="flex justify-between items-center">
+        {/* FAQ Modal Form */}
+        {showForm && (
+          <div className="ap-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) handleCancel(); }}>
+            <div className="ap-modal">
+              <div className="ap-modal-hdr">
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-900">
+                  <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--ink)', marginBottom: '4px' }}>
                     {editingId ? 'Edit FAQ' : 'Create New FAQ'}
                   </h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>
                     {editingId ? 'Update the FAQ information below' : 'Fill in the details to create a new FAQ'}
                   </p>
                 </div>
-                <button
-                  onClick={handleCancel}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-2 rounded-full transition-colors"
-                  title="Close modal"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <button onClick={handleCancel} className="ap-modal-close">
+                  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
-            </div>
-            
-            <div className="p-8">
-          
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Question *
-                </label>
-                <input
-                  type="text"
-                  name="question"
-                  value={formData.question}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-                  placeholder="Enter the FAQ question..."
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                </label>
-                <input
-                  type="text"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-                  placeholder="e.g., General, Billing, Technical"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Answer *
-              </label>
-              <textarea
-                name="answer"
-                value={formData.answer}
-                onChange={handleInputChange}
-                rows={8}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors resize-none"
-                style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-                placeholder="Provide a detailed answer..."
-                required
-              />
-              <p className="mt-2 text-sm text-gray-500">
-                {formData.answer.length} characters
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Display Order
-                </label>
-                <input
-                  type="number"
-                  name="order"
-                  value={formData.order}
-                  onChange={handleInputChange}
-                  min="0"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
-                  style={{ color: '#1f2937', backgroundColor: '#ffffff' }}
-                />
-                <p className="mt-1 text-sm text-gray-500">Lower numbers appear first</p>
-              </div>
-
-              <div className="flex items-center justify-center">
-                <label className="flex items-center space-x-3 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="published"
-                    checked={formData.published}
-                    onChange={handleInputChange}
-                    className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded transition-colors"
-                  />
+              <div className="ap-modal-body">
+                <form id="faq-form" onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
+                    <div>
+                      <label className="ap-lbl">Question *</label>
+                      <input type="text" name="question" value={formData.question} onChange={handleInputChange} className="ap-inp" placeholder="Enter the FAQ question..." required />
+                    </div>
+                    <div>
+                      <label className="ap-lbl">Category</label>
+                      <input type="text" name="category" value={formData.category} onChange={handleInputChange} className="ap-inp" placeholder="e.g., General, Billing, Technical" />
+                    </div>
+                  </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-700">Published</span>
-                    <p className="text-xs text-gray-500">Make this FAQ visible to users</p>
+                    <label className="ap-lbl">Answer *</label>
+                    <textarea name="answer" value={formData.answer} onChange={handleInputChange} rows={8} className="ap-textarea" placeholder="Provide a detailed answer..." required />
+                    <p style={{ fontSize: '11px', color: 'var(--ink3)', marginTop: '4px' }}>{formData.answer.length} characters</p>
                   </div>
-                </label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'center' }}>
+                    <div>
+                      <label className="ap-lbl">Display Order</label>
+                      <input type="number" name="order" value={formData.order} onChange={handleInputChange} min="0" className="ap-inp" />
+                      <p style={{ fontSize: '11px', color: 'var(--ink3)', marginTop: '4px' }}>Lower numbers appear first</p>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', paddingTop: '8px' }}>
+                      <label className="ap-chk">
+                        <input type="checkbox" name="published" checked={formData.published} onChange={handleInputChange} />
+                        <div>
+                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Published</div>
+                          <div style={{ fontSize: '11px', color: 'var(--ink3)' }}>Make this FAQ visible to users</div>
+                        </div>
+                      </label>
+                    </div>
+                  </div>
+                </form>
               </div>
-            </div>
-
-              <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={handleCancel}
-                  className="px-6 py-3 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center space-x-2"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              <div className="ap-modal-ftr">
+                <button type="button" onClick={handleCancel} className="ap-btn-s">Cancel</button>
+                <button type="submit" form="faq-form" className="ap-btn-p">
+                  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
-                  <span>{editingId ? 'Update FAQ' : 'Create FAQ'}</span>
+                  {editingId ? 'Update FAQ' : 'Create FAQ'}
                 </button>
               </div>
-            </form>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* FAQs List */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {sortedFaqs.map((faq, index) => (
-            <div key={faq._id} className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
-              <div className="p-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center mb-3">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 mr-2">
-                        #{faq.order || 0}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-sm font-medium ${
-                        faq.published 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {faq.published ? 'Published' : 'Draft'}
-                      </span>
-                      {faq.category && (
-                        <span className="inline-flex items-center px-2 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 ml-2">
-                          {faq.category}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3 line-clamp-2">{faq.question}</h3>
-                    <div className="prose prose-sm max-w-none">
-                      <p className="text-gray-600 whitespace-pre-wrap leading-relaxed line-clamp-4">{faq.answer}</p>
-                    </div>
-                  </div>
+        {/* FAQs */}
+        {viewMode === 'grid' ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+            {sortedFaqs.map((faq) => (
+              <div key={faq._id} className="ap-faq-card">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                  <span className="pill pill-t">#{faq.order || 0}</span>
+                  <span className={`pill ${faq.published ? 'pill-g' : 'pill-gr'}`}>{faq.published ? 'Published' : 'Draft'}</span>
+                  {faq.category && <span className="pill pill-y">{faq.category}</span>}
                 </div>
-                
-                <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(faq)}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                      title="Edit FAQ"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(faq._id)}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete FAQ"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{faq.question}</h3>
+                <p style={{ fontSize: '13px', color: 'var(--ink6)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', whiteSpace: 'pre-wrap' }}>{faq.answer}</p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--sandd)' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    <button onClick={() => handleEdit(faq)} className="ap-btn-edit-sm" title="Edit"><EditIcon /></button>
+                    <button onClick={() => handleDelete(faq._id)} className="ap-btn-danger-sm" title="Delete"><TrashIcon /></button>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {faq.answer?.length || 0} chars
-                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--ink3)' }}>{faq.answer?.length || 0} chars</span>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {sortedFaqs.map((faq, index) => (
-          <div key={faq._id} className="bg-white shadow-sm rounded-lg overflow-hidden border border-gray-200 hover:shadow-md transition-shadow">
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center mb-3">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 mr-3">
-                      #{faq.order || 0}
-                    </span>
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                      faq.published 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {faq.published ? 'Published' : 'Draft'}
-                    </span>
-                    {faq.category && (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800 ml-2">
-                        {faq.category}
-                      </span>
-                    )}
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{faq.question}</h3>
-                  <div className="prose prose-sm max-w-none">
-                    <p className="text-gray-600 whitespace-pre-wrap leading-relaxed">{faq.answer}</p>
-                  </div>
-                </div>
-                
-                <div className="flex space-x-2 ml-6">
-                  <button
-                    onClick={() => handleEdit(faq)}
-                    className="p-3 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    title="Edit FAQ"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(faq._id)}
-                    className="p-3 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    title="Delete FAQ"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center text-sm text-gray-500 pt-4 border-t border-gray-100">
-                <div className="flex space-x-4">
-                  <span>Created: {formatDate(faq.createdAt)}</span>
-                  {faq.updatedAt && faq.updatedAt !== faq.createdAt && (
-                    <span>Updated: {formatDate(faq.updatedAt)}</span>
-                  )}
-                </div>
-                <div className="text-gray-400">
-                  {faq.answer?.length || 0} characters
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
-        ))}
-        </div>
-      )}
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {sortedFaqs.map((faq) => (
+              <div key={faq._id} className="ap-faq-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                      <span className="pill pill-t">#{faq.order || 0}</span>
+                      <span className={`pill ${faq.published ? 'pill-g' : 'pill-gr'}`}>{faq.published ? 'Published' : 'Draft'}</span>
+                      {faq.category && <span className="pill pill-y">{faq.category}</span>}
+                    </div>
+                    <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px' }}>{faq.question}</h3>
+                    <p style={{ fontSize: '13px', color: 'var(--ink6)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{faq.answer}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                    <button onClick={() => handleEdit(faq)} className="ap-btn-edit-sm" title="Edit"><EditIcon /></button>
+                    <button onClick={() => handleDelete(faq._id)} className="ap-btn-danger-sm" title="Delete"><TrashIcon /></button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--sandd)', fontSize: '11px', color: 'var(--ink3)' }}>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <span>Created: {formatDate(faq.createdAt)}</span>
+                    {faq.updatedAt && faq.updatedAt !== faq.createdAt && <span>Updated: {formatDate(faq.updatedAt)}</span>}
+                  </div>
+                  <span>{faq.answer?.length || 0} characters</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-      {sortedFaqs.length === 0 && (
-        <div className="text-center py-16">
-          <div className="mx-auto w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
-            <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {sortedFaqs.length === 0 && (
+          <div style={{ textAlign: 'center', padding: '64px 24px' }}>
+            <svg style={{ width: '48px', height: '48px', margin: '0 auto 16px', display: 'block', color: 'var(--ink3)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '6px' }}>No FAQs found</h3>
+            <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '20px' }}>
+              {searchQuery || filterStatus !== 'all' ? 'Try adjusting your search or filters.' : 'Get started by creating your first FAQ.'}
+            </p>
+            {!searchQuery && filterStatus === 'all' && (
+              <button onClick={() => { setFormData(prev => ({ ...prev, order: getNextOrder() })); setShowForm(true); }} className="ap-btn-p">
+                Create Your First FAQ
+              </button>
+            )}
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No FAQs found</h3>
-          <p className="text-gray-500 mb-6">
-            {searchQuery || filterStatus !== 'all' 
-              ? 'Try adjusting your search or filter criteria.' 
-              : 'Get started by creating your first FAQ.'}
-          </p>
-          {!searchQuery && filterStatus === 'all' && (
-            <button
-              onClick={() => {
-                setFormData(prev => ({ ...prev, order: getNextOrder() }));
-                setShowForm(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-            >
-              Create Your First FAQ
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 };
 

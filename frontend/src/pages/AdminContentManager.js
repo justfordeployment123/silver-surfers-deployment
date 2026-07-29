@@ -6,6 +6,60 @@ import {
   adminListContact, adminUpdateContact, adminDeleteContact
 } from '../api';
 
+const STYLES = `
+.cm-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; padding-left: 16px; padding-right: 16px; background: var(--t9); color: #fff; }
+@media (min-width: 640px) { .cm-pg { padding-left: 40px; padding-right: 40px; } }
+.cm-inp { width: 100%; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 14px; outline: none; }
+.cm-inp::placeholder { color: rgba(255,255,255,0.45); }
+.cm-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px var(--t05); }
+.cm-sel { padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 14px; outline: none; }
+.cm-sel:focus { border-color: var(--t4); box-shadow: 0 0 0 2px var(--t05); }
+.cm-view-sel { appearance: none; width: 288px; font-size: 18px; font-weight: 600; padding: 16px 48px 16px 24px; border-radius: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.25); color: #fff; outline: none; box-shadow: 0 8px 32px rgba(0,0,0,0.2); letter-spacing: 0.04em; }
+@media (min-width: 768px) { .cm-view-sel { width: 384px; } }
+.cm-view-sel:focus { border-color: var(--t4); box-shadow: 0 0 0 3px var(--t05); }
+.cm-btn-add { padding: 10px 16px; border-radius: 16px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cm-btn-add:hover { background: var(--t8); }
+.cm-btn-clear { padding: 10px 16px; border-radius: 16px; background: rgba(255,255,255,0.1); color: #fff; font-weight: 700; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cm-btn-clear:hover { background: rgba(255,255,255,0.16); }
+.cm-btn-save { padding: 8px 16px; border-radius: 12px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; font-size: 14px; }
+.cm-btn-save:hover { background: var(--t8); }
+.cm-btn-cancel { padding: 8px 16px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; font-size: 14px; }
+.cm-btn-cancel:hover { background: rgba(255,255,255,0.16); }
+.cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-create:hover { background: var(--t8); }
+.cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-rerun:hover { background: var(--t4); }
+.cm-btn-refresh { padding: 8px 16px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-refresh:hover { background: var(--t4); }
+.cm-btn-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; cursor: pointer; }
+.cm-btn-icon:hover { background: rgba(255,255,255,0.16); }
+.cm-btn-del-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fca5a5; cursor: pointer; }
+.cm-btn-del-icon:hover { background: rgba(239,68,68,0.2); }
+.cm-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; border: 1px solid; }
+.cm-pill-pub { background: rgba(29,158,117,0.35); border-color: rgba(29,158,117,0.45); color: var(--t3); }
+.cm-pill-draft { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); }
+.cm-pill-feat { background: rgba(217,119,6,0.45); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
+.cm-pill-gray { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
+.cm-status-completed { background: rgba(29,158,117,0.45); }
+.cm-status-failed { background: rgba(239,68,68,0.5); }
+.cm-status-processing { background: rgba(56,189,248,0.35); }
+.cm-status-default { background: rgba(255,255,255,0.15); }
+.cm-card { border-radius: 24px; padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
+.cm-card:hover { border-color: rgba(29,158,117,0.35); }
+.cm-form-card { border-radius: 24px; padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.1); }
+.cm-queue { border-radius: 12px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); padding: 16px; border: 1px solid rgba(255,255,255,0.1); max-height: 36rem; overflow-y: auto; }
+.cm-queue-row { padding: 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
+.cm-queue-row:hover { border-color: rgba(29,158,117,0.4); }
+.cm-contact-row { padding: 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
+.cm-contact-row:hover { border-color: rgba(29,158,117,0.4); }
+.cm-btn-mark-read { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-mark-read:hover { background: var(--t4); }
+.cm-btn-close-msg { padding: 6px 12px; border-radius: 8px; background: rgba(56,189,248,0.35); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-close-msg:hover { background: rgba(56,189,248,0.55); }
+.cm-btn-del-msg { padding: 6px 12px; border-radius: 8px; background: rgba(239,68,68,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-del-msg:hover { background: rgba(239,68,68,0.7); }
+`;
+
 const AdminContentManager = () => {
   const [view, setView] = useState('blog'); // 'blog' | 'faqs' | 'analysis' | 'contact'
   const [user, setUser] = useState(null);
@@ -33,6 +87,7 @@ const AdminContentManager = () => {
   const [contact, setContact] = useState([]);
   const [contactStatus, setContactStatus] = useState('all');
   const [contactQuery, setContactQuery] = useState('');
+
   const loadContact = async () => {
     const params = {};
     if (contactStatus !== 'all') params.status = contactStatus;
@@ -90,7 +145,6 @@ const AdminContentManager = () => {
 
   useEffect(() => {
     if (view === 'analysis') {
-      // Refilter locally on query change without refetch
       loadAnalysis(analysisStatus);
     }
     if (view === 'contact') loadContact();
@@ -169,358 +223,379 @@ const AdminContentManager = () => {
     await loadFaqs();
   };
 
-  return (
-    <div className="min-h-screen pt-28 pb-20 px-4 md:px-10 bg-gradient-to-br from-gray-950 via-blue-950 to-green-950 text-white">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
-          <div>
-            <h1 className="heading-page font-bold tracking-tight bg-gradient-to-r from-blue-400 via-green-500 to-teal-400 text-transparent bg-clip-text">Content Administration</h1>
-            <p className="text-sm text-gray-300 mt-2">Manage blog posts & FAQs. Review analysis queue and re-run jobs.</p>
-          </div>
-        </div>
+  const statusClass = (s) => {
+    if (s === 'completed') return 'cm-status-completed';
+    if (s === 'failed') return 'cm-status-failed';
+    if (s === 'processing') return 'cm-status-processing';
+    return 'cm-status-default';
+  };
 
-        <div className='mb-10 flex justify-center'>
-          <div className='relative'>
-            <select
-              value={view}
-              onChange={e=> setView(e.target.value)}
-              className='appearance-none w-72 md:w-96 text-lg font-semibold px-6 py-4 pr-12 rounded-2xl bg-gray-900/70 backdrop-blur border border-white/25 hover:bg-gray-900/80 focus:outline-none focus:ring-4 ring-blue-500/40 shadow-xl text-white tracking-wide'
-            >
-              <option value='blog' className='text-gray-900'>Blog Posts</option>
-              <option value='faqs' className='text-gray-900'>FAQs</option>
-              <option value='analysis' className='text-gray-900'>Analysis Queue</option>
-              <option value='contact' className='text-gray-900'>Contact Messages</option>
-            </select>
-            <div className='pointer-events-none absolute inset-y-0 right-4 flex items-center text-blue-200'>
-              <svg className='w-5 h-5' viewBox='0 0 24 24' stroke='currentColor' fill='none' strokeWidth='2'><path strokeLinecap='round' strokeLinejoin='round' d='M6 9l6 6 6-6'/></svg>
+  return (
+    <>
+      <style>{STYLES}</style>
+      <div className="cm-pg">
+        <div style={{ maxWidth: '1280px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '40px' }}>
+            <div>
+              <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>Content Administration</h1>
+              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)' }}>Manage blog posts & FAQs. Review analysis queue and re-run jobs.</p>
             </div>
           </div>
-        </div>
-        {error && <p className="text-red-300 text-sm mb-6 text-center">{error}</p>}
 
-        {view==='blog' && (() => {
-          const items = (postQuery
-            ? blog.filter(b => (
-                (b.title||'').toLowerCase().includes(postQuery.toLowerCase()) ||
-                (b.slug||'').toLowerCase().includes(postQuery.toLowerCase()) ||
-                (b.excerpt||'').toLowerCase().includes(postQuery.toLowerCase()) ||
-                (b.content||'').toLowerCase().includes(postQuery.toLowerCase())
-              ))
-            : blog);
-          return (
-            <section className="space-y-6">
-              <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-xl font-semibold">Posts</h2>
-                <div className="flex gap-3 w-full md:w-auto">
-                  <div className="flex-1 md:w-96 relative">
-                    <input value={postQuery} onChange={e=> setPostQuery(e.target.value)} placeholder="Search posts..." className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white/10 border border-white/15 outline-none focus:ring-2 ring-blue-500/50 placeholder-blue-200/70" />
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-blue-200/70">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
-                    </span>
-                  </div>
-                  <button onClick={() => setShowCreate(s => !s)} className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-700/20 flex items-center gap-2">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14"/></svg>
-                    <span className="hidden sm:inline">Add</span>
-                  </button>
-                  <button onClick={() => { setPostQuery(''); setShowCreate(false); setEditingId(null); }} className="px-4 py-2.5 rounded-2xl bg-green-700/80 hover:bg-green-600 text-white font-semibold shadow flex items-center gap-2">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    <span className="hidden sm:inline">Clear</span>
-                  </button>
-                </div>
-              </header>
-
-              {showCreate && (
-                <div className="rounded-3xl p-5 bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
-                  <h3 className="font-semibold mb-3">Create Blog Post</h3>
-                  <form onSubmit={submitBlog} className="grid md:grid-cols-2 gap-4">
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 focus:ring-2 ring-blue-500/40" placeholder="Title" value={blogForm.title} onChange={e=>setBlogForm({...blogForm,title:e.target.value})} />
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 focus:ring-2 ring-blue-500/40" placeholder="Slug" value={blogForm.slug} onChange={e=>setBlogForm({...blogForm,slug:e.target.value.toLowerCase()})} />
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 md:col-span-2 focus:ring-2 ring-blue-500/40" placeholder="Excerpt" value={blogForm.excerpt} onChange={e=>setBlogForm({...blogForm,excerpt:e.target.value})} />
-                    <textarea rows={6} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 md:col-span-2 focus:ring-2 ring-blue-500/40" placeholder="Content" value={blogForm.content} onChange={e=>setBlogForm({...blogForm,content:e.target.value})} />
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Category" value={blogForm.category} onChange={e=>setBlogForm({...blogForm,category:e.target.value})} />
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Author" value={blogForm.author} onChange={e=>setBlogForm({...blogForm,author:e.target.value})} />
-                    <input type="date" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Date" value={blogForm.date} onChange={e=>setBlogForm({...blogForm,date:e.target.value})} />
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Read time (e.g., '6 min read')" value={blogForm.readTime} onChange={e=>setBlogForm({...blogForm,readTime:e.target.value})} />
-                    <div className="flex items-center gap-4 md:col-span-2">
-                      <label className="text-sm"><input type="checkbox" className="mr-2" checked={blogForm.featured} onChange={e=>setBlogForm({...blogForm,featured:e.target.checked})} /> Featured</label>
-                      <label className="text-sm"><input type="checkbox" className="mr-2" checked={blogForm.published} onChange={e=>setBlogForm({...blogForm,published:e.target.checked})} /> Published</label>
-                      <div className="ml-auto flex gap-3">
-                        <button type="button" onClick={()=> setShowCreate(false)} className="px-4 py-2 rounded-xl bg-white/10 border border-white/20">Close</button>
-                        <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 via-blue-600 to-green-500">Create</button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-              )}
-
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {items.map(b => (
-                  <div key={b._id} className="relative p-5 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-blue-400/30 transition shadow-lg">
-                    <div className="flex gap-4">
-                      <div className="min-w-0 flex-1">
-                        {editingId === b._id ? (
-                          <div className="space-y-2">
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Title" value={editForm.title} onChange={e=> setEditForm({...editForm, title: e.target.value})} />
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Slug" value={editForm.slug} onChange={e=> setEditForm({...editForm, slug: e.target.value.toLowerCase()})} />
-                            <textarea rows={3} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Excerpt" value={editForm.excerpt} onChange={e=> setEditForm({...editForm, excerpt: e.target.value})} />
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Category" value={editForm.category} onChange={e=> setEditForm({...editForm, category: e.target.value})} />
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Author" value={editForm.author} onChange={e=> setEditForm({...editForm, author: e.target.value})} />
-                            <input type="date" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Date" value={editForm.date} onChange={e=> setEditForm({...editForm, date: e.target.value})} />
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Read time (e.g., '6 min read')" value={editForm.readTime} onChange={e=> setEditForm({...editForm, readTime: e.target.value})} />
-                            <label className="text-sm block"><input type="checkbox" className="mr-2" checked={!!editForm.published} onChange={e=> setEditForm({...editForm, published: e.target.checked})} /> Published</label>
-                            <label className="text-sm block"><input type="checkbox" className="mr-2" checked={!!editForm.featured} onChange={e=> setEditForm({...editForm, featured: e.target.checked})} /> Featured</label>
-                            <div className="flex gap-3">
-                              <button onClick={() => saveEdit(b._id)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold">Save</button>
-                              <button onClick={cancelEdit} className="px-4 py-2 rounded-xl bg-white/10 border border-white/20">Cancel</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <h3 className="text-lg font-semibold leading-snug truncate" title={b.title}>{b.title}</h3>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-blue-200/90">
-                              <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10">{(b.slug||'').toUpperCase()}</span>
-                              <span className={`px-2 py-0.5 rounded-full border ${b.published? 'bg-blue-600/60 border-blue-500/40' : 'bg-gray-600/50 border-white/10'}`}>{b.published? 'PUBLISHED' : 'DRAFT'}</span>
-                              {b.featured && <span className="px-2 py-0.5 rounded-full bg-yellow-600/60 border border-yellow-500/40">FEATURED</span>}
-                              {b.createdAt && <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10">{formatDate(b.createdAt)}</span>}
-                            </div>
-                            {b.excerpt && <p className="mt-2 text-sm text-blue-100/90 line-clamp-3">{b.excerpt}</p>}
-                            <div className="mt-2 text-xs text-blue-200/80 flex flex-wrap gap-2">
-                              {b.category && <span className="px-2 py-0.5 rounded bg-white/10 border border-white/10">{b.category}</span>}
-                              {b.author && <span className="px-2 py-0.5 rounded bg-white/10 border border-white/10">By {b.author}</span>}
-                              {b.date && <span className="px-2 py-0.5 rounded bg-white/10 border border-white/10">{formatDate(b.date)}</span>}
-                              {b.readTime && <span className="px-2 py-0.5 rounded bg-white/10 border border-white/10">{b.readTime}</span>}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                      <div className="shrink-0 flex flex-col gap-2">
-                        {editingId === b._id ? null : (
-                          <>
-                            <button onClick={() => startEdit(b)} className="p-2 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15" title="Edit">
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487l3.651 3.651M4.5 19.5l4.2-.6 11.813-11.812a2.1 2.1 0 10-2.97-2.97L5.73 15.93l-.6 4.2z"/></svg>
-                            </button>
-                            <button onClick={() => { if (window.confirm('Delete this post?')) removeBlog(b._id); }} className="p-2 rounded-xl bg-white/10 border border-white/15 hover:bg-red-500/20 text-red-300" title="Delete">
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5h6v2m-8 0v12a2 2 0 002 2h4a2 2 0 002-2V7"/></svg>
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {items.length===0 && <div className="text-sm text-gray-300">No posts</div>}
+          <div style={{ marginBottom: '40px', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <select value={view} onChange={e => setView(e.target.value)} className="cm-view-sel">
+                <option value='blog' className='text-gray-900'>Blog Posts</option>
+                <option value='faqs' className='text-gray-900'>FAQs</option>
+                <option value='analysis' className='text-gray-900'>Analysis Queue</option>
+                <option value='contact' className='text-gray-900'>Contact Messages</option>
+              </select>
+              <div style={{ pointerEvents: 'none', position: 'absolute', inset: 0, right: '16px', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', color: 'var(--t3)' }}>
+                <svg style={{ width: '20px', height: '20px' }} viewBox='0 0 24 24' stroke='currentColor' fill='none' strokeWidth='2'><path strokeLinecap='round' strokeLinejoin='round' d='M6 9l6 6 6-6'/></svg>
               </div>
-            </section>
-          );
-        })()}
+            </div>
+          </div>
 
-        {view==='faqs' && (() => {
-          const items = (faqQuery
-            ? faqs.filter(f => (
-                (f.question||'').toLowerCase().includes(faqQuery.toLowerCase()) ||
-                (String(f.order)||'').toLowerCase().includes(faqQuery.toLowerCase()) ||
-                (f.answer||'').toLowerCase().includes(faqQuery.toLowerCase())
-              ))
-            : faqs);
-          return (
-            <section className="space-y-6">
-              <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-xl font-semibold">FAQs</h2>
-                <div className="flex gap-3 w-full md:w-auto">
-                  <div className="flex-1 md:w-96 relative">
-                    <input value={faqQuery} onChange={e=> setFaqQuery(e.target.value)} placeholder="Search FAQs..." className="w-full pl-9 pr-4 py-2.5 rounded-2xl bg-white/10 border border-white/15 outline-none focus:ring-2 ring-blue-500/50 placeholder-green-200/70" />
-                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-blue-200/70">
-                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
-                    </span>
+          {error && <p style={{ fontSize: '14px', color: '#fca5a5', marginBottom: '24px', textAlign: 'center' }}>{error}</p>}
+
+          {view === 'blog' && (() => {
+            const items = (postQuery
+              ? blog.filter(b => (
+                  (b.title||'').toLowerCase().includes(postQuery.toLowerCase()) ||
+                  (b.slug||'').toLowerCase().includes(postQuery.toLowerCase()) ||
+                  (b.excerpt||'').toLowerCase().includes(postQuery.toLowerCase()) ||
+                  (b.content||'').toLowerCase().includes(postQuery.toLowerCase())
+                ))
+              : blog);
+            return (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <header style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 700 }}>Posts</h2>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                      <input value={postQuery} onChange={e => setPostQuery(e.target.value)} placeholder="Search posts..." className="cm-inp" style={{ paddingLeft: '36px' }} />
+                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)' }}>
+                        <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
+                      </span>
+                    </div>
+                    <button onClick={() => setShowCreate(s => !s)} className="cm-btn-add">
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14"/></svg>
+                      <span>Add</span>
+                    </button>
+                    <button onClick={() => { setPostQuery(''); setShowCreate(false); setEditingId(null); }} className="cm-btn-clear">
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      <span>Clear</span>
+                    </button>
                   </div>
-                  <button onClick={() => setShowFaqCreate(s => !s)} className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-semibold shadow-lg shadow-blue-700/20 flex items-center gap-2">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14"/></svg>
-                    <span className="hidden sm:inline">Add</span>
-                  </button>
-                  <button onClick={() => { setFaqQuery(''); setShowFaqCreate(false); setFaqEditingId(null); }} className="px-4 py-2.5 rounded-2xl bg-green-700/80 hover:bg-green-600 text-white font-semibold shadow flex items-center gap-2">
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    <span className="hidden sm:inline">Clear</span>
-                  </button>
-                </div>
-              </header>
+                </header>
 
-              {showFaqCreate && (
-                <div className="rounded-3xl p-5 bg-gradient-to-br from-white/10 to-white/5 border border-white/10">
-                  <h3 className="font-semibold mb-3">Create FAQ</h3>
-                  <form onSubmit={submitFaq} className="grid md:grid-cols-2 gap-4">
-                    <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 md:col-span-2" placeholder="Question" value={faqForm.question} onChange={e=>setFaqForm({...faqForm,question:e.target.value})} />
-                    <input type="number" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Order" value={faqForm.order} onChange={e=>setFaqForm({...faqForm,order:e.target.value})} />
-                    <textarea rows={4} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20 md:col-span-2" placeholder="Answer" value={faqForm.answer} onChange={e=>setFaqForm({...faqForm,answer:e.target.value})} />
-                    <div className="flex items-center gap-4 md:col-span-2">
-                      <label className="text-sm"><input type="checkbox" className="mr-2" checked={faqForm.published} onChange={e=>setFaqForm({...faqForm,published:e.target.checked})} /> Published</label>
-                      <div className="ml-auto flex gap-3">
-                        <button type="button" onClick={()=> setShowFaqCreate(false)} className="px-4 py-2 rounded-xl bg-white/10 border border-white/20">Close</button>
-                        <button className="px-4 py-2 rounded-xl bg-gradient-to-r from-blue-500 via-blue-600 to-green-500">Create</button>
+                {showCreate && (
+                  <div className="cm-form-card">
+                    <h3 style={{ fontWeight: 700, marginBottom: '12px' }}>Create Blog Post</h3>
+                    <form onSubmit={submitBlog} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: '12px' }}>
+                      <input className="cm-inp" placeholder="Title" value={blogForm.title} onChange={e => setBlogForm({...blogForm, title: e.target.value})} />
+                      <input className="cm-inp" placeholder="Slug" value={blogForm.slug} onChange={e => setBlogForm({...blogForm, slug: e.target.value.toLowerCase()})} />
+                      <input className="cm-inp" placeholder="Excerpt" value={blogForm.excerpt} onChange={e => setBlogForm({...blogForm, excerpt: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                      <textarea rows={6} className="cm-inp" placeholder="Content" value={blogForm.content} onChange={e => setBlogForm({...blogForm, content: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                      <input className="cm-inp" placeholder="Category" value={blogForm.category} onChange={e => setBlogForm({...blogForm, category: e.target.value})} />
+                      <input className="cm-inp" placeholder="Author" value={blogForm.author} onChange={e => setBlogForm({...blogForm, author: e.target.value})} />
+                      <input type="date" className="cm-inp" value={blogForm.date} onChange={e => setBlogForm({...blogForm, date: e.target.value})} />
+                      <input className="cm-inp" placeholder="Read time (e.g., '6 min read')" value={blogForm.readTime} onChange={e => setBlogForm({...blogForm, readTime: e.target.value})} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={blogForm.featured} onChange={e => setBlogForm({...blogForm, featured: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Featured
+                        </label>
+                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={blogForm.published} onChange={e => setBlogForm({...blogForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
+                        </label>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
+                          <button type="button" onClick={() => setShowCreate(false)} className="cm-btn-cancel">Close</button>
+                          <button type="submit" className="cm-btn-create">Create</button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '20px' }}>
+                  {items.map(b => (
+                    <div key={b._id} className="cm-card">
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {editingId === b._id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <input className="cm-inp" placeholder="Title" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} />
+                              <input className="cm-inp" placeholder="Slug" value={editForm.slug} onChange={e => setEditForm({...editForm, slug: e.target.value.toLowerCase()})} />
+                              <textarea rows={3} className="cm-inp" placeholder="Excerpt" value={editForm.excerpt} onChange={e => setEditForm({...editForm, excerpt: e.target.value})} />
+                              <input className="cm-inp" placeholder="Category" value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})} />
+                              <input className="cm-inp" placeholder="Author" value={editForm.author} onChange={e => setEditForm({...editForm, author: e.target.value})} />
+                              <input type="date" className="cm-inp" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} />
+                              <input className="cm-inp" placeholder="Read time (e.g., '6 min read')" value={editForm.readTime} onChange={e => setEditForm({...editForm, readTime: e.target.value})} />
+                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={!!editForm.published} onChange={e => setEditForm({...editForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
+                              </label>
+                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={!!editForm.featured} onChange={e => setEditForm({...editForm, featured: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Featured
+                              </label>
+                              <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => saveEdit(b._id)} className="cm-btn-save">Save</button>
+                                <button onClick={cancelEdit} className="cm-btn-cancel">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.title}>{b.title}</h3>
+                              <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                <span className="cm-pill cm-pill-gray">{(b.slug||'').toUpperCase()}</span>
+                                <span className={`cm-pill ${b.published ? 'cm-pill-pub' : 'cm-pill-draft'}`}>{b.published ? 'PUBLISHED' : 'DRAFT'}</span>
+                                {b.featured && <span className="cm-pill cm-pill-feat">FEATURED</span>}
+                                {b.createdAt && <span className="cm-pill cm-pill-gray">{formatDate(b.createdAt)}</span>}
+                              </div>
+                              {b.excerpt && <p style={{ marginTop: '8px', fontSize: '14px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.excerpt}</p>}
+                              <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                {b.category && <span className="cm-pill cm-pill-gray">{b.category}</span>}
+                                {b.author && <span className="cm-pill cm-pill-gray">By {b.author}</span>}
+                                {b.date && <span className="cm-pill cm-pill-gray">{formatDate(b.date)}</span>}
+                                {b.readTime && <span className="cm-pill cm-pill-gray">{b.readTime}</span>}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {editingId === b._id ? null : (
+                            <>
+                              <button onClick={() => startEdit(b)} className="cm-btn-icon" title="Edit">
+                                <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487l3.651 3.651M4.5 19.5l4.2-.6 11.813-11.812a2.1 2.1 0 10-2.97-2.97L5.73 15.93l-.6 4.2z"/></svg>
+                              </button>
+                              <button onClick={() => { if (window.confirm('Delete this post?')) removeBlog(b._id); }} className="cm-btn-del-icon" title="Delete">
+                                <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5h6v2m-8 0v12a2 2 0 002 2h4a2 2 0 002-2V7"/></svg>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </form>
+                  ))}
+                  {items.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)' }}>No posts</div>}
                 </div>
-              )}
+              </section>
+            );
+          })()}
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {items.map(f => (
-                  <div key={f._id} className="relative p-5 rounded-3xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 hover:border-blue-400/30 transition shadow-lg">
-                    <div className="flex gap-4">
-                      <div className="min-w-0 flex-1">
-                        {faqEditingId === f._id ? (
-                          <div className="space-y-2">
-                            <input className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Question" value={faqEditForm.question} onChange={e=> setFaqEditForm({...faqEditForm, question: e.target.value})} />
-                            <input type="number" className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Order" value={faqEditForm.order} onChange={e=> setFaqEditForm({...faqEditForm, order: e.target.value})} />
-                            <textarea rows={3} className="w-full px-3 py-2 rounded-xl bg-white/10 border border-white/20" placeholder="Answer" value={faqEditForm.answer} onChange={e=> setFaqEditForm({...faqEditForm, answer: e.target.value})} />
-                            <label className="text-sm block"><input type="checkbox" className="mr-2" checked={!!faqEditForm.published} onChange={e=> setFaqEditForm({...faqEditForm, published: e.target.checked})} /> Published</label>
-                            <div className="flex gap-3">
-                              <button onClick={() => saveFaqEdit(f._id)} className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold">Save</button>
-                              <button onClick={cancelFaqEdit} className="px-4 py-2 rounded-xl bg-white/10 border border-white/20">Cancel</button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <h3 className="text-lg font-semibold leading-snug" title={f.question}>#{f.order} {f.question}</h3>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-blue-200/90">
-                              <span className={`px-2 py-0.5 rounded-full border ${f.published? 'bg-blue-600/60 border-blue-500/40' : 'bg-gray-600/50 border-white/10'}`}>{f.published? 'PUBLISHED' : 'DRAFT'}</span>
-                              {f.createdAt && <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/10">{formatDate(f.createdAt)}</span>}
-                            </div>
-                            {f.answer && <p className="mt-2 text-sm text-blue-100/90 line-clamp-3">{f.answer}</p>}
-                          </>
-                        )}
+          {view === 'faqs' && (() => {
+            const items = (faqQuery
+              ? faqs.filter(f => (
+                  (f.question||'').toLowerCase().includes(faqQuery.toLowerCase()) ||
+                  (String(f.order)||'').toLowerCase().includes(faqQuery.toLowerCase()) ||
+                  (f.answer||'').toLowerCase().includes(faqQuery.toLowerCase())
+                ))
+              : faqs);
+            return (
+              <section style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <header style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: 700 }}>FAQs</h2>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
+                      <input value={faqQuery} onChange={e => setFaqQuery(e.target.value)} placeholder="Search FAQs..." className="cm-inp" style={{ paddingLeft: '36px' }} />
+                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)' }}>
+                        <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
+                      </span>
+                    </div>
+                    <button onClick={() => setShowFaqCreate(s => !s)} className="cm-btn-add">
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14m-7-7h14"/></svg>
+                      <span>Add</span>
+                    </button>
+                    <button onClick={() => { setFaqQuery(''); setShowFaqCreate(false); setFaqEditingId(null); }} className="cm-btn-clear">
+                      <svg style={{ width: '20px', height: '20px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                      <span>Clear</span>
+                    </button>
+                  </div>
+                </header>
+
+                {showFaqCreate && (
+                  <div className="cm-form-card">
+                    <h3 style={{ fontWeight: 700, marginBottom: '12px' }}>Create FAQ</h3>
+                    <form onSubmit={submitFaq} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(300px,1fr))', gap: '12px' }}>
+                      <input className="cm-inp" placeholder="Question" value={faqForm.question} onChange={e => setFaqForm({...faqForm, question: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                      <input type="number" className="cm-inp" placeholder="Order" value={faqForm.order} onChange={e => setFaqForm({...faqForm, order: e.target.value})} />
+                      <textarea rows={4} className="cm-inp" placeholder="Answer" value={faqForm.answer} onChange={e => setFaqForm({...faqForm, answer: e.target.value})} style={{ gridColumn: '1 / -1' }} />
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', gridColumn: '1 / -1' }}>
+                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={faqForm.published} onChange={e => setFaqForm({...faqForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
+                        </label>
+                        <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
+                          <button type="button" onClick={() => setShowFaqCreate(false)} className="cm-btn-cancel">Close</button>
+                          <button type="submit" className="cm-btn-create">Create</button>
+                        </div>
                       </div>
-                      <div className="shrink-0 flex flex-col gap-2">
-                        {faqEditingId === f._id ? null : (
-                          <>
-                            <button onClick={() => startFaqEdit(f)} className="p-2 rounded-xl bg-white/10 border border-white/15 hover:bg-white/15" title="Edit">
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487l3.651 3.651M4.5 19.5l4.2-.6 11.813-11.812a2.1 2.1 0 10-2.97-2.97L5.73 15.93l-.6 4.2z"/></svg>
-                            </button>
-                            <button onClick={() => { if (window.confirm('Delete this FAQ?')) removeFaq(f._id); }} className="p-2 rounded-xl bg-white/10 border border-white/15 hover:bg-red-500/20 text-red-300" title="Delete">
-                              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5h6v2m-8 0v12a2 2 0 002 2h4a2 2 0 002-2V7"/></svg>
-                            </button>
-                          </>
-                        )}
+                    </form>
+                  </div>
+                )}
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '20px' }}>
+                  {items.map(f => (
+                    <div key={f._id} className="cm-card">
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {faqEditingId === f._id ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <input className="cm-inp" placeholder="Question" value={faqEditForm.question} onChange={e => setFaqEditForm({...faqEditForm, question: e.target.value})} />
+                              <input type="number" className="cm-inp" placeholder="Order" value={faqEditForm.order} onChange={e => setFaqEditForm({...faqEditForm, order: e.target.value})} />
+                              <textarea rows={3} className="cm-inp" placeholder="Answer" value={faqEditForm.answer} onChange={e => setFaqEditForm({...faqEditForm, answer: e.target.value})} />
+                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={!!faqEditForm.published} onChange={e => setFaqEditForm({...faqEditForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
+                              </label>
+                              <div style={{ display: 'flex', gap: '12px' }}>
+                                <button onClick={() => saveFaqEdit(f._id)} className="cm-btn-save">Save</button>
+                                <button onClick={cancelFaqEdit} className="cm-btn-cancel">Cancel</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <h3 style={{ fontSize: '18px', fontWeight: 700, lineHeight: 1.3 }} title={f.question}>#{f.order} {f.question}</h3>
+                              <div style={{ marginTop: '6px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                <span className={`cm-pill ${f.published ? 'cm-pill-pub' : 'cm-pill-draft'}`}>{f.published ? 'PUBLISHED' : 'DRAFT'}</span>
+                                {f.createdAt && <span className="cm-pill cm-pill-gray">{formatDate(f.createdAt)}</span>}
+                              </div>
+                              {f.answer && <p style={{ marginTop: '8px', fontSize: '14px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.answer}</p>}
+                            </>
+                          )}
+                        </div>
+                        <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          {faqEditingId === f._id ? null : (
+                            <>
+                              <button onClick={() => startFaqEdit(f)} className="cm-btn-icon" title="Edit">
+                                <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 3.487l3.651 3.651M4.5 19.5l4.2-.6 11.813-11.812a2.1 2.1 0 10-2.97-2.97L5.73 15.93l-.6 4.2z"/></svg>
+                              </button>
+                              <button onClick={() => { if (window.confirm('Delete this FAQ?')) removeFaq(f._id); }} className="cm-btn-del-icon" title="Delete">
+                                <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 7h12M9 7V5h6v2m-8 0v12a2 2 0 002 2h4a2 2 0 002-2V7"/></svg>
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-                {items.length===0 && <div className="text-sm text-gray-300">No FAQs</div>}
-              </div>
-            </section>
-          );
-        })()}
+                  ))}
+                  {items.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)' }}>No FAQs</div>}
+                </div>
+              </section>
+            );
+          })()}
 
-        {view==='analysis' && (
-          <section className='relative mb-14 -mt-4'>
-            <header className='flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between'>
-              <h2 className='text-xl font-semibold flex items-center gap-3'>
-                <span className='w-2 h-2 rounded-full bg-blue-400 animate-pulse'></span> Analysis Requests
-              </h2>
-              <div className='flex flex-col md:flex-row gap-3 w-full md:w-auto items-stretch md:items-center'>
-                <div className='flex gap-3 w-full'>
-                  <input value={analysisQuery} onChange={e=> setAnalysisQuery(e.target.value)} placeholder='Search (url, email, taskId)...' className='flex-1 md:w-80 px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-blue-500/50' />
-                  <select value={analysisStatus} onChange={e=> setAnalysisStatus(e.target.value)} className='px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-blue-500/50 text-white'>
+          {view === 'analysis' && (
+            <section style={{ marginBottom: '56px' }}>
+              <header style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--t4)', display: 'inline-block' }}></span>
+                  Analysis Requests
+                </h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                  <input value={analysisQuery} onChange={e => setAnalysisQuery(e.target.value)} placeholder='Search (url, email, taskId)...' className="cm-inp" style={{ flex: 1, minWidth: '200px' }} />
+                  <select value={analysisStatus} onChange={e => setAnalysisStatus(e.target.value)} className="cm-sel">
                     <option value='all' className='text-black'>All</option>
                     <option value='queued' className='text-black'>Queued</option>
                     <option value='processing' className='text-black'>Processing</option>
                     <option value='completed' className='text-black'>Completed</option>
                     <option value='failed' className='text-black'>Failed</option>
                   </select>
+                  <button onClick={() => loadAnalysis()} className="cm-btn-refresh">Refresh</button>
                 </div>
-                <button onClick={()=> loadAnalysis()} className='px-4 py-2 rounded-lg bg-blue-600/80 hover:bg-blue-500 text-xs font-semibold shadow'>Refresh</button>
+              </header>
+              {analysisError && <div style={{ fontSize: '14px', color: '#fca5a5', marginBottom: '8px' }}>{analysisError}</div>}
+              <div className="cm-queue">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {analysis.map(rec => {
+                    const computedStatus = (rec.status || '');
+                    return (
+                      <div key={rec._id || rec.taskId} className="cm-queue-row">
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                              <span style={{ fontWeight: 600, wordBreak: 'break-all' }}>{rec.url}</span>
+                              <span className="cm-pill cm-pill-gray">{rec.email}</span>
+                              <span className={`cm-pill ${statusClass(computedStatus)}`} style={{ border: 'none' }}>{(computedStatus||'').toUpperCase()}</span>
+                              <span className={`cm-pill ${statusClass(rec.emailStatus === 'sent' ? 'completed' : rec.emailStatus === 'failed' ? 'failed' : rec.emailStatus === 'sending' ? 'processing' : '')}`} style={{ border: 'none' }}>EMAIL {(rec.emailStatus||'').toUpperCase()}</span>
+                            </div>
+                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                              <span>Task: {rec.taskId}</span>
+                              <span>Created {rec.createdAt ? new Date(rec.createdAt).toLocaleString() : ''}</span>
+                              {typeof rec.attachmentCount === 'number' && <span>PDFs: {rec.attachmentCount}</span>}
+                              {rec.reportDirectory && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>Dir: {rec.reportDirectory}</span>}
+                            </div>
+                            {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '11px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
+                            {rec.emailError && <div style={{ marginTop: '4px', fontSize: '11px', color: '#fca5a5' }}>Email Error: {rec.emailError}</div>}
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+                            {rec.email && rec.url && (
+                              <button onClick={async () => {
+                                if (!window.confirm('Re-run this analysis now?')) return;
+                                const idOrTaskId = rec._id || rec.taskId;
+                                const resp = await adminRerunAnalysis(idOrTaskId);
+                                if (resp?.error) { alert(resp.error); }
+                                else { alert('Re-run queued for existing record'); loadAnalysis(); }
+                              }} className="cm-btn-rerun">Re-run</button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {analysis.length === 0 && !analysisLoading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No records.</div>}
+                  {analysisLoading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>Loading...</div>}
+                </div>
               </div>
-            </header>
-            {analysisError && <div className='text-sm text-red-300 mb-2'>{analysisError}</div>}
-            <div className='rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-4 border border-white/10 max-h-[36rem] overflow-y-auto space-y-4'>
-              {analysis.map(rec => {
-                const computedStatus = (rec.status || '');
-                return (
-                  <div key={rec._id || rec.taskId} className='p-4 rounded-lg bg-black/30 border border-white/10 hover:border-green-400/40 transition'>
-                    <div className='flex flex-wrap items-center justify-between gap-4'>
-                      <div className='min-w-0 flex-1'>
-                        <div className='flex flex-wrap gap-2 items-center mb-1'>
-                          <span className='font-medium break-all'>{rec.url}</span>
-                          <span className='text-xs px-2 py-0.5 rounded-full bg-white/10'>{rec.email}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${computedStatus==='completed'?'bg-blue-600/70': computedStatus==='failed'?'bg-red-600/70': computedStatus==='processing'?'bg-blue-600/70':'bg-gray-600/60'}`}>{(computedStatus||'').toUpperCase()}</span>
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full ${rec.emailStatus==='sent'?'bg-blue-600/60': rec.emailStatus==='failed'?'bg-red-600/60': rec.emailStatus==='sending'?'bg-blue-600/60':'bg-gray-600/50'}`}>EMAIL {(rec.emailStatus||'').toUpperCase()}</span>
-                        </div>
-                        <div className='text-[11px] text-gray-300 flex flex-wrap gap-4'>
-                          <span>Task: {rec.taskId}</span>
-                          <span>Created {rec.createdAt ? new Date(rec.createdAt).toLocaleString() : ''}</span>
-                          {typeof rec.attachmentCount==='number' && <span>PDFs: {rec.attachmentCount}</span>}
-                          {rec.reportDirectory && <span className='truncate max-w-xs'>Dir: {rec.reportDirectory}</span>}
-                        </div>
-                        {rec.failureReason && <div className='mt-1 text-[11px] text-red-300'>Reason: {rec.failureReason}</div>}
-                        {rec.emailError && <div className='mt-1 text-[11px] text-red-400'>Email Error: {rec.emailError}</div>}
-                      </div>
-                      <div className='flex flex-col gap-2 shrink-0'>
-                        {rec.email && rec.url && (
-                          <button onClick={async ()=>{
-                            if(!window.confirm('Re-run this analysis now?')) return;
-                            const idOrTaskId = rec._id || rec.taskId;
-                            const resp = await adminRerunAnalysis(idOrTaskId);
-                            if(resp?.error){ alert(resp.error); }
-                            else { alert('Re-run queued for existing record'); loadAnalysis(); }
-                          }} className='px-3 py-1.5 rounded bg-green-600/70 hover:bg-green-500 text-[11px] font-semibold'>Re-run</button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {analysis.length===0 && !analysisLoading && <div className='text-sm text-gray-400 italic'>No records.</div>}
-              {analysisLoading && <div className='text-sm text-gray-400 italic'>Loading...</div>}
-            </div>
-          </section>
-        )}
+            </section>
+          )}
 
-        {view==='contact' && (
-          <section className='relative mb-14 -mt-4'>
-            <header className='flex flex-col gap-4 mb-4 md:flex-row md:items-center md:justify-between'>
-              <h2 className='text-xl font-semibold flex items-center gap-3'>
-                <span className='w-2 h-2 rounded-full bg-green-400'></span> Contact Messages
-              </h2>
-              <div className='flex flex-col md:flex-row gap-3 w-full md:w-auto items-stretch md:items-center'>
-                <div className='flex gap-3 w-full'>
-                  <input value={contactQuery} onChange={e=> setContactQuery(e.target.value)} placeholder='Search (name, email, subject, message)...' className='flex-1 md:w-80 px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-green-500/50' />
-                  <select value={contactStatus} onChange={e=> setContactStatus(e.target.value)} className='px-3 py-2 rounded-lg bg-white/10 text-sm outline-none focus:ring-2 ring-green-500/50 text-white'>
+          {view === 'contact' && (
+            <section style={{ marginBottom: '56px' }}>
+              <header style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '16px' }}>
+                <h2 style={{ fontSize: '20px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--t3)', display: 'inline-block' }}></span>
+                  Contact Messages
+                </h2>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', alignItems: 'center' }}>
+                  <input value={contactQuery} onChange={e => setContactQuery(e.target.value)} placeholder='Search (name, email, subject, message)...' className="cm-inp" style={{ flex: 1, minWidth: '200px' }} />
+                  <select value={contactStatus} onChange={e => setContactStatus(e.target.value)} className="cm-sel">
                     <option value='all' className='text-black'>All</option>
                     <option value='new' className='text-black'>New</option>
                     <option value='read' className='text-black'>Read</option>
                     <option value='closed' className='text-black'>Closed</option>
                   </select>
+                  <button onClick={() => loadContact()} className="cm-btn-refresh">Refresh</button>
                 </div>
-                <button onClick={()=> loadContact()} className='px-4 py-2 rounded-lg bg-green-600/80 hover:bg-green-500 text-xs font-semibold shadow'>Refresh</button>
-              </div>
-            </header>
-            <div className='rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-4 border border-white/10 max-h-[36rem] overflow-y-auto space-y-4'>
-              {contact.map(msg => (
-                <div key={msg._id} className='p-4 rounded-lg bg-black/30 border border-white/10 hover:border-green-400/40 transition'>
-                  <div className='flex flex-wrap items-start justify-between gap-4'>
-                    <div className='min-w-0 flex-1'>
-                      <div className='flex flex-wrap gap-2 items-center mb-1'>
-                        <span className='font-medium break-all'>{msg.subject || 'No subject'}</span>
-                        <span className='text-xs px-2 py-0.5 rounded-full bg-white/10'>{msg.email || 'Anonymous'}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full ${msg.status==='new'?'bg-blue-600/70': msg.status==='read'?'bg-blue-600/70':'bg-gray-600/70'}`}>{(msg.status||'new').toUpperCase()}</span>
-                        {msg.createdAt && <span className='text-[10px] px-2 py-0.5 rounded-full bg-white/10'>{new Date(msg.createdAt).toLocaleString()}</span>}
+              </header>
+              <div className="cm-queue">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {contact.map(msg => (
+                    <div key={msg._id} className="cm-contact-row">
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: 600, wordBreak: 'break-all' }}>{msg.subject || 'No subject'}</span>
+                            <span className="cm-pill cm-pill-gray">{msg.email || 'Anonymous'}</span>
+                            <span className={`cm-pill ${statusClass(msg.status === 'new' ? 'processing' : msg.status === 'read' ? 'completed' : '')}`} style={{ border: 'none' }}>{(msg.status||'new').toUpperCase()}</span>
+                            {msg.createdAt && <span className="cm-pill cm-pill-gray">{new Date(msg.createdAt).toLocaleString()}</span>}
+                          </div>
+                          {msg.name && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginBottom: '4px' }}>From: {msg.name}</div>}
+                          <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.message}</div>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
+                          {msg.status !== 'read' && <button onClick={async () => { await adminUpdateContact(msg._id, { status: 'read' }); loadContact(); }} className="cm-btn-mark-read">Mark Read</button>}
+                          {msg.status !== 'closed' && <button onClick={async () => { await adminUpdateContact(msg._id, { status: 'closed' }); loadContact(); }} className="cm-btn-close-msg">Close</button>}
+                          <button onClick={async () => { if (!window.confirm('Delete this message?')) return; await adminDeleteContact(msg._id); loadContact(); }} className="cm-btn-del-msg">Delete</button>
+                        </div>
                       </div>
-                      {msg.name && <div className='text-xs text-gray-300 mb-1'>From: {msg.name}</div>}
-                      <div className='text-sm text-gray-200 whitespace-pre-wrap break-words'>{msg.message}</div>
                     </div>
-                    <div className='flex flex-col gap-2 shrink-0'>
-                      {msg.status !== 'read' && <button onClick={async ()=>{ await adminUpdateContact(msg._id, { status:'read' }); loadContact(); }} className='px-3 py-1.5 rounded bg-green-600/70 hover:bg-green-500 text-[11px] font-semibold'>Mark Read</button>}
-                      {msg.status !== 'closed' && <button onClick={async ()=>{ await adminUpdateContact(msg._id, { status:'closed' }); loadContact(); }} className='px-3 py-1.5 rounded bg-blue-600/70 hover:bg-green-500 text-[11px] font-semibold'>Close</button>}
-                      <button onClick={async ()=>{ if(!window.confirm('Delete this message?')) return; await adminDeleteContact(msg._id); loadContact(); }} className='px-3 py-1.5 rounded bg-red-600/70 hover:bg-red-500 text-[11px] font-semibold'>Delete</button>
-                    </div>
-                  </div>
+                  ))}
+                  {contact.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No messages.</div>}
                 </div>
-              ))}
-              {contact.length===0 && <div className='text-sm text-gray-400 italic'>No messages.</div>}
-            </div>
-          </section>
-        )}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

@@ -2,6 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { getMe } from '../api';
 
+const STYLES = `
+.adl-shell { min-height: 100vh; background: var(--sand); display: flex; }
+.adl-sidebar { width: 240px; flex-shrink: 0; background: var(--t9); display: flex; flex-direction: column; position: fixed; top: 0; bottom: 0; left: 0; z-index: 30; }
+.adl-main { flex: 1; padding-left: 240px; display: flex; flex-direction: column; min-height: 100vh; }
+.adl-brand { display: flex; align-items: center; gap: 12px; padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+.adl-brand-icon { width: 32px; height: 32px; border-radius: var(--r); background: var(--t4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.adl-brand-title { font-family: var(--ffd); font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
+.adl-brand-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+.adl-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
+.adl-nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border-radius: var(--r); border: none; cursor: pointer; font-family: var(--ff); font-size: 14px; font-weight: 500; text-align: left; transition: background .15s, color .15s; margin-bottom: 2px; }
+.adl-nav-btn-active { background: rgba(255,255,255,0.1); color: #fff; }
+.adl-nav-btn-inactive { background: transparent; color: rgba(255,255,255,0.6); }
+.adl-nav-btn-inactive:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+.adl-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 14px 16px; flex-shrink: 0; position: relative; }
+.adl-user-row { display: flex; align-items: center; gap: 10px; }
+.adl-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t4); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.adl-user-email { font-size: 13px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.adl-user-role { font-size: 11px; color: rgba(255,255,255,0.35); }
+.adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); cursor: pointer; flex-shrink: 0; }
+.adl-menu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
+.adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: #fff; border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
+.adl-dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; font-family: var(--ff); font-size: 13px; font-weight: 500; color: var(--ink6); background: none; border: none; cursor: pointer; text-align: left; transition: background .15s, color .15s; }
+.adl-dd-btn:hover { background: var(--t05); color: var(--t6); }
+.adl-dd-btn-danger:hover { background: var(--coralbg); color: var(--coral); }
+.adl-dd-div { border-top: 1px solid var(--sandd); }
+.adl-topbar { position: sticky; top: 0; z-index: 20; background: var(--sand); border-bottom: 1px solid var(--sandd); padding: 8px 16px; display: flex; align-items: center; }
+.adl-hamburger { width: 40px; height: 40px; border-radius: 8px; background: #fff; border: 1px solid var(--sandd); color: var(--ink6); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.adl-hamburger:hover { background: var(--sand); }
+.adl-content { flex: 1; max-width: 1280px; margin: 0 auto; width: 100%; padding: 32px 40px; }
+.adl-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 29; }
+.adl-mobile-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 240px; background: var(--t9); display: flex; flex-direction: column; z-index: 40; box-shadow: 4px 0 24px rgba(0,0,0,0.2); }
+.adl-loading { min-height: 100vh; background: var(--sand); display: flex; align-items: center; justify-content: center; }
+.adl-spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--t1); border-top-color: var(--t4); animation: adl-spin .7s linear infinite; }
+@keyframes adl-spin { to { transform: rotate(360deg); } }
+@media (min-width: 768px) { .adl-topbar { display: none; } }
+@media (max-width: 767px) { .adl-sidebar { display: none; } .adl-main { padding-left: 0; } .adl-content { padding: 24px 16px; } }
+`;
+
 const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -9,7 +47,6 @@ const AdminLayout = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check admin authentication
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -17,17 +54,14 @@ const AdminLayout = () => {
         if (result.user && result.user.role === 'admin') {
           setUser(result.user);
         } else {
-          // Redirect to admin login if not admin
           navigate('/admin/login');
         }
-      } catch (error) {
-        console.error('Auth check failed:', error);
+      } catch {
         navigate('/admin/login');
       } finally {
         setLoading(false);
       }
     };
-
     checkAuth();
   }, [navigate]);
 
@@ -39,130 +73,107 @@ const AdminLayout = () => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: '📊', current: location.pathname === '/admin/dashboard' || location.pathname === '/admin' },
-    { name: 'User Management', href: '/admin/users', icon: '👥', current: location.pathname === '/admin/users' },
-    { name: 'Blog Management', href: '/admin/blog', icon: '📝', current: location.pathname === '/admin/blog' },
-    { name: 'FAQ Management', href: '/admin/faqs', icon: '❓', current: location.pathname === '/admin/faqs' },
-    { name: 'Analysis Queue', href: '/admin/analysis', icon: '🔍', current: location.pathname === '/admin/analysis' },
-    { name: 'Bulk Quick Scans', href: '/admin/bulk-quick-scans', icon: '📦', current: location.pathname === '/admin/bulk-quick-scans' },
-    { name: 'Quick Scans', href: '/admin/quick-scans', icon: '⚡', current: location.pathname === '/admin/quick-scans' },
-    { name: 'Starter Scans', href: '/admin/starter-scans', icon: '🌟', current: location.pathname === '/admin/starter-scans' },
-    { name: 'Pro Scans', href: '/admin/pro-scans', icon: '💎', current: location.pathname === '/admin/pro-scans' },
-    { name: 'One-Time Scans', href: '/admin/onetime-scans', icon: '📦', current: location.pathname === '/admin/onetime-scans' },
-    { name: 'Contact Messages', href: '/admin/contact', icon: '📧', current: location.pathname === '/admin/contact' },
-    { name: 'Legal Documents', href: '/admin/legal', icon: '📋', current: location.pathname === '/admin/legal' },
-  ];
+    { name: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
+    { name: 'User Management', href: '/admin/users', icon: '👥' },
+    { name: 'Blog Management', href: '/admin/blog', icon: '📝' },
+    { name: 'FAQ Management', href: '/admin/faqs', icon: '❓' },
+    { name: 'Analysis Queue', href: '/admin/analysis', icon: '🔍' },
+    { name: 'Bulk Quick Scans', href: '/admin/bulk-quick-scans', icon: '📦' },
+    { name: 'Quick Scans', href: '/admin/quick-scans', icon: '⚡' },
+    { name: 'Starter Scans', href: '/admin/starter-scans', icon: '🌟' },
+    { name: 'Pro Scans', href: '/admin/pro-scans', icon: '💎' },
+    { name: 'One-Time Scans', href: '/admin/onetime-scans', icon: '📦' },
+    { name: 'Contact Messages', href: '/admin/contact', icon: '📧' },
+    { name: 'Legal Documents', href: '/admin/legal', icon: '📋' },
+  ].map(item => ({ ...item, current: location.pathname === item.href || (item.href === '/admin/dashboard' && (location.pathname === '/admin' || location.pathname === '/admin/')) }));
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Verifying admin access...</p>
+      <>
+        <style>{STYLES}</style>
+        <div className="adl-loading">
+          <div style={{ textAlign: 'center' }}>
+            <div className="adl-spinner" style={{ margin: '0 auto 16px' }}></div>
+            <p style={{ fontSize: '14px', color: 'var(--ink6)' }}>Verifying admin access…</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar overlay */}
+    <>
+      <style>{STYLES}</style>
+
+      {/* Mobile overlay */}
+      {sidebarOpen && <div className="adl-overlay" onClick={() => setSidebarOpen(false)} />}
+
+      {/* Mobile sidebar */}
       {sidebarOpen && (
-        <div className="fixed inset-0 flex z-40 md:hidden">
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)}></div>
-          <div className="relative flex-1 flex flex-col max-w-xs w-full bg-gray-800">
-            <div className="absolute top-0 right-0 -mr-12 pt-2">
-              <button
-                type="button"
-                className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
-                onClick={() => setSidebarOpen(false)}
-              >
-                <span className="sr-only">Close sidebar</span>
-                <svg className="h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
-              <SidebarContent navigation={navigation} />
-            </div>
-          </div>
+        <div className="adl-mobile-sidebar">
+          <SidebarContent navigation={navigation} onNavigate={() => setSidebarOpen(false)} />
+          <UserMenu user={user} onLogout={handleLogout} />
         </div>
       )}
 
-      {/* Static sidebar for desktop */}
-      <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-        <div className="flex-1 flex flex-col min-h-0 bg-gray-800">
-          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-            <SidebarContent navigation={navigation} />
-          </div>
+      <div className="adl-shell">
+        {/* Desktop sidebar */}
+        <aside className="adl-sidebar">
+          <SidebarContent navigation={navigation} />
           <UserMenu user={user} onLogout={handleLogout} />
-        </div>
-      </div>
+        </aside>
 
-      {/* Main content */}
-      <div className="md:pl-64 flex flex-col flex-1">
-        {/* Top bar */}
-        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-gray-100">
-          <button
-            type="button"
-            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <span className="sr-only">Open sidebar</span>
-            <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
-        </div>
+        <div className="adl-main">
+          {/* Mobile top bar */}
+          <div className="adl-topbar">
+            <button className="adl-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
+              <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
 
-        {/* Page content */}
-        <main className="flex-1">
-          <div className="py-6">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">
+          <main style={{ flex: 1 }}>
+            <div className="adl-content">
               <Outlet />
             </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
-// Sidebar Content Component
-const SidebarContent = ({ navigation }) => {
+const SidebarContent = ({ navigation, onNavigate }) => {
   const navigate = useNavigate();
+
+  const handleNav = (href) => {
+    navigate(href);
+    if (onNavigate) onNavigate();
+  };
 
   return (
     <>
-      <div className="flex items-center flex-shrink-0 px-4">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-              </svg>
-            </div>
-          </div>
-          <div className="ml-3">
-            <h1 className="text-lg font-semibold text-white">Admin Panel</h1>
-            <p className="text-xs text-gray-300">SilverSurfers</p>
-          </div>
+      <div className="adl-brand">
+        <div className="adl-brand-icon">
+          <svg width="18" height="18" fill="none" stroke="#fff" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+        </div>
+        <div>
+          <div className="adl-brand-title">Admin Panel</div>
+          <div className="adl-brand-sub">SilverSurfers</div>
         </div>
       </div>
-      
-      <nav className="mt-8 flex-1 px-2 space-y-1">
+
+      <nav className="adl-nav">
         {navigation.map((item) => (
           <button
             key={item.name}
-            onClick={() => navigate(item.href)}
-            className={`${
-              item.current
-                ? 'bg-gray-900 text-white'
-                : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-            } group flex items-center px-2 py-2 text-sm font-medium rounded-md w-full text-left transition-colors`}
+            onClick={() => handleNav(item.href)}
+            className={`adl-nav-btn ${item.current ? 'adl-nav-btn-active' : 'adl-nav-btn-inactive'}`}
           >
-            <span className="mr-3 text-lg">{item.icon}</span>
+            <span style={{ fontSize: '16px', lineHeight: 1 }}>{item.icon}</span>
             {item.name}
           </button>
         ))}
@@ -171,90 +182,51 @@ const SidebarContent = ({ navigation }) => {
   );
 };
 
-// User Menu Component
 const UserMenu = ({ user, onLogout }) => {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const handleSwitchToWebsite = () => {
-    navigate('/');
-    setIsMenuOpen(false);
-  };
-
-  const handleLogout = () => {
-    onLogout();
-    setIsMenuOpen(false);
-  };
-
-  // Close menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (isMenuOpen && !event.target.closest('.user-menu-container')) {
-        setIsMenuOpen(false);
-      }
+    if (!isMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.adl-user')) setIsMenuOpen(false);
     };
-
-    if (isMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isMenuOpen]);
 
   return (
-    <div className="flex-shrink-0 flex border-t border-gray-700 p-4 user-menu-container">
-      <div className="flex items-center w-full">
-        <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-gray-600 rounded-full flex items-center justify-center">
-            <span className="text-sm font-medium text-white">
-              {user?.email?.charAt(0).toUpperCase() || 'A'}
-            </span>
-          </div>
+    <div className="adl-user">
+      <div className="adl-user-row">
+        <div className="adl-avatar">{user?.email?.charAt(0).toUpperCase() || 'A'}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="adl-user-email">{user?.email || 'Admin'}</div>
+          <div className="adl-user-role">Administrator</div>
         </div>
-        <div className="ml-3 flex-1">
-          <p className="text-sm font-medium text-white truncate">{user?.email || 'Admin'}</p>
-          <p className="text-xs text-gray-300">Administrator</p>
-        </div>
-        <div className="relative">
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="p-2 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white rounded-lg transition-all duration-200 border border-gray-600 hover:border-gray-500"
-            title="Admin Menu"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
-            </svg>
-          </button>
-          
-          {isMenuOpen && (
-            <div className="absolute bottom-full right-0 mb-2 w-52 bg-white rounded-lg shadow-xl border border-gray-200 z-50 overflow-hidden">
-              <div className="py-2">
-                <button
-                  onClick={handleSwitchToWebsite}
-                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-all duration-150"
-                >
-                  <svg className="w-4 h-4 mr-3 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                  Switch to Website
-                </button>
-                <div className="border-t border-gray-100 my-1"></div>
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center w-full px-4 py-3 text-sm text-gray-700 hover:bg-red-50 hover:text-red-700 transition-all duration-150"
-                >
-                  <svg className="w-4 h-4 mr-3 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Logout
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <button className="adl-menu-btn" onClick={() => setIsMenuOpen(!isMenuOpen)} title="Admin menu">
+          <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z" />
+          </svg>
+        </button>
       </div>
+
+      {isMenuOpen && (
+        <div className="adl-dropdown">
+          <button className="adl-dd-btn" onClick={() => { navigate('/'); setIsMenuOpen(false); }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Switch to Website
+          </button>
+          <div className="adl-dd-div" />
+          <button className="adl-dd-btn adl-dd-btn-danger" onClick={() => { onLogout(); setIsMenuOpen(false); }}>
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Logout
+          </button>
+        </div>
+      )}
     </div>
   );
 };

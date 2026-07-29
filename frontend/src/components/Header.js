@@ -5,430 +5,577 @@ import SearchBar from './SearchBar';
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isScrolled, setIsScrolled] = useState(false);
-  const [user, setUser] = useState(null);
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const userMenuRef = useRef(null);
+  const [isScrolled, setIsScrolled]             = useState(false);
+  const [user, setUser]                         = useState(null);
+  const [isUserMenuOpen, setIsUserMenuOpen]     = useState(false);
+  const [isSearchOpen, setIsSearchOpen]         = useState(false);
+  const userMenuRef        = useRef(null);
   const desktopUserMenuRef = useRef(null);
-  const location = useLocation();
-  const navigate = useNavigate();
-
+  const location  = useLocation();
+  const navigate  = useNavigate();
 
   useEffect(() => {
-    const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setIsScrolled(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
-    // Load current user from token
     (async () => {
       const res = await getMe();
-      if (res && res.user) setUser(res.user);
-      else setUser(null);
+      setUser(res?.user ?? null);
     })();
   }, [location.pathname]);
 
-  // Close user menu on outside click or route change
   useEffect(() => {
     const onDocClick = (e) => {
       if (!isUserMenuOpen) return;
-      const isClickOutsideDesktop = desktopUserMenuRef.current && !desktopUserMenuRef.current.contains(e.target);
-      const isClickOutsideMobile = userMenuRef.current && !userMenuRef.current.contains(e.target);
-      if (isClickOutsideDesktop && isClickOutsideMobile) {
-        setIsUserMenuOpen(false);
-      }
+      const outsideDesktop = desktopUserMenuRef.current && !desktopUserMenuRef.current.contains(e.target);
+      const outsideMobile  = userMenuRef.current        && !userMenuRef.current.contains(e.target);
+      if (outsideDesktop && outsideMobile) setIsUserMenuOpen(false);
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [isUserMenuOpen]);
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+  const handleLogout    = () => { apiLogout(); setUser(null); navigate('/', { replace: true }); };
+  const isActive        = (path) => location.pathname === path;
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
-
-  const handleLogout = () => {
-    apiLogout();
-    setUser(null);
-    navigate('/', { replace: true });
-  };
-
-  const isActive = (path) => {
-    return location.pathname === path;
-  };
+  const navLinks = [
+    { to: '/',         label: 'Home'     },
+    { to: '/services', label: 'Services & Pricing' },
+    { to: '/about',    label: 'About'    },
+    { to: '/contact',  label: 'Contact'  },
+    { to: '/faq',      label: 'FAQ'      },
+    { to: '/blog',     label: 'Blog'     },
+  ];
 
   return (
-    <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-      isScrolled
-        ? 'bg-white/95 backdrop-blur-xl shadow-lg border-b border-purple-100' 
-        : 'bg-white/10 backdrop-blur-xl border-b border-white/20'
-    }`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
-        {/* Logo */}
-        <Link to="/" className="flex items-center space-x-3 group" onClick={closeMobileMenu}>
-          <div className="relative">
-            <div className="w-12 h-12 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-300 overflow-hidden">
-              <img 
-                src="/Logo.png" 
-                alt="Silver Surfers Logo" 
-                className="w-full h-full object-contain"
-              />
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <span
-              className={`text-xl transition-colors duration-300 ${
-                isScrolled ? 'text-gray-900' : 'text-white'
-              }`}
-            >
-              <span className="font-light">Silver</span>
-              <span className="font-bold">Surfers</span>
-            </span>
-            <div className="h-0.5 w-full bg-gradient-to-r from-blue-400 via-green-500 to-teal-500 rounded-full"></div>
-            <span
-              className={`text-xs font-medium transition-colors duration-300 mt-1 ${
-                isScrolled ? 'text-gray-500' : 'text-gray-300'
-              }`}
-            >
-              Beta version
-            </span>
-          </div>
-        </Link>
+    <>
+      <style>{`
+        /* ── Nav shell ─────────────────────────────────── */
+        .ss-nav {
+          position: fixed;
+          top: 0; left: 0; right: 0;
+          z-index: 1000;
+          background: rgba(255,255,255,0.97);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          border-bottom: 1px solid var(--sandd);
+          height: 64px;
+          display: flex;
+          align-items: center;
+          transition: box-shadow 0.2s;
+        }
+        .ss-nav.scrolled {
+          box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+        }
 
+        .ss-nav-inner {
+          max-width: 1140px;
+          margin: 0 auto;
+          padding: 0 40px;
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 24px;
+        }
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-8">
-            <Link 
-              to="/" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/services" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/services') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              Services
-            </Link>
-            <Link 
-              to="/about" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/about') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              About
-            </Link>
-            <Link 
-              to="/contact" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/contact') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              Contact
-            </Link>
+        /* ── Logo ──────────────────────────────────────── */
+        .ss-logo {
+          font-family: var(--ffd);
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--t8);
+          letter-spacing: -0.02em;
+          text-decoration: none;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        .ss-logo span { color: var(--t4); }
+
+        /* ── Desktop links ─────────────────────────────── */
+        .ss-nav-links {
+          display: flex;
+          gap: 28px;
+          list-style: none;
+          align-items: center;
+        }
+        .ss-nav-link {
+          font-size: 13.5px;
+          font-weight: 500;
+          color: var(--ink6);
+          cursor: pointer;
+          padding: 4px 0;
+          border-bottom: 2px solid transparent;
+          transition: color 0.15s, border-color 0.15s;
+          white-space: nowrap;
+          text-decoration: none;
+        }
+        .ss-nav-link:hover,
+        .ss-nav-link.active {
+          color: var(--t6);
+          border-bottom-color: var(--t4);
+        }
+
+        /* ── CTA button ────────────────────────────────── */
+        .ss-nav-cta {
+          background: var(--t8);
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          padding: 10px 20px;
+          border-radius: var(--r);
+          cursor: pointer;
+          border: none;
+          white-space: nowrap;
+          transition: background 0.15s;
+          text-decoration: none;
+          display: inline-block;
+          flex-shrink: 0;
+        }
+        .ss-nav-cta:hover { background: var(--t6); color: #fff; }
+
+        /* ── Right cluster ─────────────────────────────── */
+        .ss-nav-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          flex-shrink: 0;
+        }
+
+        /* ── Avatar / user menu ────────────────────────── */
+        .ss-avatar-btn {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+          padding: 5px 8px 5px 5px;
+          border-radius: 20px;
+          border: 1px solid var(--sandd);
+          background: #fff;
+          cursor: pointer;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .ss-avatar-btn:hover {
+          border-color: var(--t4);
+          background: var(--t05);
+        }
+
+        .ss-avatar-circle {
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: var(--t4);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-family: var(--ff);
+          font-size: 12px;
+          font-weight: 600;
+        }
+
+        .ss-avatar-chevron {
+          width: 14px;
+          height: 14px;
+          color: var(--ink3);
+        }
+
+        .ss-dropdown {
+          position: absolute;
+          top: calc(100% + 8px);
+          right: 0;
+          min-width: 200px;
+          background: #fff;
+          border: 1px solid var(--sandd);
+          border-radius: var(--rl);
+          box-shadow: 0 8px 32px rgba(8,80,65,0.09);
+          z-index: 100;
+          overflow: hidden;
+        }
+
+        .ss-dropdown-email {
+          padding: 10px 16px;
+          font-size: 12px;
+          color: var(--ink3);
+          border-bottom: 1px solid var(--sandd);
+        }
+
+        .ss-dropdown-item {
+          display: block;
+          padding: 10px 16px;
+          font-size: 13.5px;
+          color: var(--ink6);
+          text-decoration: none;
+          transition: background 0.12s, color 0.12s;
+          width: 100%;
+          text-align: left;
+          background: none;
+          border: none;
+          cursor: pointer;
+          font-family: var(--ff);
+        }
+        .ss-dropdown-item:hover {
+          background: var(--t05);
+          color: var(--t8);
+        }
+        .ss-dropdown-item--danger { color: var(--coral); }
+        .ss-dropdown-item--danger:hover { background: var(--coralbg); color: var(--coral); }
+        .ss-dropdown-item--highlight {
+          background: var(--t8);
+          color: #fff;
+        }
+        .ss-dropdown-item--highlight:hover {
+          background: var(--t6);
+          color: #fff;
+        }
+
+        /* ── Hamburger ─────────────────────────────────── */
+        .ss-hamburger {
+          display: none;
+          flex-direction: column;
+          justify-content: center;
+          gap: 5px;
+          width: 36px;
+          height: 36px;
+          padding: 4px;
+          cursor: pointer;
+          background: none;
+          border: none;
+          border-radius: var(--r);
+          transition: background 0.15s;
+        }
+        .ss-hamburger:hover { background: var(--sand); }
+        .ss-hamburger-bar {
+          width: 100%;
+          height: 2px;
+          background: var(--ink);
+          border-radius: 2px;
+          transition: transform 0.25s, opacity 0.25s;
+        }
+        .ss-hamburger[aria-expanded="true"] .bar1 { transform: rotate(45deg) translateY(7px); }
+        .ss-hamburger[aria-expanded="true"] .bar2 { opacity: 0; }
+        .ss-hamburger[aria-expanded="true"] .bar3 { transform: rotate(-45deg) translateY(-7px); }
+
+        /* ── Mobile drawer ─────────────────────────────── */
+        .ss-mobile-nav {
+          position: fixed;
+          top: 64px;
+          left: 0; right: 0;
+          background: #fff;
+          border-bottom: 1px solid var(--sandd);
+          box-shadow: 0 8px 24px rgba(8,80,65,0.08);
+          overflow: hidden;
+          max-height: 0;
+          transition: max-height 0.3s ease;
+          z-index: 999;
+        }
+        .ss-mobile-nav.open { max-height: 90vh; overflow-y: auto; }
+
+        .ss-mobile-nav-inner {
+          padding: 16px 24px 28px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .ss-mobile-link {
+          display: block;
+          padding: 11px 14px;
+          font-size: 15px;
+          font-weight: 500;
+          color: var(--ink6);
+          border-radius: var(--r);
+          text-decoration: none;
+          transition: background 0.12s, color 0.12s;
+        }
+        .ss-mobile-link:hover  { background: var(--sand); color: var(--ink); }
+        .ss-mobile-link.active { background: var(--t05); color: var(--t6); font-weight: 600; }
+
+        .ss-mobile-divider {
+          border: none;
+          border-top: 1px solid var(--sandd);
+          margin: 10px 0;
+        }
+
+        .ss-mobile-search { padding: 0 0 8px; }
+
+        /* ── Desktop hidden at ≤1024px ─────────────────── */
+        @media (max-width: 1024px) {
+          .ss-nav-links        { display: none; }
+          .ss-nav-cta          { display: none; }
+          .ss-search-desktop   { display: none; }
+          .ss-hamburger        { display: flex; }
+        }
+        @media (max-width: 1200px) {
+          .ss-nav-inner { padding: 0 24px; }
+        }
+      `}</style>
+
+      {/* ── Fixed navbar ───────────────────────────────── */}
+      <header className={`ss-nav${isScrolled ? ' scrolled' : ''}`} role="banner">
+        <div className="ss-nav-inner">
+
+          {/* Logo */}
+          <Link to="/" className="ss-logo" onClick={closeMobileMenu}>
+            SilverSurfers<span>.ai</span>
+          </Link>
+
+          {/* Desktop links */}
+          <ul className="ss-nav-links" role="navigation" aria-label="Main navigation">
+            {navLinks.map(({ to, label }) => (
+              <li key={to}>
+                <Link
+                  to={to}
+                  className={`ss-nav-link${isActive(to) ? ' active' : ''}`}
+                >
+                  {label}
+                </Link>
+              </li>
+            ))}
             {user && (
-              <Link 
-                to="/subscription" 
-                className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                  isActive('/subscription') 
-                    ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                    : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-                }`}
-              >
-                Subscription
-              </Link>
+              <li>
+                <Link
+                  to="/subscription"
+                  className={`ss-nav-link${isActive('/subscription') ? ' active' : ''}`}
+                >
+                  Subscription
+                </Link>
+              </li>
             )}
-            <Link 
-              to="/faq" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/faq') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              FAQ
-            </Link>
-            <Link 
-              to="/blog" 
-              className={`nav-link transition-colors duration-300 font-medium hover:scale-105 transform transition-transform ${
-                isActive('/blog') 
-                  ? (isScrolled ? 'text-green-600' : 'text-white font-semibold') 
-                  : (isScrolled ? 'text-gray-700 hover:text-green-600' : 'text-gray-200 hover:text-white')
-              }`}
-            >
-              Blog
-            </Link>
-          </nav>
+          </ul>
 
-          {/* Search Bar & Header CTA Container */}
-          <div className="hidden lg:flex items-center gap-4 relative">
-            <SearchBar isScrolled={isScrolled} onSearchOpenChange={setIsSearchOpen} />
+          {/* Right cluster */}
+          <div className="ss-nav-right">
+            {/* Search — desktop only */}
+            <div className="ss-search-desktop">
+              <SearchBar isScrolled={isScrolled} onSearchOpenChange={setIsSearchOpen} />
+            </div>
 
-            {/* Header CTA (Desktop) - Hidden when search is open */}
+            {/* CTA */}
             {!isSearchOpen && (
-              <Link 
-                to="/services" 
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 via-green-600 to-teal-500 hover:from-blue-600 hover:via-green-700 hover:to-teal-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-              >
+              <Link to="/services" className="ss-nav-cta">
                 Get Your Audit
               </Link>
             )}
-            <div className="relative" ref={desktopUserMenuRef}>
-              <button
-                onClick={() => setIsUserMenuOpen((s) => !s)}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-full border transition ${isScrolled ? 'border-gray-300 hover:bg-gray-100' : 'border-white/30 hover:bg-white/10'} `}
-                aria-haspopup="menu"
-                aria-expanded={isUserMenuOpen}
-              >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 via-green-600 to-teal-500 text-white flex items-center justify-center font-semibold">
-                  {user?.email ? user.email.charAt(0).toUpperCase() : (
-                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A4 4 0 018 16h8a4 4 0 012.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  )}
-                </div>
-                <svg className={`w-4 h-4 ${isScrolled ? 'text-gray-800' : 'text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6"/></svg>
-              </button>
-              {isUserMenuOpen && (
-                <div role="menu" className={`absolute right-0 mt-2 w-56 rounded-xl overflow-hidden shadow-xl z-50 ${isScrolled ? 'bg-white border border-gray-200' : 'bg-gray-900/95 border border-white/10'} backdrop-blur`}> 
-                  {user ? (
-                    <div className="py-1">
-                      <div className={`px-4 py-2 text-xs ${isScrolled ? 'text-gray-600' : 'text-gray-300'}`}>{user.email}</div>
-                      {user.role === 'admin' && (
-                        <Link to="/admin/dashboard" onClick={() => setIsUserMenuOpen(false)} className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}>Switch to Admin Dashboard</Link>
-                      )}
-                      <Link to="/account" onClick={() => setIsUserMenuOpen(false)} className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}>Account</Link>
-                      <button onClick={() => { setIsUserMenuOpen(false); handleLogout(); }} className={`w-full text-left px-4 py-2 text-sm ${isScrolled ? 'text-red-600 hover:bg-red-50' : 'text-red-400 hover:bg-red-500/10'}`}>Logout</button>
-                    </div>
-                  ) : (
-                    <div className="py-1">
-                      <Link 
-                        to="/login" 
-                        onClick={() => {
-                          const currentPath = window.location.pathname + window.location.search + window.location.hash;
-                          if (currentPath && currentPath !== '/' && !currentPath.includes('/login')) {
-                            localStorage.setItem('lastRoute', currentPath);
-                          }
-                          setIsUserMenuOpen(false);
-                        }} 
-                        className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}
-                      >
-                        Login
-                      </Link>
-                      <Link to="/signup" onClick={() => setIsUserMenuOpen(false)} className="block px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 via-green-600 to-teal-500 hover:from-blue-600 hover:via-green-700 hover:to-teal-600 rounded-none">Get Started</Link>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Mobile quick actions */}
-          <div className="flex lg:hidden items-center gap-2">
-            {/* Mobile Login/User Button */}
-            <div className="relative" ref={userMenuRef}>
+            {/* User avatar / dropdown */}
+            <div style={{ position: 'relative' }} ref={desktopUserMenuRef}>
               <button
+                className="ss-avatar-btn"
                 onClick={() => setIsUserMenuOpen((s) => !s)}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-full border transition ${isScrolled ? 'border-gray-300 hover:bg-gray-100' : 'border-white/30 hover:bg-white/10'} `}
-                aria-haspopup="menu"
+                aria-haspopup="true"
                 aria-expanded={isUserMenuOpen}
+                aria-label="User menu"
               >
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-500 via-green-600 to-teal-500 text-white flex items-center justify-center font-semibold text-xs">
-                  {user?.email ? user.email.charAt(0).toUpperCase() : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A4 4 0 018 16h8a4 4 0 012.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                  )}
+                <div className="ss-avatar-circle">
+                  {user?.email
+                    ? user.email.charAt(0).toUpperCase()
+                    : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.121 17.804A4 4 0 018 16h8a4 4 0 012.879 1.804M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+                      </svg>
+                    )
+                  }
                 </div>
-                <svg className={`w-3 h-3 ${isScrolled ? 'text-gray-800' : 'text-white'}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6"/></svg>
+                <svg className="ss-avatar-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6"/>
+                </svg>
               </button>
+
               {isUserMenuOpen && (
-                <div role="menu" className={`absolute right-0 mt-2 w-48 rounded-xl overflow-hidden shadow-xl z-50 ${isScrolled ? 'bg-white border border-gray-200' : 'bg-gray-900/95 border border-white/10'} backdrop-blur`}> 
+                <div className="ss-dropdown" role="menu">
                   {user ? (
-                    <div className="py-1">
-                      <div className={`px-4 py-2 text-xs ${isScrolled ? 'text-gray-600' : 'text-gray-300'}`}>{user.email}</div>
+                    <>
+                      <div className="ss-dropdown-email">{user.email}</div>
                       {user.role === 'admin' && (
-                        <Link to="/admin/dashboard" onClick={() => setIsUserMenuOpen(false)} className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}>Switch to Admin Dashboard</Link>
+                        <Link
+                          to="/admin/dashboard"
+                          className="ss-dropdown-item"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          role="menuitem"
+                        >
+                          Admin Dashboard
+                        </Link>
                       )}
-                      <Link to="/account" onClick={() => setIsUserMenuOpen(false)} className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}>Account</Link>
-                      <button onClick={() => { setIsUserMenuOpen(false); handleLogout(); }} className={`w-full text-left px-4 py-2 text-sm ${isScrolled ? 'text-red-600 hover:bg-red-50' : 'text-red-400 hover:bg-red-500/10'}`}>Logout</button>
-                    </div>
+                      <Link
+                        to="/account"
+                        className="ss-dropdown-item"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        role="menuitem"
+                      >
+                        Account
+                      </Link>
+                      <button
+                        className="ss-dropdown-item ss-dropdown-item--danger"
+                        onClick={() => { setIsUserMenuOpen(false); handleLogout(); }}
+                        role="menuitem"
+                      >
+                        Logout
+                      </button>
+                    </>
                   ) : (
-                    <div className="py-1">
-                      <Link 
-                        to="/login" 
+                    <>
+                      <Link
+                        to="/login"
+                        className="ss-dropdown-item"
+                        role="menuitem"
                         onClick={() => {
-                          const currentPath = window.location.pathname + window.location.search + window.location.hash;
-                          if (currentPath && currentPath !== '/' && !currentPath.includes('/login')) {
-                            localStorage.setItem('lastRoute', currentPath);
-                          }
+                          const cur = window.location.pathname + window.location.search + window.location.hash;
+                          if (cur && cur !== '/' && !cur.includes('/login')) localStorage.setItem('lastRoute', cur);
                           setIsUserMenuOpen(false);
-                        }} 
-                        className={`block px-4 py-2 text-sm ${isScrolled ? 'text-gray-800 hover:bg-gray-100' : 'text-gray-200 hover:bg-white/10'}`}
+                        }}
                       >
                         Login
                       </Link>
-                      <Link to="/signup" onClick={() => setIsUserMenuOpen(false)} className="block px-4 py-2 text-sm text-white bg-gradient-to-r from-blue-500 via-green-600 to-teal-500 hover:from-blue-600 hover:via-green-700 hover:to-teal-600 rounded-none">Get Started</Link>
-                    </div>
+                      <Link
+                        to="/register"
+                        className="ss-dropdown-item ss-dropdown-item--highlight"
+                        role="menuitem"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Get Started
+                      </Link>
+                    </>
                   )}
                 </div>
               )}
             </div>
-            
-            {/* Mobile Menu Button */}
-            <button 
-              className="p-2 rounded-lg transition-colors duration-300"
-              onClick={toggleMobileMenu}
-              aria-label="Toggle mobile menu"
+
+            {/* Mobile hamburger */}
+            <button
+              className="ss-hamburger"
+              onClick={() => setIsMobileMenuOpen((s) => !s)}
+              aria-label="Toggle menu"
+              aria-expanded={isMobileMenuOpen}
             >
-              <div className="w-6 h-6 flex flex-col justify-center space-y-1">
-                <div className={`w-full h-0.5 transition-all duration-300 ${
-                  isScrolled ? 'bg-gray-700' : 'bg-white'
-                } ${isMobileMenuOpen ? 'rotate-45 translate-y-1.5' : ''}`}></div>
-                <div className={`w-full h-0.5 transition-all duration-300 ${
-                  isScrolled ? 'bg-gray-700' : 'bg-white'
-                } ${isMobileMenuOpen ? 'opacity-0' : ''}`}></div>
-                <div className={`w-full h-0.5 transition-all duration-300 ${
-                  isScrolled ? 'bg-gray-700' : 'bg-white'
-                } ${isMobileMenuOpen ? '-rotate-45 -translate-y-1.5' : ''}`}></div>
-              </div>
+              <div className="ss-hamburger-bar bar1" />
+              <div className="ss-hamburger-bar bar2" />
+              <div className="ss-hamburger-bar bar3" />
             </button>
           </div>
         </div>
+      </header>
 
-        {/* Mobile Navigation */}
-        <nav className={`lg:hidden transition-all duration-300 overflow-y-auto bg-white shadow-lg ${
-          isMobileMenuOpen ? 'max-h-screen pb-6' : 'max-h-0'
-        }`}>
-          <div className="pt-4 space-y-4">
-            {/* Mobile Search Bar */}
-            <div className="px-4">
-              <SearchBar isScrolled={true} />
-            </div>
-            
-            <Link 
-              to="/" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              Home
-            </Link>
-            <Link 
-              to="/services" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/services') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              Services
-            </Link>
-            <Link 
-              to="/about" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/about') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              About
-            </Link>
-            <Link 
-              to="/contact" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/contact') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              Contact
-            </Link>
-            {user && (
-              <Link 
-                to="/subscription" 
-                className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                  isActive('/subscription') 
-                    ? 'bg-blue-100 text-green-600' 
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                onClick={closeMobileMenu}
-              >
-                Subscription
-              </Link>
-            )}
-            <Link 
-              to="/faq" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/faq') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              FAQ
-            </Link>
-            <Link 
-              to="/blog" 
-              className={`block py-2 px-4 rounded-lg transition-colors duration-300 font-medium ${
-                isActive('/blog') 
-                  ? 'bg-blue-100 text-green-600' 
-                  : 'text-gray-700 hover:bg-gray-100'
-              }`}
-              onClick={closeMobileMenu}
-            >
-              Blog
-            </Link>
-            <div className="pt-4 space-y-3">
-              <Link to="/services" className="block w-full text-center px-6 py-3 bg-gradient-to-r from-blue-500 via-green-600 to-teal-500 text-white font-semibold rounded-xl" onClick={closeMobileMenu}>Get Your Audit</Link>
-              {user ? (
-                <button onClick={() => { handleLogout(); closeMobileMenu(); }} className="block w-full text-center px-6 py-3 bg-red-600 text-white font-semibold rounded-xl">Logout</button>
-              ) : (
-                <div className="flex gap-3">
-                  <Link 
-                    to="/login" 
-                    onClick={() => {
-                      const currentPath = window.location.pathname + window.location.search + window.location.hash;
-                      if (currentPath && currentPath !== '/' && !currentPath.includes('/login')) {
-                        localStorage.setItem('lastRoute', currentPath);
-                      }
-                      closeMobileMenu();
-                    }} 
-                    className="flex-1 text-center px-6 py-3 bg-gray-100 text-gray-900 font-semibold rounded-xl"
-                  >
-                    Login
-                  </Link>
-                  <Link to="/register" onClick={closeMobileMenu} className="flex-1 text-center px-6 py-3 bg-gray-900 text-white font-semibold rounded-xl">Register</Link>
-                </div>
-              )}
-            </div>
+      {/* ── Mobile drawer ───────────────────────────────── */}
+      <nav className={`ss-mobile-nav${isMobileMenuOpen ? ' open' : ''}`} aria-label="Mobile navigation">
+        <div className="ss-mobile-nav-inner">
+          {/* Mobile search */}
+          <div className="ss-mobile-search">
+            <SearchBar isScrolled={true} />
           </div>
-        </nav>
-      </div>
-    </header>
+
+          <hr className="ss-mobile-divider" />
+
+          {navLinks.map(({ to, label }) => (
+            <Link
+              key={to}
+              to={to}
+              className={`ss-mobile-link${isActive(to) ? ' active' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              {label}
+            </Link>
+          ))}
+          {user && (
+            <Link
+              to="/subscription"
+              className={`ss-mobile-link${isActive('/subscription') ? ' active' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              Subscription
+            </Link>
+          )}
+
+          <hr className="ss-mobile-divider" />
+
+          {/* Mobile CTA */}
+          <Link
+            to="/services"
+            onClick={closeMobileMenu}
+            style={{
+              display: 'block',
+              textAlign: 'center',
+              padding: '12px',
+              background: 'var(--t8)',
+              color: '#fff',
+              borderRadius: 'var(--r)',
+              fontWeight: 600,
+              fontSize: 14,
+              marginTop: 4,
+              textDecoration: 'none',
+            }}
+          >
+            Get Your Audit
+          </Link>
+
+          {/* Mobile auth */}
+          {user ? (
+            <>
+              {user.role === 'admin' && (
+                <Link to="/admin/dashboard" className="ss-mobile-link" onClick={closeMobileMenu}>
+                  Admin Dashboard
+                </Link>
+              )}
+              <Link to="/account" className="ss-mobile-link" onClick={closeMobileMenu}>Account</Link>
+              <button
+                onClick={() => { handleLogout(); closeMobileMenu(); }}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'center',
+                  padding: '12px',
+                  background: 'var(--coralbg)',
+                  color: 'var(--coral)',
+                  borderRadius: 'var(--r)',
+                  fontWeight: 600,
+                  fontSize: 14,
+                  marginTop: 4,
+                  border: '1px solid #F5C4B8',
+                  cursor: 'pointer',
+                  fontFamily: 'var(--ff)',
+                }}
+              >
+                Logout
+              </button>
+            </>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+              <Link
+                to="/login"
+                onClick={() => {
+                  const cur = window.location.pathname + window.location.search + window.location.hash;
+                  if (cur && cur !== '/' && !cur.includes('/login')) localStorage.setItem('lastRoute', cur);
+                  closeMobileMenu();
+                }}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '12px',
+                  background: 'var(--sand)', color: 'var(--ink)',
+                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 14,
+                  border: '1px solid var(--sandd)', textDecoration: 'none',
+                }}
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                onClick={closeMobileMenu}
+                style={{
+                  flex: 1, textAlign: 'center', padding: '12px',
+                  background: 'var(--t9)', color: '#fff',
+                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 14,
+                  textDecoration: 'none',
+                }}
+              >
+                Register
+              </Link>
+            </div>
+          )}
+        </div>
+      </nav>
+    </>
   );
 };
 

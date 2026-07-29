@@ -2,6 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { confirmPayment } from '../api';
 
+const CheckIcon = () => (
+  <svg width="20" height="20" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--t4)', flexShrink: 0, marginTop: '1px' }} aria-hidden="true">
+    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+  </svg>
+);
+
 const PaymentSuccess = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -11,29 +17,18 @@ const PaymentSuccess = () => {
 
   useEffect(() => {
     const sessionId = searchParams.get('session_id');
-    if (!sessionId) {
-      setError('No payment session found.');
-      setLoading(false);
-      return;
-    }
-
+    if (!sessionId) { setError('No payment session found.'); setLoading(false); return; }
     confirmOneTimePayment(sessionId);
   }, [searchParams]);
 
   const confirmOneTimePayment = async (sessionId) => {
     try {
       setLoading(true);
-      
-      // Call the backend to confirm payment and grant credit
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'}/payment-success?session_id=${sessionId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-
       const data = await response.json();
-      
       if (data.error) {
         setError(data.error);
       } else {
@@ -43,7 +38,6 @@ const PaymentSuccess = () => {
           amount: data.purchaseDetails?.amount,
           date: data.purchaseDetails?.date
         });
-        
         console.log('✅ Payment confirmed, credits granted:', data.oneTimeScans);
       }
     } catch (err) {
@@ -56,132 +50,118 @@ const PaymentSuccess = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 flex items-center justify-center px-4">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md w-full text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Confirming Payment...</h2>
-          <p className="text-gray-600">Please wait while we process your purchase.</p>
+      <>
+        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; } .ps-spinner { width: 48px; height: 48px; border: 3px solid rgba(29,158,117,0.2); border-top-color: var(--t4); border-radius: 50%; animation: psSpin 0.8s linear infinite; } @keyframes psSpin { to { transform: rotate(360deg); } }`}</style>
+        <div className="ps-bg">
+          <div className="auth-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
+            <div className="ps-spinner" style={{ margin: '0 auto 20px' }} />
+            <h2 className="h2" style={{ marginBottom: '8px' }}>Confirming Payment…</h2>
+            <p style={{ fontSize: '14px', color: 'var(--ink6)' }}>Please wait while we process your purchase.</p>
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 flex items-center justify-center px-4">
-        <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Payment Error</h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate('/services')}
-              className="flex-1 px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition-all"
-            >
-              View Plans
-            </button>
-            <button
-              onClick={() => navigate('/contact')}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition-all"
-            >
-              Contact Support
-            </button>
+      <>
+        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }`}</style>
+        <div className="ps-bg">
+          <div className="auth-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
+            <div style={{ width: '56px', height: '56px', background: 'rgba(239,68,68,0.1)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+              <svg width="28" height="28" fill="currentColor" viewBox="0 0 20 20" style={{ color: '#ef4444' }} aria-hidden="true">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h2 className="h2" style={{ marginBottom: '12px' }}>Payment Error</h2>
+            <p style={{ fontSize: '14px', color: 'var(--ink6)', marginBottom: '24px' }}>{error}</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button onClick={() => navigate('/services')} className="btn btn-o" style={{ flex: 1, justifyContent: 'center' }}>View Plans</button>
+              <button onClick={() => navigate('/contact')} className="btn btn-d" style={{ flex: 1, justifyContent: 'center' }}>Contact Support</button>
+            </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 flex items-center justify-center px-4 py-12">
-      <div className="bg-white rounded-3xl p-8 shadow-2xl max-w-2xl w-full">
-        {/* Success Icon */}
-        <div className="text-center mb-8">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-10 h-10 text-green-600" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Payment Successful!</h1>
-          <p className="text-xl text-gray-600">Thank you for your purchase</p>
-        </div>
+    <>
+      <style>{`
+        .ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
+        .ps-card { background: #fff; border-radius: var(--rl); padding: 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 600px; }
+        .ps-detail-row { background: #fff; border-radius: var(--r); padding: 16px; text-align: center; }
+        .ps-detail-num { font-size: 28px; font-weight: 700; color: var(--t4); font-family: var(--ffd); }
+        .ps-detail-label { font-size: 12px; color: var(--ink6); margin-bottom: 4px; }
+        .ps-next-list { display: flex; flex-direction: column; gap: 10px; }
+        .ps-next-item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--ink6); }
+        .ps-actions { display: flex; flex-direction: column; gap: 12px; }
+        @media (min-width: 480px) { .ps-actions { flex-direction: row; } }
+      `}</style>
+      <div className="ps-bg">
+        <div className="ps-card">
 
-        {/* Purchase Details */}
-        <div className="bg-gradient-to-br from-orange-50 to-red-50 rounded-2xl p-6 mb-6 border border-orange-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-            <svg className="w-5 h-5 mr-2 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
-              <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
-            </svg>
-            Your One-Time Scan Credit
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-lg p-4">
-              <div className="text-sm text-gray-600 mb-1">Available Scans</div>
-              <div className="text-3xl font-bold text-orange-600">{purchaseDetails?.oneTimeScans || 0}</div>
+          {/* Success icon + title */}
+          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+            <div style={{ width: '64px', height: '64px', background: 'var(--t05)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <svg width="32" height="32" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--t4)' }} aria-hidden="true">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
             </div>
-            
-            {purchaseDetails?.amount && (
-              <div className="bg-white rounded-lg p-4">
-                <div className="text-sm text-gray-600 mb-1">Amount Paid</div>
-                <div className="text-3xl font-bold text-gray-900">${(purchaseDetails.amount / 100).toFixed(2)}</div>
-              </div>
-            )}
+            <h1 className="h2" style={{ marginBottom: '6px' }}>Payment Successful!</h1>
+            <p style={{ fontSize: '15px', color: 'var(--ink6)' }}>Thank you for your purchase</p>
           </div>
-        </div>
 
-        {/* What's Next */}
-        <div className="bg-blue-50 rounded-2xl p-6 mb-6 border border-blue-200">
-          <h2 className="text-lg font-semibold text-gray-900 mb-3">What's Next?</h2>
-          <ul className="space-y-2 text-gray-700">
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          {/* Purchase details */}
+          <div style={{ background: 'var(--t05)', borderRadius: 'var(--r)', padding: '20px', marginBottom: '20px', border: '1px solid var(--t1)' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--t4)' }} aria-hidden="true">
+                <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
+                <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
               </svg>
-              <span>Your one-time scan credit has been added to your account</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Click the button below to start your accessibility audit</span>
-            </li>
-            <li className="flex items-start">
-              <svg className="w-5 h-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>You'll receive a comprehensive PDF report via email</span>
-            </li>
-          </ul>
-        </div>
+              Your One-Time Scan Credit
+            </h2>
+            <div style={{ display: 'grid', gridTemplateColumns: purchaseDetails?.amount ? '1fr 1fr' : '1fr', gap: '12px' }}>
+              <div className="ps-detail-row">
+                <p className="ps-detail-label">Available Scans</p>
+                <p className="ps-detail-num">{purchaseDetails?.oneTimeScans || 0}</p>
+              </div>
+              {purchaseDetails?.amount && (
+                <div className="ps-detail-row">
+                  <p className="ps-detail-label">Amount Paid</p>
+                  <p className="ps-detail-num" style={{ color: 'var(--ink)' }}>${(purchaseDetails.amount / 100).toFixed(2)}</p>
+                </div>
+              )}
+            </div>
+          </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <button
-            onClick={() => navigate('/checkout')}
-            className="flex-1 px-8 py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300"
-          >
-            Start Your Audit Now
-          </button>
-          <button
-            onClick={() => navigate('/account')}
-            className="flex-1 px-8 py-4 bg-gray-200 text-gray-800 font-semibold rounded-xl hover:bg-gray-300 transition-all duration-300"
-          >
-            View Account
-          </button>
-        </div>
+          {/* What's next */}
+          <div style={{ background: 'var(--sand)', borderRadius: 'var(--r)', padding: '20px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '14px' }}>What's Next?</h2>
+            <div className="ps-next-list">
+              <div className="ps-next-item"><CheckIcon /><span>Your one-time scan credit has been added to your account</span></div>
+              <div className="ps-next-item"><CheckIcon /><span>Click the button below to start your accessibility audit</span></div>
+              <div className="ps-next-item"><CheckIcon /><span>You'll receive a comprehensive PDF report via email</span></div>
+            </div>
+          </div>
 
-        {/* Email Confirmation Note */}
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>A confirmation email has been sent to your registered email address.</p>
+          {/* Actions */}
+          <div className="ps-actions">
+            <button onClick={() => navigate('/checkout')} className="btn btn-p" style={{ flex: 1, justifyContent: 'center' }}>
+              Start Your Audit Now
+            </button>
+            <button onClick={() => navigate('/account')} className="btn btn-o" style={{ flex: 1, justifyContent: 'center' }}>
+              View Account
+            </button>
+          </div>
+
+          <p style={{ textAlign: 'center', fontSize: '12px', color: 'var(--ink6)', marginTop: '20px' }}>
+            A confirmation email has been sent to your registered email address.
+          </p>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

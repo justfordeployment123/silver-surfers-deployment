@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { fetchJSON } from '../config/apiBase';
 import { RichTextPreviewDark } from '../components/RichTextEditor';
-import './Blog.css';
 
 export default function BlogPost() {
   const { id: slug } = useParams();
@@ -13,11 +12,8 @@ export default function BlogPost() {
   useEffect(() => {
     const fetchPost = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        
+        setLoading(true); setError(null);
         const { ok, data } = await fetchJSON(`/blogs/${slug}`);
-        
         if (ok) {
           setPost(data.post);
         } else {
@@ -30,140 +26,162 @@ export default function BlogPost() {
         setLoading(false);
       }
     };
-
-    if (slug) {
-      fetchPost();
-    }
+    if (slug) fetchPost();
   }, [slug]);
 
-  // Loading state
   if (loading) {
     return (
-      <div className="pt-40 text-center text-white bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 min-h-screen">
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-700 rounded w-3/4 mx-auto mb-4"></div>
-            <div className="h-4 bg-gray-700 rounded w-1/2 mx-auto mb-8"></div>
-            <div className="space-y-3">
-              <div className="h-4 bg-gray-700 rounded"></div>
-              <div className="h-4 bg-gray-700 rounded w-5/6"></div>
-              <div className="h-4 bg-gray-700 rounded w-4/6"></div>
-            </div>
+      <>
+        <style>{`
+          .bp-page { background: var(--t9); min-height: 100vh; }
+          .bp-skeleton { animation: bpPulse 1.4s ease-in-out infinite; }
+          .bp-skel-line { background: rgba(255,255,255,0.08); border-radius: 6px; margin-bottom: 12px; }
+          @keyframes bpPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        `}</style>
+        <div className="bp-page" style={{ paddingTop: '160px', paddingBottom: '60px' }}>
+          <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 24px' }} className="bp-skeleton">
+            <div className="bp-skel-line" style={{ height: '32px', width: '75%', marginBottom: '16px' }} />
+            <div className="bp-skel-line" style={{ height: '16px', width: '50%', marginBottom: '32px' }} />
+            <div className="bp-skel-line" style={{ height: '14px' }} />
+            <div className="bp-skel-line" style={{ height: '14px', width: '83%' }} />
+            <div className="bp-skel-line" style={{ height: '14px', width: '67%' }} />
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
-  // Error state
   if (error || !post) {
     return (
-      <div className="pt-40 text-center text-white bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 min-h-screen">
-        <div className="max-w-3xl mx-auto px-6">
-          <p>{error || 'Post not found.'}</p>
-          <div className="mt-6">
-            <Link to="/blog" className="text-blue-300 hover:text-blue-200">
+      <>
+        <style>{`.bp-page { background: var(--t9); min-height: 100vh; }`}</style>
+        <div className="bp-page" style={{ paddingTop: '160px', paddingBottom: '60px', textAlign: 'center' }}>
+          <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 24px' }}>
+            <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '20px' }}>{error || 'Post not found.'}</p>
+            <Link to="/blog" style={{ color: 'var(--t4)', textDecoration: 'none', fontSize: '14px' }}>
               ← Back to Blog
             </Link>
           </div>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900">
-      {/* Header Section */}
-      <div className="pt-32 pb-16">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="mb-8">
-            <Link to="/blog" className="inline-flex items-center text-blue-300 hover:text-blue-200 transition-colors">
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    <>
+      <style>{`
+        .bp-page { background: var(--t9); min-height: 100vh; }
+        .bp-header { padding: 120px 0 52px; }
+        .bp-back {
+          display: inline-flex; align-items: center; gap: 6px;
+          color: rgba(255,255,255,0.55); font-size: 13.5px; text-decoration: none;
+          margin-bottom: 28px; transition: color 0.15s;
+        }
+        .bp-back:hover { color: rgba(255,255,255,0.9); }
+        .bp-title {
+          color: #fff;
+          font-family: var(--ffd);
+          font-size: clamp(26px, 4vw, 42px);
+          font-weight: 700;
+          line-height: 1.2;
+          margin-bottom: 20px;
+        }
+        .bp-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 4px; }
+        .bp-meta-item { font-size: 13px; color: rgba(255,255,255,0.5); }
+        .bp-excerpt {
+          background: rgba(255,255,255,0.05);
+          border-top: 1px solid rgba(255,255,255,0.08);
+          border-bottom: 1px solid rgba(255,255,255,0.08);
+          padding: 28px 0;
+          margin-bottom: 0;
+        }
+        .bp-excerpt-inner { font-size: 17px; color: rgba(255,255,255,0.78); line-height: 1.75; }
+        .bp-content { padding: 48px 0; }
+        .bp-content-card {
+          background: #fff;
+          border-radius: var(--rl);
+          padding: 48px;
+          box-shadow: 0 4px 28px rgba(4,46,34,0.12);
+        }
+        .bp-footer { padding: 0 0 56px; }
+        .bp-footer-inner { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 24px; }
+        @media (max-width: 600px) {
+          .bp-content-card { padding: 24px 20px; }
+        }
+      `}</style>
+
+      <div className="bp-page">
+
+        {/* ── Header ───────────────────────────────── */}
+        <div className="bp-header">
+          <div className="wrap">
+            <Link to="/blog" className="bp-back">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
               </svg>
               Back to Blog
             </Link>
-          </div>
-          
-          {/* Title */}
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-6 leading-tight">
-            {post.title}
-          </h1>
-          
-          {/* Meta Information */}
-          <div className="flex flex-wrap gap-4 mb-8">
-            {post.category && (
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-600/20 text-blue-200 border border-blue-400/30">
-                {post.category}
-              </span>
-            )}
-            {post.author && (
-              <span className="text-gray-300 text-sm">
-                By <span className="font-medium text-white">{post.author}</span>
-              </span>
-            )}
-            {post.readTime && (
-              <span className="text-gray-300 text-sm">
-                {post.readTime}
-              </span>
-            )}
-            {post.date && (
-              <span className="text-gray-300 text-sm">
-                {new Date(post.date).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                })}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Excerpt Section */}
-      {post.excerpt && (
-        <div className="bg-white/5 backdrop-blur-sm border-t border-white/10 border-b border-white/10">
-          <div className="max-w-4xl mx-auto px-6 py-8">
-            <div className="text-xl text-gray-100 leading-relaxed">
-              <RichTextPreviewDark content={post.excerpt} />
+            <h1 className="bp-title">{post.title}</h1>
+
+            <div className="bp-meta">
+              {post.category && <span className="tag">{post.category}</span>}
+              {post.author && (
+                <span className="bp-meta-item">By <strong style={{ color: 'rgba(255,255,255,0.8)' }}>{post.author}</strong></span>
+              )}
+              {post.readTime && <span className="bp-meta-item">{post.readTime}</span>}
+              {post.date && (
+                <span className="bp-meta-item">
+                  {new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                </span>
+              )}
             </div>
           </div>
         </div>
-      )}
 
-      {/* Content Section */}
-      <div className="py-16">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 md:p-12 border border-white/10">
-            <article className="prose prose-lg prose-invert max-w-none">
-              {post.content ? (
-                <RichTextPreviewDark content={post.content} />
-              ) : (
-                <p className="text-gray-400 italic text-center py-8">
-                  No content available for this post.
-                </p>
-              )}
-            </article>
+        {/* ── Excerpt ──────────────────────────────── */}
+        {post.excerpt && (
+          <div className="bp-excerpt">
+            <div className="wrap">
+              <div className="bp-excerpt-inner">
+                <RichTextPreviewDark content={post.excerpt} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Content ──────────────────────────────── */}
+        <div className="bp-content">
+          <div className="wrap">
+            <div className="bp-content-card">
+              <article>
+                {post.content ? (
+                  <RichTextPreviewDark content={post.content} />
+                ) : (
+                  <p style={{ color: 'var(--ink6)', fontStyle: 'italic', textAlign: 'center', padding: '32px 0' }}>
+                    No content available for this post.
+                  </p>
+                )}
+              </article>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Footer Section */}
-      <div className="pb-16">
-        <div className="max-w-4xl mx-auto px-6">
-          <div className="border-t border-white/10 pt-8">
-            <Link 
-              to="/blog" 
-              className="inline-flex items-center text-blue-300 hover:text-blue-200 transition-colors"
-            >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Blog
-            </Link>
+        {/* ── Footer ───────────────────────────────── */}
+        <div className="bp-footer">
+          <div className="wrap">
+            <div className="bp-footer-inner">
+              <Link to="/blog" className="bp-back">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Blog
+              </Link>
+            </div>
           </div>
         </div>
+
       </div>
-    </div>
+    </>
   );
 }

@@ -1,6 +1,25 @@
 import React, { useState } from 'react';
 import { adminBulkQuickScans } from '../../api';
 
+const STYLES = `
+.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+.ap-sub { font-size: 14px; color: var(--ink6); }
+.ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 12px; font-size: 13px; font-family: monospace; color: var(--ink); background: #fff; outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
+.ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-btn-p { background: var(--t4); color: #fff; padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+.ap-btn-p:hover:not(:disabled) { background: var(--t8); }
+.ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
+.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
+.ap-info { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 16px; font-size: 13px; color: var(--t6); }
+.ap-spin { animation: ap-spin-kf 0.7s linear infinite; }
+@keyframes ap-spin-kf { to { transform: rotate(360deg); } }
+`;
+
 const AdminBulkQuickScans = () => {
   const [urls, setUrls] = useState('');
   const [email, setEmail] = useState('');
@@ -19,7 +38,6 @@ const AdminBulkQuickScans = () => {
     setSuccess('');
     setResult(null);
 
-    // Parse URLs from textarea (one per line)
     const urlList = urls
       .split('\n')
       .map(url => url.trim())
@@ -35,10 +53,8 @@ const AdminBulkQuickScans = () => {
       return;
     }
 
-    // Validate URLs format
     const invalidUrls = urlList.filter(url => {
       try {
-        // Try to create URL object - will throw if invalid
         new URL(url.startsWith('http') ? url : `https://${url}`);
         return false;
       } catch {
@@ -71,8 +87,6 @@ const AdminBulkQuickScans = () => {
       } else {
         setSuccess(response.message || 'Bulk submission processed successfully!');
         setResult(response);
-        
-        // Clear form on success
         setUrls('');
         setEmail('');
         setFirstName('');
@@ -89,168 +103,119 @@ const AdminBulkQuickScans = () => {
   const urlCount = urls.split('\n').filter(url => url.trim().length > 0).length;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Bulk Quick Scans</h1>
-        <p className="mt-2 text-gray-600">Submit multiple URLs for quick scan processing (up to {MAX_URLS} URLs)</p>
-      </div>
+    <>
+      <style>{STYLES}</style>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div>
+          <h1 className="ap-h1">Bulk Quick Scans</h1>
+          <p className="ap-sub">Submit multiple URLs for quick scan processing (up to {MAX_URLS} URLs)</p>
+        </div>
 
-      {/* Info Card */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="flex">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">How it works</h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <ul className="list-disc list-inside space-y-1">
-                <li>Enter one URL per line (up to {MAX_URLS} URLs)</li>
-                <li>All scans will be queued and processed serially</li>
-                <li>Each scan will send results to the specified email address</li>
-                <li>URLs that were scanned in the last 24 hours will be automatically skipped</li>
-              </ul>
+        <div className="ap-info">
+          <p style={{ fontWeight: 600, marginBottom: '8px', color: 'var(--t8)' }}>How it works</p>
+          <ul style={{ paddingLeft: '16px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+            <li>Enter one URL per line (up to {MAX_URLS} URLs)</li>
+            <li>All scans will be queued and processed serially</li>
+            <li>Each scan will send results to the specified email address</li>
+            <li>URLs scanned in the last 24 hours will be automatically skipped</li>
+          </ul>
+        </div>
+
+        <div className="ap-card" style={{ padding: '24px' }}>
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px' }}>
+              <div>
+                <label htmlFor="email" className="ap-lbl">
+                  Email Address <span style={{ color: '#ef4444' }}>*</span>
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="admin@silversurfers.ai"
+                  required
+                  className="ap-inp"
+                />
+              </div>
+              <div>
+                <label htmlFor="firstName" className="ap-lbl">First Name</label>
+                <input
+                  id="firstName"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Admin"
+                  className="ap-inp"
+                />
+              </div>
+              <div>
+                <label htmlFor="lastName" className="ap-lbl">Last Name</label>
+                <input
+                  id="lastName"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="User"
+                  className="ap-inp"
+                />
+              </div>
             </div>
-          </div>
+
+            <div>
+              <label htmlFor="urls" className="ap-lbl">
+                URLs (one per line) <span style={{ color: '#ef4444' }}>*</span>
+                {urlCount > 0 && (
+                  <span style={{ marginLeft: '8px', fontWeight: 400, color: 'var(--ink3)' }}>
+                    ({urlCount} {urlCount === 1 ? 'URL' : 'URLs'})
+                  </span>
+                )}
+              </label>
+              <textarea
+                id="urls"
+                value={urls}
+                onChange={(e) => setUrls(e.target.value)}
+                placeholder={"https://example.com\nhttps://another-site.com\nhttps://third-site.com"}
+                rows={12}
+                required
+                className="ap-textarea"
+              />
+              <p style={{ marginTop: '6px', fontSize: '12px', color: 'var(--ink3)' }}>
+                Enter one URL per line. URLs can include or omit the protocol (http:// or https://).
+              </p>
+            </div>
+
+            {error && <div className="ap-err">{error}</div>}
+            {success && <div className="ap-ok">{success}</div>}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="submit"
+                disabled={loading || urlCount === 0 || !email}
+                className="ap-btn-p"
+              >
+                {loading ? (
+                  <>
+                    <svg className="ap-spin" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" style={{ opacity: 0.25 }} />
+                      <path d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" style={{ opacity: 0.75 }} fill="currentColor" stroke="none" />
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Submit Bulk Scan ({urlCount} {urlCount === 1 ? 'URL' : 'URLs'})
+                  </>
+                )}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
-
-      {/* Form */}
-      <div className="bg-white shadow rounded-lg p-6">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Email Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="admin@silversurfers.ai"
-                required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              />
-            </div>
-            <div>
-              <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                First Name
-              </label>
-              <input
-                id="firstName"
-                type="text"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Admin"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              />
-            </div>
-            <div>
-              <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                Last Name
-              </label>
-              <input
-                id="lastName"
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="User"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-              />
-            </div>
-          </div>
-
-          {/* URLs Textarea */}
-          <div>
-            <label htmlFor="urls" className="block text-sm font-medium text-gray-700 mb-2">
-              URLs (one per line) <span className="text-red-500">*</span>
-              {urlCount > 0 && (
-                <span className="ml-2 text-sm text-gray-500">
-                  ({urlCount} {urlCount === 1 ? 'URL' : 'URLs'})
-                </span>
-              )}
-            </label>
-            <textarea
-              id="urls"
-              value={urls}
-              onChange={(e) => setUrls(e.target.value)}
-              placeholder="https://example.com&#10;https://another-site.com&#10;https://third-site.com"
-              rows={12}
-              required
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white font-mono text-sm"
-            />
-            <p className="mt-2 text-sm text-gray-500">
-              Enter one URL per line. URLs can include or omit the protocol (http:// or https://).
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-800">{error}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Success Message */}
-          {success && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-green-800">{success}</p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Results removed per request */}
-
-          {/* Submit Button */}
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={loading || urlCount === 0 || !email}
-              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center"
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Processing...
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Submit Bulk Scan ({urlCount} {urlCount === 1 ? 'URL' : 'URLs'})
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    </>
   );
 };
 

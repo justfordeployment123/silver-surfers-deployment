@@ -9,8 +9,8 @@ const Checkout = () => {
   const [lockedEmail, setLockedEmail] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [selectedDevice, setSelectedDevice] = useState('desktop'); // Default device selection
-  const [creditType, setCreditType] = useState(null); // 'subscription' or 'oneTime'
+  const [selectedDevice, setSelectedDevice] = useState('desktop');
+  const [creditType, setCreditType] = useState(null);
   const [loading, setLoading] = useState(false);
   const [precheckLoading, setPrecheckLoading] = useState(false);
   const [error, setError] = useState('');
@@ -19,70 +19,43 @@ const Checkout = () => {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [oneTimeScans, setOneTimeScans] = useState(0);
 
-  // Load user data and subscription information
   useEffect(() => {
     const loadUserData = async () => {
       try {
         setSubscriptionLoading(true);
-        
-        // Load user email and subscription data in parallel
-        const [userResult, subscriptionResult] = await Promise.all([
-          getMe(),
-          getSubscription()
-        ]);
-        
-        // Set email
+        const [userResult, subscriptionResult] = await Promise.all([getMe(), getSubscription()]);
+
         if (userResult.user && userResult.user.email) {
           setEmail(userResult.user.email);
           setLockedEmail(userResult.user.email);
         } else {
-          // Fallback to localStorage if available
           const savedEmail = localStorage.getItem('userEmail') || localStorage.getItem('email') || localStorage.getItem('authEmail');
-          if (savedEmail) {
-            setEmail(savedEmail);
-            setLockedEmail(savedEmail);
-          }
+          if (savedEmail) { setEmail(savedEmail); setLockedEmail(savedEmail); }
         }
-        
-        // Set subscription data
-        if (subscriptionResult.subscription) {
-          setSubscription(subscriptionResult.subscription);
-        }
-        
-        // Set one-time scans
-        if (subscriptionResult.oneTimeScans !== undefined) {
-          setOneTimeScans(subscriptionResult.oneTimeScans);
-        }
-        
-        // Auto-select credit type based on availability
-        // Prefer subscription if active AND has scans remaining, otherwise one-time
-        const hasSubscriptionScans = subscriptionResult.subscription && 
+
+        if (subscriptionResult.subscription) setSubscription(subscriptionResult.subscription);
+        if (subscriptionResult.oneTimeScans !== undefined) setOneTimeScans(subscriptionResult.oneTimeScans);
+
+        const hasSubscriptionScans = subscriptionResult.subscription &&
           subscriptionResult.subscription.status === 'active' &&
           (subscriptionResult.subscription.limits?.scansPerMonth || 0) - (subscriptionResult.subscription.usage?.scansThisMonth || 0) > 0;
-        
+
         if (hasSubscriptionScans) {
           setCreditType('subscription');
         } else if (subscriptionResult.oneTimeScans > 0) {
           setCreditType('oneTime');
         }
-        
       } catch (error) {
         console.log('Could not load user data:', error);
-        // Fallback to localStorage if available
         const savedEmail = localStorage.getItem('userEmail') || localStorage.getItem('email') || localStorage.getItem('authEmail');
-        if (savedEmail) {
-          setEmail(savedEmail);
-          setLockedEmail(savedEmail);
-        }
+        if (savedEmail) { setEmail(savedEmail); setLockedEmail(savedEmail); }
       } finally {
         setSubscriptionLoading(false);
       }
     };
-    
     loadUserData();
   }, []);
 
-  // Auto-switch to one-time if subscription has 0 scans but one-time is available
   useEffect(() => {
     const remainingScans = getRemainingScans();
     if (creditType === 'subscription' && remainingScans === 0 && oneTimeScans > 0) {
@@ -90,72 +63,49 @@ const Checkout = () => {
     }
   }, [creditType, subscription, oneTimeScans, subscription?.usage?.scansThisMonth, subscription?.limits?.scansPerMonth]);
 
-  // Helper function to calculate remaining scans
   const getRemainingScans = () => {
     if (!subscription || !subscription.limits) return 0;
-    
     const maxScans = subscription.limits.scansPerMonth;
     const usedScans = subscription.usage?.scansThisMonth || 0;
-    
     return Math.max(0, maxScans - usedScans);
   };
 
-  // Helper function to check if user can start audit
   const canStartAudit = () => {
     if (!creditType) return false;
-    
-    if (creditType === 'oneTime') {
-      return oneTimeScans > 0;
-    } else if (creditType === 'subscription') {
+    if (creditType === 'oneTime') return oneTimeScans > 0;
+    if (creditType === 'subscription') {
       if (!subscription || subscription.status !== 'active') return false;
       return getRemainingScans() > 0;
     }
-    
     return false;
   };
-  
-  // Check if user has both subscription and one-time scans
+
   const hasBothOptions = () => {
-    // User has both options if:
-    // 1. Has active subscription (even if scans exhausted) AND has one-time scans, OR
-    // 2. Has active subscription with scans remaining AND has one-time scans
     const hasActiveSubscription = subscription && subscription.status === 'active';
     const hasOneTime = oneTimeScans > 0;
     return hasActiveSubscription && hasOneTime;
   };
-  
-  // Check if device selection should be shown
+
   const shouldShowDeviceSelection = () => {
-    if (creditType === 'oneTime') {
-      return true; // Always show for one-time scans
-    } else if (creditType === 'subscription') {
-      // Only show for Starter plan, not Pro
-      return subscription && subscription.planId === 'starter';
-    }
+    if (creditType === 'oneTime') return true;
+    if (creditType === 'subscription') return subscription && subscription.planId === 'starter';
     return false;
   };
 
-  // Helper function to get usage status color
   const getUsageStatusColor = () => {
     const remaining = getRemainingScans();
-    if (remaining === 0) return 'text-red-600 bg-red-100';
-    if (remaining <= 2) return 'text-yellow-600 bg-yellow-100';
-    return 'text-green-600 bg-green-100';
+    if (remaining === 0) return 'co-use-danger';
+    if (remaining <= 2) return 'co-use-warn';
+    return 'co-use-ok';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     const auditEmail = lockedEmail || email;
 
-    if (!url || !auditEmail) {
-      setError('Please fill in all fields');
-      return;
-    }
+    if (!url || !auditEmail) { setError('Please fill in all fields'); return; }
 
-    // Ensure credit type is selected
     if (!creditType) {
-      // Auto-select based on what's actually available
-      // If subscription has scans, use subscription; otherwise use one-time if available
       if (subscription && subscription.status === 'active' && getRemainingScans() > 0) {
         setCreditType('subscription');
       } else if (oneTimeScans > 0) {
@@ -165,25 +115,19 @@ const Checkout = () => {
         return;
       }
     }
-    
-    // If creditType is subscription but no scans remaining, switch to one-time if available
+
     if (creditType === 'subscription' && getRemainingScans() === 0 && oneTimeScans > 0) {
       setCreditType('oneTime');
     }
-    
-    // Validate device selection for one-time scans
+
     if (creditType === 'oneTime' && !selectedDevice) {
-      setError('Please select a device type for your one-time scan.');
-      return;
-    }
-    
-    // Validate device selection for Starter plan
-    if (creditType === 'subscription' && subscription && subscription.planId === 'starter' && !selectedDevice) {
-      setError('Please select a device type for your Starter plan scan.');
-      return;
+      setError('Please select a device type for your one-time scan.'); return;
     }
 
-    // Check if user can start audit
+    if (creditType === 'subscription' && subscription && subscription.planId === 'starter' && !selectedDevice) {
+      setError('Please select a device type for your Starter plan scan.'); return;
+    }
+
     if (!canStartAudit()) {
       if (creditType === 'oneTime' && oneTimeScans === 0) {
         setError('You have no one-time scan credits available.');
@@ -199,424 +143,374 @@ const Checkout = () => {
       return;
     }
 
-    setLoading(true);
-    setPrecheckLoading(true);
-    setError('');
-    setSuccess('');
+    setLoading(true); setPrecheckLoading(true); setError(''); setSuccess('');
 
     try {
-      // First, precheck the URL
       setPrecheckLoading(true);
       const precheckResult = await precheckUrl(url);
-      
+
       if (precheckResult.error || precheckResult.success === false) {
         setError(precheckResult.error || 'URL not reachable. Please check the domain and try again.');
         return;
       }
 
       setPrecheckLoading(false);
-      setSuccess('✅ URL validated successfully! Starting audit...');
+      setSuccess('URL validated successfully! Starting audit...');
 
-      // Determine device selection based on credit type
-      // For Pro subscription, don't pass device (backend will test all devices)
-      // For Starter or one-time, pass the selected device
       let deviceToUse = null;
       if (creditType === 'oneTime') {
-        deviceToUse = selectedDevice; // Required for one-time scans
+        deviceToUse = selectedDevice;
       } else if (creditType === 'subscription' && subscription && subscription.planId === 'starter') {
-        deviceToUse = selectedDevice; // Required for Starter plan
+        deviceToUse = selectedDevice;
       }
-      // For Pro plan, deviceToUse remains null (backend handles all devices)
 
-      // Now start the actual audit with device selection and credit type
       const auditResult = await startAudit(auditEmail, url, deviceToUse, firstName, lastName, creditType);
-      
+
       if (auditResult.error) {
-        setError(auditResult.error);
-        setSuccess('');
+        setError(auditResult.error); setSuccess('');
       } else {
-        setSuccess('🎉 Audit request submitted successfully! You will receive an email with your comprehensive accessibility report shortly.');
-        
-        // Clear the URL field only
+        setSuccess('Audit request submitted successfully! You will receive an email with your comprehensive accessibility report shortly.');
         setUrl('');
       }
-      
     } catch (err) {
-      setError('Failed to submit audit request. Please try again.');
-      setSuccess('');
+      setError('Failed to submit audit request. Please try again.'); setSuccess('');
     } finally {
-      setLoading(false);
-      setPrecheckLoading(false);
+      setLoading(false); setPrecheckLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 pt-24 pb-10 px-4">
-      <div className="max-w-lg mx-auto">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-white mb-4">Start Your Accessibility Audit</h1>
-          <p className="text-xl text-gray-200">Enter your website URL to begin a comprehensive accessibility analysis</p>
-        </div>
+    <>
+      <style>{`
+        .co-page {
+          min-height: 100vh;
+          background: var(--t9);
+          padding: 96px 16px 48px;
+        }
+        .co-wrap { max-width: 560px; margin: 0 auto; }
+        .co-card {
+          background: #fff;
+          border-radius: var(--rl);
+          padding: 36px;
+          box-shadow: 0 8px 40px rgba(4,46,34,0.15);
+        }
+        .co-sub-banner {
+          background: var(--t05);
+          border: 1px solid var(--t1);
+          border-radius: var(--r);
+          padding: 16px;
+          margin-bottom: 20px;
+        }
+        .co-sub-banner-header {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 12px;
+        }
+        .co-sub-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
+        .co-stat-cell { text-align: center; }
+        .co-stat-num { font-size: 24px; font-weight: 700; font-family: var(--ffd); color: var(--ink); }
+        .co-stat-label { font-size: 11px; color: var(--ink6); margin-top: 2px; }
+        .co-use-ok { background: var(--t05); color: var(--t4); border-radius: var(--r); padding: 10px 14px; }
+        .co-use-warn { background: rgba(245,158,11,0.08); color: var(--amber); border-radius: var(--r); padding: 10px 14px; }
+        .co-use-danger { background: rgba(239,68,68,0.08); color: var(--coral); border-radius: var(--r); padding: 10px 14px; }
+        .co-use-num.co-use-ok,
+        .co-use-num.co-use-warn,
+        .co-use-num.co-use-danger { background: none; padding: 0; border-radius: 0; }
+        .co-no-sub {
+          background: rgba(239,68,68,0.06);
+          border: 1px solid rgba(239,68,68,0.2);
+          border-radius: var(--r);
+          padding: 14px;
+          margin-bottom: 20px;
+        }
+        .co-onetime-banner {
+          background: var(--sand);
+          border: 1px solid var(--sandd);
+          border-radius: var(--r);
+          padding: 14px;
+          margin-bottom: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
+        .co-credit-opts { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+        .co-credit-opt {
+          display: flex;
+          align-items: flex-start;
+          gap: 12px;
+          padding: 14px;
+          border: 2px solid var(--sandd);
+          border-radius: var(--r);
+          cursor: pointer;
+          transition: border-color 0.15s;
+        }
+        .co-credit-opt.selected { border-color: var(--t4); background: var(--t05); }
+        .co-device-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+        .co-device-btn {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          padding: 14px 8px;
+          border: 2px solid var(--sandd);
+          border-radius: var(--r);
+          background: #fff;
+          color: var(--ink6);
+          cursor: pointer;
+          transition: border-color 0.15s, color 0.15s, background 0.15s;
+          font-size: 13px;
+          font-weight: 500;
+        }
+        .co-device-btn.active {
+          border-color: var(--t4);
+          background: var(--t05);
+          color: var(--t4);
+        }
+        .co-pro-note {
+          background: var(--t05);
+          border: 1px solid var(--t1);
+          border-radius: var(--r);
+          padding: 12px 14px;
+          margin-bottom: 20px;
+          font-size: 13px;
+          color: var(--t7);
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .co-sku { background: var(--t4); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+        .co-spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: coSpin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
+        @keyframes coSpin { to { transform: rotate(360deg); } }
+        .co-skel { animation: coSkelPulse 1.2s ease-in-out infinite; }
+        .co-skel-bar { height: 16px; background: var(--sandd); border-radius: 6px; margin-bottom: 10px; }
+        @keyframes coSkelPulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+      `}</style>
 
-        <div className="bg-white rounded-3xl p-8 shadow-2xl">
-          {/* Subscription Status and Usage Information */}
-          {subscriptionLoading ? (
-            <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-              <div className="animate-pulse flex items-center">
-                <div className="h-4 bg-gray-300 rounded w-3/4"></div>
+      <div className="co-page">
+        <div className="co-wrap">
+
+          <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+            <h1 className="h1" style={{ color: '#fff', marginBottom: '8px' }}>Start Your Accessibility Audit</h1>
+            <p className="lead" style={{ color: 'rgba(255,255,255,0.65)' }}>Enter your website URL to begin a comprehensive accessibility analysis</p>
+          </div>
+
+          <div className="co-card">
+
+            {/* Subscription status */}
+            {subscriptionLoading ? (
+              <div className="co-skel" style={{ marginBottom: '20px' }}>
+                <div className="co-skel-bar" style={{ width: '75%' }} />
+                <div className="co-skel-bar" style={{ width: '50%' }} />
               </div>
-            </div>
-          ) : subscription && subscription.status === 'active' ? (
-            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-gray-900">Subscription Status</h3>
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
-                  {subscription.isTeamMember ? 'Team Member' : 'Active'}
-                </span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{subscription.plan?.name || 'Plan'}</div>
-                  <div className="text-sm text-gray-600">Current Plan</div>
+            ) : subscription && subscription.status === 'active' ? (
+              <div className="co-sub-banner">
+                <div className="co-sub-banner-header">
+                  <h3 className="h3" style={{ margin: 0 }}>Subscription Status</h3>
+                  <span className="tag">{subscription.isTeamMember ? 'Team Member' : 'Active'}</span>
                 </div>
-                
-                <div className="text-center">
-                  <div className={`text-2xl font-bold ${getUsageStatusColor().split(' ')[0]}`}>
-                    {getRemainingScans()}
+
+                <div className="co-sub-stats">
+                  <div className="co-stat-cell">
+                    <div className="co-stat-num">{subscription.plan?.name || 'Plan'}</div>
+                    <div className="co-stat-label">Current Plan</div>
                   </div>
-                  <div className="text-sm text-gray-600">Scans Remaining</div>
+                  <div className="co-stat-cell">
+                    <div className={`co-stat-num co-use-num ${getUsageStatusColor()}`}>{getRemainingScans()}</div>
+                    <div className="co-stat-label">Scans Remaining</div>
+                  </div>
+                  <div className="co-stat-cell">
+                    <div className="co-stat-num">{subscription.limits?.scansPerMonth || 0}</div>
+                    <div className="co-stat-label">Yearly Limit</div>
+                  </div>
                 </div>
-                
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-gray-900">{subscription.limits?.scansPerMonth || 0}</div>
-                  <div className="text-sm text-gray-600">Yearly Limit</div>
-                </div>
-              </div>
-              
-              <div className={`p-3 rounded-lg ${getUsageStatusColor()}`}>
-                {getRemainingScans() === 0 ? (
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">No scans remaining this year. Upgrade your plan or wait for next year.</span>
-                  </div>
-                ) : getRemainingScans() <= 2 ? (
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">Warning: Only {getRemainingScans()} scan{getRemainingScans() !== 1 ? 's' : ''} remaining this month.</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center">
-                    <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="font-medium">You have {getRemainingScans()} scan{getRemainingScans() !== 1 ? 's' : ''} remaining this month.</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            (!oneTimeScans || oneTimeScans === 0) && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+
+                <div className={`${getUsageStatusColor()}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500 }}>
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
-                  <div>
-                    <div className="font-medium text-red-800">No Active Subscription</div>
-                    <div className="text-sm text-red-600">You need an active subscription to start audits.</div>
-                  </div>
+                  {getRemainingScans() === 0
+                    ? 'No scans remaining this year. Upgrade your plan or wait for next year.'
+                    : getRemainingScans() <= 2
+                    ? `Warning: Only ${getRemainingScans()} scan${getRemainingScans() !== 1 ? 's' : ''} remaining this month.`
+                    : `You have ${getRemainingScans()} scan${getRemainingScans() !== 1 ? 's' : ''} remaining this month.`}
                 </div>
               </div>
-            )
-          )}
-          
-          {/* One-time scans display */}
-          {oneTimeScans > 0 && (
-            <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+            ) : (
+              (!oneTimeScans || oneTimeScans === 0) && (
+                <div className="co-no-sub">
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--coral)', flexShrink: 0, marginTop: '1px' }} aria-hidden="true">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <div style={{ fontWeight: 600, color: 'var(--coral)', fontSize: '14px' }}>No Active Subscription</div>
+                      <div style={{ fontSize: '13px', color: 'var(--ink6)' }}>You need an active subscription to start audits.</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* One-time scans */}
+            {oneTimeScans > 0 && (
+              <div className="co-onetime-banner">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <svg width="18" height="18" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--t4)', flexShrink: 0 }} aria-hidden="true">
                     <path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" />
                     <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
                   </svg>
                   <div>
-                    <div className="font-semibold text-orange-800">One-Time Scan Credits</div>
-                    <div className="text-sm text-orange-600">You have {oneTimeScans} one-time scan{oneTimeScans !== 1 ? 's' : ''} available</div>
+                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>One-Time Scan Credits</div>
+                    <div style={{ fontSize: '12px', color: 'var(--ink6)' }}>You have {oneTimeScans} one-time scan{oneTimeScans !== 1 ? 's' : ''} available</div>
                   </div>
                 </div>
-                <div className="text-2xl font-bold text-orange-600">{oneTimeScans}</div>
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {success && (
-            <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-              {success}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="url" className="block text-sm font-medium text-gray-700 mb-2">
-                Website URL
-              </label>
-              <input
-                id="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://yourwebsite.com"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                required
-              />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={lockedEmail || email}
-                onChange={(e) => {
-                  if (lockedEmail) {
-                    e.currentTarget.value = lockedEmail;
-                    setEmail(lockedEmail);
-                    return;
-                  }
-                  setEmail(e.target.value);
-                }}
-                onInput={(e) => {
-                  if (lockedEmail && e.currentTarget.value !== lockedEmail) {
-                    e.currentTarget.value = lockedEmail;
-                    setEmail(lockedEmail);
-                  }
-                }}
-                onPaste={(e) => {
-                  if (lockedEmail) {
-                    e.preventDefault();
-                    setEmail(lockedEmail);
-                  }
-                }}
-                placeholder="your@email.com"
-                readOnly={Boolean(lockedEmail)}
-                aria-readonly={Boolean(lockedEmail)}
-                autoComplete={lockedEmail ? 'off' : 'email'}
-                className={`w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-900 ${
-                  lockedEmail
-                    ? 'bg-gray-100 cursor-not-allowed focus:ring-0 focus:border-gray-300'
-                    : 'focus:ring-2 focus:ring-blue-500 focus:border-transparent'
-                }`}
-                required
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="firstName" className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  id="firstName"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="John"
-                  autoComplete="given-name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  required
-                />
-              </div>
-              <div>
-                <label htmlFor="lastName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  id="lastName"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  autoComplete="family-name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Credit Type Selection - Show when user has both subscription and one-time scans */}
-            {hasBothOptions() && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-3">
-                  Select Credit Type to Use
-                </label>
-                <div className="space-y-3">
-                  <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-blue-300">
-                    <input
-                      type="radio"
-                      name="creditType"
-                      value="subscription"
-                      checked={creditType === 'subscription'}
-                      onChange={(e) => setCreditType(e.target.value)}
-                      className="w-5 h-5 text-blue-600 focus:ring-blue-500"
-                    />
-                    <div className="ml-3 flex-1">
-                      <div className="font-medium text-gray-900">
-                        Use Subscription ({subscription.plan?.name || 'Plan'})
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {getRemainingScans()} scan{getRemainingScans() !== 1 ? 's' : ''} remaining this month
-                        {subscription.planId === 'pro' && ' • Tests all devices (Desktop, Tablet, Mobile)'}
-                        {subscription.planId === 'starter' && ' • Select one device type per scan'}
-                      </div>
-                    </div>
-                  </label>
-                  
-                  <label className="flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all hover:border-orange-300">
-                    <input
-                      type="radio"
-                      name="creditType"
-                      value="oneTime"
-                      checked={creditType === 'oneTime'}
-                      onChange={(e) => setCreditType(e.target.value)}
-                      className="w-5 h-5 text-orange-600 focus:ring-orange-500"
-                    />
-                    <div className="ml-3 flex-1">
-                      <div className="font-medium text-gray-900">
-                        Use One-Time Scan Credit
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        {oneTimeScans} credit{oneTimeScans !== 1 ? 's' : ''} available • Select one device type per scan
-                      </div>
-                    </div>
-                  </label>
-                </div>
+                <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--t4)', fontFamily: 'var(--ffd)' }}>{oneTimeScans}</div>
               </div>
             )}
 
-            {/* Device Selection - Show only when needed */}
-            {shouldShowDeviceSelection() && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Device Type
-                </label>
-                <p className="text-xs text-gray-600 mb-3">
-                  {creditType === 'oneTime'
-                    ? 'Select which device type to audit for this one-time scan. One-time scans audit one device type per scan.'
-                    : 'Your Starter plan allows auditing for one device type per scan.'}
-                </p>
-                <div className="grid grid-cols-3 gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDevice('desktop')}
-                    className={`p-4 border-2 rounded-lg transition-all ${
-                      selectedDevice === 'desktop'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clipRule="evenodd" />
-                    </svg>
-                    <div className="text-sm font-medium">Desktop</div>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDevice('tablet')}
-                    className={`p-4 border-2 rounded-lg transition-all ${
-                      selectedDevice === 'tablet'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2z" />
-                    </svg>
-                    <div className="text-sm font-medium">Tablet</div>
-                  </button>
-                  
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDevice('mobile')}
-                    className={`p-4 border-2 rounded-lg transition-all ${
-                      selectedDevice === 'mobile'
-                        ? 'border-blue-500 bg-blue-50 text-blue-700'
-                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
-                    }`}
-                  >
-                    <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                    </svg>
-                    <div className="text-sm font-medium">Mobile</div>
-                  </button>
+            {/* Alerts */}
+            {error && <div className="alert-error" style={{ marginBottom: '16px' }}><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{error}</div>}
+            {success && <div className="alert-success" style={{ marginBottom: '16px' }}><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" /></svg>{success}</div>}
+
+            <form onSubmit={handleSubmit}>
+              {/* URL */}
+              <div style={{ marginBottom: '16px' }}>
+                <label className="ss-label" htmlFor="co-url">Website URL</label>
+                <input id="co-url" type="url" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://yourwebsite.com" className="ss-input" required />
+              </div>
+
+              {/* Email */}
+              <div style={{ marginBottom: '16px' }}>
+                <label className="ss-label" htmlFor="co-email">Email Address</label>
+                <input
+                  type="email"
+                  id="co-email"
+                  value={lockedEmail || email}
+                  onChange={(e) => {
+                    if (lockedEmail) { e.currentTarget.value = lockedEmail; setEmail(lockedEmail); return; }
+                    setEmail(e.target.value);
+                  }}
+                  onInput={(e) => {
+                    if (lockedEmail && e.currentTarget.value !== lockedEmail) {
+                      e.currentTarget.value = lockedEmail; setEmail(lockedEmail);
+                    }
+                  }}
+                  onPaste={(e) => { if (lockedEmail) { e.preventDefault(); setEmail(lockedEmail); } }}
+                  placeholder="your@email.com"
+                  readOnly={Boolean(lockedEmail)}
+                  aria-readonly={Boolean(lockedEmail)}
+                  autoComplete={lockedEmail ? 'off' : 'email'}
+                  className="ss-input"
+                  style={lockedEmail ? { background: 'var(--sand)', cursor: 'not-allowed' } : {}}
+                  required
+                />
+              </div>
+
+              {/* Name fields */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+                <div>
+                  <label className="ss-label" htmlFor="co-fname">First Name</label>
+                  <input type="text" id="co-fname" value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="John" autoComplete="given-name" className="ss-input" required />
+                </div>
+                <div>
+                  <label className="ss-label" htmlFor="co-lname">Last Name</label>
+                  <input type="text" id="co-lname" value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Doe" autoComplete="family-name" className="ss-input" required />
                 </div>
               </div>
-            )}
 
-            {/* Info message for Pro plan - only show when subscription is selected */}
-            {creditType === 'subscription' && subscription && subscription.planId === 'pro' && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+              {/* Credit type */}
+              {hasBothOptions() && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label className="ss-label">Select Credit Type to Use</label>
+                  <div className="co-credit-opts">
+                    <label className={`co-credit-opt${creditType === 'subscription' ? ' selected' : ''}`}>
+                      <input type="radio" name="creditType" value="subscription" checked={creditType === 'subscription'} onChange={(e) => setCreditType(e.target.value)} style={{ accentColor: 'var(--t4)', width: '18px', height: '18px', flexShrink: 0, marginTop: '2px' }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>Use Subscription ({subscription.plan?.name || 'Plan'})</div>
+                        <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>
+                          {getRemainingScans()} scan{getRemainingScans() !== 1 ? 's' : ''} remaining this month
+                          {subscription.planId === 'pro' && ' • Tests all devices (Desktop, Tablet, Mobile)'}
+                          {subscription.planId === 'starter' && ' • Select one device type per scan'}
+                        </div>
+                      </div>
+                    </label>
+                    <label className={`co-credit-opt${creditType === 'oneTime' ? ' selected' : ''}`}>
+                      <input type="radio" name="creditType" value="oneTime" checked={creditType === 'oneTime'} onChange={(e) => setCreditType(e.target.value)} style={{ accentColor: 'var(--t4)', width: '18px', height: '18px', flexShrink: 0, marginTop: '2px' }} />
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>Use One-Time Scan Credit</div>
+                        <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>
+                          {oneTimeScans} credit{oneTimeScans !== 1 ? 's' : ''} available • Select one device type per scan
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Device selection */}
+              {shouldShowDeviceSelection() && (
+                <div style={{ marginBottom: '16px' }}>
+                  <label className="ss-label">Select Device Type</label>
+                  <p style={{ fontSize: '12px', color: 'var(--ink6)', marginBottom: '10px' }}>
+                    {creditType === 'oneTime'
+                      ? 'Select which device type to audit for this one-time scan. One-time scans audit one device type per scan.'
+                      : 'Your Starter plan allows auditing for one device type per scan.'}
+                  </p>
+                  <div className="co-device-grid">
+                    {[
+                      { key: 'desktop', label: 'Desktop', icon: <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clipRule="evenodd" /> },
+                      { key: 'tablet', label: 'Tablet', icon: <path d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2z" /> },
+                      { key: 'mobile', label: 'Mobile', icon: <path fillRule="evenodd" d="M7 2a2 2 0 00-2 2v12a2 2 0 002 2h6a2 2 0 002-2V4a2 2 0 00-2-2H7zm3 14a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /> },
+                    ].map(({ key, label, icon }) => (
+                      <button key={key} type="button" onClick={() => setSelectedDevice(key)} className={`co-device-btn${selectedDevice === key ? ' active' : ''}`}>
+                        <svg width="28" height="28" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">{icon}</svg>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Pro plan info */}
+              {creditType === 'subscription' && subscription && subscription.planId === 'pro' && (
+                <div className="co-pro-note">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" style={{ color: 'var(--t4)', flexShrink: 0 }} aria-hidden="true">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <div className="text-sm text-green-700">
-                    <strong>Pro Plan:</strong> Your audit will test all devices (Desktop, Tablet, and Mobile)
-                  </div>
+                  <span><strong>Pro Plan:</strong> Your audit will test all devices (Desktop, Tablet, and Mobile)</span>
                 </div>
-              </div>
-            )}
+              )}
 
-            <button
-              type="submit"
-              disabled={loading || !canStartAudit()}
-              className={`w-full bg-gradient-to-r from-blue-500 to-green-500 hover:from-blue-600 hover:to-green-600 disabled:opacity-50 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center ${
-                !canStartAudit() ? 'cursor-not-allowed' : ''
-              }`}
-            >
-              {loading ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  {precheckLoading ? 'Validating URL...' : 'Starting Audit...'}
-                </>
-              ) : !canStartAudit() ? (
-                (creditType === 'subscription' && getRemainingScans() === 0 && oneTimeScans > 0)
-                  ? 'Please Select One-Time Scan Credit'
-                  : (getRemainingScans() === 0 && oneTimeScans === 0)
+              <button
+                type="submit"
+                disabled={loading || !canStartAudit()}
+                className="btn btn-d"
+                style={{ width: '100%', justifyContent: 'center', opacity: (loading || !canStartAudit()) ? 0.65 : 1, cursor: !canStartAudit() ? 'not-allowed' : 'pointer' }}
+              >
+                {loading ? (
+                  <><span className="co-spin" aria-hidden="true" />{precheckLoading ? 'Validating URL...' : 'Starting Audit...'}</>
+                ) : !canStartAudit() ? (
+                  (creditType === 'subscription' && getRemainingScans() === 0 && oneTimeScans > 0)
+                    ? 'Please Select One-Time Scan Credit'
+                    : (getRemainingScans() === 0 && oneTimeScans === 0)
                     ? 'Scan Limit Reached'
                     : 'No Active Subscription'
-              ) : (
-                'Start Full Audit'
-              )}
-            </button>
-          </form>
+                ) : (
+                  'Start Full Audit'
+                )}
+              </button>
+            </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => navigate('/subscription')}
-              className="text-blue-600 hover:text-blue-800 font-medium"
-            >
-              ← Back to Subscription
-            </button>
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
+              <button onClick={() => navigate('/subscription')} className="btn btn-o" style={{ fontSize: '13px' }}>
+                ← Back to Subscription
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

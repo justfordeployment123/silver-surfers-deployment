@@ -13,50 +13,80 @@ import {
     rescanMyQuickScan,
 } from "../api";
 
+const STYLES = `
+.ac-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
+.ac-wrap { max-width: 1024px; margin: 0 auto; padding: 0 24px; }
+.sp { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #fff; }
+.sp-cmp { background: rgba(29,158,117,0.65); }
+.sp-cww { background: rgba(217,119,6,0.65); }
+.sp-fail { background: rgba(220,38,38,0.65); }
+.sp-proc { background: rgba(37,99,235,0.65); }
+.sp-def { background: rgba(75,85,99,0.55); }
+.ac-sub-banner { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: var(--r); padding: 24px; margin-bottom: 32px; }
+.ac-tab-wrap { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); padding: 8px; margin-bottom: 12px; }
+.ac-tab { border-radius: 12px; padding: 12px 16px; text-align: left; border: none; cursor: pointer; width: 100%; transition: background .15s; }
+.ac-tab-active { background: #fff; color: #042E22; }
+.ac-tab-inactive { background: rgba(255,255,255,0.05); color: #fff; }
+.ac-tab-inactive:hover { background: rgba(255,255,255,0.1); }
+.ac-tab-badge { border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
+.ac-tab-badge-active { background: rgba(4,46,34,0.1); color: #333; }
+.ac-tab-badge-inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.ac-inp { flex: 1; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-inp::placeholder { color: rgba(255,255,255,0.35); }
+.ac-inp:focus { border-color: var(--t4); }
+.ac-sel { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-ref { padding: 8px 16px; border-radius: 8px; background: var(--t4); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; border: none; white-space: nowrap; }
+.ac-ref:hover { background: var(--t8); }
+.ac-card { padding: 16px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
+.ac-card:hover { border-color: rgba(29,158,117,0.4); }
+.ac-btn-rescan { border-radius: 8px; background: var(--t4); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; border: none; cursor: pointer; transition: background .15s; }
+.ac-btn-rescan:hover { background: var(--t8); }
+.ac-btn-rescan:disabled { opacity: 0.6; cursor: not-allowed; }
+.ac-btn-rerun { border-radius: 8px; background: rgba(217,119,6,0.7); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
+.ac-btn-rerun:hover { background: rgba(217,119,6,0.9); }
+.ac-btn-rerun:disabled { opacity: 0.6; cursor: not-allowed; }
+.ac-btn-view { border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; }
+.ac-btn-view:hover { background: rgba(255,255,255,0.1); }
+.ac-btn-del { border-radius: 8px; border: 1px solid rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fca5a5; cursor: pointer; }
+.ac-btn-del:hover { background: rgba(239,68,68,0.15); }
+.ac-btn-del:disabled { opacity: 0.6; cursor: not-allowed; }
+`;
+
 const StatusPill = ({ value }) => {
     const cls =
-        value === "completed"
-            ? "bg-emerald-600/70"
-            : value === "completed_with_warnings"
-              ? "bg-amber-600/70"
-              : value === "failed"
-                ? "bg-red-600/70"
-                : value === "processing"
-                  ? "bg-blue-600/70"
-                  : "bg-gray-600/60";
+        value === "completed" ? "sp-cmp"
+        : value === "completed_with_warnings" ? "sp-cww"
+        : value === "failed" ? "sp-fail"
+        : value === "processing" ? "sp-proc"
+        : "sp-def";
     const label =
         value === "completed_with_warnings"
             ? "COMPLETED WITH WARNINGS"
-            : String(value || "queued")
-                  .replace(/_/g, " ")
-                  .toUpperCase();
-    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>{label}</span>;
+            : String(value || "queued").replace(/_/g, " ").toUpperCase();
+    return <span className={`sp ${cls}`}>{label}</span>;
 };
 
 const EmailPill = ({ value }) => {
     const cls =
-        value === "sent"
-            ? "bg-emerald-600/60"
-            : value === "failed"
-              ? "bg-red-600/60"
-              : value === "sending"
-                ? "bg-blue-600/60"
-                : "bg-gray-600/50";
-    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>EMAIL {String(value || "pending").toUpperCase()}</span>;
+        value === "sent" ? "sp-cmp"
+        : value === "failed" ? "sp-fail"
+        : value === "sending" ? "sp-proc"
+        : "sp-def";
+    return <span className={`sp ${cls}`}>EMAIL {String(value || "pending").toUpperCase()}</span>;
 };
 
 const ScorePill = ({ value }) => {
     if (typeof value !== "number" || Number.isNaN(value)) return null;
     const rounded = Math.round(value);
-    const cls = rounded >= 80 ? "bg-emerald-600/60" : rounded >= 70 ? "bg-amber-600/60" : "bg-red-600/60";
-    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>SILVER SCORE {rounded}</span>;
+    const cls = rounded >= 80 ? "sp-cmp" : rounded >= 70 ? "sp-cww" : "sp-fail";
+    return <span className={`sp ${cls}`}>SILVER SCORE {rounded}</span>;
 };
 
 const RiskPill = ({ value }) => {
     if (!value) return null;
     const normalized = String(value).toLowerCase();
-    const cls = normalized === "low" ? "bg-emerald-700/50" : normalized === "medium" ? "bg-amber-700/50" : "bg-red-700/50";
-    return <span className={`text-sm px-2.5 py-1 rounded-full ${cls}`}>RISK {normalized.toUpperCase()}</span>;
+    const cls = normalized === "low" ? "sp-cmp" : normalized === "medium" ? "sp-cww" : "sp-fail";
+    return <span className={`sp ${cls}`}>RISK {normalized.toUpperCase()}</span>;
 };
 
 const getQuickScanStepIndex = (value) => {
@@ -75,13 +105,11 @@ const getQuickScanStatusLabel = (value) => {
 };
 
 const QuickScanStatusLine = ({ value }) => {
-    const activeIndex = getQuickScanStepIndex(value);
     const failed = String(value || "").toLowerCase() === "failed";
-
     return (
-        <div className="flex items-center gap-2 text-sm text-gray-300">
-            <span className="font-semibold uppercase tracking-[0.2em] text-gray-400">Current status</span>
-            <span className={failed ? "text-red-300" : "text-green-300"}>{getQuickScanStatusLabel(value)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>Current status</span>
+            <span style={{ color: failed ? '#fca5a5' : 'var(--t3)' }}>{getQuickScanStatusLabel(value)}</span>
         </div>
     );
 };
@@ -108,19 +136,11 @@ export default function Account() {
         setQuickScanError("");
         const [analysisRes, quickScanRes] = await Promise.all([listMyAnalysis({ limit: 200 }), listMyQuickScans({ limit: 200 })]);
 
-        if (analysisRes?.error) {
-            setAuditError(analysisRes.error);
-            setItems([]);
-        } else {
-            setItems(Array.isArray(analysisRes.items) ? analysisRes.items : []);
-        }
+        if (analysisRes?.error) { setAuditError(analysisRes.error); setItems([]); }
+        else { setItems(Array.isArray(analysisRes.items) ? analysisRes.items : []); }
 
-        if (quickScanRes?.error) {
-            setQuickScanError(quickScanRes.error);
-            setQuickScans([]);
-        } else {
-            setQuickScans(Array.isArray(quickScanRes.items) ? quickScanRes.items : []);
-        }
+        if (quickScanRes?.error) { setQuickScanError(quickScanRes.error); setQuickScans([]); }
+        else { setQuickScans(Array.isArray(quickScanRes.items) ? quickScanRes.items : []); }
 
         setLoading(false);
     };
@@ -128,485 +148,300 @@ export default function Account() {
     useEffect(() => {
         (async () => {
             const me = await getMe();
-            if (!me?.user) {
-                setUser(null);
-                setLoading(false);
-                return;
-            }
+            if (!me?.user) { setUser(null); setLoading(false); return; }
             setUser(me.user);
-
-            // Load subscription data
             try {
                 const subResult = await getSubscription();
-                if (subResult.subscription) {
-                    setSubscription(subResult.subscription);
-                }
-            } catch (err) {
-                console.log("No subscription found");
-            }
-
+                if (subResult.subscription) setSubscription(subResult.subscription);
+            } catch { console.log("No subscription found"); }
             await load();
         })();
     }, []);
 
     const filtered = items.filter((r) => {
-        const matchQ = q
-            ? (r.url || "").toLowerCase().includes(q.toLowerCase()) || (r.taskId || "").toLowerCase().includes(q.toLowerCase())
-            : true;
+        const matchQ = q ? (r.url || "").toLowerCase().includes(q.toLowerCase()) || (r.taskId || "").toLowerCase().includes(q.toLowerCase()) : true;
         const matchStatus = status === "all" ? true : r.status === status;
         return matchQ && matchStatus;
     });
 
     const filteredQuickScans = quickScans.filter((scan) => {
-        const matchQ = q
-            ? (scan.url || "").toLowerCase().includes(q.toLowerCase()) || (scan.email || "").toLowerCase().includes(q.toLowerCase())
-            : true;
+        const matchQ = q ? (scan.url || "").toLowerCase().includes(q.toLowerCase()) || (scan.email || "").toLowerCase().includes(q.toLowerCase()) : true;
         const matchStatus = status === "all" ? true : scan.status === status;
         return matchQ && matchStatus;
     });
 
     const handleRerunAnalysis = async (taskId) => {
         if (!taskId) return;
-        setRerunningKey(`analysis:${taskId}`);
-        setAuditError("");
+        setRerunningKey(`analysis:${taskId}`); setAuditError("");
         const result = await rerunMyAnalysis(taskId);
         setRerunningKey("");
-
-        if (result?.error) {
-            setAuditError(result.error);
-            return;
-        }
-
+        if (result?.error) { setAuditError(result.error); return; }
         await load();
     };
 
     const handleRerunQuickScan = async (quickScanId) => {
         if (!quickScanId) return;
-        setRerunningKey(`quick:${quickScanId}`);
-        setQuickScanError("");
+        setRerunningKey(`quick:${quickScanId}`); setQuickScanError("");
         const result = await rerunMyQuickScan(quickScanId);
         setRerunningKey("");
-
-        if (result?.error) {
-            setQuickScanError(result.error);
-            return;
-        }
-
+        if (result?.error) { setQuickScanError(result.error); return; }
         await load();
     };
 
     const handleRescanAnalysis = async (taskId) => {
         if (!taskId) return;
-        setRescanningKey(`analysis:${taskId}`);
-        setAuditError("");
+        setRescanningKey(`analysis:${taskId}`); setAuditError("");
         const result = await rescanMyAnalysis(taskId);
         setRescanningKey("");
-
-        if (result?.error) {
-            setAuditError(result.error);
-            return;
-        }
-
+        if (result?.error) { setAuditError(result.error); return; }
         await load();
     };
 
     const handleRescanQuickScan = async (quickScanId) => {
         if (!quickScanId) return;
-        setRescanningKey(`quick:${quickScanId}`);
-        setQuickScanError("");
+        setRescanningKey(`quick:${quickScanId}`); setQuickScanError("");
         const result = await rescanMyQuickScan(quickScanId);
         setRescanningKey("");
-
-        if (result?.error) {
-            setQuickScanError(result.error);
-            return;
-        }
-
+        if (result?.error) { setQuickScanError(result.error); return; }
         await load();
     };
 
     const handleDeleteAnalysis = async (taskId) => {
         if (!taskId) return;
         if (!window.confirm("Delete this full audit from your account?")) return;
-
-        setDeletingKey(`analysis:${taskId}`);
-        setAuditError("");
+        setDeletingKey(`analysis:${taskId}`); setAuditError("");
         const result = await deleteMyAnalysis(taskId);
         setDeletingKey("");
-
-        if (result?.error) {
-            setAuditError(result.error);
-            return;
-        }
-
+        if (result?.error) { setAuditError(result.error); return; }
         await load();
     };
 
     const handleDeleteQuickScan = async (quickScanId) => {
         if (!quickScanId) return;
         if (!window.confirm("Delete this quick scan from your account?")) return;
-
-        setDeletingKey(`quick:${quickScanId}`);
-        setQuickScanError("");
+        setDeletingKey(`quick:${quickScanId}`); setQuickScanError("");
         const result = await deleteMyQuickScan(quickScanId);
         setDeletingKey("");
-
-        if (result?.error) {
-            setQuickScanError(result.error);
-            return;
-        }
-
+        if (result?.error) { setQuickScanError(result.error); return; }
         await load();
     };
 
     return (
-        <div className="min-h-screen pt-28 pb-20 px-4 md:px-10 bg-gradient-to-br from-gray-950 via-blue-950 to-green-950 text-white">
-            <div className="max-w-5xl mx-auto">
-                <header className="mb-8">
-                    <h1 className="heading-page font-bold tracking-tight bg-gradient-to-r from-blue-400 via-green-500 to-teal-400 text-transparent bg-clip-text">
-                        My Account
-                    </h1>
-                    <p className="text-base text-gray-300 mt-2">Your full audits, quick scans, and their current delivery status.</p>
-                </header>
-                {!user && (
-                    <div className="p-4 rounded-xl bg-black/30 border border-white/10 text-base">Please log in to view your account.</div>
-                )}
-                {user && (
-                    <>
-                        {/* Start Audit Button for Active Subscribers */}
-                        {subscription && subscription.status === "active" && (
-                            <div className="mb-8">
-                                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                                        <div className="text-center sm:text-left">
-                                            <h3 className="text-xl font-bold text-white mb-2">Ready to Start Your Audit?</h3>
-                                            <p className="text-gray-300 text-base">
+        <>
+            <style>{STYLES}</style>
+            <div className="ac-pg">
+                <div className="ac-wrap">
+                    <header style={{ marginBottom: '32px' }}>
+                        <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>My Account</h1>
+                        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.6)' }}>Your full audits, quick scans, and their current delivery status.</p>
+                    </header>
+
+                    {!user && (
+                        <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
+                            Please log in to view your account.
+                        </div>
+                    )}
+
+                    {user && (
+                        <>
+                            {subscription && subscription.status === "active" && (
+                                <div className="ac-sub-banner">
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>Ready to Start Your Audit?</h3>
+                                            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)' }}>
                                                 You have {subscription.isTeamMember ? "team access to" : "an active"}{" "}
-                                                <span className="font-semibold text-green-400">{subscription.plan?.name}</span> subscription
+                                                <span style={{ fontWeight: 700, color: 'var(--t4)' }}>{subscription.plan?.name}</span> subscription
                                             </p>
                                             {subscription.isTeamMember && (
-                                                <p className="text-yellow-300 text-sm mt-1">👥 You're using a team plan</p>
+                                                <p style={{ fontSize: '13px', color: '#fcd34d', marginTop: '4px', display: 'flex', alignItems: 'center', gap: 5 }}><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>You're using a team plan</p>
                                             )}
                                         </div>
-                                        <button
-                                            onClick={() => navigate("/checkout")}
-                                            className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-semibold px-6 py-3 rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 whitespace-nowrap"
-                                        >
+                                        <button onClick={() => navigate("/checkout")} className="btn btn-d">
                                             Start Full Audit
                                         </button>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                            )}
 
-                        <section className="space-y-4">
-                            <div className="rounded-2xl border border-white/10 bg-black/20 p-2">
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                    <button
-                                        onClick={() => setActiveTab("full-audits")}
-                                        className={`rounded-xl px-4 py-3 text-left transition ${activeTab === "full-audits" ? "bg-white text-gray-950 shadow-lg" : "bg-white/5 text-white hover:bg-white/10"}`}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <p
-                                                    className={`text-base font-semibold ${activeTab === "full-audits" ? "text-gray-950" : "text-white"}`}
-                                                >
-                                                    Full Audits
-                                                </p>
-                                                <p
-                                                    className={`text-sm ${activeTab === "full-audits" ? "text-gray-600" : "text-gray-400"}`}
-                                                >
-                                                    Detailed audit runs and report packages
-                                                </p>
-                                            </div>
-                                            <span
-                                                className={`rounded-full px-2.5 py-1 text-sm font-semibold ${activeTab === "full-audits" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
+                            <section>
+                                <div className="ac-tab-wrap">
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                                        {[
+                                            { key: 'full-audits', label: 'Full Audits', desc: 'Detailed audit runs and report packages', count: filtered.length },
+                                            { key: 'quick-scans', label: 'Quick Scans', desc: 'Fast scan requests with status progress', count: filteredQuickScans.length },
+                                        ].map(({ key, label, desc, count }) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => setActiveTab(key)}
+                                                className={`ac-tab ${activeTab === key ? 'ac-tab-active' : 'ac-tab-inactive'}`}
                                             >
-                                                {filtered.length}
-                                            </span>
-                                        </div>
-                                    </button>
-
-                                    <button
-                                        onClick={() => setActiveTab("quick-scans")}
-                                        className={`rounded-xl px-4 py-3 text-left transition ${activeTab === "quick-scans" ? "bg-white text-gray-950 shadow-lg" : "bg-white/5 text-white hover:bg-white/10"}`}
-                                    >
-                                        <div className="flex items-center justify-between gap-3">
-                                            <div>
-                                                <p
-                                                    className={`text-base font-semibold ${activeTab === "quick-scans" ? "text-gray-950" : "text-white"}`}
-                                                >
-                                                    Quick Scans
-                                                </p>
-                                                <p
-                                                    className={`text-sm ${activeTab === "quick-scans" ? "text-gray-600" : "text-gray-400"}`}
-                                                >
-                                                    Fast scan requests with status progress
-                                                </p>
-                                            </div>
-                                            <span
-                                                className={`rounded-full px-2.5 py-1 text-sm font-semibold ${activeTab === "quick-scans" ? "bg-gray-950/10 text-gray-700" : "bg-white/10 text-gray-300"}`}
-                                            >
-                                                {filteredQuickScans.length}
-                                            </span>
-                                        </div>
-                                    </button>
+                                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                                                    <div>
+                                                        <p style={{ fontSize: '15px', fontWeight: 700, color: activeTab === key ? '#042E22' : '#fff', marginBottom: '2px' }}>{label}</p>
+                                                        <p style={{ fontSize: '13px', color: activeTab === key ? '#555' : 'rgba(255,255,255,0.5)' }}>{desc}</p>
+                                                    </div>
+                                                    <span className={`ac-tab-badge ${activeTab === key ? 'ac-tab-badge-active' : 'ac-tab-badge-inactive'}`}>{count}</span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
-                                <input
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    placeholder={activeTab === "quick-scans" ? "Search URL or email..." : "Search URL or taskId..."}
-                                    className="flex-1 px-3 py-2 rounded-lg bg-white/10 text-base outline-none focus:ring-2 ring-green-500/50"
-                                />
-                                <select
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value)}
-                                    className="px-3 py-2 rounded-lg bg-white/10 text-base outline-none focus:ring-2 ring-green-500/50 text-white"
-                                >
-                                    <option value="all" className="text-black">
-                                        All
-                                    </option>
-                                    <option value="queued" className="text-black">
-                                        Queued
-                                    </option>
-                                    <option value="processing" className="text-black">
-                                        Processing
-                                    </option>
-                                    <option value="completed" className="text-black">
-                                        Completed
-                                    </option>
-                                    <option value="completed_with_warnings" className="text-black">
-                                        Completed with warnings
-                                    </option>
-                                    <option value="failed" className="text-black">
-                                        Failed
-                                    </option>
-                                </select>
-                                <button
-                                    onClick={load}
-                                    className="px-4 py-2 rounded-lg bg-green-600/80 hover:bg-green-500 text-sm font-semibold shadow"
-                                >
-                                    Refresh
-                                </button>
-                            </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center', marginBottom: '16px' }}>
+                                    <input
+                                        value={q}
+                                        onChange={(e) => setQ(e.target.value)}
+                                        placeholder={activeTab === "quick-scans" ? "Search URL or email..." : "Search URL or taskId..."}
+                                        className="ac-inp"
+                                    />
+                                    <select value={status} onChange={(e) => setStatus(e.target.value)} className="ac-sel">
+                                        <option value="all" className="text-black">All</option>
+                                        <option value="queued" className="text-black">Queued</option>
+                                        <option value="processing" className="text-black">Processing</option>
+                                        <option value="completed" className="text-black">Completed</option>
+                                        <option value="completed_with_warnings" className="text-black">Completed with warnings</option>
+                                        <option value="failed" className="text-black">Failed</option>
+                                    </select>
+                                    <button onClick={load} className="ac-ref">Refresh</button>
+                                </div>
 
-                            {loading && <div className="text-base text-gray-400">Loading...</div>}
+                                {loading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>Loading...</div>}
 
-                            <div className="space-y-8">
                                 {activeTab === "full-audits" ? (
-                                    <section className="space-y-3">
-                                        <div className="flex items-center justify-between gap-3">
+                                    <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
-                                                <h2 className="text-xl font-semibold text-white">Full Audits</h2>
-                                                <p className="text-sm text-gray-400">
-                                                    Detailed accessibility audit runs linked to your account.
-                                                </p>
+                                                <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Full Audits</h2>
+                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Detailed accessibility audit runs linked to your account.</p>
                                             </div>
-                                            <span className="text-sm text-gray-400">{filtered.length} shown</span>
+                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>{filtered.length} shown</span>
                                         </div>
 
-                                        {auditError && <div className="text-base text-red-300">{auditError}</div>}
-                                        {!loading && filtered.length === 0 && (
-                                            <div className="text-base text-gray-400 italic">No full audits found.</div>
-                                        )}
+                                        {auditError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{auditError}</div>}
+                                        {!loading && filtered.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No full audits found.</div>}
 
-                                        <div className="space-y-3">
-                                            {filtered.map((rec) => (
-                                                <div
-                                                    key={rec._id || rec.taskId}
-                                                    className="p-4 rounded-lg bg-black/30 border border-white/10 hover:border-purple-400/40 transition"
-                                                >
-                                                    <div className="flex flex-wrap items-center justify-between gap-4">
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex flex-wrap gap-2 items-center mb-1">
-                                                                <span className="font-medium break-all">{rec.url}</span>
-                                                                <StatusPill value={rec.status} />
-                                                                <EmailPill value={rec.emailStatus} />
-                                                                <ScorePill value={rec.score ?? rec.scoreCard?.overallScore} />
-                                                                <RiskPill value={rec.scoreCard?.riskTier} />
-                                                            </div>
-                                                            <div className="text-sm text-gray-300 flex flex-wrap gap-4">
-                                                                <span>Task: {rec.taskId}</span>
-                                                                {rec.createdAt && (
-                                                                    <span>Created {new Date(rec.createdAt).toLocaleString()}</span>
-                                                                )}
-                                                                {typeof rec.attachmentCount === "number" && (
-                                                                    <span>PDFs: {rec.attachmentCount}</span>
-                                                                )}
-                                                                {typeof rec.successfulTargetCount === "number" &&
-                                                                    typeof rec.plannedTargetCount === "number" && (
-                                                                        <span>
-                                                                            Targets: {rec.successfulTargetCount}/{rec.plannedTargetCount}
-                                                                        </span>
-                                                                    )}
-                                                                {typeof rec.degradedTargetCount === "number" &&
-                                                                    rec.degradedTargetCount > 0 && (
-                                                                        <span>Lite fallback: {rec.degradedTargetCount}</span>
-                                                                    )}
-                                                                {Array.isArray(rec.reportFiles) && rec.reportFiles.length > 0 && (
-                                                                    <span>Stored reports ready</span>
-                                                                )}
-                                                            </div>
-                                                            {rec.failureReason && (
-                                                                <div className="mt-1 text-sm text-red-300">
-                                                                    Reason: {rec.failureReason}
-                                                                </div>
-                                                            )}
-                                                            {!rec.failureReason &&
-                                                                Array.isArray(rec.warnings) &&
-                                                                rec.warnings.filter(w => !w.includes('dispatched to the scanner service')).length > 0 && (
-                                                                    <div className="mt-1 text-sm text-amber-300">
-                                                                        Warning: {rec.warnings.filter(w => !w.includes('dispatched to the scanner service'))[0]}
-                                                                    </div>
-                                                                )}
+                                        {filtered.map((rec) => (
+                                            <div key={rec._id || rec.taskId} className="ac-card">
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
+                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '14px' }}>{rec.url}</span>
+                                                            <StatusPill value={rec.status} />
+                                                            <EmailPill value={rec.emailStatus} />
+                                                            <ScorePill value={rec.score ?? rec.scoreCard?.overallScore} />
+                                                            <RiskPill value={rec.scoreCard?.riskTier} />
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {rec.taskId && (
-                                                                <button
-                                                                    onClick={() => handleRescanAnalysis(rec.taskId)}
-                                                                    disabled={rescanningKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {rescanningKey === `analysis:${rec.taskId}` ? "Queueing..." : "Re-scan"}
-                                                                </button>
+                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                                                            <span>Task: {rec.taskId}</span>
+                                                            {rec.createdAt && <span>Created {new Date(rec.createdAt).toLocaleString()}</span>}
+                                                            {typeof rec.attachmentCount === "number" && <span>PDFs: {rec.attachmentCount}</span>}
+                                                            {typeof rec.successfulTargetCount === "number" && typeof rec.plannedTargetCount === "number" && (
+                                                                <span>Targets: {rec.successfulTargetCount}/{rec.plannedTargetCount}</span>
                                                             )}
-                                                            {rec.status === "failed" && rec.taskId && (
-                                                                <button
-                                                                    onClick={() => handleRerunAnalysis(rec.taskId)}
-                                                                    disabled={rerunningKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {rerunningKey === `analysis:${rec.taskId}` ? "Re-running..." : "Re-run"}
-                                                                </button>
+                                                            {typeof rec.degradedTargetCount === "number" && rec.degradedTargetCount > 0 && (
+                                                                <span>Lite fallback: {rec.degradedTargetCount}</span>
                                                             )}
-                                                            {rec.taskId && (
-                                                                <button
-                                                                    onClick={() => navigate(`/account/analysis/${rec.taskId}`)}
-                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-                                                                >
-                                                                    {rec.attachmentCount > 0 ? "View reports" : "View details"}
-                                                                </button>
-                                                            )}
-                                                            {rec.taskId && (
-                                                                <button
-                                                                    onClick={() => handleDeleteAnalysis(rec.taskId)}
-                                                                    disabled={deletingKey === `analysis:${rec.taskId}`}
-                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {deletingKey === `analysis:${rec.taskId}` ? "Deleting..." : "Delete"}
-                                                                </button>
-                                                            )}
+                                                            {Array.isArray(rec.reportFiles) && rec.reportFiles.length > 0 && <span>Stored reports ready</span>}
                                                         </div>
+                                                        {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '12px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
+                                                        {!rec.failureReason && Array.isArray(rec.warnings) && rec.warnings.filter(w => !w.includes('dispatched to the scanner service')).length > 0 && (
+                                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#fcd34d' }}>
+                                                                Warning: {rec.warnings.filter(w => !w.includes('dispatched to the scanner service'))[0]}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        {rec.taskId && (
+                                                            <button onClick={() => handleRescanAnalysis(rec.taskId)} disabled={rescanningKey === `analysis:${rec.taskId}`} className="ac-btn-rescan">
+                                                                {rescanningKey === `analysis:${rec.taskId}` ? "Queueing..." : "Re-scan"}
+                                                            </button>
+                                                        )}
+                                                        {rec.status === "failed" && rec.taskId && (
+                                                            <button onClick={() => handleRerunAnalysis(rec.taskId)} disabled={rerunningKey === `analysis:${rec.taskId}`} className="ac-btn-rerun">
+                                                                {rerunningKey === `analysis:${rec.taskId}` ? "Re-running..." : "Re-run"}
+                                                            </button>
+                                                        )}
+                                                        {rec.taskId && (
+                                                            <button onClick={() => navigate(`/account/analysis/${rec.taskId}`)} className="ac-btn-view">
+                                                                {rec.attachmentCount > 0 ? "View reports" : "View details"}
+                                                            </button>
+                                                        )}
+                                                        {rec.taskId && (
+                                                            <button onClick={() => handleDeleteAnalysis(rec.taskId)} disabled={deletingKey === `analysis:${rec.taskId}`} className="ac-btn-del">
+                                                                {deletingKey === `analysis:${rec.taskId}` ? "Deleting..." : "Delete"}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </section>
                                 ) : (
-                                    <section className="space-y-3">
-                                        <div className="flex items-center justify-between gap-3">
+                                    <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
-                                                <h2 className="text-xl font-semibold text-white">Quick Scans</h2>
-                                                <p className="text-sm text-gray-400">
-                                                    Free scan requests with a live status line for pending, queued, and complete.
-                                                </p>
+                                                <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Quick Scans</h2>
+                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Free scan requests with a live status line for pending, queued, and complete.</p>
                                             </div>
-                                            <span className="text-sm text-gray-400">{filteredQuickScans.length} shown</span>
+                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>{filteredQuickScans.length} shown</span>
                                         </div>
 
-                                        {quickScanError && <div className="text-base text-red-300">{quickScanError}</div>}
-                                        {!loading && filteredQuickScans.length === 0 && (
-                                            <div className="text-base text-gray-400 italic">No quick scans found.</div>
-                                        )}
+                                        {quickScanError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{quickScanError}</div>}
+                                        {!loading && filteredQuickScans.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No quick scans found.</div>}
 
-                                        <div className="space-y-3">
-                                            {filteredQuickScans.map((scan) => (
-                                                <div
-                                                    key={scan._id || `${scan.email}-${scan.url}-${scan.createdAt || scan.scanDate}`}
-                                                    className="p-4 rounded-lg bg-black/30 border border-white/10 hover:border-green-400/40 transition"
-                                                >
-                                                    <div className="flex flex-wrap items-start justify-between gap-4">
-                                                        <div className="min-w-0 flex-1 space-y-3">
-                                                            <div className="flex flex-wrap gap-2 items-center">
-                                                                <span className="font-medium break-all">{scan.url}</span>
-                                                                <StatusPill value={scan.status} />
-                                                                <EmailPill value={scan.emailStatus} />
-                                                                <ScorePill value={scan.scanScore} />
-                                                            </div>
-
-                                                            <QuickScanStatusLine value={scan.status} />
-
-                                                            <div className="text-sm text-gray-300 flex flex-wrap gap-4">
-                                                                {scan.scanDate && (
-                                                                    <span>Scanned {new Date(scan.scanDate).toLocaleString()}</span>
-                                                                )}
-                                                                {scan.createdAt && (
-                                                                    <span>Requested {new Date(scan.createdAt).toLocaleString()}</span>
-                                                                )}
-                                                                {scan.reportGenerated && <span>Report generated</span>}
-                                                                {Array.isArray(scan.reportFiles) && scan.reportFiles.length > 0 && (
-                                                                    <span>Stored reports ready</span>
-                                                                )}
-                                                            </div>
-
-                                                            {scan.errorMessage && (
-                                                                <div className="text-sm text-red-300">Reason: {scan.errorMessage}</div>
-                                                            )}
-                                                            {scan.emailError && (
-                                                                <div className="text-sm text-amber-300">Email: {scan.emailError}</div>
-                                                            )}
+                                        {filteredQuickScans.map((scan) => (
+                                            <div key={scan._id || `${scan.email}-${scan.url}-${scan.createdAt || scan.scanDate}`} className="ac-card">
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
+                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '14px' }}>{scan.url}</span>
+                                                            <StatusPill value={scan.status} />
+                                                            <EmailPill value={scan.emailStatus} />
+                                                            <ScorePill value={scan.scanScore} />
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2">
-                                                            {scan._id && (
-                                                                <button
-                                                                    onClick={() => handleRescanQuickScan(scan._id)}
-                                                                    disabled={rescanningKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg bg-sky-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {rescanningKey === `quick:${scan._id}` ? "Queueing..." : "Re-scan"}
-                                                                </button>
-                                                            )}
-                                                            {scan.status === "failed" && scan._id && (
-                                                                <button
-                                                                    onClick={() => handleRerunQuickScan(scan._id)}
-                                                                    disabled={rerunningKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg bg-amber-600/80 px-3 py-2 text-sm font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {rerunningKey === `quick:${scan._id}` ? "Re-running..." : "Re-run"}
-                                                                </button>
-                                                            )}
-                                                            {scan._id && (
-                                                                <button
-                                                                    onClick={() => navigate(`/account/quick-scans/${scan._id}`)}
-                                                                    className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-                                                                >
-                                                                    View quick scan
-                                                                </button>
-                                                            )}
-                                                            {scan._id && (
-                                                                <button
-                                                                    onClick={() => handleDeleteQuickScan(scan._id)}
-                                                                    disabled={deletingKey === `quick:${scan._id}`}
-                                                                    className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                                                                >
-                                                                    {deletingKey === `quick:${scan._id}` ? "Deleting..." : "Delete"}
-                                                                </button>
-                                                            )}
+                                                        <QuickScanStatusLine value={scan.status} />
+                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
+                                                            {scan.scanDate && <span>Scanned {new Date(scan.scanDate).toLocaleString()}</span>}
+                                                            {scan.createdAt && <span>Requested {new Date(scan.createdAt).toLocaleString()}</span>}
+                                                            {scan.reportGenerated && <span>Report generated</span>}
+                                                            {Array.isArray(scan.reportFiles) && scan.reportFiles.length > 0 && <span>Stored reports ready</span>}
                                                         </div>
+                                                        {scan.errorMessage && <div style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>Reason: {scan.errorMessage}</div>}
+                                                        {scan.emailError && <div style={{ fontSize: '12px', color: '#fcd34d', marginTop: '4px' }}>Email: {scan.emailError}</div>}
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                        {scan._id && (
+                                                            <button onClick={() => handleRescanQuickScan(scan._id)} disabled={rescanningKey === `quick:${scan._id}`} className="ac-btn-rescan">
+                                                                {rescanningKey === `quick:${scan._id}` ? "Queueing..." : "Re-scan"}
+                                                            </button>
+                                                        )}
+                                                        {scan.status === "failed" && scan._id && (
+                                                            <button onClick={() => handleRerunQuickScan(scan._id)} disabled={rerunningKey === `quick:${scan._id}`} className="ac-btn-rerun">
+                                                                {rerunningKey === `quick:${scan._id}` ? "Re-running..." : "Re-run"}
+                                                            </button>
+                                                        )}
+                                                        {scan._id && (
+                                                            <button onClick={() => navigate(`/account/quick-scans/${scan._id}`)} className="ac-btn-view">
+                                                                View quick scan
+                                                            </button>
+                                                        )}
+                                                        {scan._id && (
+                                                            <button onClick={() => handleDeleteQuickScan(scan._id)} disabled={deletingKey === `quick:${scan._id}`} className="ac-btn-del">
+                                                                {deletingKey === `quick:${scan._id}` ? "Deleting..." : "Delete"}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                 </div>
-                                            ))}
-                                        </div>
+                                            </div>
+                                        ))}
                                     </section>
                                 )}
-                            </div>
-                        </section>
-                    </>
-                )}
+                            </section>
+                        </>
+                    )}
+                </div>
             </div>
-        </div>
+        </>
     );
 }

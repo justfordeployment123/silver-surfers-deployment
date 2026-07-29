@@ -9,163 +9,111 @@ import {
   rerunMyAnalysis,
 } from '../api';
 
-function ScoreBadge({ value, tone }) {
-  const tones = {
-    green: 'bg-emerald-500/20 text-emerald-200 border-emerald-400/30',
-    yellow: 'bg-amber-500/20 text-amber-200 border-amber-400/30',
-    red: 'bg-rose-500/20 text-rose-200 border-rose-400/30',
-    blue: 'bg-sky-500/20 text-sky-200 border-sky-400/30',
-    gray: 'bg-white/10 text-gray-200 border-white/10',
-  };
+const STYLES = `
+.ad-pg { min-height: 100vh; background: var(--t9); padding: 112px 24px 80px; color: #fff; }
+.ad-wrap { max-width: 1152px; margin: 0 auto; }
+.ad-back { display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 12px; color: rgba(255,255,255,0.75); cursor: pointer; margin-bottom: 16px; }
+.ad-back:hover { background: rgba(255,255,255,0.1); }
+.sb { display: inline-flex; align-items: center; border-radius: 9999px; border: 1px solid; padding: 3px 10px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
+.sb-green { background: rgba(29,158,117,0.2); color: var(--t3); border-color: rgba(29,158,117,0.3); }
+.sb-yellow { background: rgba(245,158,11,0.15); color: #fcd34d; border-color: rgba(245,158,11,0.3); }
+.sb-red { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
+.sb-blue { background: rgba(56,189,248,0.15); color: #bae6fd; border-color: rgba(56,189,248,0.3); }
+.sb-gray { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.1); }
+.ad-btn-rescan { border-radius: 8px; background: var(--t4); padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
+.ad-btn-rescan:hover { background: var(--t8); }
+.ad-btn-rescan:disabled { opacity: 0.6; cursor: not-allowed; }
+.ad-btn-rerun { border-radius: 8px; background: rgba(217,119,6,0.7); padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
+.ad-btn-rerun:hover { background: rgba(217,119,6,0.9); }
+.ad-btn-rerun:disabled { opacity: 0.6; cursor: not-allowed; }
+.ad-btn-del { border-radius: 8px; border: 1px solid rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fca5a5; cursor: pointer; }
+.ad-btn-del:hover { background: rgba(239,68,68,0.15); }
+.ad-btn-del:disabled { opacity: 0.6; cursor: not-allowed; }
+.ad-btn-open { border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; cursor: pointer; }
+.ad-btn-open:hover { background: rgba(255,255,255,0.1); }
+.ad-btn-open:disabled { opacity: 0.6; cursor: not-allowed; }
+.ad-btn-dl { border-radius: 8px; background: var(--t4); padding: 6px 12px; font-size: 11px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
+.ad-btn-dl:hover { background: var(--t8); }
+.ad-btn-dl:disabled { opacity: 0.6; cursor: not-allowed; }
+.wcag-filter-btn { border-radius: 8px; border: 1px solid; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: background .15s; }
+.wcag-filter-btn-active { border-color: var(--t1); background: var(--t05); color: var(--t4); }
+.wcag-filter-btn-inactive { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65); }
+.wcag-filter-btn-inactive:hover { background: rgba(255,255,255,0.1); }
+.wcag-stat-pass { border-radius: 16px; border: 1px solid rgba(29,158,117,0.25); background: rgba(29,158,117,0.12); padding: 20px; }
+.wcag-stat-fail { border-radius: 16px; border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.1); padding: 20px; }
+.wcag-stat-review { border-radius: 16px; border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.1); padding: 20px; }
+.wcag-stat-na { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 20px; }
+.ad-rec-num { display: inline-flex; width: 24px; height: 24px; flex-shrink: 0; align-items: center; justify-content: center; border-radius: 50%; background: var(--t05); font-size: 11px; font-weight: 700; color: var(--t4); }
+.ad-wcag-link { display: inline-flex; align-items: center; gap: 6px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 5px 12px; font-size: 11px; font-weight: 700; color: var(--t3); text-decoration: none; }
+.ad-wcag-link:hover { background: rgba(255,255,255,0.1); }
+`;
 
-  return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold uppercase tracking-wide ${tones[tone] || tones.gray}`}>
-      {value}
-    </span>
-  );
+function ScoreBadge({ value, tone }) {
+  const cls = { green: 'sb-green', yellow: 'sb-yellow', red: 'sb-red', blue: 'sb-blue', gray: 'sb-gray' };
+  return <span className={`sb ${cls[tone] || 'sb-gray'}`}>{value}</span>;
 }
 
 function getRiskTone(value) {
-  if (value === 'low') {
-    return 'green';
-  }
-
-  if (value === 'medium') {
-    return 'yellow';
-  }
-
-  if (value === 'high') {
-    return 'red';
-  }
-
+  if (value === 'low') return 'green';
+  if (value === 'medium') return 'yellow';
+  if (value === 'high') return 'red';
   return 'gray';
 }
 
 function getStatusTone(value) {
-  if (value === 'completed' || value === 'sent' || value === 'pass') {
-    return 'green';
-  }
-
-  if (value === 'completed_with_warnings') {
-    return 'yellow';
-  }
-
-  if (value === 'processing' || value === 'sending' || value === 'needs-improvement') {
-    return 'blue';
-  }
-
-  if (value === 'failed' || value === 'fail') {
-    return 'red';
-  }
-
+  if (value === 'completed' || value === 'sent' || value === 'pass') return 'green';
+  if (value === 'completed_with_warnings') return 'yellow';
+  if (value === 'processing' || value === 'sending' || value === 'needs-improvement') return 'blue';
+  if (value === 'failed' || value === 'fail') return 'red';
   return 'gray';
 }
 
 function getPriorityTone(value) {
-  if (value === 'high') {
-    return 'red';
-  }
-
-  if (value === 'medium') {
-    return 'yellow';
-  }
-
-  if (value === 'low') {
-    return 'green';
-  }
-
+  if (value === 'high') return 'red';
+  if (value === 'medium') return 'yellow';
+  if (value === 'low') return 'green';
   return 'gray';
 }
 
 function formatStatusLabel(value) {
-  return String(value || '')
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (character) => character.toUpperCase());
+  return String(value || '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 function getBucketTone(value) {
-  if (value === 'quick-wins') {
-    return 'green';
-  }
-
-  if (value === 'medium-effort') {
-    return 'yellow';
-  }
-
-  if (value === 'high-effort') {
-    return 'red';
-  }
-
+  if (value === 'quick-wins') return 'green';
+  if (value === 'medium-effort') return 'yellow';
+  if (value === 'high-effort') return 'red';
   return 'gray';
 }
 
 function buildFallbackRemediationBuckets(roadmap) {
   const bucketOrder = [
-    {
-      key: 'quick-wins',
-      label: 'Quick Wins',
-      description: 'Lower-effort improvements that can remove friction quickly and raise usability confidence fast.',
-    },
-    {
-      key: 'medium-effort',
-      label: 'Medium Effort',
-      description: 'Moderate implementation work with meaningful accessibility and usability payoff.',
-    },
-    {
-      key: 'high-effort',
-      label: 'High Effort',
-      description: 'Bigger redesign or engineering work that should be planned as a larger remediation phase.',
-    },
+    { key: 'quick-wins', label: 'Quick Wins', description: 'Lower-effort improvements that can remove friction quickly and raise usability confidence fast.' },
+    { key: 'medium-effort', label: 'Medium Effort', description: 'Moderate implementation work with meaningful accessibility and usability payoff.' },
+    { key: 'high-effort', label: 'High Effort', description: 'Bigger redesign or engineering work that should be planned as a larger remediation phase.' },
   ];
-
-  return bucketOrder
-    .map((bucket) => {
-      const items = roadmap.filter((item) => item.bucketKey === bucket.key);
-      return {
-        ...bucket,
-        items,
-        itemCount: items.length,
-      };
-    })
-    .filter((bucket) => bucket.itemCount > 0);
+  return bucketOrder.map((bucket) => {
+    const items = roadmap.filter((item) => item.bucketKey === bucket.key);
+    return { ...bucket, items, itemCount: items.length };
+  }).filter((bucket) => bucket.itemCount > 0);
 }
 
 function renderAuditMetadata(issue) {
   const badges = [];
-
-  if (issue?.auditSourceLabel) {
-    badges.push(
-      <ScoreBadge key={`${issue.auditId || issue.id}-source`} value={issue.auditSourceLabel} tone="gray" />,
-    );
-  }
-
+  if (issue?.auditSourceLabel) badges.push(<ScoreBadge key={`${issue.auditId || issue.id}-source`} value={issue.auditSourceLabel} tone="gray" />);
   if (Array.isArray(issue?.wcagCriteria)) {
     issue.wcagCriteria.forEach((criterion) => {
-      badges.push(
-        <ScoreBadge key={`${issue.auditId || issue.id}-wcag-${criterion}`} value={`WCAG ${criterion}`} tone="gray" />,
-      );
+      badges.push(<ScoreBadge key={`${issue.auditId || issue.id}-wcag-${criterion}`} value={`WCAG ${criterion}`} tone="gray" />);
     });
   }
-
   return badges;
 }
 
-function getInlineActionLabel(reportFile) {
-  return reportFile?.hasPreview ? 'View PDF' : 'Open File';
-}
-
-function getDownloadActionLabel(reportFile) {
-  return reportFile?.hasPreview ? 'Download PDF' : 'Download File';
-}
+function getInlineActionLabel(reportFile) { return reportFile?.hasPreview ? 'View PDF' : 'Open File'; }
+function getDownloadActionLabel(reportFile) { return reportFile?.hasPreview ? 'Download PDF' : 'Download File'; }
 
 function wcagUnderstandingUrl(title) {
-  const slug = String(title || '')
-    .toLowerCase()
-    .replace(/[()]/g, '')
-    .replace(/[^a-z0-9\s-]/g, '')
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
+  const slug = String(title || '').toLowerCase().replace(/[()]/g, '').replace(/[^a-z0-9\s-]/g, '').trim().replace(/\s+/g, '-').replace(/-+/g, '-');
   return `https://www.w3.org/WAI/WCAG22/Understanding/${slug}`;
 }
 
@@ -185,13 +133,25 @@ function getWcagStatusLabel(status) {
 
 function StatCard({ label, value, help }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-5 backdrop-blur-sm">
-      <p className="text-xs uppercase tracking-[0.2em] text-gray-400">{label}</p>
-      <p className="mt-3 text-3xl font-bold text-white">{value}</p>
-      {help ? <p className="mt-2 text-sm text-gray-300">{help}</p> : null}
+    <div style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '20px', backdropFilter: 'blur(4px)' }}>
+      <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.45)' }}>{label}</p>
+      <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: '#fff' }}>{value}</p>
+      {help ? <p style={{ marginTop: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>{help}</p> : null}
     </div>
   );
 }
+
+const Box = ({ children, style }) => (
+  <div style={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.2)', padding: '24px', ...style }}>
+    {children}
+  </div>
+);
+
+const SubBox = ({ children, style }) => (
+  <div style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '20px', ...style }}>
+    {children}
+  </div>
+);
 
 export default function AnalysisDetail() {
   const navigate = useNavigate();
@@ -211,41 +171,25 @@ export default function AnalysisDetail() {
   const [wcagExpandedRow, setWcagExpandedRow] = useState(null);
 
   const loadDetail = async (cancelled = false) => {
-    setLoading(true);
-    setError('');
-
+    setLoading(true); setError('');
     const result = await getMyAnalysisDetail(taskId);
-    if (cancelled) {
-      return;
-    }
-
-    if (result?.error) {
-      setError(result.error);
-      setItem(null);
-    } else {
-      setItem(result?.item || null);
-    }
-
+    if (cancelled) return;
+    if (result?.error) { setError(result.error); setItem(null); }
+    else { setItem(result?.item || null); }
     setLoading(false);
   };
 
   useEffect(() => {
     let cancelled = false;
     loadDetail(cancelled);
-
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [taskId]);
 
   const dimensions = item?.dimensions || [];
   const evaluationDimensions = item?.evaluationDimensions || item?.scorecard?.evaluationDimensions || [];
   const topIssues = item?.topIssues || [];
   const roadmap = item?.remediationRoadmap || [];
-  const remediationBuckets =
-    item?.remediationBuckets?.length
-      ? item.remediationBuckets
-      : buildFallbackRemediationBuckets(roadmap);
+  const remediationBuckets = item?.remediationBuckets?.length ? item.remediationBuckets : buildFallbackRemediationBuckets(roadmap);
   const aiReport = item?.aiReport || null;
   const reportFiles = item?.reportFiles || [];
   const wcagMatrix = item?.wcagMatrix || [];
@@ -263,671 +207,544 @@ export default function AnalysisDetail() {
 
   const handleRerun = async () => {
     if (!taskId) return;
-    setRerunning(true);
-    setError('');
+    setRerunning(true); setError('');
     const result = await rerunMyAnalysis(taskId);
     setRerunning(false);
-
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-
+    if (result?.error) { setError(result.error); return; }
     await loadDetail();
   };
 
   const handleRescan = async () => {
     if (!taskId) return;
-    setRescanning(true);
-    setError('');
+    setRescanning(true); setError('');
     const result = await rescanMyAnalysis(taskId);
     setRescanning(false);
-
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-
+    if (result?.error) { setError(result.error); return; }
     navigate('/account');
   };
 
   const handleDelete = async () => {
     if (!taskId) return;
     if (!window.confirm('Delete this full audit from your account?')) return;
-
-    setDeleting(true);
-    setError('');
+    setDeleting(true); setError('');
     const result = await deleteMyAnalysis(taskId);
     setDeleting(false);
-
-    if (result?.error) {
-      setError(result.error);
-      return;
-    }
-
+    if (result?.error) { setError(result.error); return; }
     navigate('/account');
   };
 
   const handleReportAction = async (reportFile, disposition) => {
-    if (!taskId || !reportFile?.id) {
-      return;
-    }
-
+    if (!taskId || !reportFile?.id) return;
     const actionId = `${reportFile.id}:${disposition}`;
-    setReportAction(actionId);
-    setReportError('');
-
+    setReportAction(actionId); setReportError('');
     const result = await fetchMyAnalysisReportFile(taskId, reportFile.id, disposition);
     setReportAction('');
-
-    if (result?.error || !result?.blob) {
-      setReportError(result?.error || 'Failed to load report file.');
-      return;
-    }
-
+    if (result?.error || !result?.blob) { setReportError(result?.error || 'Failed to load report file.'); return; }
     const fileName = result.filename || reportFile.displayName || reportFile.filename || 'report.pdf';
     const blobUrl = window.URL.createObjectURL(result.blob);
-
     if (disposition === 'inline') {
       window.open(blobUrl, '_blank', 'noopener,noreferrer');
       window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60_000);
       return;
     }
-
     const link = document.createElement('a');
-    link.href = blobUrl;
-    link.download = fileName;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
+    link.href = blobUrl; link.download = fileName;
+    document.body.appendChild(link); link.click(); link.remove();
     window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 10_000);
   };
 
+  const sectionTitle = (text) => ({ fontSize: '22px', fontWeight: 700, color: '#fff' });
+  const sectionSub = (text) => ({ marginTop: '4px', fontSize: '13px', color: 'rgba(255,255,255,0.6)' });
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-blue-950 to-green-950 px-4 pb-20 pt-28 text-white md:px-10">
-      <div className="mx-auto max-w-6xl">
-        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <button
-              onClick={() => navigate('/account')}
-              className="mb-4 inline-flex items-center rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-200 transition hover:bg-white/10"
-            >
-              Back to account
-            </button>
-            <h1 className="bg-gradient-to-r from-blue-400 via-green-500 to-teal-400 bg-clip-text text-4xl font-bold tracking-tight text-transparent">
-              Analysis Detail
-            </h1>
-            <p className="mt-3 break-all text-sm text-gray-300">{item?.url || 'Loading analysis record...'}</p>
-            {item?.taskId ? <p className="mt-2 text-xs uppercase tracking-[0.2em] text-gray-500">Task {item.taskId}</p> : null}
+    <>
+      <style>{STYLES}</style>
+      <div className="ad-pg">
+        <div className="ad-wrap">
+          <div style={{ marginBottom: '32px', display: 'flex', flexWrap: 'wrap', gap: '16px', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+            <div>
+              <button onClick={() => navigate('/account')} className="ad-back">Back to account</button>
+              <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '10px' }}>Analysis Detail</h1>
+              <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>{item?.url || 'Loading analysis record...'}</p>
+              {item?.taskId ? <p style={{ marginTop: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.35)' }}>Task {item.taskId}</p> : null}
+            </div>
+
+            {item ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
+                <button onClick={handleRescan} disabled={rescanning} className="ad-btn-rescan">{rescanning ? 'Queueing...' : 'Re-scan'}</button>
+                {item.status === 'failed' ? (
+                  <button onClick={handleRerun} disabled={rerunning} className="ad-btn-rerun">{rerunning ? 'Re-running...' : 'Re-run scan'}</button>
+                ) : null}
+                <button onClick={handleDelete} disabled={deleting} className="ad-btn-del">{deleting ? 'Deleting...' : 'Delete'}</button>
+                <ScoreBadge value={formatStatusLabel(item.status)} tone={getStatusTone(item.status)} />
+                <ScoreBadge value={`Email ${item.emailStatus}`} tone={getStatusTone(item.emailStatus)} />
+                {item.riskTier ? <ScoreBadge value={`${item.riskTier} risk`} tone={getRiskTone(item.riskTier)} /> : null}
+                {item.scoreStatus ? <ScoreBadge value={item.scoreStatus} tone={getStatusTone(item.scoreStatus)} /> : null}
+              </div>
+            ) : null}
           </div>
 
-          {item ? (
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={handleRescan}
-                disabled={rescanning}
-                className="rounded-lg bg-sky-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {rescanning ? 'Queueing...' : 'Re-scan'}
-              </button>
-              {item.status === 'failed' ? (
-                <button
-                  onClick={handleRerun}
-                  disabled={rerunning}
-                  className="rounded-lg bg-amber-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {rerunning ? 'Re-running...' : 'Re-run scan'}
-                </button>
+          {loading ? (
+            <Box><p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>Loading analysis details...</p></Box>
+          ) : null}
+
+          {!loading && error ? (
+            <div style={{ borderRadius: '16px', border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(239,68,68,0.1)', padding: '24px', fontSize: '13px', color: '#fca5a5' }}>{error}</div>
+          ) : null}
+
+          {!loading && !error && item ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+              <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
+                <StatCard label="Silver Score" value={item.score != null ? `${Math.round(item.score)}%` : 'Pending'} help={item.scoreStatus ? item.scoreStatus.replace(/-/g, ' ') : 'Awaiting results'} />
+                <StatCard label="Risk Tier" value={item.riskTier ? item.riskTier.toUpperCase() : 'Pending'} help="Current litigation-oriented risk classification" />
+                <StatCard label="Successful Page/Device Targets" value={`${item.successfulTargetCount || 0}/${item.plannedTargetCount || item.pageCount || 0}`} help="Each page scanned on desktop, mobile, and tablet counts as its own target" />
+                <StatCard label="Reports" value={String(item.attachmentCount || 0)} help={item.reportDirectory ? 'Report package generated' : 'No report package yet'} />
+              </section>
+
+              {(item.warnings?.length > 0 || item.degradedTargetCount > 0 || item.failedTargetCount > 0) ? (
+                <section style={{ borderRadius: '16px', border: '1px solid rgba(245,158,11,0.2)', background: 'rgba(245,158,11,0.1)', padding: '24px' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
+                    <ScoreBadge value={`Degraded ${item.degradedTargetCount || 0}`} tone="yellow" />
+                    <ScoreBadge value={`Failed ${item.failedTargetCount || 0}`} tone={item.failedTargetCount ? 'red' : 'gray'} />
+                  </div>
+                  {item.warnings?.filter(w => !w.includes('dispatched to the scanner service')).length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff' }}>Warnings</h2>
+                      {item.warnings.filter(w => !w.includes('dispatched to the scanner service')).map((warning) => (
+                        <p key={warning} style={{ fontSize: '13px', color: '#fcd34d' }}>{warning}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
               ) : null}
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs font-semibold text-red-100 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {deleting ? 'Deleting...' : 'Delete'}
-              </button>
-              <ScoreBadge value={formatStatusLabel(item.status)} tone={getStatusTone(item.status)} />
-              <ScoreBadge value={`Email ${item.emailStatus}`} tone={getStatusTone(item.emailStatus)} />
-              {item.riskTier ? <ScoreBadge value={`${item.riskTier} risk`} tone={getRiskTone(item.riskTier)} /> : null}
-              {item.scoreStatus ? <ScoreBadge value={item.scoreStatus} tone={getStatusTone(item.scoreStatus)} /> : null}
+
+              {item.scanTargets?.length > 0 ? (
+                <Box>
+                  <div style={{ marginBottom: '20px' }}>
+                    <h2 style={sectionTitle()}>Scan Targets</h2>
+                    <p style={sectionSub()}>Each page and device combination scanned during this audit, including lite fallbacks and any failed targets.</p>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {item.scanTargets.map((target, index) => (
+                      <SubBox key={`${target.url}-${target.device}-${index}`}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ wordBreak: 'break-all', fontWeight: 700, color: '#fff', fontSize: '14px' }}>{target.url}</p>
+                            <p style={{ marginTop: '4px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.4)' }}>
+                              {target.device} {target.isHomepage ? '• homepage' : ''}
+                            </p>
+                            {target.failureReason ? <p style={{ marginTop: '8px', fontSize: '13px', color: '#fca5a5' }}>{target.failureReason}</p> : null}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            <ScoreBadge value={formatStatusLabel(target.status)} tone={getStatusTone(target.status)} />
+                            {typeof target.score === 'number' ? <ScoreBadge value={`Score ${Math.round(target.score)}`} tone={getStatusTone(target.score >= 80 ? 'completed' : target.score >= 70 ? 'needs-improvement' : 'failed')} /> : null}
+                          </div>
+                        </div>
+                      </SubBox>
+                    ))}
+                  </div>
+                </Box>
+              ) : null}
+
+              <Box>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={sectionTitle()}>Report Files</h2>
+                  <p style={sectionSub()}>Open the stored PDF package for this scan or download a local copy from your profile.</p>
+                </div>
+                {reportError ? (
+                  <div style={{ marginBottom: '16px', borderRadius: '10px', border: '1px solid rgba(244,63,94,0.2)', background: 'rgba(239,68,68,0.1)', padding: '12px 16px', fontSize: '12px', color: '#fca5a5' }}>{reportError}</div>
+                ) : null}
+                {reportFiles.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No report files are available for this analysis yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {reportFiles.map((reportFile) => (
+                      <div key={reportFile.id} style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '16px', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ minWidth: 0 }}>
+                          <p style={{ wordBreak: 'break-all', fontWeight: 700, color: '#fff', fontSize: '14px' }}>{reportFile.displayName || reportFile.filename}</p>
+                          <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '12px', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                            <span>{reportFile.contentType || 'application/pdf'}</span>
+                            {reportFile.sizeMB ? <span>{reportFile.sizeMB} MB</span> : null}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                          <button onClick={() => handleReportAction(reportFile, 'inline')} disabled={reportAction === `${reportFile.id}:inline`} className="ad-btn-open">
+                            {reportAction === `${reportFile.id}:inline` ? 'Opening...' : getInlineActionLabel(reportFile)}
+                          </button>
+                          <button onClick={() => handleReportAction(reportFile, 'attachment')} disabled={reportAction === `${reportFile.id}:attachment`} className="ad-btn-dl">
+                            {reportAction === `${reportFile.id}:attachment` ? 'Downloading...' : getDownloadActionLabel(reportFile)}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Box>
+
+              <Box>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={sectionTitle()}>AI Executive Summary</h2>
+                  <p style={sectionSub()}>Business-friendly narrative generated from the stored scorecard and remediation roadmap.</p>
+                </div>
+                {!aiReport ? (
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No AI summary is available for this analysis yet.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <SubBox>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                        <p style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>{aiReport.headline}</p>
+                        <ScoreBadge value={aiReport.provider} tone={aiReport.provider === 'openai' ? 'blue' : 'gray'} />
+                        <ScoreBadge value={aiReport.status} tone={aiReport.status === 'generated' ? 'green' : 'yellow'} />
+                        {aiReport.model ? <ScoreBadge value={aiReport.model} tone="gray" /> : null}
+                      </div>
+                      <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{aiReport.summary}</p>
+                    </SubBox>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '16px' }}>
+                      <SubBox>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Business Impact</h3>
+                        <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{aiReport.businessImpact}</p>
+                      </SubBox>
+                      <SubBox>
+                        <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Priority Summary</h3>
+                        <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{aiReport.prioritySummary}</p>
+                      </SubBox>
+                    </div>
+
+                    <SubBox>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Top Recommendations</h3>
+                      {Array.isArray(aiReport.topRecommendations) && aiReport.topRecommendations.length > 0 ? (
+                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          {aiReport.topRecommendations.map((rec, index) => (
+                            <div key={`${index}-${rec}`} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.18)', padding: '16px' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                                <span className="ad-rec-num">{index + 1}</span>
+                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{rec}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No AI recommendations are available yet.</p>
+                      )}
+                    </SubBox>
+
+                    <SubBox>
+                      <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>Stakeholder Note</h3>
+                      <p style={{ marginTop: '12px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{aiReport.stakeholderNote}</p>
+                    </SubBox>
+                  </div>
+                )}
+              </Box>
+
+              <Box>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={sectionTitle()}>Primary Score Categories</h2>
+                  <p style={sectionSub()}>The four weighted Silver Score categories generated from the eight evaluation dimensions.</p>
+                </div>
+                {dimensions.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>This analysis does not have a scorecard yet.</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '16px' }}>
+                    {dimensions.map((dimension) => (
+                      <SubBox key={dimension.key}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                          <div>
+                            <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.45)' }}>{dimension.label}</p>
+                            <p style={{ marginTop: '8px', fontSize: '28px', fontWeight: 700, color: '#fff' }}>{Math.round(dimension.score)}%</p>
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+                            <p>{dimension.issueCount} issues</p>
+                            <p style={{ marginTop: '4px' }}>Weight {dimension.weight}</p>
+                          </div>
+                        </div>
+                        {dimension.topIssues?.length ? (
+                          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {dimension.topIssues.map((issue) => (
+                              <div key={`${dimension.key}-${issue.auditId}`} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.18)', padding: '12px' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                                  <p style={{ fontWeight: 600, color: '#fff', fontSize: '13px' }}>{issue.title}</p>
+                                  <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
+                                </div>
+                                <p style={{ marginTop: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{issue.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ marginTop: '16px', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No top issues recorded for this dimension.</p>
+                        )}
+                      </SubBox>
+                    ))}
+                  </div>
+                )}
+              </Box>
+
+              <Box>
+                <div style={{ marginBottom: '20px' }}>
+                  <h2 style={sectionTitle()}>Eight Evaluation Dimensions</h2>
+                  <p style={sectionSub()}>These dimensions capture the underlying Silver Web evaluation model used to build the weighted score categories.</p>
+                </div>
+                {evaluationDimensions.length === 0 ? (
+                  <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>This analysis does not include evaluation-dimension data yet.</p>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: '16px' }}>
+                    {evaluationDimensions.map((dimension) => (
+                      <SubBox key={dimension.key}>
+                        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
+                          <div>
+                            <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.45)' }}>{dimension.label}</p>
+                            <p style={{ marginTop: '8px', fontSize: '28px', fontWeight: 700, color: '#fff' }}>{Math.round(dimension.score)}%</p>
+                          </div>
+                          <div style={{ textAlign: 'right', fontSize: '13px', color: 'rgba(255,255,255,0.6)' }}>
+                            <p>{dimension.issueCount} issues</p>
+                            <p style={{ marginTop: '4px' }}>Coverage {dimension.weight}</p>
+                          </div>
+                        </div>
+                        {dimension.topIssues?.length ? (
+                          <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {dimension.topIssues.map((issue) => (
+                              <div key={`${dimension.key}-${issue.auditId}`} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.18)', padding: '12px' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                                  <p style={{ fontWeight: 600, color: '#fff', fontSize: '13px' }}>{issue.title}</p>
+                                  <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
+                                </div>
+                                <p style={{ marginTop: '4px', fontSize: '12px', color: 'rgba(255,255,255,0.65)' }}>{issue.description}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ marginTop: '16px', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No top issues recorded for this evaluation dimension.</p>
+                        )}
+                      </SubBox>
+                    ))}
+                  </div>
+                )}
+              </Box>
+
+              <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(340px,1fr))', gap: '24px' }}>
+                <Box>
+                  <h2 style={sectionTitle()}>Top Issues</h2>
+                  <p style={sectionSub()}>Highest-impact score drivers from the current analysis.</p>
+                  {topIssues.length === 0 ? (
+                    <p style={{ marginTop: '20px', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No issue breakdown available yet.</p>
+                  ) : (
+                    <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {topIssues.map((issue) => (
+                        <SubBox key={issue.auditId}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px' }}>
+                            <p style={{ fontWeight: 700, color: '#fff', fontSize: '14px' }}>{issue.title}</p>
+                            <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
+                            {renderAuditMetadata(issue)}
+                            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Score {Math.round(issue.score)}%</span>
+                          </div>
+                          <p style={{ marginTop: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{issue.description}</p>
+                          {issue.displayValue ? <p style={{ marginTop: '8px', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>Observed: {issue.displayValue}</p> : null}
+                        </SubBox>
+                      ))}
+                    </div>
+                  )}
+                </Box>
+
+                <Box>
+                  <h2 style={sectionTitle()}>Remediation Roadmap</h2>
+                  <p style={sectionSub()}>Phase 1 remediation plan grouped into Quick Wins, Medium Effort, and High Effort workstreams.</p>
+                  {remediationBuckets.length === 0 ? (
+                    <p style={{ marginTop: '20px', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No remediation roadmap available yet.</p>
+                  ) : (
+                    <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      {remediationBuckets.map((bucket) => (
+                        <SubBox key={bucket.key}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                            <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>{bucket.label}</h3>
+                            <ScoreBadge value={`${bucket.itemCount} items`} tone={getBucketTone(bucket.key)} />
+                          </div>
+                          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', marginBottom: '16px' }}>{bucket.description}</p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            {bucket.items.map((itemRow, index) => (
+                              <div key={itemRow.id} style={{ borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(0,0,0,0.18)', padding: '16px' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                                  <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.35)' }}>{bucket.label} #{index + 1}</span>
+                                  <p style={{ fontWeight: 700, color: '#fff', fontSize: '13px' }}>{itemRow.title}</p>
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '10px' }}>
+                                  <ScoreBadge value={`${itemRow.impact} impact`} tone={getPriorityTone(itemRow.impact)} />
+                                  <ScoreBadge value={`${itemRow.effort} effort`} tone={getPriorityTone(itemRow.effort)} />
+                                  <ScoreBadge value={itemRow.dimensionLabel} tone="blue" />
+                                  {itemRow.evaluationDimensionLabel ? <ScoreBadge value={itemRow.evaluationDimensionLabel} tone="gray" /> : null}
+                                  {renderAuditMetadata(itemRow)}
+                                </div>
+                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{itemRow.action}</p>
+                                <p style={{ marginTop: '6px', fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{itemRow.whyItMatters}</p>
+                                {itemRow.sourceUrl ? <p style={{ marginTop: '6px', wordBreak: 'break-all', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>Source page: {itemRow.sourceUrl}</p> : null}
+                              </div>
+                            ))}
+                          </div>
+                        </SubBox>
+                      ))}
+                    </div>
+                  )}
+                </Box>
+              </section>
+
+              {wcagMatrix.length > 0 ? (
+                <Box>
+                  <div style={{ marginBottom: '20px' }}>
+                    <h2 style={sectionTitle()}>WCAG 2.2 Matrix</h2>
+                    <p style={sectionSub()}>Automated coverage of all WCAG 2.2 Level A and AA success criteria across this audit.</p>
+                  </div>
+
+                  {wcagSummary ? (
+                    <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '12px' }}>
+                      <div className="wcag-stat-pass">
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--t3)' }}>Passed</p>
+                        <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: 'var(--t4)' }}>{wcagSummary.passed ?? 0}</p>
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(29,158,117,0.7)' }}>criteria</p>
+                      </div>
+                      <div className="wcag-stat-fail">
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fca5a5' }}>Failed</p>
+                        <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: '#f87171' }}>{wcagSummary.failed ?? 0}</p>
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(239,68,68,0.6)' }}>criteria</p>
+                      </div>
+                      <div className="wcag-stat-review">
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fcd34d' }}>Needs Review</p>
+                        <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: '#fbbf24' }}>{wcagSummary.needsReview ?? 0}</p>
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(245,158,11,0.6)' }}>manual only</p>
+                      </div>
+                      <div className="wcag-stat-na">
+                        <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.45)' }}>Not Applicable</p>
+                        <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: 'rgba(255,255,255,0.55)' }}>{wcagSummary.notApplicable ?? 0}</p>
+                        <p style={{ marginTop: '8px', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>criteria</p>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div style={{ marginBottom: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', marginRight: '4px' }}>Status</span>
+                      {[
+                        { value: 'active', label: 'Issues Only' },
+                        { value: 'all', label: 'All' },
+                        { value: 'pass', label: 'Pass' },
+                        { value: 'fail', label: 'Fail' },
+                        { value: 'needs-review', label: 'Needs Review' },
+                        { value: 'not-applicable', label: 'N/A' },
+                      ].map((opt) => (
+                        <button key={opt.value} onClick={() => setWcagStatusFilter(opt.value)} className={`wcag-filter-btn ${wcagStatusFilter === opt.value ? 'wcag-filter-btn-active' : 'wcag-filter-btn-inactive'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', marginRight: '4px' }}>Principle</span>
+                      {[
+                        { value: 'all', label: 'All' },
+                        { value: 'perceivable', label: 'Perceivable' },
+                        { value: 'operable', label: 'Operable' },
+                        { value: 'understandable', label: 'Understandable' },
+                        { value: 'robust', label: 'Robust' },
+                      ].map((opt) => (
+                        <button key={opt.value} onClick={() => setWcagPrincipleFilter(opt.value)} className={`wcag-filter-btn ${wcagPrincipleFilter === opt.value ? 'wcag-filter-btn-active' : 'wcag-filter-btn-inactive'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', marginRight: '4px' }}>Level</span>
+                      {[
+                        { value: 'all', label: 'All' },
+                        { value: 'A', label: 'A' },
+                        { value: 'AA', label: 'AA' },
+                      ].map((opt) => (
+                        <button key={opt.value} onClick={() => setWcagLevelFilter(opt.value)} className={`wcag-filter-btn ${wcagLevelFilter === opt.value ? 'wcag-filter-btn-active' : 'wcag-filter-btn-inactive'}`}>
+                          {opt.label}
+                        </button>
+                      ))}
+                      <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{filteredWcagMatrix.length} of {wcagMatrix.length} criteria</span>
+                    </div>
+                  </div>
+
+                  {filteredWcagMatrix.length === 0 ? (
+                    <p style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No criteria match the current filters.</p>
+                  ) : (
+                    <div style={{ overflow: 'hidden', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 52px 110px 60px', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.45)' }}>
+                        <span>Criterion</span>
+                        <span>Title</span>
+                        <span style={{ textAlign: 'center' }}>Level</span>
+                        <span style={{ textAlign: 'center' }}>Status</span>
+                        <span style={{ textAlign: 'center' }}>Issues</span>
+                      </div>
+                      {filteredWcagMatrix.map((row, index) => {
+                        const isExpanded = wcagExpandedRow === row.criterion;
+                        return (
+                          <div key={row.criterion}>
+                            <button
+                              onClick={() => setWcagExpandedRow(isExpanded ? null : row.criterion)}
+                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: 'pointer', color: '#fff', transition: 'background .15s' }}
+                            >
+                              <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{row.criterion}</span>
+                              <span style={{ fontSize: '13px', color: '#fff' }}>{row.title}</span>
+                              <span style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.55)' }}>{row.level}</span>
+                              <span style={{ display: 'flex', justifyContent: 'center' }}>
+                                <ScoreBadge value={getWcagStatusLabel(row.status)} tone={getWcagStatusTone(row.status)} />
+                              </span>
+                              <span style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{row.issueCount ?? 0}</span>
+                            </button>
+
+                            {isExpanded ? (
+                              <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.18)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                {row.remediationGuidance ? (
+                                  <div>
+                                    <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', marginBottom: '4px' }}>Guidance</p>
+                                    <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>{row.remediationGuidance}</p>
+                                  </div>
+                                ) : null}
+
+                                {row.manualReviewRequired && row.manualReviewReason ? (
+                                  <div>
+                                    <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#fcd34d', marginBottom: '4px' }}>Manual Review Required</p>
+                                    <p style={{ fontSize: '13px', color: 'rgba(252,211,77,0.75)' }}>{row.manualReviewReason}</p>
+                                  </div>
+                                ) : null}
+
+                                {Array.isArray(row.affectedElements) && row.affectedElements.length > 0 ? (
+                                  <div>
+                                    <p style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', marginBottom: '6px' }}>Affected Elements</p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                      {row.affectedElements.slice(0, 10).map((el, i) => (
+                                        <code key={i} style={{ borderRadius: '4px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', padding: '2px 8px', fontSize: '11px', color: 'rgba(255,255,255,0.65)' }}>{el}</code>
+                                      ))}
+                                      {row.affectedElements.length > 10 ? (
+                                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>+{row.affectedElements.length - 10} more</span>
+                                      ) : null}
+                                    </div>
+                                  </div>
+                                ) : null}
+
+                                <a href={wcagUnderstandingUrl(row.title)} target="_blank" rel="noopener noreferrer" className="ad-wcag-link" onClick={(e) => e.stopPropagation()}>
+                                  WCAG Understanding Doc ↗
+                                </a>
+                              </div>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
+                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>
+                      Criteria marked Needs Review require manual review and cannot be fully assessed by automated scanning. This report does not constitute a legal conformance certification.
+                    </p>
+                  </div>
+                </Box>
+              ) : null}
             </div>
           ) : null}
         </div>
-
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-6 text-sm text-gray-300">Loading analysis details...</div>
-        ) : null}
-
-        {!loading && error ? (
-          <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-6 text-sm text-rose-100">{error}</div>
-        ) : null}
-
-        {!loading && !error && item ? (
-          <div className="space-y-8">
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <StatCard
-                label="Silver Score"
-                value={item.score != null ? `${Math.round(item.score)}%` : 'Pending'}
-                help={item.scoreStatus ? item.scoreStatus.replace(/-/g, ' ') : 'Awaiting results'}
-              />
-              <StatCard
-                label="Risk Tier"
-                value={item.riskTier ? item.riskTier.toUpperCase() : 'Pending'}
-                help="Current litigation-oriented risk classification"
-              />
-              <StatCard
-                label="Successful Page/Device Targets"
-                value={`${item.successfulTargetCount || 0}/${item.plannedTargetCount || item.pageCount || 0}`}
-                help="Each page scanned on desktop, mobile, and tablet counts as its own target"
-              />
-              <StatCard
-                label="Reports"
-                value={String(item.attachmentCount || 0)}
-                help={item.reportDirectory ? 'Report package generated' : 'No report package yet'}
-              />
-            </section>
-
-            {(item.warnings?.length > 0 || item.degradedTargetCount > 0 || item.failedTargetCount > 0) ? (
-              <section className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-6">
-                <div className="mb-4 flex flex-wrap gap-2">
-                  <ScoreBadge value={`Degraded ${item.degradedTargetCount || 0}`} tone="yellow" />
-                  <ScoreBadge value={`Failed ${item.failedTargetCount || 0}`} tone={item.failedTargetCount ? 'red' : 'gray'} />
-                </div>
-                {item.warnings?.filter(w => !w.includes('dispatched to the scanner service')).length > 0 ? (
-                  <div className="space-y-2">
-                    <h2 className="text-xl font-bold text-white">Warnings</h2>
-                    {item.warnings.filter(w => !w.includes('dispatched to the scanner service')).map((warning) => (
-                      <p key={warning} className="text-sm text-amber-100">{warning}</p>
-                    ))}
-                  </div>
-                ) : null}
-              </section>
-            ) : null}
-
-            {item.scanTargets?.length > 0 ? (
-              <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-                <div className="mb-5">
-                  <h2 className="text-2xl font-bold">Scan Targets</h2>
-                  <p className="mt-1 text-sm text-gray-300">Each page and device combination scanned during this audit, including lite fallbacks and any failed targets.</p>
-                </div>
-                <div className="space-y-3">
-                  {item.scanTargets.map((target, index) => (
-                    <div key={`${target.url}-${target.device}-${index}`} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="break-all font-semibold text-white">{target.url}</p>
-                          <p className="mt-1 text-xs uppercase tracking-[0.2em] text-gray-400">
-                            {target.device} {target.isHomepage ? '• homepage' : ''}
-                          </p>
-                          {target.failureReason ? (
-                            <p className="mt-2 text-sm text-rose-200">{target.failureReason}</p>
-                          ) : null}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <ScoreBadge value={formatStatusLabel(target.status)} tone={getStatusTone(target.status)} />
-                          {typeof target.score === 'number' ? <ScoreBadge value={`Score ${Math.round(target.score)}`} tone={getStatusTone(target.score >= 80 ? 'completed' : target.score >= 70 ? 'needs-improvement' : 'failed')} /> : null}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            ) : null}
-
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-              <div className="mb-5">
-                <h2 className="text-2xl font-bold">Report Files</h2>
-                <p className="mt-1 text-sm text-gray-300">Open the stored PDF package for this scan or download a local copy from your profile.</p>
-              </div>
-              {reportError ? (
-                <div className="mb-4 rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">{reportError}</div>
-              ) : null}
-              {reportFiles.length === 0 ? (
-                <p className="text-sm text-gray-400">No report files are available for this analysis yet.</p>
-              ) : (
-                <div className="space-y-3">
-                  {reportFiles.map((reportFile) => (
-                    <div key={reportFile.id} className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/5 p-4 md:flex-row md:items-center md:justify-between">
-                      <div className="min-w-0">
-                        <p className="break-all font-semibold text-white">{reportFile.displayName || reportFile.filename}</p>
-                        <div className="mt-2 flex flex-wrap gap-3 text-xs text-gray-400">
-                          <span>{reportFile.contentType || 'application/pdf'}</span>
-                          {reportFile.sizeMB ? <span>{reportFile.sizeMB} MB</span> : null}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          onClick={() => handleReportAction(reportFile, 'inline')}
-                          disabled={reportAction === `${reportFile.id}:inline`}
-                          className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {reportAction === `${reportFile.id}:inline` ? 'Opening...' : getInlineActionLabel(reportFile)}
-                        </button>
-                        <button
-                          onClick={() => handleReportAction(reportFile, 'attachment')}
-                          disabled={reportAction === `${reportFile.id}:attachment`}
-                          className="rounded-lg bg-emerald-600/80 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {reportAction === `${reportFile.id}:attachment` ? 'Downloading...' : getDownloadActionLabel(reportFile)}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-              <div className="mb-5">
-                <h2 className="text-2xl font-bold">AI Executive Summary</h2>
-                <p className="mt-1 text-sm text-gray-300">Business-friendly narrative generated from the stored scorecard and remediation roadmap.</p>
-              </div>
-              {!aiReport ? (
-                <p className="text-sm text-gray-400">No AI summary is available for this analysis yet.</p>
-              ) : (
-                <div className="space-y-5">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-lg font-semibold text-white">{aiReport.headline}</p>
-                      <ScoreBadge value={aiReport.provider} tone={aiReport.provider === 'openai' ? 'blue' : 'gray'} />
-                      <ScoreBadge value={aiReport.status} tone={aiReport.status === 'generated' ? 'green' : 'yellow'} />
-                      {aiReport.model ? <ScoreBadge value={aiReport.model} tone="gray" /> : null}
-                    </div>
-                    <p className="mt-3 text-sm text-gray-200">{aiReport.summary}</p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <h3 className="text-lg font-semibold text-white">Business Impact</h3>
-                      <p className="mt-3 text-sm text-gray-300">{aiReport.businessImpact}</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <h3 className="text-lg font-semibold text-white">Priority Summary</h3>
-                      <p className="mt-3 text-sm text-gray-300">{aiReport.prioritySummary}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                    <h3 className="text-lg font-semibold text-white">Top Recommendations</h3>
-                    {Array.isArray(aiReport.topRecommendations) && aiReport.topRecommendations.length > 0 ? (
-                      <div className="mt-4 space-y-3">
-                        {aiReport.topRecommendations.map((recommendation, index) => (
-                          <div key={`${index}-${recommendation}`} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                            <div className="flex items-start gap-3">
-                              <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/20 text-xs font-semibold text-emerald-200">
-                                {index + 1}
-                              </span>
-                              <p className="text-sm text-gray-200">{recommendation}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="mt-3 text-sm text-gray-400">No AI recommendations are available yet.</p>
-                    )}
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                    <h3 className="text-lg font-semibold text-white">Stakeholder Note</h3>
-                    <p className="mt-3 text-sm text-gray-300">{aiReport.stakeholderNote}</p>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-              <div className="mb-5 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold">Primary Score Categories</h2>
-                  <p className="mt-1 text-sm text-gray-300">The four weighted Silver Score categories generated from the eight evaluation dimensions.</p>
-                </div>
-              </div>
-              {dimensions.length === 0 ? (
-                <p className="text-sm text-gray-400">This analysis does not have a scorecard yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {dimensions.map((dimension) => (
-                    <div key={dimension.key} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">{dimension.label}</p>
-                          <p className="mt-2 text-3xl font-bold text-white">{Math.round(dimension.score)}%</p>
-                        </div>
-                        <div className="text-right text-sm text-gray-300">
-                          <p>{dimension.issueCount} issues</p>
-                          <p className="mt-1">Weight {dimension.weight}</p>
-                        </div>
-                      </div>
-                      {dimension.topIssues?.length ? (
-                        <div className="mt-4 space-y-2">
-                          {dimension.topIssues.map((issue) => (
-                            <div key={`${dimension.key}-${issue.auditId}`} className="rounded-xl border border-white/5 bg-black/20 p-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-white">{issue.title}</p>
-                                <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
-                              </div>
-                              <p className="mt-1 text-sm text-gray-300">{issue.description}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-4 text-sm text-gray-400">No top issues recorded for this dimension.</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-              <div className="mb-5">
-                <h2 className="text-2xl font-bold">Eight Evaluation Dimensions</h2>
-                <p className="mt-1 text-sm text-gray-300">These dimensions capture the underlying Silver Web evaluation model used to build the weighted score categories.</p>
-              </div>
-              {evaluationDimensions.length === 0 ? (
-                <p className="text-sm text-gray-400">This analysis does not include evaluation-dimension data yet.</p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  {evaluationDimensions.map((dimension) => (
-                    <div key={dimension.key} className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.2em] text-gray-400">{dimension.label}</p>
-                          <p className="mt-2 text-3xl font-bold text-white">{Math.round(dimension.score)}%</p>
-                        </div>
-                        <div className="text-right text-sm text-gray-300">
-                          <p>{dimension.issueCount} issues</p>
-                          <p className="mt-1">Coverage {dimension.weight}</p>
-                        </div>
-                      </div>
-                      {dimension.topIssues?.length ? (
-                        <div className="mt-4 space-y-2">
-                          {dimension.topIssues.map((issue) => (
-                            <div key={`${dimension.key}-${issue.auditId}`} className="rounded-xl border border-white/5 bg-black/20 p-3">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="font-medium text-white">{issue.title}</p>
-                                <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
-                              </div>
-                              <p className="mt-1 text-sm text-gray-300">{issue.description}</p>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="mt-4 text-sm text-gray-400">No top issues recorded for this evaluation dimension.</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </section>
-
-            <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
-                <h2 className="text-2xl font-bold">Top Issues</h2>
-                <p className="mt-1 text-sm text-gray-300">Highest-impact score drivers from the current analysis.</p>
-                {topIssues.length === 0 ? (
-                  <p className="mt-5 text-sm text-gray-400">No issue breakdown available yet.</p>
-                ) : (
-                  <div className="mt-5 space-y-3">
-                    {topIssues.map((issue) => (
-                      <div key={issue.auditId} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-semibold text-white">{issue.title}</p>
-                          <ScoreBadge value={issue.severity} tone={getRiskTone(issue.severity)} />
-                          {renderAuditMetadata(issue)}
-                          <span className="text-xs text-gray-400">Score {Math.round(issue.score)}%</span>
-                        </div>
-                        <p className="mt-2 text-sm text-gray-300">{issue.description}</p>
-                        {issue.displayValue ? <p className="mt-2 text-xs text-gray-400">Observed: {issue.displayValue}</p> : null}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-6">
-                <h2 className="text-2xl font-bold">Remediation Roadmap</h2>
-                <p className="mt-1 text-sm text-gray-300">Phase 1 remediation plan grouped into Quick Wins, Medium Effort, and High Effort workstreams.</p>
-                {remediationBuckets.length === 0 ? (
-                  <p className="mt-5 text-sm text-gray-400">No remediation roadmap available yet.</p>
-                ) : (
-                  <div className="mt-5 space-y-5">
-                    {remediationBuckets.map((bucket) => (
-                      <div key={bucket.key} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-lg font-semibold text-white">{bucket.label}</h3>
-                              <ScoreBadge value={`${bucket.itemCount} items`} tone={getBucketTone(bucket.key)} />
-                            </div>
-                            <p className="mt-2 text-sm text-gray-300">{bucket.description}</p>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {bucket.items.map((itemRow, index) => (
-                            <div key={itemRow.id} className="rounded-xl border border-white/10 bg-black/20 p-4">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs uppercase tracking-[0.2em] text-gray-500">
-                                  {bucket.label} #{index + 1}
-                                </span>
-                                <p className="font-semibold text-white">{itemRow.title}</p>
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                <ScoreBadge value={`${itemRow.impact} impact`} tone={getPriorityTone(itemRow.impact)} />
-                                <ScoreBadge value={`${itemRow.effort} effort`} tone={getPriorityTone(itemRow.effort)} />
-                                <ScoreBadge value={itemRow.dimensionLabel} tone="blue" />
-                                {itemRow.evaluationDimensionLabel ? (
-                                  <ScoreBadge value={itemRow.evaluationDimensionLabel} tone="gray" />
-                                ) : null}
-                                {renderAuditMetadata(itemRow)}
-                              </div>
-                              <p className="mt-3 text-sm text-gray-200">{itemRow.action}</p>
-                              <p className="mt-2 text-sm text-gray-400">{itemRow.whyItMatters}</p>
-                              {itemRow.sourceUrl ? <p className="mt-2 break-all text-xs text-gray-500">Source page: {itemRow.sourceUrl}</p> : null}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </section>
-
-            {wcagMatrix.length > 0 ? (
-              <section className="rounded-2xl border border-white/10 bg-black/20 p-6">
-                <div className="mb-5">
-                  <h2 className="text-2xl font-bold">WCAG 2.2 Matrix</h2>
-                  <p className="mt-1 text-sm text-gray-300">
-                    Automated coverage of all WCAG 2.2 Level A and AA success criteria across this audit.
-                  </p>
-                </div>
-
-                {wcagSummary ? (
-                  <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-                    <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-emerald-300">Passed</p>
-                      <p className="mt-3 text-3xl font-bold text-emerald-400">{wcagSummary.passed ?? 0}</p>
-                      <p className="mt-2 text-sm text-emerald-300/70">criteria</p>
-                    </div>
-                    <div className="rounded-2xl border border-rose-400/20 bg-rose-500/10 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-rose-300">Failed</p>
-                      <p className="mt-3 text-3xl font-bold text-rose-400">{wcagSummary.failed ?? 0}</p>
-                      <p className="mt-2 text-sm text-rose-300/70">criteria</p>
-                    </div>
-                    <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-amber-300">Needs Review</p>
-                      <p className="mt-3 text-3xl font-bold text-amber-400">{wcagSummary.needsReview ?? 0}</p>
-                      <p className="mt-2 text-sm text-amber-300/70">manual only</p>
-                    </div>
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                      <p className="text-xs uppercase tracking-[0.2em] text-gray-400">Not Applicable</p>
-                      <p className="mt-3 text-3xl font-bold text-gray-400">{wcagSummary.notApplicable ?? 0}</p>
-                      <p className="mt-2 text-sm text-gray-500">criteria</p>
-                    </div>
-                  </div>
-                ) : null}
-
-                <div className="mb-4 flex flex-col gap-3 md:flex-row md:flex-wrap md:items-center">
-                  <div className="flex flex-wrap gap-1">
-                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Status</span>
-                    {[
-                      { value: 'active', label: 'Issues Only' },
-                      { value: 'all', label: 'All' },
-                      { value: 'pass', label: 'Pass' },
-                      { value: 'fail', label: 'Fail' },
-                      { value: 'needs-review', label: 'Needs Review' },
-                      { value: 'not-applicable', label: 'N/A' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setWcagStatusFilter(opt.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          wcagStatusFilter === opt.value
-                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
-                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Principle</span>
-                    {[
-                      { value: 'all', label: 'All' },
-                      { value: 'perceivable', label: 'Perceivable' },
-                      { value: 'operable', label: 'Operable' },
-                      { value: 'understandable', label: 'Understandable' },
-                      { value: 'robust', label: 'Robust' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setWcagPrincipleFilter(opt.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          wcagPrincipleFilter === opt.value
-                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
-                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1">
-                    <span className="mr-1 self-center text-xs uppercase tracking-[0.15em] text-gray-500">Level</span>
-                    {[
-                      { value: 'all', label: 'All' },
-                      { value: 'A', label: 'A' },
-                      { value: 'AA', label: 'AA' },
-                    ].map((opt) => (
-                      <button
-                        key={opt.value}
-                        onClick={() => setWcagLevelFilter(opt.value)}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          wcagLevelFilter === opt.value
-                            ? 'border-blue-400/50 bg-blue-500/20 text-blue-200'
-                            : 'border-white/10 bg-white/5 text-gray-300 hover:bg-white/10'
-                        }`}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  <span className="ml-auto text-xs text-gray-500">{filteredWcagMatrix.length} of {wcagMatrix.length} criteria</span>
-                </div>
-
-                {filteredWcagMatrix.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-gray-400">No criteria match the current filters.</p>
-                ) : (
-                  <div className="overflow-hidden rounded-xl border border-white/10">
-                    <div className="grid grid-cols-[60px_1fr_52px_110px_60px] border-b border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-gray-400">
-                      <span>Criterion</span>
-                      <span>Title</span>
-                      <span className="text-center">Level</span>
-                      <span className="text-center">Status</span>
-                      <span className="text-center">Issues</span>
-                    </div>
-                    {filteredWcagMatrix.map((row, index) => {
-                      const isExpanded = wcagExpandedRow === row.criterion;
-                      return (
-                        <div key={row.criterion}>
-                          <button
-                            onClick={() => setWcagExpandedRow(isExpanded ? null : row.criterion)}
-                            className={`grid w-full grid-cols-[60px_1fr_52px_110px_60px] items-center gap-2 px-4 py-3 text-left transition hover:bg-white/5 ${
-                              index % 2 === 0 ? 'bg-transparent' : 'bg-white/[0.02]'
-                            } ${isExpanded ? 'bg-white/5' : ''}`}
-                          >
-                            <span className="text-xs font-mono font-semibold text-gray-300">{row.criterion}</span>
-                            <span className="text-sm text-white">{row.title}</span>
-                            <span className="text-center text-xs font-semibold text-gray-400">{row.level}</span>
-                            <span className="flex justify-center">
-                              <ScoreBadge value={getWcagStatusLabel(row.status)} tone={getWcagStatusTone(row.status)} />
-                            </span>
-                            <span className="text-center text-sm text-gray-300">{row.issueCount ?? 0}</span>
-                          </button>
-
-                          {isExpanded ? (
-                            <div className="border-t border-white/5 bg-black/20 px-4 py-4 space-y-3">
-                              {row.remediationGuidance ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Guidance</p>
-                                  <p className="text-sm text-gray-200">{row.remediationGuidance}</p>
-                                </div>
-                              ) : null}
-
-                              {row.manualReviewRequired && row.manualReviewReason ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-[0.15em] text-amber-500 mb-1">Manual Review Required</p>
-                                  <p className="text-sm text-amber-200/80">{row.manualReviewReason}</p>
-                                </div>
-                              ) : null}
-
-                              {Array.isArray(row.affectedElements) && row.affectedElements.length > 0 ? (
-                                <div>
-                                  <p className="text-xs uppercase tracking-[0.15em] text-gray-500 mb-1">Affected Elements</p>
-                                  <div className="flex flex-wrap gap-1.5">
-                                    {row.affectedElements.slice(0, 10).map((el, i) => (
-                                      <code key={i} className="rounded bg-white/5 border border-white/10 px-2 py-0.5 text-xs text-gray-300">{el}</code>
-                                    ))}
-                                    {row.affectedElements.length > 10 ? (
-                                      <span className="text-xs text-gray-500">+{row.affectedElements.length - 10} more</span>
-                                    ) : null}
-                                  </div>
-                                </div>
-                              ) : null}
-
-                              <a
-                                href={wcagUnderstandingUrl(row.title)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold text-blue-300 transition hover:bg-white/10"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                WCAG Understanding Doc ↗
-                              </a>
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-
-                <div className="mt-5 border-t border-white/10 pt-4">
-                  <p className="text-xs text-gray-300">
-                    Criteria marked Needs Review require manual review and cannot be fully assessed by automated scanning. This report does not constitute a legal conformance certification.
-                  </p>
-                </div>
-              </section>
-            ) : null}
-          </div>
-        ) : null}
       </div>
-    </div>
+    </>
   );
 }

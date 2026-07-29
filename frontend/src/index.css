@@ -1,4 +1,41 @@
-/* Modern CSS Reset and Base Styles */
+/* ── Design Tokens ─────────────────────────────────────────── */
+:root {
+  /* Teal scale */
+  --t9:  #042E22;
+  --t8:  #085041;
+  --t6:  #0F6E56;
+  --t4:  #1D9E75;
+  --t2:  #7ABFAA;
+  --t1:  #E1F5EE;
+  --t05: #F0FAF6;
+
+  /* Ink / neutral */
+  --ink:  #1A1A18;
+  --ink6: #5C5C58;
+  --ink3: #ADADAA;
+
+  /* Sand */
+  --sand:  #F7F5F0;
+  --sandd: #EAE8E3;
+
+  /* Semantic */
+  --coral:    #C84B2F;
+  --coralbg:  #FAECE7;
+  --amber:    #B06A10;
+  --amberbg:  #FAEEDA;
+  --blue:     #185FA5;
+  --bluebg:   #E6F1FB;
+
+  /* Typography */
+  --ffd: 'Playfair Display', Georgia, serif;
+  --ff:  'DM Sans', system-ui, sans-serif;
+
+  /* Radius */
+  --r:  8px;
+  --rl: 12px;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
 *,
 *::before,
 *::after {
@@ -13,48 +50,21 @@ html {
 }
 
 body {
-  margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: var(--ff);
+  color: var(--ink);
+  background: #fff;
+  min-height: 100vh;
+  overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
-  color: #ffffff;
-  background: #ffffff;
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 
-/* Improved focus styles for accessibility */
-*:focus {
-  outline: 2px solid #0ea5e9;
-  outline-offset: 2px;
-}
-
-/* Smooth transitions for all interactive elements */
-* {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Better text rendering */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  line-height: 1.2;
-  letter-spacing: -0.025em;
-}
-
-p {
-  line-height: 1.7;
-}
-
-/* Improved link styles */
 a {
   color: inherit;
   text-decoration: none;
 }
 
-/* Better button styles */
 button {
   font-family: inherit;
   cursor: pointer;
@@ -62,61 +72,64 @@ button {
   background: none;
 }
 
-/* Improved list styles */
-ul, ol {
-  list-style: none;
-}
+ul, ol { list-style: none; }
 
-/* Better image handling */
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-/* Code styles */
+p { line-height: 1.7; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ffd);
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+/* ── Focus ─────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--t4);
+  outline-offset: 2px;
+}
+
+/* ── Selection ─────────────────────────────────────────────── */
+::selection {
+  background: rgba(29, 158, 117, 0.25);
+  color: var(--ink);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--sand); }
+::-webkit-scrollbar-thumb {
+  background: var(--t4);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--t6); }
+
+/* ── Code ──────────────────────────────────────────────────── */
 code {
-  font-family: 'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', 'Courier New',
-    monospace;
-  background: rgba(14, 165, 233, 0.1);
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background: var(--t05);
+  color: var(--t8);
   padding: 0.125rem 0.25rem;
-  border-radius: 0.25rem;
+  border-radius: 4px;
   font-size: 0.875em;
 }
 
 pre {
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--t9);
   padding: 1rem;
-  border-radius: 0.5rem;
+  border-radius: var(--r);
   overflow-x: auto;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255,255,255,0.08);
 }
 
 pre code {
   background: none;
+  color: var(--t1);
   padding: 0;
-}
-
-/* Selection styles */
-::selection {
-  background: rgba(34, 197, 94, 0.3);
-  color: #ffffff;
-}
-
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 12px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(34, 197, 94, 0.5);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(34, 197, 94, 0.7);
 }
