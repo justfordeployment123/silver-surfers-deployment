@@ -414,6 +414,14 @@ const Header = () => {
                       >
                         Account
                       </Link>
+                      <Link
+                        to="/monitoring"
+                        className="ss-dropdown-item"
+                        onClick={() => setIsUserMenuOpen(false)}
+                        role="menuitem"
+                      >
+                        Monitoring
+                      </Link>
                       <button
                         className="ss-dropdown-item ss-dropdown-item--danger"
                         onClick={() => { setIsUserMenuOpen(false); handleLogout(); }}
@@ -531,6 +539,7 @@ const Header = () => {
                 </Link>
               )}
               <Link to="/account" className="ss-mobile-link" onClick={closeMobileMenu}>Account</Link>
+              <Link to="/monitoring" className="ss-mobile-link" onClick={closeMobileMenu}>Monitoring</Link>
               <button
                 onClick={() => { handleLogout(); closeMobileMenu(); }}
                 style={{

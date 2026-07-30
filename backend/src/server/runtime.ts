@@ -7,6 +7,7 @@ import { recoverAuditRecords } from '../features/audits/audit-recovery.ts';
 import { closeAuditCache } from '../features/audits/audit-cache.ts';
 import { runFullAuditProcess, runQuickScanProcess } from '../features/audits/audit-processors.ts';
 import { setAuditQueues } from '../features/audits/audits.runtime.ts';
+import { runMonitoringSchedulePass } from '../features/monitoring/monitoring.engine.ts';
 import { QuickScanResultWorker } from '../features/scanner/quick-scan-result-worker.ts';
 import { ScannerResultInboxWorker } from '../features/scanner/scanner-result-inbox-worker.ts';
 import { CacheManager } from '../infrastructure/cache/cache-manager.ts';
@@ -20,6 +21,7 @@ type RuntimeMode = 'api' | 'worker';
 
 let watchdogTimer: NodeJS.Timeout | undefined;
 let auditRecoveryTimer: NodeJS.Timeout | undefined;
+let monitoringScheduleTimer: NodeJS.Timeout | undefined;
 
 export interface RuntimeDependencies {
   mode: RuntimeMode;
@@ -122,6 +124,13 @@ export async function initializeWorkerRuntime(): Promise<RuntimeDependencies> {
   } else {
     runtimeLogger.info('Audit recovery checker is disabled.', {
       auditRecoveryEnabled: env.auditRecoveryEnabled,
+    });
+  }
+  if (env.monitoringScheduleEnabled) {
+    startMonitoringScheduler();
+  } else {
+    runtimeLogger.info('Monitoring schedule engine is disabled.', {
+      monitoringScheduleEnabled: env.monitoringScheduleEnabled,
     });
   }
 
@@ -248,6 +257,32 @@ function startAuditRecoveryChecker(fullAuditQueue: JobQueue, quickScanQueue: Job
   auditRecoveryTimer.unref();
 }
 
+function startMonitoringScheduler(): void {
+  if (monitoringScheduleTimer) {
+    return;
+  }
+
+  runtimeLogger.info('Starting monitoring schedule engine.', {
+    monitoringScheduleIntervalMs: env.monitoringScheduleIntervalMs,
+  });
+
+  const runSchedulePass = async () => {
+    try {
+      await runMonitoringSchedulePass();
+    } catch (error) {
+      runtimeLogger.error('Monitoring schedule pass failed.', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  };
+
+  void runSchedulePass();
+  monitoringScheduleTimer = setInterval(() => {
+    void runSchedulePass();
+  }, env.monitoringScheduleIntervalMs);
+  monitoringScheduleTimer.unref();
+}
+
 export async function shutdownRuntime(dependencies: RuntimeDependencies): Promise<void> {
   if (dependencies.mode === 'worker' && watchdogTimer) {
     clearInterval(watchdogTimer);
@@ -257,6 +292,11 @@ export async function shutdownRuntime(dependencies: RuntimeDependencies): Promis
   if (dependencies.mode === 'worker' && auditRecoveryTimer) {
     clearInterval(auditRecoveryTimer);
     auditRecoveryTimer = undefined;
+  }
+
+  if (dependencies.mode === 'worker' && monitoringScheduleTimer) {
+    clearInterval(monitoringScheduleTimer);
+    monitoringScheduleTimer = undefined;
   }
 
   dependencies.cacheManager?.stop();

@@ -103,6 +103,8 @@ export interface AppEnv {
     auditRecoveryRetryDelayMs: number;
     auditRecoveryBatchSize: number;
     auditRecoveryMaxAttempts: number;
+    monitoringScheduleEnabled: boolean;
+    monitoringScheduleIntervalMs: number;
     scannerServiceUrl: string;
     scannerDispatchMode: ScannerDispatchMode;
     scannerSqsJobQueueUrl?: string;
@@ -213,6 +215,8 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         auditRecoveryRetryDelayMs: parseBoundedNumber(source.AUDIT_RECOVERY_RETRY_DELAY_MS, 5 * 60 * 1000, 5_000, 24 * 60 * 60 * 1000),
         auditRecoveryBatchSize: parseBoundedNumber(source.AUDIT_RECOVERY_BATCH_SIZE, 10, 1, 100),
         auditRecoveryMaxAttempts: parseBoundedNumber(source.AUDIT_RECOVERY_MAX_ATTEMPTS, 3, 1, 20),
+        monitoringScheduleEnabled: parseBoolean(source.MONITORING_SCHEDULE_ENABLED, false),
+        monitoringScheduleIntervalMs: parseBoundedNumber(source.MONITORING_SCHEDULE_INTERVAL_MS, 5 * 60 * 1000, 60_000, 60 * 60 * 1000),
         scannerServiceUrl: source.SCANNER_SERVICE_URL?.trim() || source.PYTHON_SCANNER_URL?.trim() || `http://localhost:${scannerPort}`,
         scannerDispatchMode: resolveScannerDispatchMode(source.SCANNER_DISPATCH_MODE),
         scannerSqsJobQueueUrl: genericScannerSqsJobQueueUrl,

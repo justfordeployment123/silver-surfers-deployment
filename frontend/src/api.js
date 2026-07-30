@@ -636,3 +636,41 @@ export const adminUpdateContact = async (id, payload) => {
 export const adminDeleteContact = async (id) => {
   try { const res = await api.delete(`/admin/contact/${id}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+
+// Monitoring: user-scoped jobs
+export const listMonitoringJobs = async () => {
+  try { const res = await api.get('/monitoring/jobs'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const createMonitoringJob = async (payload) => {
+  try { const res = await api.post('/monitoring/jobs', payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const getMonitoringJob = async (id) => {
+  try { const res = await api.get(`/monitoring/jobs/${id}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const updateMonitoringJob = async (id, payload) => {
+  try { const res = await api.put(`/monitoring/jobs/${id}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const deleteMonitoringJob = async (id) => {
+  try { const res = await api.delete(`/monitoring/jobs/${id}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const pauseMonitoringJob = async (id) => {
+  try { const res = await api.patch(`/monitoring/jobs/${id}/pause`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const resumeMonitoringJob = async (id) => {
+  try { const res = await api.patch(`/monitoring/jobs/${id}/resume`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const triggerMonitoringJob = async (id) => {
+  try { const res = await api.patch(`/monitoring/jobs/${id}/trigger`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const listMonitoringRuns = async (id, params = {}) => {
+  try { const res = await api.get(`/monitoring/jobs/${id}/runs`, { params }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const getMonitoringRun = async (id, runId) => {
+  try { const res = await api.get(`/monitoring/jobs/${id}/runs/${runId}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const previewMonitoringSchedule = async (payload) => {
+  try { const res = await api.post('/monitoring/jobs/preview-schedule', payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const listMonitoringNotifications = async (id, params = {}) => {
+  try { const res = await api.get(`/monitoring/jobs/${id}/notifications`, { params }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
