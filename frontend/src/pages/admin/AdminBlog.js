@@ -3,20 +3,20 @@ import { adminListBlog, adminCreateBlog, adminDeleteBlog, adminUpdateBlog } from
 import RichTextEditor from '../../components/RichTextEditor';
 
 const STYLES = `
-.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
 .ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
 .ap-sel:focus { border-color: var(--t4); }
-.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
+.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
 .ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
 .ap-btn-p { background: var(--t4); color: #fff; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
 .ap-btn-danger-sm { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: color .15s, background .15s; }
 .ap-btn-danger-sm:hover { color: #ef4444; background: #fee2e2; }
@@ -24,22 +24,22 @@ const STYLES = `
 .ap-btn-edit-sm:hover { color: var(--t4); background: var(--t05); }
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
-.ap-stat-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
+.ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
 .ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.ap-blog-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
+.ap-blog-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
 .ap-blog-card:hover { box-shadow: 0 4px 16px rgba(4,46,34,0.08); }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-gr { background: #f3f4f6; color: #374151; }
 .pill-a { background: #fef3c7; color: #92400e; }
 .pill-t { background: var(--t05); color: var(--t6); }
-.ap-vt-btn { border: 1px solid var(--sandd); background: #fff; cursor: pointer; padding: 8px 10px; color: var(--ink6); transition: background .15s, color .15s; display: flex; align-items: center; }
+.ap-vt-btn { border: 1px solid var(--sandd); background: var(--surface); cursor: pointer; padding: 8px 10px; color: var(--ink6); transition: background .15s, color .15s; display: flex; align-items: center; }
 .ap-vt-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
 .ap-vt-btn:last-child { border-radius: 0 8px 8px 0; }
 .ap-vt-btn-active { background: var(--t4); color: #fff; border-color: var(--t4); }
 .ap-vt-btn:not(.ap-vt-btn-active):hover { background: var(--sand); }
 .ap-modal-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.ap-modal { background: #fff; border-radius: var(--rl); width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
+.ap-modal { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 900px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
 .ap-modal-hdr { padding: 20px 28px; border-bottom: 1px solid var(--sandd); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }
 .ap-modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: background .15s, color .15s; }
 .ap-modal-close:hover { background: var(--sand); color: var(--ink); }

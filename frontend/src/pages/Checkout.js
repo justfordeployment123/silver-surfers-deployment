@@ -189,7 +189,7 @@ const Checkout = () => {
         }
         .co-wrap { max-width: 560px; margin: 0 auto; }
         .co-card {
-          background: #fff;
+          background: var(--surface);
           border-radius: var(--rl);
           padding: 36px;
           box-shadow: 0 8px 40px rgba(4,46,34,0.15);
@@ -255,7 +255,7 @@ const Checkout = () => {
           padding: 14px 8px;
           border: 2px solid var(--sandd);
           border-radius: var(--r);
-          background: #fff;
+          background: var(--surface);
           color: var(--ink6);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s, background 0.15s;

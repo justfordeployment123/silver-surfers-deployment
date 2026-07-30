@@ -5,7 +5,7 @@ const STYLES = `
 .al-pg { min-height: 100vh; background: var(--t9); padding: 96px 24px 60px; }
 .al-inner { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
 .al-header { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.14); border-radius: var(--r); padding: 32px; }
-.al-card { background: #fff; border-radius: var(--r); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.al-card { background: var(--surface); border-radius: var(--r); overflow: hidden; box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
 .al-card-head { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; background: var(--sandd); }
 .al-card-body { }
 .al-doc-row { padding: 20px 24px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid #f3f4f6; }
@@ -18,9 +18,9 @@ const STYLES = `
 .al-btn-pub { padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 8px; background: var(--t4); color: #fff; border: none; cursor: pointer; }
 .al-btn-pub:hover { background: var(--t8); }
 .al-modal-overlay { position: fixed; inset: 0; background: rgba(75,85,99,0.55); overflow-y: auto; z-index: 50; display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; }
-.al-modal-card { background: #fff; border-radius: var(--r); width: 100%; max-width: 900px; padding: 32px; box-shadow: 0 24px 80px rgba(0,0,0,0.2); }
+.al-modal-card { background: var(--surface); border-radius: var(--r); width: 100%; max-width: 900px; padding: 32px; box-shadow: 0 24px 80px rgba(0,0,0,0.2); }
 .al-modal-lbl { display: block; font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
-.al-modal-inp { width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; color: var(--ink); background: #fff; box-sizing: border-box; }
+.al-modal-inp { width: 100%; padding: 12px 16px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; color: var(--ink); background: var(--surface); box-sizing: border-box; }
 .al-modal-inp:focus { outline: none; border-color: var(--t4); box-shadow: 0 0 0 3px var(--t05); }
 .al-fmt-btn { padding: 4px 10px; font-size: 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer; color: var(--ink); }
 .al-fmt-btn:hover { background: #e5e7eb; }

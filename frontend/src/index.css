@@ -33,6 +33,34 @@
   /* Radius */
   --r:  8px;
   --rl: 12px;
+
+  /* Surfaces (page bg / elevated bg) — flip in dark mode */
+  --bg:      #fff;
+  --surface: #fff;
+  --nav-bg:  rgba(255, 255, 255, 0.97);
+
+  color-scheme: light;
+}
+
+/* ── Dark theme ────────────────────────────────────────────── */
+/* Note: the teal scale (--t1…--t9) is a fixed decorative palette used
+   both as tinted backgrounds AND as light text sitting on permanently-
+   dark sections (hero, CTA, testimonials) — it intentionally does NOT
+   change with theme, otherwise that text loses contrast against its
+   (also-unchanging) dark backdrop. */
+:root[data-theme='dark'] {
+  --ink:  #F2F1ED;
+  --ink6: #B7B6B0;
+  --ink3: #75746E;
+
+  --sand:  #14211C;
+  --sandd: #253531;
+
+  --bg:      #0B1210;
+  --surface: #101815;
+  --nav-bg:  rgba(11, 18, 16, 0.86);
+
+  color-scheme: dark;
 }
 
 /* ── Reset ─────────────────────────────────────────────────── */
@@ -52,12 +80,13 @@ html {
 body {
   font-family: var(--ff);
   color: var(--ink);
-  background: #fff;
+  background: var(--bg);
   min-height: 100vh;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
+  transition: background 0.25s ease, color 0.25s ease;
 }
 
 a {

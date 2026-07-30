@@ -68,12 +68,16 @@ const About = () => {
           height: 46px;
           flex-shrink: 0;
           background: var(--t05);
+          color: var(--t6);
           border-radius: 10px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 20px;
         }
+        .about-stat-n { color: var(--t4); }
+        .about-stat-l { color: var(--ink6); }
+        .about-stat-desc { color: var(--ink3); }
         .about-val-row {
           display: flex;
           align-items: flex-start;
@@ -109,7 +113,7 @@ const About = () => {
           <div className="about-glow-1" aria-hidden="true" />
           <div className="about-glow-2" aria-hidden="true" />
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-            <p className="eyebrow--light">About Us</p>
+            <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>About Us</p>
             <h1 className="h1" style={{ color: '#fff' }}>About SilverSurfers</h1>
             <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '600px', margin: '0 auto' }}>
               Experts in Creating Inclusive Digital Experiences — we help businesses make their
@@ -144,9 +148,9 @@ const About = () => {
             <div className="stats">
               {stats.map((s, i) => (
                 <div className="stat" key={i}>
-                  <span className="stat-n">{s.number}</span>
-                  <span className="stat-l">{s.label}</span>
-                  <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.42)', marginTop: '4px', display: 'block' }}>
+                  <span className="stat-n about-stat-n">{s.number}</span>
+                  <span className="stat-l about-stat-l">{s.label}</span>
+                  <span className="about-stat-desc" style={{ fontSize: '13px', marginTop: '4px', display: 'block' }}>
                     {s.description}
                   </span>
                 </div>

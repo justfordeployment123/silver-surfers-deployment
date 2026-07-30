@@ -69,7 +69,7 @@ const SubscriptionSuccess = () => {
     <>
       <style>{`
         .ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; }
-        .ss-card { background: #fff; border-radius: var(--rl); padding: 52px 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 560px; text-align: center; }
+        .ss-card { background: var(--surface); border-radius: var(--rl); padding: 52px 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 560px; text-align: center; }
         .ss-check-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
       `}</style>
       <div className="ss-bg">

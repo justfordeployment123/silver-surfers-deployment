@@ -3,7 +3,7 @@ import { adminListFaqs, adminCreateFaq, adminDeleteFaq } from '../api';
 
 const STYLES = `
 .apanel-bg { min-height: 100vh; background: var(--t9); padding: 96px 24px 60px; }
-.apanel-card { max-width: 800px; margin: 0 auto; background: #fff; border-radius: var(--r); padding: 32px; }
+.apanel-card { max-width: 800px; margin: 0 auto; background: var(--surface); border-radius: var(--r); padding: 32px; }
 .apanel-h { font-family: var(--ffd); font-size: 22px; font-weight: 700; color: var(--t9); margin-bottom: 24px; }
 .apanel-form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
 .apanel-row { display: flex; gap: 12px; flex-wrap: wrap; }

@@ -2,29 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { adminListUsers, adminResetUserUsage, adminUpdateUserSubscription, adminUpdateUserRole, adminUpdateUserStatus, adminToggleInternalFlag } from '../../api';
 
 const STYLES = `
-.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
 .ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; }
 .ap-sel:focus { border-color: var(--t4); }
 .ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
 .ap-stat-mini { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 14px 18px; }
-.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1; }
+.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t8); line-height: 1; }
 .ap-stat-mini-lbl { font-size: 12px; color: var(--ink6); margin-top: 3px; }
 .ap-tbl { width: 100%; border-collapse: collapse; }
 .ap-tbl thead { background: var(--sand); }
 .ap-tbl th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
 .ap-tbl td { padding: 12px 16px; font-size: 13px; color: var(--ink); border-top: 1px solid var(--sandd); }
-.ap-tbl tr:hover td { background: var(--t05); }
+.ap-tbl tr:hover td { background: var(--sand); }
 .ap-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--t05); border: 1px solid var(--t1); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--t6); flex-shrink: 0; }
 .ap-link-btn { background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--t4); padding: 0; transition: color .15s; }
 .ap-link-btn:hover { color: var(--t8); }
@@ -36,8 +36,8 @@ const STYLES = `
 .pill-gr { background: #f3f4f6; color: #374151; }
 .pill-o { background: #ffedd5; color: #9a3412; }
 .ap-modal-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
-.ap-modal { background: #fff; border-radius: var(--rl); width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
-.ap-modal-sm { background: #fff; border-radius: var(--rl); width: 100%; max-width: 440px; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
+.ap-modal { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
+.ap-modal-sm { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 440px; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
 .ap-modal-hdr { padding: 20px 24px; border-bottom: 1px solid var(--sandd); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }
 .ap-modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: background .15s, color .15s; }
 .ap-modal-close:hover { background: var(--sand); color: var(--ink); }

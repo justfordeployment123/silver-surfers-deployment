@@ -8,10 +8,15 @@ export const API_BASE = raw.replace(/\/$/, '');
 // Helper to perform JSON fetch with graceful HTML/empty handling
 export async function fetchJSON(path, options = {}) {
   const url = path.startsWith('http') ? path : `${API_BASE}${path.startsWith('/') ? path : '/' + path}`;
-  const res = await fetch(url, {
-    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
-    ...options,
-  });
+  let res;
+  try {
+    res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      ...options,
+    });
+  } catch (err) {
+    return { ok: false, status: 0, data: { error: 'Unable to reach the server. Please check your connection and try again.' } };
+  }
   let data;
   const text = await res.text();
   try {

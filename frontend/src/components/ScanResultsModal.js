@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 
 const STYLES = `
 .srm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
-.srm-card { background: #fff; border-radius: 24px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 32px 80px rgba(0,0,0,0.3); }
-.srm-close-bar { position: sticky; top: 0; background: #fff; border-radius: 24px 24px 0 0; border-bottom: 1px solid #f3f4f6; padding: 12px 20px; display: flex; justify-content: flex-end; z-index: 10; }
+.srm-card { background: var(--surface); border-radius: 24px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 32px 80px rgba(0,0,0,0.3); }
+.srm-close-bar { position: sticky; top: 0; background: var(--surface); border-radius: 24px 24px 0 0; border-bottom: 1px solid #f3f4f6; padding: 12px 20px; display: flex; justify-content: flex-end; z-index: 10; }
 .srm-close-btn { width: 40px; height: 40px; background: #f3f4f6; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; color: #6b7280; }
 .srm-close-btn:hover { background: #e5e7eb; color: #111; }
 .srm-body { padding: 24px; display: flex; flex-direction: column; gap: 32px; }
@@ -12,7 +12,7 @@ const STYLES = `
 .srm-score-pill-green { background: var(--t4); color: #fff; }
 .srm-score-pill-yellow { background: #f59e0b; color: #fff; }
 .srm-score-pill-red { background: var(--coral); color: #fff; }
-.srm-section { background: #fff; border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+.srm-section { background: var(--surface); border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .srm-section-icon { color: var(--t4); flex-shrink: 0; }
 .srm-rec-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--sandd); border-radius: 12px; border: 1px solid var(--t1); }
 .srm-rec-num { flex-shrink: 0; width: 24px; height: 24px; background: var(--t4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
@@ -20,7 +20,7 @@ const STYLES = `
 .srm-email-notice { background: var(--sandd); border-radius: 16px; padding: 24px; border: 1px solid var(--t1); }
 .srm-email-icon { flex-shrink: 0; width: 40px; height: 40px; background: var(--t4); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 .srm-lead { background: var(--sandd); border-radius: 16px; padding: 32px; border: 1px solid var(--t1); text-align: center; }
-.srm-lead-inner { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 24px; }
+.srm-lead-inner { background: var(--surface); border-radius: 12px; padding: 24px; border: 1px solid #e5e7eb; margin-bottom: 24px; }
 .srm-spinner { width: 64px; height: 64px; border: 4px solid var(--t1); border-top-color: var(--t4); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 `;

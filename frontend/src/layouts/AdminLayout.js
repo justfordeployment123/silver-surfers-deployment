@@ -22,13 +22,13 @@ const STYLES = `
 .adl-user-role { font-size: 11px; color: rgba(255,255,255,0.35); }
 .adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); cursor: pointer; flex-shrink: 0; }
 .adl-menu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
-.adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: #fff; border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
+.adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
 .adl-dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; font-family: var(--ff); font-size: 13px; font-weight: 500; color: var(--ink6); background: none; border: none; cursor: pointer; text-align: left; transition: background .15s, color .15s; }
 .adl-dd-btn:hover { background: var(--t05); color: var(--t6); }
 .adl-dd-btn-danger:hover { background: var(--coralbg); color: var(--coral); }
 .adl-dd-div { border-top: 1px solid var(--sandd); }
 .adl-topbar { position: sticky; top: 0; z-index: 20; background: var(--sand); border-bottom: 1px solid var(--sandd); padding: 8px 16px; display: flex; align-items: center; }
-.adl-hamburger { width: 40px; height: 40px; border-radius: 8px; background: #fff; border: 1px solid var(--sandd); color: var(--ink6); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.adl-hamburger { width: 40px; height: 40px; border-radius: 8px; background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .adl-hamburger:hover { background: var(--sand); }
 .adl-content { flex: 1; max-width: 1280px; margin: 0 auto; width: 100%; padding: 32px 40px; }
 .adl-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 29; }

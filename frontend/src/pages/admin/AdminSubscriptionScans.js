@@ -2,30 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { adminListSubscriptionScans } from '../../api';
 
 const STYLES = `
-.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
 .ap-sel:focus { border-color: var(--t4); }
 .ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
 .ap-btn-green { background: #16a34a; color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-green:hover:not(:disabled) { background: #15803d; }
 .ap-btn-green:disabled { opacity: 0.6; cursor: not-allowed; }
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-stat-mini { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 16px 20px; }
-.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--ink); line-height: 1; }
+.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t8); line-height: 1; }
 .ap-stat-mini-lbl { font-size: 12px; color: var(--ink6); margin-top: 3px; }
 .ap-tbl { width: 100%; border-collapse: collapse; }
 .ap-tbl thead { background: var(--sand); }
 .ap-tbl th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
 .ap-tbl td { padding: 12px 16px; font-size: 13px; color: var(--ink); border-top: 1px solid var(--sandd); }
-.ap-tbl tr:hover td { background: var(--t05); }
+.ap-tbl tr:hover td { background: var(--sand); }
 .ap-th-btn { background: none; border: none; cursor: pointer; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; display: flex; align-items: center; gap: 4px; }
 .ap-th-btn:hover { color: var(--ink); }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }

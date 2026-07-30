@@ -23,48 +23,143 @@ const ProtectedRoute = ({ role = null, children }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-950 via-green-950 via-teal-950 to-cyan-900 pt-24 pb-10 px-4">
-        <div className="max-w-6xl mx-auto">
-          {/* Header Skeleton */}
-          <div className="text-center mb-12">
-            <div className="h-10 bg-white/10 rounded-lg w-96 mx-auto mb-4 animate-pulse"></div>
-            <div className="h-6 bg-white/10 rounded-lg w-64 mx-auto animate-pulse"></div>
-          </div>
+      <>
+        <style>{`
+          .prl-shell {
+            min-height: 100vh;
+            background: var(--bg);
+            padding: 120px 0 60px;
+          }
+          .prl-head { text-align: center; margin-bottom: 48px; }
+          .prl-bar {
+            border-radius: var(--r);
+            background: var(--sandd);
+            position: relative;
+            overflow: hidden;
+            margin: 0 auto;
+          }
+          .prl-bar::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent);
+            transform: translateX(-100%);
+            animation: prl-shimmer 1.6s ease-in-out infinite;
+          }
+          :root[data-theme='dark'] .prl-bar::after {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.08), transparent);
+          }
+          @keyframes prl-shimmer { 100% { transform: translateX(100%); } }
 
-          {/* Main Content Skeleton */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Card 1 Skeleton */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 shadow-xl animate-pulse">
-              <div className="h-8 bg-white/10 rounded w-48 mb-6"></div>
-              <div className="space-y-4">
-                <div className="h-4 bg-white/10 rounded w-full"></div>
-                <div className="h-4 bg-white/10 rounded w-5/6"></div>
-                <div className="h-4 bg-white/10 rounded w-4/6"></div>
-              </div>
-              <div className="mt-6 h-10 bg-white/10 rounded-lg w-32"></div>
+          .prl-title-bar { height: 34px; width: 320px; margin-bottom: 14px; }
+          .prl-sub-bar   { height: 18px; width: 200px; }
+
+          .prl-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+          }
+          .prl-card {
+            background: var(--surface);
+            border: 1px solid var(--sandd);
+            border-radius: var(--rl);
+            padding: 32px;
+          }
+          .prl-card .prl-bar { margin: 0 0 14px; }
+          .prl-line-1 { height: 24px; width: 60%; margin-bottom: 20px; }
+          .prl-line-2 { height: 13px; width: 100%; margin-bottom: 10px; }
+          .prl-line-3 { height: 13px; width: 85%; margin-bottom: 10px; }
+          .prl-line-4 { height: 13px; width: 70%; margin-bottom: 20px; }
+          .prl-btn-bar { height: 38px; width: 130px; }
+
+          .prl-status {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 18px; margin-top: 44px;
+          }
+
+          /* ── Preloader (bouncing block grid) ─────────────── */
+          .prl-blocks {
+            display: grid;
+            grid-template-columns: repeat(4, 12px);
+            gap: 8px;
+          }
+          .prl-block {
+            width: 12px; height: 12px;
+            border-radius: 3px;
+            background: var(--t4);
+            animation: prl-wave 1.4s ease infinite;
+          }
+          @keyframes prl-wave {
+            0%, 100% { transform: translateY(0); opacity: 1; }
+            50%      { transform: translateY(10px); opacity: 0.35; }
+          }
+
+          /* ── Animated status text (letters rise into view) ── */
+          .prl-vtext {
+            display: flex;
+            justify-content: center;
+            overflow: hidden;
+            height: 1.3em;
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--ink6);
+          }
+          .prl-vtext span {
+            display: inline-block;
+            white-space: pre;
+            transform: translateY(1.2em);
+            animation: prl-letter-in 1s alternate infinite cubic-bezier(0.86, 0, 0.07, 1);
+          }
+          @keyframes prl-letter-in {
+            0%   { transform: translateY(1.2em); opacity: 0.35; }
+            100% { transform: translateY(0); opacity: 1; }
+          }
+
+          @media (max-width: 720px) {
+            .prl-grid { grid-template-columns: 1fr; }
+            .prl-title-bar { width: 240px; }
+          }
+        `}</style>
+
+        <div className="prl-shell">
+          <div className="wrap">
+            <div className="prl-head">
+              <div className="prl-bar prl-title-bar" />
+              <div className="prl-bar prl-sub-bar" />
             </div>
 
-            {/* Card 2 Skeleton */}
-            <div className="bg-white/5 backdrop-blur-sm rounded-3xl p-8 shadow-xl animate-pulse">
-              <div className="h-8 bg-white/10 rounded w-48 mb-6"></div>
-              <div className="space-y-4">
-                <div className="h-4 bg-white/10 rounded w-full"></div>
-                <div className="h-4 bg-white/10 rounded w-5/6"></div>
-                <div className="h-4 bg-white/10 rounded w-4/6"></div>
-              </div>
-              <div className="mt-6 h-10 bg-white/10 rounded-lg w-32"></div>
+            <div className="prl-grid">
+              {[0, 1].map((i) => (
+                <div className="prl-card" key={i}>
+                  <div className="prl-bar prl-line-1" />
+                  <div className="prl-bar prl-line-2" />
+                  <div className="prl-bar prl-line-3" />
+                  <div className="prl-bar prl-line-4" />
+                  <div className="prl-bar prl-btn-bar" />
+                </div>
+              ))}
             </div>
-          </div>
 
-          {/* Loading Text */}
-          <div className="text-center mt-8">
-            <div className="inline-flex items-center gap-3 text-white/80">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              <span className="text-lg">Verifying authentication...</span>
+            <div className="prl-status">
+              <div className="prl-blocks">
+                {Array.from({ length: 16 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="prl-block"
+                    style={{ animationDelay: `${(i % 4) * 0.15}s` }}
+                  />
+                ))}
+              </div>
+              <div className="prl-vtext">
+                {'Verifying authentication…'.split('').map((ch, i) => (
+                  <span key={i} style={{ animationDelay: `${i * 45}ms` }}>
+                    {ch === ' ' ? ' ' : ch}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      </>
     );
   }
   

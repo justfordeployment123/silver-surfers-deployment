@@ -98,7 +98,7 @@ export default function BlogPost() {
         .bp-excerpt-inner { font-size: 17px; color: rgba(255,255,255,0.78); line-height: 1.75; }
         .bp-content { padding: 48px 0; }
         .bp-content-card {
-          background: #fff;
+          background: var(--surface);
           border-radius: var(--rl);
           padding: 48px;
           box-shadow: 0 4px 28px rgba(4,46,34,0.12);

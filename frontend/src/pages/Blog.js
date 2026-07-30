@@ -54,7 +54,7 @@ const Blog = () => {
           pointer-events: none;
         }
         .blog-feat-card {
-          background: #fff;
+          background: var(--surface);
           border-radius: var(--rl);
           padding: 36px;
           border: 1px solid var(--sandd);
@@ -89,7 +89,7 @@ const Blog = () => {
           <div className="blog-glow-1" aria-hidden="true" />
           <div className="blog-glow-2" aria-hidden="true" />
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-            <p className="eyebrow--light">Blog</p>
+            <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>Blog</p>
             <h1 className="h1" style={{ color: '#fff' }}>Accessibility & Silver UX</h1>
             <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '560px', margin: '0 auto' }}>
               Practical guides, tips, and case studies on creating a delightful digital experience.

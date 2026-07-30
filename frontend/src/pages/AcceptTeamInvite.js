@@ -4,7 +4,7 @@ import { acceptTeamInvitation, getInvitationDetails, getMe } from '../api';
 
 const STYLES = `
 .ati-bg { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--t9); padding: 96px 16px 40px; }
-.ati-card { background: #fff; border-radius: var(--r); box-shadow: 0 24px 64px rgba(0,0,0,0.18); padding: 32px; width: 100%; max-width: 440px; }
+.ati-card { background: var(--surface); border-radius: var(--r); box-shadow: 0 24px 64px rgba(0,0,0,0.18); padding: 32px; width: 100%; max-width: 440px; }
 .ati-icon { width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; }
 .ati-icon-teal { background: var(--t05); }
 .ati-icon-red { background: rgba(239,68,68,0.12); }

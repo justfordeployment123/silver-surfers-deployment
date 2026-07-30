@@ -25,7 +25,7 @@ const STYLES = `
 .ac-sub-banner { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: var(--r); padding: 24px; margin-bottom: 32px; }
 .ac-tab-wrap { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); padding: 8px; margin-bottom: 12px; }
 .ac-tab { border-radius: 12px; padding: 12px 16px; text-align: left; border: none; cursor: pointer; width: 100%; transition: background .15s; }
-.ac-tab-active { background: #fff; color: #042E22; }
+.ac-tab-active { background: var(--surface); color: #042E22; }
 .ac-tab-inactive { background: rgba(255,255,255,0.05); color: #fff; }
 .ac-tab-inactive:hover { background: rgba(255,255,255,0.1); }
 .ac-tab-badge { border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 700; }

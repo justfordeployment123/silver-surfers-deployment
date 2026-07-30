@@ -2,17 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { adminListContact, adminUpdateContact, adminDeleteContact } from '../../api';
 
 const STYLES = `
-.ap-card { background: #fff; border: 1px solid var(--sandd); border-radius: var(--r); }
+.ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; width: 100%; box-sizing: border-box; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: #fff; outline: none; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
 .ap-sel:focus { border-color: var(--t4); }
 .ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: #fff; border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
 .ap-btn-green { background: #16a34a; color: #fff; padding: 5px 12px; border-radius: 6px; border: none; cursor: pointer; font-size: 12px; font-weight: 600; transition: background .15s; }
 .ap-btn-green:hover { background: #15803d; }

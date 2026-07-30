@@ -17,13 +17,13 @@ import {
 const STYLES = `
   .sub-page { min-height: 100vh; background: var(--t9); padding: 96px 16px 48px; }
   .sub-card {
-    background: #fff;
+    background: var(--surface);
     border-radius: var(--rl);
     padding: 28px;
     box-shadow: 0 4px 24px rgba(4,46,34,0.1);
   }
   .sub-audit-banner {
-    background: #fff;
+    background: var(--surface);
     border-radius: var(--rl);
     padding: 28px;
     box-shadow: 0 4px 24px rgba(4,46,34,0.1);
@@ -125,7 +125,7 @@ const STYLES = `
   @keyframes subSpin { to { transform: rotate(360deg); } }
   .sub-skel-line { height: 14px; background: rgba(255,255,255,0.08); border-radius: 6px; margin-bottom: 10px; animation: subSkelP 1.2s ease-in-out infinite; }
   @keyframes subSkelP { 0%,100%{opacity:1} 50%{opacity:0.4} }
-  .sub-no-sub-card { background: #fff; border-radius: var(--rl); padding: 36px; box-shadow: 0 4px 24px rgba(4,46,34,0.1); }
+  .sub-no-sub-card { background: var(--surface); border-radius: var(--rl); padding: 36px; box-shadow: 0 4px 24px rgba(4,46,34,0.1); }
   @media (max-width: 767px) { .sub-card { padding: 20px; } }
 `;
 

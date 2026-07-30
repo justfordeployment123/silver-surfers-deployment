@@ -153,7 +153,7 @@ const Contact = () => {
         .contact-form-wrap {
           max-width: 720px;
           margin: 0 auto;
-          background: #fff;
+          background: var(--surface);
           border-radius: var(--rl);
           padding: 44px;
           border: 1px solid var(--sandd);
@@ -191,7 +191,7 @@ const Contact = () => {
           <div className="contact-glow-1" aria-hidden="true" />
           <div className="contact-glow-2" aria-hidden="true" />
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-            <p className="eyebrow--light">Contact</p>
+            <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>Contact</p>
             <h1 className="h1" style={{ color: '#fff' }}>Get in Touch</h1>
             <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '540px', margin: '0 auto' }}>
               Have questions or need a custom quote? Our friendly, expert team is here to help.

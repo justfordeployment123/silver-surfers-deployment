@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getMe, logout as apiLogout } from '../api';
 import SearchBar from './SearchBar';
+import ThemeToggle from './ThemeToggle';
 
 const Header = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -59,14 +60,14 @@ const Header = () => {
           position: fixed;
           top: 0; left: 0; right: 0;
           z-index: 1000;
-          background: rgba(255,255,255,0.97);
+          background: var(--nav-bg);
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--sandd);
           height: 64px;
           display: flex;
           align-items: center;
-          transition: box-shadow 0.2s;
+          transition: box-shadow 0.2s, background 0.25s;
         }
         .ss-nav.scrolled {
           box-shadow: 0 4px 24px rgba(0,0,0,0.07);
@@ -154,7 +155,7 @@ const Header = () => {
           padding: 5px 8px 5px 5px;
           border-radius: 20px;
           border: 1px solid var(--sandd);
-          background: #fff;
+          background: var(--surface);
           cursor: pointer;
           transition: border-color 0.15s, background 0.15s;
         }
@@ -188,7 +189,7 @@ const Header = () => {
           top: calc(100% + 8px);
           right: 0;
           min-width: 200px;
-          background: #fff;
+          background: var(--surface);
           border: 1px solid var(--sandd);
           border-radius: var(--rl);
           box-shadow: 0 8px 32px rgba(8,80,65,0.09);
@@ -264,7 +265,7 @@ const Header = () => {
           position: fixed;
           top: 64px;
           left: 0; right: 0;
-          background: #fff;
+          background: var(--surface);
           border-bottom: 1px solid var(--sandd);
           box-shadow: 0 8px 24px rgba(8,80,65,0.08);
           overflow: hidden;
@@ -307,6 +308,7 @@ const Header = () => {
           .ss-nav-links        { display: none; }
           .ss-nav-cta          { display: none; }
           .ss-search-desktop   { display: none; }
+          .ss-theme-desktop    { display: none; }
           .ss-hamburger        { display: flex; }
         }
         @media (max-width: 1200px) {
@@ -352,6 +354,10 @@ const Header = () => {
             {/* Search — desktop only */}
             <div className="ss-search-desktop">
               <SearchBar isScrolled={isScrolled} onSearchOpenChange={setIsSearchOpen} />
+            </div>
+
+            <div className="ss-theme-desktop">
+              <ThemeToggle />
             </div>
 
             {/* CTA */}
@@ -465,6 +471,11 @@ const Header = () => {
           {/* Mobile search */}
           <div className="ss-mobile-search">
             <SearchBar isScrolled={true} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 14px' }}>
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink6)' }}>Appearance</span>
+            <ThemeToggle />
           </div>
 
           <hr className="ss-mobile-divider" />

@@ -150,7 +150,7 @@ const FAQ = () => {
                     <div className="faq-glow-1" aria-hidden="true" />
                     <div className="faq-glow-2" aria-hidden="true" />
                     <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
-                        <p className="eyebrow--light">FAQ</p>
+                        <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>FAQ</p>
                         <h1 className="h1" style={{ color: '#fff' }}>Frequently Asked Questions</h1>
                         <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '560px', margin: '0 auto' }}>
                             Find answers to the most frequently asked questions about SilverSurfers

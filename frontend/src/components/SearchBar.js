@@ -133,6 +133,29 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
 
   return (
     <div className="relative z-40" ref={searchRef}>
+      <style>{`
+        .ss-search-btn { color: var(--ink6); }
+        .ss-search-btn:hover { background: var(--sand); color: var(--ink); }
+
+        .ss-search-input {
+          background: var(--surface);
+          border-color: var(--sandd);
+          color: var(--ink);
+        }
+        .ss-search-input::placeholder { color: var(--ink3); }
+        .ss-search-input:focus { border-color: var(--t4); box-shadow: 0 0 0 3px var(--t1); }
+
+        .ss-search-dropdown {
+          background: var(--surface);
+          border: 1px solid var(--sandd);
+        }
+
+        .ss-search-result { color: var(--ink); }
+        .ss-search-result:hover { background: var(--sand); }
+        .ss-search-result-title { color: var(--ink); }
+        .ss-search-result-desc { color: var(--ink6); }
+        .ss-search-result-meta { color: var(--ink3); }
+      `}</style>
       {/* Search Button/Input */}
       <form onSubmit={handleSearch} className="relative">
         <div className={`flex items-center gap-2 transition-all duration-300 ${
@@ -141,28 +164,24 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
           <button
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className={`p-2 rounded-lg transition-all duration-300 ${
-              isScrolled 
-                ? 'hover:bg-gray-100 text-gray-700' 
-                : 'hover:bg-white/10 text-white'
-            }`}
+            className="ss-search-btn p-2 rounded-lg transition-all duration-300"
             aria-label="Search"
           >
-            <svg 
-              className="w-5 h-5" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
               viewBox="0 0 24 24"
             >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={2} 
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
           </button>
-          
+
           {isSearchOpen && (
             <input
               type="text"
@@ -171,11 +190,7 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
               onFocus={() => setIsSearchOpen(true)}
               placeholder="Search..."
               autoFocus
-              className={`flex-1 px-4 py-2 rounded-lg border outline-none transition-all duration-300 ${
-                isScrolled
-                  ? 'bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-green-500 focus:ring-2 focus:ring-green-200'
-                  : 'bg-white/10 border-white/30 text-white placeholder-white/60 focus:bg-white/20 focus:border-white/50 backdrop-blur-xl'
-              }`}
+              className="ss-search-input flex-1 px-4 py-2 rounded-lg border outline-none transition-all duration-300"
             />
           )}
         </div>
@@ -183,41 +198,27 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
 
       {/* Search Results Dropdown */}
       {isSearchOpen && filteredResults.length > 0 && (
-        <div className={`absolute top-full mt-2 w-48 sm:w-56 md:w-80 rounded-xl shadow-2xl overflow-hidden z-50 ${
-          isScrolled 
-            ? 'bg-white border border-gray-200' 
-            : 'bg-gray-900/95 border border-white/10 backdrop-blur-xl'
-        }`}>
+        <div className="ss-search-dropdown absolute top-full mt-2 w-48 sm:w-56 md:w-80 rounded-xl shadow-2xl overflow-hidden z-50">
           <div className="py-2 max-h-96 overflow-y-auto">
             {filteredResults.map((result, index) => (
               <button
                 key={index}
                 onClick={() => handleResultClick(result)}
-                className={`w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-200 ${
-                  isScrolled
-                    ? 'hover:bg-gray-100 text-gray-900'
-                    : 'hover:bg-white/10 text-white'
-                }`}
+                className="ss-search-result w-full text-left px-4 py-3 flex items-start gap-3 transition-colors duration-200"
               >
                 <span className="text-lg flex-shrink-0 mt-0.5">
                   {getResultIcon(result.type)}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <div className={`font-medium truncate ${
-                    isScrolled ? 'text-gray-900' : 'text-white'
-                  }`}>
+                  <div className="ss-search-result-title font-medium truncate">
                     {result.title}
                   </div>
                   {result.description && (
-                    <div className={`text-xs mt-0.5 line-clamp-2 ${
-                      isScrolled ? 'text-gray-600' : 'text-gray-400'
-                    }`}>
+                    <div className="ss-search-result-desc text-xs mt-0.5 line-clamp-2">
                       {result.description}
                     </div>
                   )}
-                  <div className={`text-xs mt-1 flex items-center gap-1 ${
-                    isScrolled ? 'text-gray-500' : 'text-gray-500'
-                  }`}>
+                  <div className="ss-search-result-meta text-xs mt-1 flex items-center gap-1">
                     <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
                       result.type === 'page' ? 'bg-blue-100 text-blue-700' :
                       result.type === 'section' ? 'bg-green-100 text-green-700' :
@@ -237,14 +238,8 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
 
       {/* No Results Message */}
       {isSearchOpen && searchQuery.trim() !== '' && filteredResults.length === 0 && (
-        <div className={`absolute top-full mt-2 w-48 sm:w-56 md:w-80 rounded-xl shadow-2xl overflow-hidden z-50 ${
-          isScrolled 
-            ? 'bg-white border border-gray-200' 
-            : 'bg-gray-900/95 border border-white/10 backdrop-blur-xl'
-        }`}>
-          <div className={`px-4 py-3 text-center text-sm ${
-            isScrolled ? 'text-gray-500' : 'text-gray-400'
-          }`}>
+        <div className="ss-search-dropdown absolute top-full mt-2 w-48 sm:w-56 md:w-80 rounded-xl shadow-2xl overflow-hidden z-50">
+          <div className="ss-search-result-desc px-4 py-3 text-center text-sm">
             <div className="mb-2">🔍</div>
             No results found for "{searchQuery}"
           </div>

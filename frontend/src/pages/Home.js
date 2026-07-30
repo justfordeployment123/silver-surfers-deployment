@@ -1,5 +1,7 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { getSubscription, quickAudit } from '../api';
+
+const HeroGlobe = React.lazy(() => import('../components/HeroGlobe'));
 
 /* ── Scan results modal ──────────────────────────────────────── */
 const ScanResultsModal = ({ result, isVisible, onClose }) => {
@@ -13,7 +15,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
       zIndex: 9000, padding: 16,
     }}>
       <div style={{
-        background: '#fff',
+        background: 'var(--surface)',
         borderRadius: 'var(--rl)',
         padding: 32,
         maxWidth: 520,
@@ -83,7 +85,7 @@ const MainScreen = () => {
 
   const showEmailFallback = (email) => {
     const fallback = document.createElement('div');
-    fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:#fff;border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(8,80,65,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
+    fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(8,80,65,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
     fallback.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:12px">
         <div style="flex:1">
@@ -243,7 +245,7 @@ const MainScreen = () => {
 
         /* ── How it works (sand section) ──────────────── */
         .home-step-card {
-          background: #fff;
+          background: var(--surface);
           border: 1px solid var(--sandd);
           border-radius: var(--rl);
           padding: 32px 28px 28px;
@@ -272,10 +274,26 @@ const MainScreen = () => {
         }
         .home-step-icon svg { color: var(--t6); }
 
+        /* ── Hero globe — anchored independently of the text
+           column's height, not grid-centered against it ─── */
+        .hero-globe-slot {
+          position: absolute;
+          top: 96px;
+          right: 4%;
+          width: min(32vw, 420px);
+          height: min(32vw, 420px);
+          z-index: 2;
+        }
+
         /* ── Responsive ────────────────────────────────── */
+        @media (max-width: 1200px) {
+          .hero-globe-slot { right: 2%; width: min(30vw, 360px); height: min(30vw, 360px); }
+        }
+        @media (max-width: 1024px) {
+          .hero-globe-slot { display: none; }
+        }
         @media (max-width: 768px) {
           .home-hero { padding: 100px 0 60px; }
-          .home-hero-grid { grid-template-columns: 1fr !important; }
           .home-metrics-grid { grid-template-columns: 1fr 1fr !important; }
         }
         @media (max-width: 480px) {
@@ -291,6 +309,12 @@ const MainScreen = () => {
         <section className="home-hero">
           <div className="home-glow home-glow-1" />
           <div className="home-glow home-glow-2" />
+
+          <div className="hero-globe-slot">
+            <Suspense fallback={null}>
+              <HeroGlobe />
+            </Suspense>
+          </div>
 
           <div className="wrap" style={{ position: 'relative', zIndex: 1 }}>
             {/* Eyebrow */}

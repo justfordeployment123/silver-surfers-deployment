@@ -90,8 +90,8 @@ const PaymentSuccess = () => {
     <>
       <style>{`
         .ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-        .ps-card { background: #fff; border-radius: var(--rl); padding: 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 600px; }
-        .ps-detail-row { background: #fff; border-radius: var(--r); padding: 16px; text-align: center; }
+        .ps-card { background: var(--surface); border-radius: var(--rl); padding: 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 600px; }
+        .ps-detail-row { background: var(--surface); border-radius: var(--r); padding: 16px; text-align: center; }
         .ps-detail-num { font-size: 28px; font-weight: 700; color: var(--t4); font-family: var(--ffd); }
         .ps-detail-label { font-size: 12px; color: var(--ink6); margin-bottom: 4px; }
         .ps-next-list { display: flex; flex-direction: column; gap: 10px; }

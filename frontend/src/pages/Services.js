@@ -150,6 +150,12 @@ const Services = () => {
           position: relative;
           overflow: hidden;
         }
+        /* This card keeps a fixed light-mint background regardless of theme,
+           so its text must stay fixed-dark rather than following --ink. */
+        .free-card h3 { color: var(--t9); }
+        .free-card .free-card-label { color: var(--t9); }
+        .free-card .free-card-feature { color: var(--t8); }
+        .free-card .free-card-note { color: var(--t6); }
         .free-card-bar {
           position: absolute; top: 0; left: 0; right: 0;
           height: 4px; background: var(--t4);
@@ -193,7 +199,7 @@ const Services = () => {
           border: 1px solid var(--sandd);
           border-radius: var(--rl);
           padding: 28px 24px;
-          background: #fff;
+          background: var(--surface);
           display: flex;
           flex-direction: column;
           position: relative;
@@ -276,7 +282,7 @@ const Services = () => {
 
         /* ── How to choose cards ───────────────────────── */
         .choose-card {
-          background: #fff;
+          background: var(--surface);
           border: 1px solid var(--sandd);
           border-radius: var(--rl);
           padding: 28px;
@@ -366,13 +372,13 @@ const Services = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center' }}>
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
+                    <p className="free-card-label" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
                       What you get
                     </p>
                     {freeAudit.features.map((f, i) => (
                       <div key={i} className="svc-plan-feature">
                         <CheckIcon />
-                        <span style={{ color: 'var(--ink6)', fontSize: 14 }}>{f}</span>
+                        <span className="free-card-feature" style={{ fontSize: 14 }}>{f}</span>
                       </div>
                     ))}
                   </div>
@@ -384,7 +390,7 @@ const Services = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                       </svg>
                     </a>
-                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginBottom: 14 }}>No credit card required</p>
+                    <p className="free-card-note" style={{ fontSize: 12, marginBottom: 14 }}>No credit card required</p>
                     <a href="/subscription" className="btn btn-o" style={{ display: 'inline-flex' }}>
                       Get Full Audit Here
                     </a>
