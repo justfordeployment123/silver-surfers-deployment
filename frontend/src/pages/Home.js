@@ -1,5 +1,6 @@
 import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { getSubscription, quickAudit } from '../api';
+import WcagStandardSelect from '../components/WcagStandardSelect';
 
 const HeroGlobe = React.lazy(() => import('../components/HeroGlobe'));
 
@@ -62,6 +63,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
 /* ── Page ────────────────────────────────────────────────────── */
 const MainScreen = () => {
   const [scanData, setScanData] = useState({ websiteUrl: '', email: '', firstName: '', lastName: '' });
+  const [wcagConfig, setWcagConfig] = useState({ wcagStandard: 'combined', conformanceLevel: 'AA' });
   const [selectedDevice, setSelectedDevice]   = useState('desktop');
   const [isScanning, setIsScanning]           = useState(false);
   const [error, setError]                     = useState('');
@@ -413,6 +415,16 @@ const MainScreen = () => {
                         : <><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet and Mobile testing available with <a href="/services" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a></>
                       }
                     </p>
+                  </div>
+
+                  {/* WCAG standard selector */}
+                  <div style={{ marginBottom: 20 }}>
+                    <WcagStandardSelect
+                      variant="glass-dark"
+                      wcagStandard={wcagConfig.wcagStandard}
+                      conformanceLevel={wcagConfig.conformanceLevel}
+                      onChange={setWcagConfig}
+                    />
                   </div>
 
                   {/* Submit */}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getMe, startAudit, precheckUrl, getSubscription } from '../api';
+import WcagStandardSelect from '../components/WcagStandardSelect';
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -10,6 +11,7 @@ const Checkout = () => {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [selectedDevice, setSelectedDevice] = useState('desktop');
+  const [wcagConfig, setWcagConfig] = useState({ wcagStandard: 'combined', conformanceLevel: 'AA' });
   const [creditType, setCreditType] = useState(null);
   const [loading, setLoading] = useState(false);
   const [precheckLoading, setPrecheckLoading] = useState(false);
@@ -471,6 +473,16 @@ const Checkout = () => {
                   </div>
                 </div>
               )}
+
+              {/* WCAG standard selector */}
+              <div style={{ marginBottom: '16px' }}>
+                <WcagStandardSelect
+                  variant="themed"
+                  wcagStandard={wcagConfig.wcagStandard}
+                  conformanceLevel={wcagConfig.conformanceLevel}
+                  onChange={setWcagConfig}
+                />
+              </div>
 
               {/* Pro plan info */}
               {creditType === 'subscription' && subscription && subscription.planId === 'pro' && (

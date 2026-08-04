@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createMonitoringJob, previewMonitoringSchedule, updateMonitoringJob } from '../api';
+import WcagStandardSelect, { WCAG_STANDARD_OPTIONS } from './WcagStandardSelect';
 
 const STYLES = `
 .mjm-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px; }
@@ -53,12 +54,6 @@ const SCHEDULE_CARDS = [
 ];
 
 const DEVICE_OPTIONS = ['desktop', 'tablet', 'mobile'];
-const WCAG_STANDARDS = [
-  { key: 'combined', label: 'Full Combined (2.1 + 2.2)' },
-  { key: 'wcag21', label: 'WCAG 2.1' },
-  { key: 'wcag22', label: 'WCAG 2.2' },
-];
-const CONFORMANCE_LEVELS = ['A', 'AA', 'AAA'];
 
 function isValidDomain(value) {
   if (!value || !value.trim()) return false;
@@ -299,20 +294,13 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
                   </div>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  <div>
-                    <label className="mjm-label">WCAG standard</label>
-                    <select className="mjm-input" value={form.wcagStandard} onChange={(e) => set({ wcagStandard: e.target.value })}>
-                      {WCAG_STANDARDS.map((w) => <option key={w.key} value={w.key}>{w.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="mjm-label">Conformance level</label>
-                    <select className="mjm-input" value={form.conformanceLevel} onChange={(e) => set({ conformanceLevel: e.target.value })}>
-                      {CONFORMANCE_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                    </select>
-                  </div>
-                </div>
+                <WcagStandardSelect
+                  variant="themed"
+                  label="WCAG Standard"
+                  wcagStandard={form.wcagStandard}
+                  conformanceLevel={form.conformanceLevel}
+                  onChange={({ wcagStandard, conformanceLevel }) => set({ wcagStandard, conformanceLevel })}
+                />
               </div>
             )}
 
@@ -378,7 +366,7 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
                 <div className="mjm-review-row"><span className="mjm-review-k">Schedule</span><span className="mjm-review-v">{scheduleLabel}{form.schedule === 'custom' ? ` (${form.customCronExpression})` : ''}</span></div>
                 <div className="mjm-review-row"><span className="mjm-review-k">Scan type</span><span className="mjm-review-v">{form.scanType === 'quick' ? 'Quick Scan' : 'Full Audit'}</span></div>
                 <div className="mjm-review-row"><span className="mjm-review-k">Devices</span><span className="mjm-review-v">{form.devicesEnabled.join(', ')}</span></div>
-                <div className="mjm-review-row"><span className="mjm-review-k">WCAG standard</span><span className="mjm-review-v">{WCAG_STANDARDS.find((w) => w.key === form.wcagStandard)?.label} · {form.conformanceLevel}</span></div>
+                <div className="mjm-review-row"><span className="mjm-review-k">WCAG standard</span><span className="mjm-review-v">{WCAG_STANDARD_OPTIONS.find((w) => w.wcagStandard === form.wcagStandard && (w.wcagStandard === 'combined' || w.conformanceLevel === form.conformanceLevel))?.label || form.wcagStandard}</span></div>
                 <div className="mjm-review-row"><span className="mjm-review-k">Alert threshold</span><span className="mjm-review-v">{form.alertThreshold === '' ? 'Disabled' : form.alertThreshold}</span></div>
                 <div className="mjm-review-row"><span className="mjm-review-k">Alert emails</span><span className="mjm-review-v">{form.alertEmails.length ? form.alertEmails.join(', ') : 'Account email'}</span></div>
                 <div className="mjm-review-row"><span className="mjm-review-k">Notifications</span><span className="mjm-review-v">{[form.notifyOnComplete && 'Every run', form.notifyOnNewIssues && 'New issues'].filter(Boolean).join(', ') || 'None'}</span></div>
