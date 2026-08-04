@@ -10,6 +10,12 @@ const monitoringRunSchema = new mongoose.Schema({
   // to keep one field name while resolving against either collection.
   auditId: { type: mongoose.Schema.Types.ObjectId, refPath: 'auditModel' },
   auditModel: { type: String, enum: ['AnalysisRecord', 'QuickScan'] },
+  // 2.2.7.4 — snapshot of the job's wcagStandard/conformanceLevel at the
+  // moment this run was dispatched. The job's own fields can change between
+  // runs (user edits it), so the run history needs its own copy to show
+  // which standard was actually used for each historical run.
+  wcagStandard: { type: String, enum: ['wcag21', 'wcag22', 'combined'] },
+  conformanceLevel: { type: String, enum: ['A', 'AA', 'AAA'] },
   triggeredAt: { type: Date, default: Date.now },
   completedAt: { type: Date },
   score: { type: Number },

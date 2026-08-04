@@ -163,6 +163,7 @@ export async function dispatchMonitoringJob(jobId: string): Promise<DispatchJobR
 
     const run = await MonitoringRun.create({
       jobId: job._id, userId: job.userId, auditId, auditModel,
+      wcagStandard: job.wcagStandard, conformanceLevel: job.conformanceLevel,
       triggeredAt: now, status: 'pending',
     });
 

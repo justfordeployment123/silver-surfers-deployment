@@ -2,6 +2,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getMonitoringJob, listMonitoringNotifications, listMonitoringRuns, triggerMonitoringJob } from '../api';
 import MonitoringJobModal from '../components/MonitoringJobModal';
+import { WCAG_STANDARD_OPTIONS } from '../components/WcagStandardSelect';
+
+// 2.2.7.4 — each run snapshots the standard used at dispatch time, since the
+// job's own selection can change between runs. Falls back to a short label
+// for legacy runs recorded before this field existed.
+function describeRunWcagStandard(wcagStandard, conformanceLevel) {
+  if (!wcagStandard) return '—';
+  const match = WCAG_STANDARD_OPTIONS.find(
+    (o) => o.wcagStandard === wcagStandard && (o.wcagStandard === 'combined' || o.conformanceLevel === conformanceLevel)
+  );
+  return match?.label || wcagStandard;
+}
 
 const STYLES = `
 .mjd-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
@@ -177,13 +189,14 @@ const MonitoringJobDetail = () => {
                             <table className="mjd-table">
                                 <thead>
                                     <tr>
-                                        <th>Date</th><th>Status</th><th>Score</th><th>Δ</th><th>Issues</th><th>New</th><th>Resolved</th><th>Report</th>
+                                        <th>Date</th><th>Standard</th><th>Status</th><th>Score</th><th>Δ</th><th>Issues</th><th>New</th><th>Resolved</th><th>Report</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {runs.map((run) => (
                                         <tr key={run._id}>
                                             <td>{new Date(run.triggeredAt).toLocaleString()}</td>
+                                            <td>{describeRunWcagStandard(run.wcagStandard, run.conformanceLevel)}</td>
                                             <td><span className={`mjd-run-status mjd-run-${run.status}`}>{run.status}</span></td>
                                             <td>{typeof run.score === 'number' ? Math.round(run.score) : '—'}</td>
                                             <td>

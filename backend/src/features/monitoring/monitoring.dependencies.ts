@@ -44,6 +44,8 @@ export interface MonitoringRunDocument {
   userId?: string;
   auditId?: string;
   auditModel?: 'AnalysisRecord' | 'QuickScan';
+  wcagStandard?: MonitoringWcagStandard;
+  conformanceLevel?: MonitoringConformanceLevel;
   triggeredAt?: Date;
   completedAt?: Date;
   score?: number;
