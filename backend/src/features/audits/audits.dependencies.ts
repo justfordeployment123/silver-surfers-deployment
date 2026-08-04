@@ -38,6 +38,8 @@ export interface AnalysisRecordDocument {
   taskId?: string;
   planId?: string | null;
   device?: string | null;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
   score?: number | null;
   scoreCard?: AuditScorecard;
   aiReport?: AuditAiReport;
@@ -96,6 +98,8 @@ export interface QuickScanDocument {
   firstName?: string;
   lastName?: string;
   device?: string | null;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
   status?: string;
   emailStatus?: string;
   emailError?: string | null;

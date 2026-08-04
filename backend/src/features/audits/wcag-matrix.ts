@@ -17,10 +17,60 @@ const PARTIAL_COVERAGE_CRITERIA: Record<string, string> = {
     "2.1.2": "Dialog close-button detection covers the most common trap pattern, but complex custom focus-management widgets may still trap keyboard users and require manual verification.",
 };
 
-// All A/AA criteria IDs in display order — excludes 3.1.5 (AAA only)
-const AA_CRITERIA_ORDER: string[] = Object.keys(WCAG_CRITERIA_REGISTRY).filter(
-    (id) => WCAG_CRITERIA_REGISTRY[id].level !== "AAA",
-);
+// 2.2.7.2 — optional scoping to a single WCAG version/level (from a job's
+// wcagStandard/conformanceLevel selection) instead of always building the
+// full A/AA matrix. version omitted or 'combined' preserves today's default.
+export interface WcagMatrixFilterOptions {
+    version?: "2.1" | "2.2";
+    level?: "A" | "AA" | "AAA";
+}
+
+const LEVEL_RANK: Record<string, number> = { A: 1, AA: 2, AAA: 3 };
+
+/**
+ * Maps a MonitoringJob/AnalysisRecord/QuickScan's stored `wcagStandard`
+ * ('wcag21'|'wcag22'|'combined') + `conformanceLevel` ('A'|'AA'|'AAA') into
+ * the {version, level} shape buildWcagMatrix expects. 'combined' (or any
+ * unrecognized value) returns undefined so the matrix keeps today's default
+ * A/AA-across-both-versions behaviour unchanged.
+ */
+export function resolveWcagMatrixFilterOptions(
+    wcagStandard?: string | null,
+    conformanceLevel?: string | null,
+): WcagMatrixFilterOptions | undefined {
+    const version = wcagStandard === "wcag21" ? "2.1" : wcagStandard === "wcag22" ? "2.2" : undefined;
+    if (!version) return undefined;
+
+    const level = conformanceLevel === "A" || conformanceLevel === "AA" || conformanceLevel === "AAA"
+        ? conformanceLevel
+        : "AA";
+    return { version, level };
+}
+
+// All criteria IDs in display order, scoped to the requested version/level.
+// No filterOptions (combined, today's default): A/AA only, both versions —
+// unchanged from the original behaviour.
+function resolveCriteriaOrder(filterOptions?: WcagMatrixFilterOptions): string[] {
+    const level = filterOptions?.level;
+    const version = filterOptions?.version;
+
+    return Object.keys(WCAG_CRITERIA_REGISTRY).filter((id) => {
+        const def = WCAG_CRITERIA_REGISTRY[id];
+
+        // Level is cumulative (AA includes A; AAA includes A+AA). No level
+        // filter (combined) preserves the original default of A/AA only.
+        if (level) {
+            if (LEVEL_RANK[def.level] > LEVEL_RANK[level]) return false;
+        } else if (def.level === "AAA") {
+            return false;
+        }
+
+        // WCAG 2.1-only mode excludes criteria introduced in WCAG 2.2.
+        if (version === "2.1" && def.version === "2.2") return false;
+
+        return true;
+    });
+}
 
 function resolveEvidenceSource(auditIds: string[]): WcagEvidenceSource {
     if (auditIds.some((id) => id.startsWith("axe-"))) return "axe-core";
@@ -38,9 +88,15 @@ function collectAffectedElements(issues: AuditIssueSummary[]): string[] {
     return [...elements].slice(0, 10);
 }
 
-export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditIds: string[] = [], manualReviewAuditIds: string[] = []): WcagMatrix {
+export function buildWcagMatrix(
+    issues: AuditIssueSummary[],
+    notApplicableAuditIds: string[] = [],
+    manualReviewAuditIds: string[] = [],
+    filterOptions?: WcagMatrixFilterOptions,
+): WcagMatrix {
     const notApplicableSet = new Set(notApplicableAuditIds);
     const manualReviewSet = new Set(manualReviewAuditIds);
+    const criteriaOrder = resolveCriteriaOrder(filterOptions);
 
     // Build a map of failed criterion ID → matching issues
     const failedCriteriaMap = new Map<string, AuditIssueSummary[]>();
@@ -53,11 +109,13 @@ export function buildWcagMatrix(issues: AuditIssueSummary[], notApplicableAuditI
         }
     }
 
-    return AA_CRITERIA_ORDER.map((criterion): WcagMatrixRow => {
+    return criteriaOrder.map((criterion): WcagMatrixRow => {
         const def = WCAG_CRITERIA_REGISTRY[criterion];
 
-        // 4.1.1 (Parsing) was removed from WCAG 2.2 — mark not-applicable
-        if (criterion === "4.1.1") {
+        // 4.1.1 (Parsing) was removed from WCAG 2.2 — mark not-applicable,
+        // *unless* this matrix is scoped to WCAG 2.1 only, where 4.1.1 is
+        // still a real, evaluable criterion (spec 2.2.7.2: "reinstate 4.1.1").
+        if (criterion === "4.1.1" && filterOptions?.version !== "2.1") {
             return {
                 criterion,
                 title: def.title,

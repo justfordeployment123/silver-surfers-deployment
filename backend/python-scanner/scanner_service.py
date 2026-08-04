@@ -111,6 +111,10 @@ class AuditRequest(BaseModel):
     format: str = "json"  # json or html
     isLiteVersion: bool = False
     includeReport: bool = True
+    # 2.2.7.2 — optional {"version": "2.1"|"2.2", "level": "A"|"AA"|"AAA"}
+    # scope, forwarded from the Node backend's wcagStandard/conformanceLevel
+    # selection. None (the default) evaluates the full unfiltered rule set.
+    wcagFilter: Optional[Dict[str, Any]] = None
 
 
 class PrecheckRequest(BaseModel):
@@ -235,7 +239,8 @@ async def _perform_audit_impl(request: AuditRequest):
             run_camoufox_audit_sync,
             url,
             device_config,
-            request.isLiteVersion
+            request.isLiteVersion,
+            request.wcagFilter,
         )
         
         if not result["success"]:

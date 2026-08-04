@@ -11,7 +11,7 @@ import {
   type ScannerServiceAuditSuccess,
 } from '../scanner/scanner-client.ts';
 import { buildAuditScorecard } from './audit-scorecard.ts';
-import { buildWcagMatrix } from './wcag-matrix.ts';
+import { buildWcagMatrix, resolveWcagMatrixFilterOptions } from './wcag-matrix.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { generateLiteAccessibilityReport } from './report-generation.ts';
 import { collectAttachmentsRecursive, sendAuditReportEmail, sendStoredAuditReportEmail } from './report-delivery.ts';
@@ -28,6 +28,8 @@ export interface QuickScanJobPayload {
   lastName?: string;
   quickScanId?: string;
   selectedDevice?: string;
+  wcagStandard?: string;
+  conformanceLevel?: string;
 }
 
 function requireString(value: unknown, field: string): string {
@@ -103,6 +105,8 @@ function toQuickScanJobPayload(payload: QueueJobInput): QuickScanJobPayload {
     lastName: optionalString(payload.lastName),
     quickScanId: payload.quickScanId == null ? undefined : String(payload.quickScanId),
     selectedDevice: normalizeQuickScanDevice(payload.selectedDevice),
+    wcagStandard: optionalString(payload.wcagStandard),
+    conformanceLevel: optionalString(payload.conformanceLevel),
   };
 }
 
@@ -113,6 +117,8 @@ export function buildQuickScanJobFromRecord(record: {
   firstName?: string;
   lastName?: string;
   device?: string | null;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
 }): QuickScanJobPayload {
   return {
     email: requireString(record.email, 'Quick scan email'),
@@ -121,6 +127,8 @@ export function buildQuickScanJobFromRecord(record: {
     lastName: optionalString(record.lastName),
     quickScanId: record._id == null ? undefined : String(record._id),
     selectedDevice: normalizeQuickScanDevice(record.device),
+    wcagStandard: optionalString(record.wcagStandard),
+    conformanceLevel: optionalString(record.conformanceLevel),
   };
 }
 
@@ -138,7 +146,12 @@ export async function completeQuickScanFromAuditResult(
       isLiteVersion: true,
       pageUrl: job.url,
     });
-    const rawWcagMatrix = buildWcagMatrix(liteScorecard.issues, liteScorecard.notApplicableAuditIds, liteScorecard.manualReviewAuditIds);
+    const rawWcagMatrix = buildWcagMatrix(
+      liteScorecard.issues,
+      liteScorecard.notApplicableAuditIds,
+      liteScorecard.manualReviewAuditIds,
+      resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
+    );
     const wcagMatrix = rawWcagMatrix.map((row) => ({
       ...row,
       remediationGuidance: row.manualReviewRequired
@@ -163,6 +176,8 @@ export async function completeQuickScanFromAuditResult(
       const attachmentsPreview = await collectAttachmentsRecursive(userSpecificOutputDir).catch(() => []);
       await QuickScan.findByIdAndUpdate(job.quickScanId, {
         device: normalizeQuickScanDevice(job.selectedDevice),
+        ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+        ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
         scanScore: Number.isFinite(score) ? Math.round(score) : undefined,
         scoreCard: liteScorecard,
         wcagMatrix,
@@ -532,6 +547,7 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
           url: job.url,
           fullName,
         },
+        wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
       });
 
       if (!dispatchResult.success) {
@@ -574,6 +590,7 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
       isLiteVersion: true,
       includeReport: true,
       scannerQueue: 'quick',
+      wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
     });
 
     if (!auditResult.success) {

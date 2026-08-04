@@ -122,6 +122,8 @@ export async function dispatchMonitoringJob(jobId: string): Promise<DispatchJobR
         taskId,
         planId: 'monitoring',
         device,
+        wcagStandard: job.wcagStandard || 'combined',
+        conformanceLevel: job.conformanceLevel || 'AA',
         status: 'queued',
         emailStatus: 'pending',
       });
@@ -132,6 +134,7 @@ export async function dispatchMonitoringJob(jobId: string): Promise<DispatchJobR
       await fullAuditQueue.addJob({
         email, url: job.domain, firstName, lastName, userId: job.userId, taskId,
         jobType: 'full-audit', subscriptionId: null, planId: 'monitoring', selectedDevice: device,
+        wcagStandard: job.wcagStandard, conformanceLevel: job.conformanceLevel,
         priority: 3, recordId: record._id,
         // Non-load-bearing context — see function doc comment above.
         monitoringJobId: jobId, monitoringRunId: null,
@@ -140,6 +143,8 @@ export async function dispatchMonitoringJob(jobId: string): Promise<DispatchJobR
     } else {
       const record = await QuickScan.create({
         url: job.domain, email, firstName, lastName, device, status: 'queued',
+        wcagStandard: job.wcagStandard || 'combined',
+        conformanceLevel: job.conformanceLevel || 'AA',
         emailStatus: 'pending', scanDate: now,
       });
       auditId = String(record._id);
@@ -150,6 +155,7 @@ export async function dispatchMonitoringJob(jobId: string): Promise<DispatchJobR
         email, url: job.domain, firstName, lastName, userId: job.userId, taskId,
         jobType: 'quick-scan', subscriptionId: null, priority: 3, quickScanId: record._id,
         selectedDevice: device,
+        wcagStandard: job.wcagStandard, conformanceLevel: job.conformanceLevel,
         monitoringJobId: jobId, monitoringRunId: null,
       });
       monitoringLogger.debug('Enqueued quick-scan job on quickScanQueue.', { ...logCtx, auditId, taskId });

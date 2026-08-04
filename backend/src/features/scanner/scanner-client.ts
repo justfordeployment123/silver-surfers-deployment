@@ -11,6 +11,14 @@ import { downloadS3Object } from '../storage/report-storage.ts';
 
 const scannerClientLogger = logger.child('feature:scanner:client');
 
+// 2.2.7.2 — optional WCAG version/level scope, forwarded to the Python
+// scanner so it can skip axe-core rules and custom checks that are
+// exclusively mapped to criteria outside the requested scan scope.
+export interface ScannerWcagFilter {
+  version?: '2.1' | '2.2';
+  level?: 'A' | 'AA' | 'AAA';
+}
+
 export interface ScannerServiceAuditRequest {
   url: string;
   device?: 'desktop' | 'mobile' | 'tablet';
@@ -20,6 +28,7 @@ export interface ScannerServiceAuditRequest {
   scannerQueue?: 'quick' | 'full';
   scannerJobId?: string;
   scannerTier?: 'aws' | 'vps';
+  wcagFilter?: ScannerWcagFilter;
   reportGeneration?: {
     enabled?: boolean;
     email?: string;
@@ -57,6 +66,7 @@ export interface ScannerFullAuditBatchRequest {
   scannerTier?: 'aws' | 'vps';
   targets?: ScannerFullAuditBatchTarget[];
   orchestration?: ScannerFullAuditOrchestrationRequest;
+  wcagFilter?: ScannerWcagFilter;
   reportGeneration?: {
     enabled?: boolean;
     email?: string;
@@ -519,6 +529,7 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
         fullName: request.reportGeneration.fullName,
       },
     } : {}),
+    ...(request.wcagFilter ? { wcagFilter: request.wcagFilter } : {}),
   };
 
   scannerClientLogger.info('Queueing scanner-service audit through SQS.', {
@@ -625,6 +636,7 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
         crawlScope: request.orchestration.crawlScope,
       },
     } : {}),
+    ...(request.wcagFilter ? { wcagFilter: request.wcagFilter } : {}),
     targets: targets.map((target) => ({
       url: target.url,
       device: target.device,
@@ -850,6 +862,7 @@ export async function requestScannerAudit(
     format: request.format || 'json',
     isLiteVersion,
     includeReport: Boolean(request.includeReport),
+    ...(request.wcagFilter ? { wcagFilter: request.wcagFilter } : {}),
   };
 
   scannerClientLogger.info('Requesting scanner-service audit.', {

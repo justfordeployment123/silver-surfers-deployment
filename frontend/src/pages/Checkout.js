@@ -166,7 +166,7 @@ const Checkout = () => {
         deviceToUse = selectedDevice;
       }
 
-      const auditResult = await startAudit(auditEmail, url, deviceToUse, firstName, lastName, creditType);
+      const auditResult = await startAudit(auditEmail, url, deviceToUse, firstName, lastName, creditType, wcagConfig);
 
       if (auditResult.error) {
         setError(auditResult.error); setSuccess('');

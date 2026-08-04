@@ -17,6 +17,31 @@ import { decodeAuthToken, readBearerToken } from '../auth/auth.middleware.ts';
 const auditsLogger = logger.child('feature:audits');
 
 const VALID_DEVICES = new Set(['desktop', 'mobile', 'tablet']);
+const VALID_WCAG_STANDARDS = new Set(['wcag21', 'wcag22', 'combined']);
+const VALID_CONFORMANCE_LEVELS = new Set(['A', 'AA', 'AAA']);
+
+/**
+ * Validates the optional wcagStandard/conformanceLevel scan-config fields
+ * (2.2.7.1/2.2.7.2). Both default to today's unfiltered behaviour
+ * (combined/AA) when omitted, so existing callers that don't send them are
+ * unaffected. Returns null on validation failure.
+ */
+function resolveScanWcagConfig(
+  wcagStandard: unknown,
+  conformanceLevel: unknown,
+): { wcagStandard: string; conformanceLevel: string } | null {
+  const standard = wcagStandard === undefined || wcagStandard === null || wcagStandard === ''
+    ? 'combined'
+    : String(wcagStandard);
+  if (!VALID_WCAG_STANDARDS.has(standard)) return null;
+
+  const level = conformanceLevel === undefined || conformanceLevel === null || conformanceLevel === ''
+    ? 'AA'
+    : String(conformanceLevel);
+  if (!VALID_CONFORMANCE_LEVELS.has(level)) return null;
+
+  return { wcagStandard: standard, conformanceLevel: level };
+}
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing']);
 const ACTIVE_SUBSCRIPTION_STATUS_VALUES = ['active', 'trialing'];
 
@@ -291,10 +316,18 @@ export async function startAudit(request: Request, response: Response): Promise<
     firstName,
     lastName,
     creditType,
+    wcagStandard,
+    conformanceLevel,
   } = request.body || {};
 
   if (!email || !url) {
     response.status(400).json({ error: 'Email and URL are required.' });
+    return;
+  }
+
+  const wcagConfig = resolveScanWcagConfig(wcagStandard, conformanceLevel);
+  if (!wcagConfig) {
+    response.status(400).json({ error: 'Invalid wcagStandard or conformanceLevel selection.' });
     return;
   }
 
@@ -397,6 +430,8 @@ export async function startAudit(request: Request, response: Response): Promise<
       taskId,
       planId,
       device: selectedDevice,
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
       status: 'queued',
       emailStatus: 'pending',
     });
@@ -414,6 +449,8 @@ export async function startAudit(request: Request, response: Response): Promise<
       subscriptionId: isOneTimeScan ? null : (subscription?._id || null),
       planId,
       selectedDevice,
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
       priority: 1,
       recordId: auditRecord._id, // Pass record ID for worker to update
     });
@@ -443,9 +480,15 @@ export async function startAudit(request: Request, response: Response): Promise<
 }
 
 export async function quickAudit(request: Request, response: Response): Promise<void> {
-  const { email, url, firstName, lastName, selectedDevice } = request.body || {};
+  const { email, url, firstName, lastName, selectedDevice, wcagStandard, conformanceLevel } = request.body || {};
   if (!email || !url) {
     response.status(400).json({ error: 'Email and URL are required.' });
+    return;
+  }
+
+  const wcagConfig = resolveScanWcagConfig(wcagStandard, conformanceLevel);
+  if (!wcagConfig) {
+    response.status(400).json({ error: 'Invalid wcagStandard or conformanceLevel selection.' });
     return;
   }
 
@@ -491,6 +534,8 @@ export async function quickAudit(request: Request, response: Response): Promise<
       firstName: firstName || '',
       lastName: lastName || '',
       device: normalizedDevice,
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
       status: 'queued',
       emailStatus: 'pending',
       scanDate: new Date(),
@@ -508,6 +553,8 @@ export async function quickAudit(request: Request, response: Response): Promise<
       priority: 2,
       quickScanId: quickScanRecord._id,
       selectedDevice: normalizedDevice,
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
     });
 
     response.status(202).json({

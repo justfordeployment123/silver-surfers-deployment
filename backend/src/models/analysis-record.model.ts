@@ -24,6 +24,8 @@ const analysisRecordSchema = new mongoose.Schema({
   stripeSessionId: { type: String, index: true },
   planId: { type: String, default: null },
   device: { type: String, default: null },
+  wcagStandard: { type: String, enum: ['wcag21', 'wcag22', 'combined'], default: 'combined' },
+  conformanceLevel: { type: String, enum: ['A', 'AA', 'AAA'], default: 'AA' },
   score: { type: Number, default: null },
   scoreCard: { type: scoreCardSchema, default: undefined },
   aiReport: { type: aiReportSchema, default: undefined },

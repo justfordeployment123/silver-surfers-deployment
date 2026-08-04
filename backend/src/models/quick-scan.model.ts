@@ -27,6 +27,16 @@ const quickScanSchema = new mongoose.Schema({
     enum: ['desktop', 'mobile', 'tablet'],
     default: 'desktop',
   },
+  wcagStandard: {
+    type: String,
+    enum: ['wcag21', 'wcag22', 'combined'],
+    default: 'combined',
+  },
+  conformanceLevel: {
+    type: String,
+    enum: ['A', 'AA', 'AAA'],
+    default: 'AA',
+  },
   scanScore: {
     type: Number,
     min: 0,

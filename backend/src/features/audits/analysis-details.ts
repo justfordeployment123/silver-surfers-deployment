@@ -21,7 +21,7 @@ import {
 } from "./report-files.ts";
 import { getCertificationEligibility, type CertificationEligibility } from "./certification-eligibility.ts";
 import type { WcagMatrix, WcagMatrixSummary, WcagPourPrinciple, WcagReference } from "./wcag-mapping.ts";
-import { buildWcagMatrix, buildWcagMatrixSummary } from "./wcag-matrix.ts";
+import { buildWcagMatrix, buildWcagMatrixSummary, resolveWcagMatrixFilterOptions } from "./wcag-matrix.ts";
 
 export type AnalysisStatus = "queued" | "processing" | "completed" | "completed_with_warnings" | "failed";
 export type AnalysisEmailStatus = "pending" | "sending" | "sent" | "failed";
@@ -38,6 +38,8 @@ export interface AnalysisRecordLike {
     url?: string;
     planId?: string | null;
     device?: string | null;
+    wcagStandard?: string | null;
+    conformanceLevel?: string | null;
     score?: number | null;
     scoreCard?: AuditScorecard;
     aiReport?: AuditAiReport;
@@ -124,6 +126,8 @@ export interface AnalysisDetailView {
     fullName?: string;
     planId?: string | null;
     device?: string | null;
+    wcagStandard?: string | null;
+    conformanceLevel?: string | null;
     status: AnalysisStatus;
     emailStatus: AnalysisEmailStatus;
     score?: number | null;
@@ -897,7 +901,12 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
     const remediationRoadmap = buildRemediationRoadmap(scorecard);
     const wcagMatrix = Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0
         ? record.wcagMatrix
-        : buildWcagMatrix(scorecard?.issues || [], scorecard?.notApplicableAuditIds || [], scorecard?.manualReviewAuditIds || []);
+        : buildWcagMatrix(
+            scorecard?.issues || [],
+            scorecard?.notApplicableAuditIds || [],
+            scorecard?.manualReviewAuditIds || [],
+            resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
+        );
     const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
 
     return {
@@ -908,6 +917,8 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
         ...(fullName ? { fullName } : {}),
         ...(record.planId !== undefined ? { planId: record.planId } : {}),
         ...(record.device !== undefined ? { device: record.device } : {}),
+        ...(record.wcagStandard ? { wcagStandard: record.wcagStandard } : {}),
+        ...(record.conformanceLevel ? { conformanceLevel: record.conformanceLevel } : {}),
         status: normalizeStatus(record.status),
         emailStatus: normalizeEmailStatus(record.emailStatus),
         ...(record.score !== undefined ? { score: record.score } : {}),

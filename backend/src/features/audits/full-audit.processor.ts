@@ -22,7 +22,7 @@ import {
 import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { buildRemediationRoadmap } from './analysis-details.ts';
-import { buildWcagMatrix } from './wcag-matrix.ts';
+import { buildWcagMatrix, resolveWcagMatrixFilterOptions, type WcagMatrixFilterOptions } from './wcag-matrix.ts';
 import type { WcagMatrix } from './wcag-mapping.ts';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
@@ -73,6 +73,8 @@ interface FullAuditJobPayload {
   taskId?: string;
   planId?: string | null;
   selectedDevice?: string | null;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
   firstName?: string;
   lastName?: string;
   subscriptionId?: string | null;
@@ -235,6 +237,8 @@ async function findOrCreateAnalysisRecord(job: FullAuditJobPayload, planId: stri
       reportDirectory: finalReportFolder,
       planId,
       device: job.selectedDevice || null,
+      wcagStandard: job.wcagStandard || 'combined',
+      conformanceLevel: job.conformanceLevel || 'AA',
     });
   } else {
     if (!record.taskId && job.taskId) {
@@ -248,6 +252,12 @@ async function findOrCreateAnalysisRecord(job: FullAuditJobPayload, planId: stri
     }
     if (!record.device && job.selectedDevice) {
       record.device = job.selectedDevice;
+    }
+    if (!record.wcagStandard && job.wcagStandard) {
+      record.wcagStandard = job.wcagStandard;
+    }
+    if (!record.conformanceLevel && job.conformanceLevel) {
+      record.conformanceLevel = job.conformanceLevel;
     }
   }
 
@@ -384,8 +394,10 @@ async function requestPageAuditWithFallback(
   options?: {
     isHomepage?: boolean;
     allowFullRetry?: boolean;
+    wcagFilter?: WcagMatrixFilterOptions;
   },
 ): Promise<FullAuditPageScanResult> {
+  const wcagFilter = options?.wcagFilter;
   if (preferredMode === 'lite') {
     const liteAttempt = await requestScannerAudit({
       url: link,
@@ -394,6 +406,7 @@ async function requestPageAuditWithFallback(
       includeReport: true,
       isLiteVersion: true,
       scannerQueue: 'full',
+      wcagFilter,
     });
 
     return {
@@ -420,6 +433,7 @@ async function requestPageAuditWithFallback(
         includeReport: true,
         isLiteVersion: true,
         scannerQueue: 'full',
+        wcagFilter,
       });
 
       return {
@@ -438,6 +452,7 @@ async function requestPageAuditWithFallback(
     format: 'json',
     includeReport: true,
     scannerQueue: 'full',
+    wcagFilter,
   });
 
   if (firstAttempt.success) {
@@ -481,6 +496,7 @@ async function requestPageAuditWithFallback(
       includeReport: true,
       isLiteVersion: true,
       scannerQueue: 'full',
+      wcagFilter,
     });
 
     if (liteAttempt.success) {
@@ -512,6 +528,7 @@ async function requestPageAuditWithFallback(
     format: 'json',
     includeReport: true,
     scannerQueue: 'full',
+    wcagFilter,
   });
 
   if (secondAttempt.success) {
@@ -553,6 +570,7 @@ async function requestPageAuditWithFallback(
     includeReport: true,
     isLiteVersion: true,
     scannerQueue: 'full',
+    wcagFilter,
   });
 
   if (liteAttempt.success) {
@@ -794,7 +812,12 @@ async function persistAggregateScorecard(
 
   record.score = aggregateScorecard.overallScore;
   record.scoreCard = aggregateScorecard;
-  const wcagMatrix = buildWcagMatrix(aggregateScorecard.issues, aggregateScorecard.notApplicableAuditIds, aggregateScorecard.manualReviewAuditIds);
+  const wcagMatrix = buildWcagMatrix(
+    aggregateScorecard.issues,
+    aggregateScorecard.notApplicableAuditIds,
+    aggregateScorecard.manualReviewAuditIds,
+    resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
+  );
   record.wcagMatrix = wcagMatrix.map((row) => ({
     ...row,
     remediationGuidance: row.manualReviewRequired
@@ -1037,6 +1060,7 @@ async function queueFullAuditVpsFallbackFromScannerResult(payload: ScannerSqsRes
       selectedDevice,
       fullName,
     },
+    wcagFilter: resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
   });
 
   if (!dispatchResult.success) {
@@ -1558,6 +1582,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           selectedDevice: job.selectedDevice,
           fullName,
         },
+        wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
       });
 
       if (!dispatchResult.success) {
@@ -1711,6 +1736,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
             planId: effectivePlanId,
             selectedDevice: job.selectedDevice,
           },
+          wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
         });
 
         if (!dispatchResult.success) {
@@ -1904,6 +1930,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
             resolvedPageScanResult = await requestPageAuditWithFallback(targetPage.url, device, preferredMode, {
               isHomepage: targetPage.isHomepage,
               allowFullRetry: targetPage.allowFullRetry,
+              wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
             }).catch((error) => {
               fullAuditLogger.error('Unexpected error while auditing page.', {
                 url: targetPage.url,

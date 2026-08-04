@@ -1001,6 +1001,7 @@ class ScannerSqsWorker:
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "default"))
         scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
         is_lite_version = bool(payload.get("isLiteVersion"))
+        wcag_filter = payload.get("wcagFilter") if isinstance(payload.get("wcagFilter"), dict) else None
         version = "Lite" if is_lite_version else "Full"
         device_config = get_viewport_for_device(device)
 
@@ -1032,6 +1033,7 @@ class ScannerSqsWorker:
                 url,
                 device_config,
                 is_lite_version,
+                wcag_filter,
             )
 
         if not result.get("success"):
@@ -1128,6 +1130,7 @@ class ScannerSqsWorker:
         started_at = time.time()
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "full"))
         scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
+        wcag_filter = payload.get("wcagFilter") if isinstance(payload.get("wcagFilter"), dict) else None
         targets = payload.get("targets")
         selected_pages = payload.get("selectedPages") if isinstance(payload.get("selectedPages"), list) else []
         orchestration = payload.get("orchestration") if isinstance(payload.get("orchestration"), dict) else None
@@ -1166,7 +1169,7 @@ class ScannerSqsWorker:
                 })
                 continue
 
-            target_results.append(self._process_full_audit_batch_target(scanner_job_id, queue_kind, target, index))
+            target_results.append(self._process_full_audit_batch_target(scanner_job_id, queue_kind, target, index, wcag_filter))
 
         successful_count = sum(1 for target in target_results if target.get("success"))
         orchestration_url = ""
@@ -1447,6 +1450,7 @@ class ScannerSqsWorker:
         queue_kind: str,
         target: Dict[str, Any],
         index: int,
+        wcag_filter: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         raw_url = safe_text(target.get("url") or "").strip()
         if not raw_url:
@@ -1469,19 +1473,19 @@ class ScannerSqsWorker:
         allow_full_retry = bool(target.get("allowFullRetry"))
 
         if preferred_scan_mode == "lite":
-            return self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite")
+            return self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite", wcag_filter)
 
-        first_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full")
+        first_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full", wcag_filter)
         if first_attempt.get("success"):
             return first_attempt
 
         if allow_full_retry:
             time.sleep(1.5)
-            second_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full")
+            second_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full", wcag_filter)
             if second_attempt.get("success"):
                 return second_attempt
 
-        lite_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite")
+        lite_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, True, index, "lite", wcag_filter)
         lite_attempt["fullFailureCountDelta"] = 1
         lite_attempt["shouldUseLiteForFuture"] = allow_full_retry
         lite_attempt["degradedReason"] = (
@@ -1500,6 +1504,7 @@ class ScannerSqsWorker:
         is_lite_version: bool,
         index: int,
         scan_mode_used: str,
+        wcag_filter: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         started_at = time.time()
         version = "Lite" if is_lite_version else "Full"
@@ -1529,6 +1534,7 @@ class ScannerSqsWorker:
                     url,
                     device_config,
                     is_lite_version,
+                    wcag_filter,
                 )
 
             if not result.get("success"):

@@ -117,7 +117,7 @@ const MainScreen = () => {
     try {
       let url = scanData.websiteUrl.trim();
       if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-      const res = await quickAudit(scanData.email.trim(), url, scanData.firstName.trim(), scanData.lastName.trim(), selectedDevice);
+      const res = await quickAudit(scanData.email.trim(), url, scanData.firstName.trim(), scanData.lastName.trim(), selectedDevice, wcagConfig);
       if (res?.error) {
         setError(res.error);
       } else {

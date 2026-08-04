@@ -12,6 +12,52 @@ from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score
 from scanner_utils import safe_text
 
 
+class _WcagScopeSkip(Exception):
+    """Raised internally to skip a check that's exclusively mapped to a
+    WCAG 2.2 criterion when the requested scan scope is WCAG 2.1 only.
+    Caught alongside the check's normal Exception handler (2.2.7.2)."""
+
+
+def _wcag22_in_scope(wcag_filter: Optional[Dict[str, Any]]) -> bool:
+    """True unless the caller explicitly restricted this scan to WCAG 2.1
+    (wcag_filter is None/omitted for combined/2.2 scans, which both include
+    2.2-only checks)."""
+    return not wcag_filter or wcag_filter.get("version") != "2.1"
+
+
+def _resolve_axe_tags(wcag_filter: Optional[Dict[str, Any]]) -> list:
+    """
+    Maps our wcagStandard/conformanceLevel selection to axe-core's rule tags.
+    axe-core does not expose a separate "WCAG 2.2 Level A" tag — its 2.2
+    additions are grouped under a single 'wcag22aa' tag regardless of the
+    underlying criterion's real level — so a 2.2 Level A selection will still
+    run the same 2.2 rules as Level AA at this layer. The WCAG matrix table
+    built in wcag-matrix.ts is what actually enforces the precise per-
+    criterion level filter for what's *displayed*; this only controls what
+    axe-core evaluates in the browser (a scan-time optimisation, not the
+    source of truth for report content).
+    """
+    default_tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"]
+    if not wcag_filter:
+        return default_tags
+
+    version = wcag_filter.get("version")
+    level = wcag_filter.get("level") or "AA"
+
+    tags = ["wcag2a", "wcag21a"]
+    if level in ("AA", "AAA"):
+        tags.append("wcag2aa")
+        tags.append("wcag21aa")
+    if level == "AAA":
+        tags.append("wcag2aaa")
+
+    if version != "2.1" and level in ("AA", "AAA"):
+        tags.append("wcag22aa")
+
+    tags.append("best-practice")
+    return tags
+
+
 def _scanner_ignore_https_errors() -> bool:
     return safe_text(os.getenv("SCANNER_IGNORE_HTTPS_ERRORS", "")).strip().lower() in {
         "1",
@@ -92,7 +138,12 @@ def navigate_for_audit(page, url: str) -> None:
             raise first_error
 
 
-def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bool) -> Dict[str, Any]:
+def run_camoufox_audit_sync(
+    url: str,
+    device_config: Dict[str, Any],
+    is_lite: bool,
+    wcag_filter: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """
     Synchronous wrapper for Camoufox audit.
     This runs in a thread pool to avoid blocking the async event loop.
@@ -2541,6 +2592,8 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
 
                 # ── 2.12 Focus Not Obscured (WCAG 2.4.11) ───────────────────────
                 try:
+                    if not _wcag22_in_scope(wcag_filter):
+                        raise _WcagScopeSkip("Outside the selected WCAG 2.1 scan scope.")
                     obscure_results = page.evaluate("""
                         () => {
                             // Check for sticky/fixed headers or footers that may cover focused elements
@@ -2598,6 +2651,15 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             "scoreDisplayMode": "binary",
                             "details": None,
                         }
+                except _WcagScopeSkip as skip:
+                    audits["ss-focus-not-obscured-audit"] = {
+                        "id": "ss-focus-not-obscured-audit",
+                        "title": "Focus is not fully obscured by sticky content (WCAG 2.4.11)",
+                        "description": f"Skipped: {skip}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
                 except Exception as e:
                     audits["ss-focus-not-obscured-audit"] = {
                         "id": "ss-focus-not-obscured-audit",
@@ -2798,6 +2860,8 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
 
                 # ── 2.17 Consistent Help (WCAG 3.2.6) ───────────────────────────
                 try:
+                    if not _wcag22_in_scope(wcag_filter):
+                        raise _WcagScopeSkip("Outside the selected WCAG 2.1 scan scope.")
                     help_results = page.evaluate("""
                         () => {
                             // Look for help mechanisms: contact links, chat widgets, help pages
@@ -2845,6 +2909,15 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                                 "items": [{"description": location_note}, {"description": "Manually verify help appears in the same location on all pages of the site."}],
                             },
                         }
+                except _WcagScopeSkip as skip:
+                    audits["ss-consistent-help-audit"] = {
+                        "id": "ss-consistent-help-audit",
+                        "title": "Consistent help mechanism (WCAG 3.2.6)",
+                        "description": f"Skipped: {skip}",
+                        "score": None,
+                        "numericValue": None,
+                        "scoreDisplayMode": "notApplicable",
+                    }
                 except Exception as e:
                     audits["ss-consistent-help-audit"] = {
                         "id": "ss-consistent-help-audit",
@@ -2986,7 +3059,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                     axe_source,
                 )
                 axe_results = page.evaluate("""
-                    async () => {
+                    async (tagValues) => {
                         const axe = globalThis.axe || window.axe;
                         if (!axe) {
                             throw new Error('axe-core did not load');
@@ -2994,14 +3067,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                         return await axe.run(document, {
                             runOnly: {
                                 type: 'tag',
-                                values: [
-                                    'wcag2a',
-                                    'wcag2aa',
-                                    'wcag21a',
-                                    'wcag21aa',
-                                    'wcag22aa',
-                                    'best-practice'
-                                ]
+                                values: tagValues
                             },
                             resultTypes: ['violations', 'passes', 'incomplete'],
                             rules: {
@@ -3009,7 +3075,7 @@ def run_camoufox_audit_sync(url: str, device_config: Dict[str, Any], is_lite: bo
                             }
                         });
                     }
-                """)
+                """, _resolve_axe_tags(wcag_filter))
                 merge_axe_results_into_audits(audits, axe_results)
                 print(f"axe-core completed: {len(axe_results.get('violations', []))} violation rules")
             except Exception as axe_error:

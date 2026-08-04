@@ -104,7 +104,7 @@ export const precheckUrl = async (url) => {
 };
 
 // Existing API calls (now use the axios instance) with precheck
-export const startAudit = async (email, url, selectedDevice = null, firstName = '', lastName = '', creditType = null) => {
+export const startAudit = async (email, url, selectedDevice = null, firstName = '', lastName = '', creditType = null, wcagConfig = {}) => {
   try {
     // Precheck & normalize
     const pre = await precheckUrl(url);
@@ -112,13 +112,15 @@ export const startAudit = async (email, url, selectedDevice = null, firstName = 
       return { error: pre?.error || 'URL not reachable. Please check the domain and try again.' };
     }
     const normalized = pre?.finalUrl || pre?.normalizedUrl || url;
-    const response = await api.post('/start-audit', { 
-      email, 
+    const response = await api.post('/start-audit', {
+      email,
       url: normalized,
       selectedDevice,
       firstName,
       lastName,
-      creditType // Pass credit type to backend
+      creditType, // Pass credit type to backend
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
     });
     return response.data;
   } catch (error) {
@@ -126,7 +128,7 @@ export const startAudit = async (email, url, selectedDevice = null, firstName = 
   }
 };
 
-export const quickAudit = async (email, url, firstName = '', lastName = '', selectedDevice = 'desktop') => {
+export const quickAudit = async (email, url, firstName = '', lastName = '', selectedDevice = 'desktop', wcagConfig = {}) => {
   try {
     // Precheck & normalize
     const pre = await precheckUrl(url);
@@ -141,6 +143,8 @@ export const quickAudit = async (email, url, firstName = '', lastName = '', sele
       firstName,
       lastName,
       selectedDevice,
+      wcagStandard: wcagConfig.wcagStandard,
+      conformanceLevel: wcagConfig.conformanceLevel,
     });
 
     return response.data;
