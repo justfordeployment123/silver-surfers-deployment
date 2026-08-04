@@ -9,6 +9,15 @@ import {
   rerunMyAnalysis,
 } from '../api';
 
+// Mirrors the backend's describeWcagStandardLabel() (wcag-mapping.ts) so the
+// report header text matches what's on the PDF (2.2.7.3).
+function describeWcagStandard(wcagStandard, conformanceLevel) {
+  const level = conformanceLevel || 'AA';
+  if (wcagStandard === 'wcag21') return `WCAG 2.1 Level ${level}`;
+  if (wcagStandard === 'wcag22') return `WCAG 2.2 Level ${level}`;
+  return 'Full Combined (WCAG 2.1 + 2.2)';
+}
+
 const STYLES = `
 .ad-pg { min-height: 100vh; background: var(--t9); padding: 112px 24px 80px; color: #fff; }
 .ad-wrap { max-width: 1152px; margin: 0 auto; }
@@ -169,6 +178,7 @@ export default function AnalysisDetail() {
   const [wcagPrincipleFilter, setWcagPrincipleFilter] = useState('all');
   const [wcagLevelFilter, setWcagLevelFilter] = useState('all');
   const [wcagExpandedRow, setWcagExpandedRow] = useState(null);
+  const [wcagShowAllCriteria, setWcagShowAllCriteria] = useState(false);
 
   const loadDetail = async (cancelled = false) => {
     setLoading(true); setError('');
@@ -194,6 +204,8 @@ export default function AnalysisDetail() {
   const reportFiles = item?.reportFiles || [];
   const wcagMatrix = item?.wcagMatrix || [];
   const wcagSummary = item?.wcagSummary || null;
+  const outOfScopeWcagRows = item?.outOfScopeWcagRows || [];
+  const wcagStandardLabel = describeWcagStandard(item?.wcagStandard, item?.conformanceLevel);
 
   const filteredWcagMatrix = wcagMatrix.filter((row) => {
     const statusMatch =
@@ -204,6 +216,14 @@ export default function AnalysisDetail() {
     const levelMatch = wcagLevelFilter === 'all' || row.level === wcagLevelFilter;
     return statusMatch && principleMatch && levelMatch;
   });
+
+  // Out-of-scope rows bypass the status/principle/level filters when shown —
+  // they're stubs (never evaluated), so filtering them by status would just
+  // hide them, defeating the point of the "Show all criteria" toggle.
+  const displayedWcagMatrix = wcagShowAllCriteria
+    ? [...filteredWcagMatrix, ...outOfScopeWcagRows.map((row) => ({ ...row, outOfScope: true }))]
+      .sort((a, b) => a.criterion.localeCompare(b.criterion, undefined, { numeric: true }))
+    : filteredWcagMatrix;
 
   const handleRerun = async () => {
     if (!taskId) return;
@@ -267,6 +287,11 @@ export default function AnalysisDetail() {
               <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '10px' }}>Analysis Detail</h1>
               <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>{item?.url || 'Loading analysis record...'}</p>
               {item?.taskId ? <p style={{ marginTop: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.35)' }}>Task {item.taskId}</p> : null}
+              {item ? (
+                <p style={{ marginTop: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--t3)' }}>
+                  Evaluated against: {wcagStandardLabel}
+                </p>
+              ) : null}
             </div>
 
             {item ? (
@@ -589,8 +614,8 @@ export default function AnalysisDetail() {
               {wcagMatrix.length > 0 ? (
                 <Box>
                   <div style={{ marginBottom: '20px' }}>
-                    <h2 style={sectionTitle()}>WCAG 2.2 Matrix</h2>
-                    <p style={sectionSub()}>Automated coverage of all WCAG 2.2 Level A and AA success criteria across this audit.</p>
+                    <h2 style={sectionTitle()}>{wcagStandardLabel} Matrix</h2>
+                    <p style={sectionSub()}>Automated coverage of success criteria evaluated against {wcagStandardLabel} for this audit.</p>
                   </div>
 
                   {wcagSummary ? (
@@ -663,9 +688,23 @@ export default function AnalysisDetail() {
                       ))}
                       <span style={{ marginLeft: 'auto', fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>{filteredWcagMatrix.length} of {wcagMatrix.length} criteria</span>
                     </div>
+
+                    {outOfScopeWcagRows.length > 0 ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <button
+                          onClick={() => setWcagShowAllCriteria((v) => !v)}
+                          className={`wcag-filter-btn ${wcagShowAllCriteria ? 'wcag-filter-btn-active' : 'wcag-filter-btn-inactive'}`}
+                        >
+                          {wcagShowAllCriteria ? 'Showing all criteria' : 'Show all criteria'}
+                        </button>
+                        <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                          {outOfScopeWcagRows.length} criteria outside the {wcagStandardLabel} scope {wcagShowAllCriteria ? 'shown below (dimmed)' : 'are hidden'}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
 
-                  {filteredWcagMatrix.length === 0 ? (
+                  {displayedWcagMatrix.length === 0 ? (
                     <p style={{ padding: '24px', textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>No criteria match the current filters.</p>
                   ) : (
                     <div style={{ overflow: 'hidden', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -676,24 +715,27 @@ export default function AnalysisDetail() {
                         <span style={{ textAlign: 'center' }}>Status</span>
                         <span style={{ textAlign: 'center' }}>Issues</span>
                       </div>
-                      {filteredWcagMatrix.map((row, index) => {
+                      {displayedWcagMatrix.map((row, index) => {
                         const isExpanded = wcagExpandedRow === row.criterion;
+                        const dimmed = Boolean(row.outOfScope);
                         return (
-                          <div key={row.criterion}>
+                          <div key={row.criterion} style={dimmed ? { opacity: 0.4 } : undefined}>
                             <button
-                              onClick={() => setWcagExpandedRow(isExpanded ? null : row.criterion)}
-                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: 'pointer', color: '#fff', transition: 'background .15s' }}
+                              onClick={() => !dimmed && setWcagExpandedRow(isExpanded ? null : row.criterion)}
+                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: dimmed ? 'default' : 'pointer', color: '#fff', transition: 'background .15s' }}
                             >
                               <span style={{ fontSize: '11px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255,255,255,0.65)' }}>{row.criterion}</span>
                               <span style={{ fontSize: '13px', color: '#fff' }}>{row.title}</span>
                               <span style={{ textAlign: 'center', fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.55)' }}>{row.level}</span>
                               <span style={{ display: 'flex', justifyContent: 'center' }}>
-                                <ScoreBadge value={getWcagStatusLabel(row.status)} tone={getWcagStatusTone(row.status)} />
+                                {dimmed
+                                  ? <ScoreBadge value="Not evaluated in this scan" tone="gray" />
+                                  : <ScoreBadge value={getWcagStatusLabel(row.status)} tone={getWcagStatusTone(row.status)} />}
                               </span>
-                              <span style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{row.issueCount ?? 0}</span>
+                              <span style={{ textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>{dimmed ? '—' : (row.issueCount ?? 0)}</span>
                             </button>
 
-                            {isExpanded ? (
+                            {isExpanded && !dimmed ? (
                               <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.18)', padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                 {row.remediationGuidance ? (
                                   <div>

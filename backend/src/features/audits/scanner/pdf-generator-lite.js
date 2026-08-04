@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import { buildAuditScorecard } from '../audit-scorecard.ts';
+import { describeWcagStandardLabel } from '../wcag-mapping.ts';
 
 // Helper to get __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -458,8 +459,9 @@ class LiteAccessibilityPDFGenerator {
 
         this.addPage();
 
+        const standardLabel = describeWcagStandardLabel(reportData.wcagStandard, reportData.conformanceLevel);
         this.doc.fontSize(18).font('BoldFont').fillColor('#1F2937')
-            .text('WCAG 2.2 AA Coverage Overview', this.margin, this.currentY);
+            .text(`${standardLabel} Coverage Overview`, this.margin, this.currentY);
         this.doc.moveTo(this.margin, this.currentY + 24)
             .lineTo(this.margin + this.pageWidth, this.currentY + 24)
             .lineWidth(2).stroke('#3B82F6');
@@ -561,9 +563,13 @@ class LiteAccessibilityPDFGenerator {
         this.currentY += this.doc.heightOfString(disclaimer, { width: this.pageWidth, lineGap: 2 }) + 12;
     }
 
-    async generateLiteReport(inputFile, outputFile) { // <-- REMOVED THE DEFAULT VALUE
+    async generateLiteReport(inputFile, outputFile, options = {}) { // <-- REMOVED THE DEFAULT VALUE
         try {
             const reportData = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
+            // 2.2.7.3 — carry the evaluated standard/level in, since this
+            // reads reportData fresh from disk rather than an options merge.
+            if (options.wcagStandard) reportData.wcagStandard = options.wcagStandard;
+            if (options.conformanceLevel) reportData.conformanceLevel = options.conformanceLevel;
             const scoreData = calculateLiteScore(reportData);
 
             const stream = fs.createWriteStream(outputFile);
@@ -637,6 +643,11 @@ class LiteAccessibilityPDFGenerator {
                 this.currentY += 90;
             }
 
+            // 2.2.7.3 — evaluated WCAG standard/level, prominent in the report header
+            this.doc.fontSize(11).font('RegularFont').fillColor('#333333')
+                .text(`Evaluated against: ${describeWcagStandardLabel(reportData.wcagStandard, reportData.conformanceLevel)}`, this.margin, this.currentY);
+            this.currentY += 20;
+
             // Results
             this.addLiteResults(reportData);
 
@@ -669,7 +680,7 @@ class LiteAccessibilityPDFGenerator {
     }
 }
 
-export async function generateLiteAccessibilityReport(inputFile, outputDirectory) {
+export async function generateLiteAccessibilityReport(inputFile, outputDirectory, options = {}) {
     if (!inputFile || !outputDirectory) {
         throw new Error('Both inputFile and outputDirectory are required.');
     }
@@ -693,5 +704,5 @@ export async function generateLiteAccessibilityReport(inputFile, outputDirectory
 
     // 5. Generate the report
     const generator = new LiteAccessibilityPDFGenerator();
-    return await generator.generateLiteReport(inputFile, outputPath);
+    return await generator.generateLiteReport(inputFile, outputPath, options);
 }

@@ -8,6 +8,9 @@ export interface GenerateSeniorAccessibilityReportOptions {
   device?: string;
   formFactor?: string;
   planType?: string;
+  wcagMatrix?: unknown;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
 }
 
 export interface SeniorAccessibilityReportResult {

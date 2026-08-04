@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import { buildAuditScorecard } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
-import { getWcagReference } from '../wcag-mapping.ts';
+import { describeWcagStandardLabel, getWcagReference } from '../wcag-mapping.ts';
 import customConfig from './custom-config.js';
 
 // Helper to get __dirname in ES Modules
@@ -754,7 +754,12 @@ addOverallScoreDisplay(scoreData) {
         // Package information (simple label, no dev-only notes)
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
             .text(`Package: ${packageText}`, this.margin + 60, this.currentY);
-        
+        this.currentY += 25;
+
+        // 2.2.7.3 — evaluated WCAG standard/level, prominent in the report header
+        this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
+            .text(`Evaluated against: ${describeWcagStandardLabel(reportData.wcagStandard, reportData.conformanceLevel)}`, this.margin + 60, this.currentY);
+
         this.currentY += 30;
     }
 
@@ -3062,11 +3067,12 @@ addOverallScoreDisplay(scoreData) {
 
         this.addPage();
 
+        const standardLabel = describeWcagStandardLabel(reportData.wcagStandard, reportData.conformanceLevel);
         this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C')
-            .text('WCAG 2.2 AA Coverage Matrix', this.margin, this.currentY);
+            .text(`${standardLabel} Coverage Matrix`, this.margin, this.currentY);
         this.currentY += 28;
 
-        const explanation = 'This matrix shows the automated coverage of all WCAG 2.2 Level A and AA success criteria. Criteria marked Needs Review cannot be fully assessed by automated scanning and require manual review by a qualified accessibility specialist.';
+        const explanation = `This matrix shows the automated coverage of all success criteria evaluated against ${standardLabel}. Criteria marked Needs Review cannot be fully assessed by automated scanning and require manual review by a qualified accessibility specialist.`;
         this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
             .text(explanation, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
         this.currentY += this.doc.heightOfString(explanation, { width: this.pageWidth, lineGap: 2 }) + 16;
@@ -3244,6 +3250,10 @@ addOverallScoreDisplay(scoreData) {
             if (_wm && Array.isArray(_wm) && _wm.length > 0) {
                 reportData.wcagMatrix = _wm;
             }
+            // 2.2.7.3 — carry the evaluated standard/level into reportData so
+            // addIntroPage/addWcagMatrixSection can display it.
+            if (options.wcagStandard) reportData.wcagStandard = options.wcagStandard;
+            if (options.conformanceLevel) reportData.conformanceLevel = options.conformanceLevel;
             console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';

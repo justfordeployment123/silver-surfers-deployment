@@ -13,6 +13,7 @@ import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
 import type { AuditScorecard } from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
+import { describeWcagStandardLabel } from './wcag-mapping.ts';
 
 export interface LitePdfResult {
   reportPath: string;
@@ -366,8 +367,9 @@ export function getReportPageName(url: string): string {
 export async function generateLiteAccessibilityReport(
   inputFile: string,
   outputDirectory: string,
+  options?: { wcagStandard?: string | null; conformanceLevel?: string | null },
 ): Promise<LitePdfResult> {
-  return tsGenerateLiteAccessibilityReport(inputFile, outputDirectory);
+  return tsGenerateLiteAccessibilityReport(inputFile, outputDirectory, options);
 }
 
 export async function calculateSeniorFriendlinessScore(
@@ -389,6 +391,8 @@ export async function generateSeniorAccessibilityReport(options: {
   formFactor: FullAuditDevice;
   planType: string;
   wcagMatrix?: WcagMatrix;
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
 }): Promise<SeniorPdfResult> {
   return tsGenerateSeniorAccessibilityReport(options);
 }
@@ -1250,8 +1254,10 @@ export async function generateCombinedPlatformReport(options: {
   planType: string;
   individualPdfPaths: string[];
   platformSummary?: PlatformSummaryEntry[];
+  wcagStandard?: string | null;
+  conformanceLevel?: string | null;
 }): Promise<string> {
-  const { reports, device, email_address, outputDir, planType, platformSummary = [] } = options;
+  const { reports, device, email_address, outputDir, planType, platformSummary = [], wcagStandard, conformanceLevel } = options;
   if (!reports || reports.length === 0) {
     throw new Error('No reports provided for combined PDF generation');
   }
@@ -1293,6 +1299,10 @@ export async function generateCombinedPlatformReport(options: {
 
   doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')
     .text(`Total Pages Audited: ${reports.length}`, margin, currentY, { width: pageWidth, align: 'center' });
+  currentY += 20;
+
+  doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')
+    .text(`Evaluated against: ${describeWcagStandardLabel(wcagStandard, conformanceLevel)}`, margin, currentY, { width: pageWidth, align: 'center' });
   currentY += 40;
 
   const avgScore = reports.length > 0

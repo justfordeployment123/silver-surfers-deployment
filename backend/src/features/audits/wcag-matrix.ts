@@ -72,6 +72,42 @@ function resolveCriteriaOrder(filterOptions?: WcagMatrixFilterOptions): string[]
     });
 }
 
+/**
+ * 2.2.7.3 — stub rows for criteria excluded from the scoped matrix by
+ * `filterOptions`, so the report UI's "Show all criteria" toggle can display
+ * the full matrix with these rows dimmed and labelled "Not evaluated in this
+ * scan" instead of just silently omitting them. Compares against today's
+ * unfiltered default order (A/AA, both versions) — not every WCAG criterion
+ * ever defined — since that default is what "the full matrix" has always
+ * meant elsewhere in this codebase (e.g. the PDF's matrix page).
+ * Returns [] for combined/unscoped reports, where nothing is out of scope.
+ */
+export function buildOutOfScopeCriteriaRows(filterOptions?: WcagMatrixFilterOptions): WcagMatrix {
+    if (!filterOptions) return [];
+
+    const inScope = new Set(resolveCriteriaOrder(filterOptions));
+    const fullDefaultOrder = resolveCriteriaOrder(undefined);
+
+    return fullDefaultOrder
+        .filter((criterion) => !inScope.has(criterion))
+        .map((criterion): WcagMatrixRow => {
+            const def = WCAG_CRITERIA_REGISTRY[criterion];
+            return {
+                criterion,
+                title: def.title,
+                level: def.level,
+                principle: def.principle,
+                status: "not-applicable",
+                evidenceSource: "none",
+                affectedElements: [],
+                issueCount: 0,
+                remediationGuidance: "",
+                manualReviewRequired: false,
+                manualReviewReason: "Not evaluated in this scan — outside the selected WCAG standard scope.",
+            };
+        });
+}
+
 function resolveEvidenceSource(auditIds: string[]): WcagEvidenceSource {
     if (auditIds.some((id) => id.startsWith("axe-"))) return "axe-core";
     if (auditIds.some((id) => id.startsWith("ss-"))) return "silver-surfers";

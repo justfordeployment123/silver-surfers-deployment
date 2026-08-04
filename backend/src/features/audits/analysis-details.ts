@@ -21,7 +21,7 @@ import {
 } from "./report-files.ts";
 import { getCertificationEligibility, type CertificationEligibility } from "./certification-eligibility.ts";
 import type { WcagMatrix, WcagMatrixSummary, WcagPourPrinciple, WcagReference } from "./wcag-mapping.ts";
-import { buildWcagMatrix, buildWcagMatrixSummary, resolveWcagMatrixFilterOptions } from "./wcag-matrix.ts";
+import { buildOutOfScopeCriteriaRows, buildWcagMatrix, buildWcagMatrixSummary, resolveWcagMatrixFilterOptions } from "./wcag-matrix.ts";
 
 export type AnalysisStatus = "queued" | "processing" | "completed" | "completed_with_warnings" | "failed";
 export type AnalysisEmailStatus = "pending" | "sending" | "sent" | "failed";
@@ -158,6 +158,7 @@ export interface AnalysisDetailView {
     certificationEligibility?: CertificationEligibility;
     wcagMatrix: WcagMatrix;
     wcagSummary: WcagMatrixSummary;
+    outOfScopeWcagRows: WcagMatrix;
 }
 
 interface RemediationTemplate {
@@ -908,6 +909,8 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
             resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
         );
     const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
+    const wcagFilterOptions = resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel);
+    const outOfScopeWcagRows = buildOutOfScopeCriteriaRows(wcagFilterOptions);
 
     return {
         ...(record._id ? { id: String(record._id) } : {}),
@@ -961,5 +964,6 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
         ...(scorecard?.overallScore !== undefined ? { certificationEligibility: getCertificationEligibility(scorecard.overallScore) } : {}),
         wcagMatrix,
         wcagSummary,
+        outOfScopeWcagRows,
     };
 }

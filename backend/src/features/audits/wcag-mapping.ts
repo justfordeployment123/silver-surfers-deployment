@@ -299,6 +299,16 @@ function collectAxeTags(audit: AuditWithAxeTags | undefined): string[] {
     return [...tags];
 }
 
+// 2.2.7.3 — human-readable label for a report's evaluated WCAG standard,
+// shared between the PDF generator (plain .js, imports this .ts module
+// directly like its other wcag-mapping imports) and any TS caller.
+export function describeWcagStandardLabel(wcagStandard?: string | null, conformanceLevel?: string | null): string {
+    const level = conformanceLevel || "AA";
+    if (wcagStandard === "wcag21") return `WCAG 2.1 Level ${level}`;
+    if (wcagStandard === "wcag22") return `WCAG 2.2 Level ${level}`;
+    return "Full Combined (WCAG 2.1 + 2.2)";
+}
+
 export function getWcagReference(criterion: string, source: WcagReferenceSource): WcagReference | null {
     const reference = CRITERIA[criterion];
     if (!reference) {

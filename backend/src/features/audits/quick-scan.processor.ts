@@ -168,7 +168,10 @@ export async function completeQuickScanFromAuditResult(
     await fs.rm(userSpecificOutputDir, { recursive: true, force: true }).catch(() => undefined);
     await fs.mkdir(userSpecificOutputDir, { recursive: true });
 
-    const pdfResult = await generateLiteAccessibilityReport(jsonReportPath, userSpecificOutputDir);
+    const pdfResult = await generateLiteAccessibilityReport(jsonReportPath, userSpecificOutputDir, {
+      wcagStandard: job.wcagStandard,
+      conformanceLevel: job.conformanceLevel,
+    });
     const score = Number.isFinite(liteScorecard.overallScore)
       ? Math.round(liteScorecard.overallScore)
       : Number.parseFloat(String(pdfResult.score));

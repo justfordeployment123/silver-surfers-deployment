@@ -3,6 +3,15 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { deleteMyQuickScan, fetchMyQuickScanReportFile, getMyQuickScanDetail, rescanMyQuickScan, rerunMyQuickScan } from "../api";
 
+// Mirrors the backend's describeWcagStandardLabel() (wcag-mapping.ts) so the
+// report header text matches what's on the PDF (2.2.7.3).
+function describeWcagStandard(wcagStandard, conformanceLevel) {
+  const level = conformanceLevel || 'AA';
+  if (wcagStandard === 'wcag21') return `WCAG 2.1 Level ${level}`;
+  if (wcagStandard === 'wcag22') return `WCAG 2.2 Level ${level}`;
+  return 'Full Combined (WCAG 2.1 + 2.2)';
+}
+
 const STYLES = `
 .qsd-pg { min-height: 100vh; background: var(--t9); padding: 112px 24px 80px; color: #fff; }
 .qsd-wrap { max-width: 1152px; margin: 0 auto; }
@@ -189,6 +198,11 @@ export default function QuickScanDetail() {
                             <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '10px' }}>Quick Scan Detail</h1>
                             <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.6)', wordBreak: 'break-all' }}>{item?.url || "Loading quick scan record..."}</p>
                             {item?.quickScanId ? <p style={{ marginTop: '8px', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255,255,255,0.35)' }}>Quick Scan {item.quickScanId}</p> : null}
+                            {item ? (
+                                <p style={{ marginTop: '10px', fontSize: '13px', fontWeight: 700, color: 'var(--t3)' }}>
+                                    Evaluated against: {describeWcagStandard(item.wcagStandard, item.conformanceLevel)}
+                                </p>
+                            ) : null}
                         </div>
 
                         {item ? (

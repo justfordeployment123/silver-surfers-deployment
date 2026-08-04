@@ -677,6 +677,8 @@ async function generatePlatformReports(
   planId: string,
   finalReportFolder: string,
   wcagMatrix?: WcagMatrix,
+  wcagStandard?: string | null,
+  conformanceLevel?: string | null,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -698,6 +700,8 @@ async function generatePlatformReports(
           formFactor: device,
           planType: planId,
           wcagMatrix,
+          wcagStandard,
+          conformanceLevel,
         });
 
         if (seniorPdfResult?.reportPath) {
@@ -737,6 +741,8 @@ async function generatePlatformReports(
           outputDir: finalReportFolder,
           planType: planId,
           individualPdfPaths,
+          wcagStandard,
+          conformanceLevel,
           platformSummary: buildPlatformSummary(reportsByPlatform),
         }).catch((summaryError) => {
           fullAuditLogger.error('Fallback combined platform PDF generation failed.', {
@@ -2074,7 +2080,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
     const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel);
     } else {
       addAuditWarning(
         warningSet,
