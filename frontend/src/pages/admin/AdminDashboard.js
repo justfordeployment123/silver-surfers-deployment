@@ -1,25 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { adminListBlog, adminListFaqs, adminListAnalysis, adminListContact } from '../../api';
+import { IconPencil, IconQuestion, IconSearch, IconMail, IconUsers, IconClipboard, IconDocument } from '../../components/AdminIcons';
 
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; display: flex; align-items: center; gap: 16px; }
-.ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 20px; }
+.ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t5); }
 .ap-stat-val { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
 .ap-stat-lbl { font-size: 13px; color: var(--ink6); margin-top: 2px; }
-.ap-stat-sub { font-size: 12px; color: var(--ink3); margin-top: 1px; }
+.ap-stat-sub { font-size: 12px; color: var(--ink6); margin-top: 1px; }
 .ap-quick-btn { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
 .ap-quick-btn:hover { border-color: var(--t4); background: var(--t05); }
-.ap-quick-btn-emoji { font-size: 28px; line-height: 1; }
+.ap-quick-btn-icon { display: flex; align-items: center; justify-content: center; color: var(--t5); }
 .ap-quick-btn-lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
 .ap-quick-btn:hover .ap-quick-btn-lbl { color: var(--t6); }
 .ap-activity-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--sandd); }
 .ap-activity-row:last-child { border-bottom: none; }
+.ap-activity-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink6); }
 .ap-activity-title { font-size: 13px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ap-activity-date { font-size: 11px; color: var(--ink3); white-space: nowrap; }
+.ap-activity-date { font-size: 11px; color: var(--ink6); white-space: nowrap; }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-a { background: #fef3c7; color: #92400e; }
@@ -87,7 +89,7 @@ const AdminDashboard = () => {
     return <span className="pill pill-gr">{status || 'unknown'}</span>;
   };
 
-  const typeIcon = (type) => ({ blog: '📝', analysis: '🔍', contact: '📧' }[type] || '📄');
+  const typeIcon = (type) => ({ blog: IconPencil, analysis: IconSearch, contact: IconMail }[type] || IconDocument);
 
   if (loading) {
     return (
@@ -110,13 +112,13 @@ const AdminDashboard = () => {
         {/* Header */}
         <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '28px 32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Admin Dashboard</h1>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)' }}>Welcome back! Here's your SilverSurfers administration overview.</p>
+          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>Welcome back! Here's your SilverSurfers administration overview.</p>
         </div>
 
         {/* Stats Grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
           <div className="ap-stat-card">
-            <div className="ap-stat-icon">📝</div>
+            <div className="ap-stat-icon"><IconPencil size={20} /></div>
             <div>
               <div className="ap-stat-val">{stats.totalBlogs}</div>
               <div className="ap-stat-lbl">Blog Posts</div>
@@ -124,7 +126,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="ap-stat-card">
-            <div className="ap-stat-icon">❓</div>
+            <div className="ap-stat-icon"><IconQuestion size={20} /></div>
             <div>
               <div className="ap-stat-val">{stats.totalFaqs}</div>
               <div className="ap-stat-lbl">FAQs</div>
@@ -132,7 +134,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="ap-stat-card">
-            <div className="ap-stat-icon">🔍</div>
+            <div className="ap-stat-icon"><IconSearch size={20} /></div>
             <div>
               <div className="ap-stat-val">{stats.pendingAnalysis}</div>
               <div className="ap-stat-lbl">Pending Analysis</div>
@@ -140,7 +142,7 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="ap-stat-card">
-            <div className="ap-stat-icon">📧</div>
+            <div className="ap-stat-icon"><IconMail size={20} /></div>
             <div>
               <div className="ap-stat-val">{stats.newContacts}</div>
               <div className="ap-stat-lbl">New Contacts</div>
@@ -154,13 +156,13 @@ const AdminDashboard = () => {
           <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '20px' }}>Quick Actions</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '12px' }}>
             {[
-              { emoji: '📝', label: 'New Blog Post', href: '/admin/blog' },
-              { emoji: '❓', label: 'Add FAQ', href: '/admin/faqs' },
-              { emoji: '👥', label: 'Manage Users', href: '/admin/users' },
-              { emoji: '📋', label: 'Legal Docs', href: '/admin/legal' },
-            ].map(({ emoji, label, href }) => (
+              { icon: IconPencil, label: 'New Blog Post', href: '/admin/blog' },
+              { icon: IconQuestion, label: 'Add FAQ', href: '/admin/faqs' },
+              { icon: IconUsers, label: 'Manage Users', href: '/admin/users' },
+              { icon: IconClipboard, label: 'Legal Docs', href: '/admin/legal' },
+            ].map(({ icon: ActionIcon, label, href }) => (
               <button key={href} onClick={() => navigate(href)} className="ap-quick-btn">
-                <span className="ap-quick-btn-emoji">{emoji}</span>
+                <span className="ap-quick-btn-icon"><ActionIcon size={26} /></span>
                 <span className="ap-quick-btn-lbl">{label}</span>
               </button>
             ))}
@@ -173,16 +175,19 @@ const AdminDashboard = () => {
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)', marginBottom: '16px' }}>Recent Activity</h3>
             {recentActivity.length > 0 ? (
               <div>
-                {recentActivity.map((item, index) => (
+                {recentActivity.map((item, index) => {
+                  const ActivityIcon = typeIcon(item.type);
+                  return (
                   <div key={index} className="ap-activity-row">
-                    <span style={{ fontSize: '18px', lineHeight: 1, flexShrink: 0 }}>{typeIcon(item.type)}</span>
+                    <span className="ap-activity-icon"><ActivityIcon size={18} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div className="ap-activity-title">{item.title}</div>
                       <div className="ap-activity-date">{new Date(item.date).toLocaleDateString()}</div>
                     </div>
                     {getStatusPill(item.status)}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <p style={{ fontSize: '13px', color: 'var(--ink6)', textAlign: 'center', padding: '16px 0' }}>No recent activity</p>
@@ -201,7 +206,7 @@ const AdminDashboard = () => {
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--t05)', borderRadius: '8px', border: '1px solid var(--t1)' }}>
                   <div className="ap-sys-dot" />
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>{label}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--t8)' }}>{label}</div>
                     <div style={{ fontSize: '12px', color: '#16a34a' }}>{status}</div>
                   </div>
                 </div>

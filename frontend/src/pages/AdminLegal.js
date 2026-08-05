@@ -1,5 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { createLegalDocument, updateLegalDocument, publishLegalDocument, getAllLegalDocuments } from '../api';
+import { IconClipboard } from '../components/AdminIcons';
+
+const IconLock = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="11" width="18" height="11" rx="2" />
+    <path d="M7 11V7a5 5 0 0110 0v4" />
+  </svg>
+);
+const IconAccessibility = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="4" r="1.5" fill="currentColor" stroke="none" />
+    <path d="M4 8h16M12 8v13M8 21l4-6 4 6M7 12h10" />
+  </svg>
+);
 
 const STYLES = `
 .al-pg { min-height: 100vh; background: var(--t9); padding: 96px 24px 60px; }
@@ -49,9 +63,9 @@ const AdminLegal = () => {
   });
 
   const documentTypes = [
-    { value: 'terms-of-use', label: 'Terms of Service', icon: '📋', description: 'User agreement and terms of service' },
-    { value: 'privacy-policy', label: 'Privacy Policy', icon: '🔒', description: 'How we collect and use personal data' },
-    { value: 'accessibility-guides', label: 'Accessibility Guides', icon: '♿', description: 'Guidelines and resources for web accessibility' },
+    { value: 'terms-of-use', label: 'Terms of Service', icon: IconClipboard, description: 'User agreement and terms of service' },
+    { value: 'privacy-policy', label: 'Privacy Policy', icon: IconLock, description: 'How we collect and use personal data' },
+    { value: 'accessibility-guides', label: 'Accessibility Guides', icon: IconAccessibility, description: 'Guidelines and resources for web accessibility' },
   ];
 
   const getDocumentType = (type) => documentTypes.find(t => t.value === type) || documentTypes[0];
@@ -205,7 +219,7 @@ const AdminLegal = () => {
                   return (
                     <div key={doc._id} className="al-doc-row">
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                        <span style={{ fontSize: '28px' }}>{docType.icon}</span>
+                        <span style={{ display: 'flex' }}><docType.icon size={26} /></span>
                         <div>
                           <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--t9)' }}>{doc.title}</h4>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
@@ -249,7 +263,7 @@ const AdminLegal = () => {
                     <div>
                       <label className="al-modal-lbl">Document Type *</label>
                       <select name="type" value={formData.type} onChange={handleInputChange} className="al-modal-inp" required>
-                        {documentTypes.map(type => <option key={type.value} value={type.value}>{type.icon} {type.label}</option>)}
+                        {documentTypes.map(type => <option key={type.value} value={type.value}>{type.label}</option>)}
                       </select>
                     </div>
                     <div>

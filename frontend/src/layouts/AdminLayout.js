@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { getMe } from '../api';
+import ThemeToggle from '../components/ThemeToggle';
+import { IconChart, IconUsers, IconPencil, IconQuestion, IconSearch, IconLayers, IconBolt, IconStar, IconGem, IconClock, IconMail, IconClipboard } from '../components/AdminIcons';
 
 const STYLES = `
 .adl-shell { min-height: 100vh; background: var(--sand); display: flex; }
@@ -9,17 +11,18 @@ const STYLES = `
 .adl-brand { display: flex; align-items: center; gap: 12px; padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
 .adl-brand-icon { width: 32px; height: 32px; border-radius: var(--r); background: var(--t4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .adl-brand-title { font-family: var(--ffd); font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
-.adl-brand-sub { font-size: 11px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+.adl-brand-sub { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; }
 .adl-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
 .adl-nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border-radius: var(--r); border: none; cursor: pointer; font-family: var(--ff); font-size: 14px; font-weight: 500; text-align: left; transition: background .15s, color .15s; margin-bottom: 2px; }
 .adl-nav-btn-active { background: rgba(255,255,255,0.1); color: #fff; }
-.adl-nav-btn-inactive { background: transparent; color: rgba(255,255,255,0.6); }
-.adl-nav-btn-inactive:hover { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.9); }
+.adl-nav-btn-inactive { background: transparent; color: rgba(255,255,255,0.75); }
+.adl-nav-btn-inactive:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.adl-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .adl-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 14px 16px; flex-shrink: 0; position: relative; }
 .adl-user-row { display: flex; align-items: center; gap: 10px; }
 .adl-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t4); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
 .adl-user-email { font-size: 13px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.adl-user-role { font-size: 11px; color: rgba(255,255,255,0.35); }
+.adl-user-role { font-size: 11px; color: rgba(255,255,255,0.55); }
 .adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); cursor: pointer; flex-shrink: 0; }
 .adl-menu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
 .adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
@@ -27,7 +30,7 @@ const STYLES = `
 .adl-dd-btn:hover { background: var(--t05); color: var(--t6); }
 .adl-dd-btn-danger:hover { background: var(--coralbg); color: var(--coral); }
 .adl-dd-div { border-top: 1px solid var(--sandd); }
-.adl-topbar { position: sticky; top: 0; z-index: 20; background: var(--sand); border-bottom: 1px solid var(--sandd); padding: 8px 16px; display: flex; align-items: center; }
+.adl-topbar { position: sticky; top: 0; z-index: 20; background: var(--sand); border-bottom: 1px solid var(--sandd); padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .adl-hamburger { width: 40px; height: 40px; border-radius: 8px; background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .adl-hamburger:hover { background: var(--sand); }
 .adl-content { flex: 1; max-width: 1280px; margin: 0 auto; width: 100%; padding: 32px 40px; }
@@ -36,7 +39,7 @@ const STYLES = `
 .adl-loading { min-height: 100vh; background: var(--sand); display: flex; align-items: center; justify-content: center; }
 .adl-spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--t1); border-top-color: var(--t4); animation: adl-spin .7s linear infinite; }
 @keyframes adl-spin { to { transform: rotate(360deg); } }
-@media (min-width: 768px) { .adl-topbar { display: none; } }
+@media (min-width: 768px) { .adl-hamburger { display: none; } }
 @media (max-width: 767px) { .adl-sidebar { display: none; } .adl-main { padding-left: 0; } .adl-content { padding: 24px 16px; } }
 `;
 
@@ -73,18 +76,18 @@ const AdminLayout = () => {
   };
 
   const navigation = [
-    { name: 'Dashboard', href: '/admin/dashboard', icon: '📊' },
-    { name: 'User Management', href: '/admin/users', icon: '👥' },
-    { name: 'Blog Management', href: '/admin/blog', icon: '📝' },
-    { name: 'FAQ Management', href: '/admin/faqs', icon: '❓' },
-    { name: 'Analysis Queue', href: '/admin/analysis', icon: '🔍' },
-    { name: 'Bulk Quick Scans', href: '/admin/bulk-quick-scans', icon: '📦' },
-    { name: 'Quick Scans', href: '/admin/quick-scans', icon: '⚡' },
-    { name: 'Starter Scans', href: '/admin/starter-scans', icon: '🌟' },
-    { name: 'Pro Scans', href: '/admin/pro-scans', icon: '💎' },
-    { name: 'One-Time Scans', href: '/admin/onetime-scans', icon: '📦' },
-    { name: 'Contact Messages', href: '/admin/contact', icon: '📧' },
-    { name: 'Legal Documents', href: '/admin/legal', icon: '📋' },
+    { name: 'Dashboard', href: '/admin/dashboard', icon: IconChart },
+    { name: 'User Management', href: '/admin/users', icon: IconUsers },
+    { name: 'Blog Management', href: '/admin/blog', icon: IconPencil },
+    { name: 'FAQ Management', href: '/admin/faqs', icon: IconQuestion },
+    { name: 'Analysis Queue', href: '/admin/analysis', icon: IconSearch },
+    { name: 'Bulk Quick Scans', href: '/admin/bulk-quick-scans', icon: IconLayers },
+    { name: 'Quick Scans', href: '/admin/quick-scans', icon: IconBolt },
+    { name: 'Starter Scans', href: '/admin/starter-scans', icon: IconStar },
+    { name: 'Pro Scans', href: '/admin/pro-scans', icon: IconGem },
+    { name: 'One-Time Scans', href: '/admin/onetime-scans', icon: IconClock },
+    { name: 'Contact Messages', href: '/admin/contact', icon: IconMail },
+    { name: 'Legal Documents', href: '/admin/legal', icon: IconClipboard },
   ].map(item => ({ ...item, current: location.pathname === item.href || (item.href === '/admin/dashboard' && (location.pathname === '/admin' || location.pathname === '/admin/')) }));
 
   if (loading) {
@@ -124,13 +127,16 @@ const AdminLayout = () => {
         </aside>
 
         <div className="adl-main">
-          {/* Mobile top bar */}
+          {/* Top bar — hamburger is mobile-only, theme toggle is always visible */}
           <div className="adl-topbar">
             <button className="adl-hamburger" onClick={() => setSidebarOpen(true)} aria-label="Open sidebar">
               <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
+            <div style={{ marginLeft: 'auto' }}>
+              <ThemeToggle />
+            </div>
           </div>
 
           <main style={{ flex: 1 }}>
@@ -167,16 +173,19 @@ const SidebarContent = ({ navigation, onNavigate }) => {
       </div>
 
       <nav className="adl-nav">
-        {navigation.map((item) => (
-          <button
-            key={item.name}
-            onClick={() => handleNav(item.href)}
-            className={`adl-nav-btn ${item.current ? 'adl-nav-btn-active' : 'adl-nav-btn-inactive'}`}
-          >
-            <span style={{ fontSize: '16px', lineHeight: 1 }}>{item.icon}</span>
-            {item.name}
-          </button>
-        ))}
+        {navigation.map((item) => {
+          const ItemIcon = item.icon;
+          return (
+            <button
+              key={item.name}
+              onClick={() => handleNav(item.href)}
+              className={`adl-nav-btn ${item.current ? 'adl-nav-btn-active' : 'adl-nav-btn-inactive'}`}
+            >
+              <span className="adl-nav-icon"><ItemIcon size={16} /></span>
+              {item.name}
+            </button>
+          );
+        })}
       </nav>
     </>
   );

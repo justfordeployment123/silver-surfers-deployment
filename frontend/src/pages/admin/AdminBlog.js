@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { adminListBlog, adminCreateBlog, adminDeleteBlog, adminUpdateBlog } from '../../api';
 import RichTextEditor from '../../components/RichTextEditor';
+import { IconCheckCircle, IconPencil, IconStar, IconTag, IconBolt } from '../../components/AdminIcons';
 
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
@@ -25,7 +26,7 @@ const STYLES = `
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
-.ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t5); }
 .ap-blog-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
 .ap-blog-card:hover { box-shadow: 0 4px 16px rgba(4,46,34,0.08); }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
@@ -224,25 +225,25 @@ const AdminBlog = () => {
         <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Blog Management</h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.55)' }}>Create and manage blog posts</p>
+            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>Create and manage blog posts</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '28px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{blogs.length}</div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>Total Posts</div>
+            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>Total Posts</div>
           </div>
         </div>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
           {[
-            { icon: '✅', label: 'Published', val: blogs.filter(b => b.published).length },
-            { icon: '✏️', label: 'Drafts', val: blogs.filter(b => !b.published).length },
-            { icon: '⭐', label: 'Featured', val: blogs.filter(b => b.featured).length },
-            { icon: '🏷️', label: 'Categories', val: getCategories().length },
-            { icon: '⚡', label: 'Avg. Words', val: blogs.length > 0 ? Math.round(blogs.reduce((acc, b) => acc + (b.content?.split(' ').length || 0), 0) / blogs.length) : 0 },
-          ].map(({ icon, label, val }) => (
+            { icon: IconCheckCircle, label: 'Published', val: blogs.filter(b => b.published).length },
+            { icon: IconPencil, label: 'Drafts', val: blogs.filter(b => !b.published).length },
+            { icon: IconStar, label: 'Featured', val: blogs.filter(b => b.featured).length },
+            { icon: IconTag, label: 'Categories', val: getCategories().length },
+            { icon: IconBolt, label: 'Avg. Words', val: blogs.length > 0 ? Math.round(blogs.reduce((acc, b) => acc + (b.content?.split(' ').length || 0), 0) / blogs.length) : 0 },
+          ].map(({ icon: StatIcon, label, val }) => (
             <div key={label} className="ap-stat-card">
-              <div className="ap-stat-icon">{icon}</div>
+              <div className="ap-stat-icon"><StatIcon size={18} /></div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{val}</div>
                 <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>{label}</div>
