@@ -47,6 +47,9 @@ export const IconPencil = ({ size = 18 }) => (
 export const IconTag = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="M20.59 13.41 11 3.83A2 2 0 009.5 3H4a1 1 0 00-1 1v5.5a2 2 0 00.59 1.41l9.59 9.59a2 2 0 002.83 0l4.58-4.58a2 2 0 000-2.83z" /><circle cx="7.5" cy="7.5" r="1.5" /></svg>
 );
+export const IconPackage = ({ size = 18 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="M21 8l-9-5-9 5 9 5 9-5z" /><path d="M3 8v8l9 5 9-5V8" /><path d="M12 13v8" /></svg>
+);
 export const IconRuler = ({ size = 18 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" {...base}><path d="M3 17l14-14 4 4-14 14z" /><path d="M11 8l2 2M8 11l2 2M14 5l2 2" /></svg>
 );

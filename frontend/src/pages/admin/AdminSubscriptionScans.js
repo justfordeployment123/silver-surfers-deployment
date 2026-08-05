@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminListSubscriptionScans } from '../../api';
+import { IconStar, IconGem, IconPackage, IconSearch } from '../../components/AdminIcons';
 
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
@@ -18,8 +19,9 @@ const STYLES = `
 .ap-btn-green:hover:not(:disabled) { background: #15803d; }
 .ap-btn-green:disabled { opacity: 0.6; cursor: not-allowed; }
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
-.ap-stat-mini { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 16px 20px; }
-.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t8); line-height: 1; }
+.ap-stat-mini { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; }
+.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t4); line-height: 1; }
+.ap-plan-icon { display: flex; align-items: center; color: var(--t4); }
 .ap-stat-mini-lbl { font-size: 12px; color: var(--ink6); margin-top: 3px; }
 .ap-tbl { width: 100%; border-collapse: collapse; }
 .ap-tbl thead { background: var(--sand); }
@@ -42,7 +44,7 @@ const STYLES = `
 `;
 
 const PLAN_TITLES = { starter: 'Starter Plan', pro: 'Pro Plan', oneTime: 'One-Time Package' };
-const PLAN_EMOJIS = { starter: '🌟', pro: '💎', oneTime: '📦' };
+const PLAN_ICONS = { starter: IconStar, pro: IconGem, oneTime: IconPackage };
 
 const AdminSubscriptionScans = ({ planType = 'all' }) => {
   const [scans, setScans] = useState([]);
@@ -55,7 +57,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
   const [statistics, setStatistics] = useState({ totalScans: 0, completedScans: 0, failedScans: 0, uniqueEmails: 0, uniqueUrls: 0 });
 
   const title = PLAN_TITLES[planType] || 'All Subscription Scans';
-  const emoji = PLAN_EMOJIS[planType] || '🔍';
+  const PlanIcon = PLAN_ICONS[planType] || IconSearch;
 
   useEffect(() => { loadScans(); }, [sortBy, sortOrder, planType]);
 
@@ -157,9 +159,12 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
       <style>{STYLES}</style>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
-          <div>
-            <h1 className="ap-h1">{emoji} {title}</h1>
-            <p className="ap-sub">Monitor all {title.toLowerCase()} audit requests</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="ap-plan-icon"><PlanIcon size={24} /></span>
+            <div>
+              <h1 className="ap-h1" style={{ marginBottom: 0 }}>{title}</h1>
+              <p className="ap-sub">Monitor all {title.toLowerCase()} audit requests</p>
+            </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
             <button onClick={handleExport} disabled={scans.length === 0} className="ap-btn-green">

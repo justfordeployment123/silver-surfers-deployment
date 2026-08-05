@@ -199,7 +199,7 @@ const AdminLegal = () => {
 
           <div className="al-card">
             <div className="al-card-head">
-              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--t9)' }}>Current Documents</h3>
+              <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--ink)' }}>Current Documents</h3>
               <p style={{ fontSize: '13px', color: 'var(--ink6)', marginTop: '2px' }}>Manage your published and draft documents</p>
             </div>
 
@@ -221,7 +221,7 @@ const AdminLegal = () => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                         <span style={{ display: 'flex' }}><docType.icon size={26} /></span>
                         <div>
-                          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--t9)' }}>{doc.title}</h4>
+                          <h4 style={{ fontSize: '15px', fontWeight: 700, color: 'var(--ink)' }}>{doc.title}</h4>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
                             <span className={`al-badge ${doc.status === 'published' ? 'al-badge-pub' : 'al-badge-draft'}`}>{doc.status}</span>
                             <span style={{ fontSize: '12px', color: 'var(--ink6)' }}>v{doc.version}</span>
@@ -248,7 +248,7 @@ const AdminLegal = () => {
               <div className="al-modal-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <div>
-                    <h3 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: 'var(--t9)' }}>{editingDocument ? 'Edit Document' : 'Create New Document'}</h3>
+                    <h3 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: 'var(--ink)' }}>{editingDocument ? 'Edit Document' : 'Create New Document'}</h3>
                     <p style={{ fontSize: '13px', color: 'var(--ink6)', marginTop: '4px' }}>{editingDocument ? 'Update your legal document' : 'Add a new legal document'}</p>
                   </div>
                   <button onClick={() => { setShowForm(false); setEditingDocument(null); resetForm(); }} style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '8px' }}>

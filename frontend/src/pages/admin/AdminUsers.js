@@ -17,8 +17,8 @@ const STYLES = `
 .ap-btn-s:hover { background: var(--sand); }
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
-.ap-stat-mini { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 14px 18px; }
-.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t8); line-height: 1; }
+.ap-stat-mini { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 14px 18px; }
+.ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t4); line-height: 1; }
 .ap-stat-mini-lbl { font-size: 12px; color: var(--ink6); margin-top: 3px; }
 .ap-tbl { width: 100%; border-collapse: collapse; }
 .ap-tbl thead { background: var(--sand); }
