@@ -86,6 +86,9 @@ const Header = () => {
 
         /* ── Logo ──────────────────────────────────────── */
         .ss-logo {
+          display: flex;
+          align-items: center;
+          gap: 8px;
           font-family: var(--ffd);
           font-size: 20px;
           font-weight: 700;
@@ -96,6 +99,7 @@ const Header = () => {
           flex-shrink: 0;
         }
         .ss-logo span { color: var(--t4); }
+        .ss-logo-mark { height: 28px; width: 28px; flex-shrink: 0; object-fit: contain; }
 
         /* ── Desktop links ─────────────────────────────── */
         .ss-nav-links {
@@ -322,6 +326,7 @@ const Header = () => {
 
           {/* Logo */}
           <Link to="/" className="ss-logo" onClick={closeMobileMenu}>
+            <img src="/Logo.png" alt="" className="ss-logo-mark" />
             SilverSurfers<span>.ai</span>
           </Link>
 
