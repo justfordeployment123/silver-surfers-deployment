@@ -143,18 +143,16 @@ const Services = () => {
 
         /* ── Free audit highlight card ─────────────────── */
         .free-card {
-          background: var(--t05);
-          border: 2px solid var(--t1);
+          background: var(--sand);
+          border: 2px solid var(--sandd);
           border-radius: var(--rl);
           padding: 48px;
           position: relative;
           overflow: hidden;
         }
-        /* This card keeps a fixed light-mint background regardless of theme,
-           so its text must stay fixed-dark rather than following --ink. */
-        .free-card h3 { color: var(--t9); }
-        .free-card .free-card-label { color: var(--t9); }
-        .free-card .free-card-feature { color: var(--t8); }
+        .free-card h3 { color: var(--ink); }
+        .free-card .free-card-label { color: var(--ink); }
+        .free-card .free-card-feature { color: var(--ink6); }
         .free-card .free-card-note { color: var(--t6); }
         .free-card-bar {
           position: absolute; top: 0; left: 0; right: 0;
@@ -216,11 +214,11 @@ const Services = () => {
         }
         .svc-plan.featured {
           border-color: var(--t4);
-          background: var(--t05);
+          background: var(--sand);
         }
         .svc-plan.current-plan {
           border-color: var(--t6);
-          background: var(--t05);
+          background: var(--sand);
         }
         .svc-plan.dark-plan {
           background: var(--t9);
@@ -337,8 +335,8 @@ const Services = () => {
               commitment to accessibility.
             </p>
             <div className="btn-row" style={{ justifyContent: 'center' }}>
-              <a href="#quickscan" className="btn btn-p">Start Free</a>
-              <a href="#fullaudit" className="btn btn-g">View All Plans</a>
+              <a href="/services#quickscan" className="btn btn-p">Start Free</a>
+              <a href="/services#fullaudit" className="btn btn-g">View All Plans</a>
             </div>
           </div>
         </section>
@@ -469,7 +467,7 @@ const Services = () => {
 
                       {/* Header */}
                       <div style={{ paddingTop: (isCurrentPlan || plan.popular) ? 20 : 4, marginBottom: 14 }}>
-                        <div className="svc-plan-icon" style={{ color: plan.contactSales ? 'var(--t4)' : 'var(--t6)' }}><PlanSvgIcon id={plan.id} /></div>
+                        <div className="svc-plan-icon" style={{ color: 'var(--t4)' }}><PlanSvgIcon id={plan.id} /></div>
                         <div className="svc-plan-name">{plan.name}</div>
 
                         {plan.contactSales ? (
