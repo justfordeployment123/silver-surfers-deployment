@@ -92,7 +92,7 @@ const Header = () => {
           font-family: var(--ffd);
           font-size: 20px;
           font-weight: 700;
-          color: var(--t8);
+          color: var(--ink);
           letter-spacing: -0.02em;
           text-decoration: none;
           white-space: nowrap;

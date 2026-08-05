@@ -25,12 +25,12 @@ const STYLES = `
 .ac-sub-banner { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: var(--r); padding: 24px; margin-bottom: 32px; }
 .ac-tab-wrap { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); padding: 8px; margin-bottom: 12px; }
 .ac-tab { border-radius: 12px; padding: 12px 16px; text-align: left; border: none; cursor: pointer; width: 100%; transition: background .15s; }
-.ac-tab-active { background: var(--surface); color: #042E22; }
+.ac-tab-active { background: var(--surface); color: var(--ink); }
 .ac-tab-inactive { background: rgba(255,255,255,0.05); color: #fff; }
 .ac-tab-inactive:hover { background: rgba(255,255,255,0.1); }
 .ac-tab-badge { border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
-.ac-tab-badge-active { background: rgba(4,46,34,0.1); color: #333; }
-.ac-tab-badge-inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.7); }
+.ac-tab-badge-active { background: var(--t05); color: var(--t8); }
+.ac-tab-badge-inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 .ac-inp { flex: 1; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
 .ac-inp::placeholder { color: rgba(255,255,255,0.35); }
 .ac-inp:focus { border-color: var(--t4); }
@@ -108,7 +108,7 @@ const QuickScanStatusLine = ({ value }) => {
     const failed = String(value || "").toLowerCase() === "failed";
     return (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
-            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.4)', fontSize: '11px' }}>Current status</span>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.72)', fontSize: '11px' }}>Current status</span>
             <span style={{ color: failed ? '#fca5a5' : 'var(--t3)' }}>{getQuickScanStatusLabel(value)}</span>
         </div>
     );
@@ -278,8 +278,8 @@ export default function Account() {
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                                     <div>
-                                                        <p style={{ fontSize: '15px', fontWeight: 700, color: activeTab === key ? '#042E22' : '#fff', marginBottom: '2px' }}>{label}</p>
-                                                        <p style={{ fontSize: '13px', color: activeTab === key ? '#555' : 'rgba(255,255,255,0.5)' }}>{desc}</p>
+                                                        <p style={{ fontSize: '15px', fontWeight: 700, color: activeTab === key ? 'var(--ink)' : '#fff', marginBottom: '2px' }}>{label}</p>
+                                                        <p style={{ fontSize: '13px', color: activeTab === key ? 'var(--ink6)' : 'rgba(255,255,255,0.72)' }}>{desc}</p>
                                                     </div>
                                                     <span className={`ac-tab-badge ${activeTab === key ? 'ac-tab-badge-active' : 'ac-tab-badge-inactive'}`}>{count}</span>
                                                 </div>
@@ -306,20 +306,20 @@ export default function Account() {
                                     <button onClick={load} className="ac-ref">Refresh</button>
                                 </div>
 
-                                {loading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>Loading...</div>}
+                                {loading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)' }}>Loading...</div>}
 
                                 {activeTab === "full-audits" ? (
                                     <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
                                                 <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Full Audits</h2>
-                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Detailed accessibility audit runs linked to your account.</p>
+                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>Detailed accessibility audit runs linked to your account.</p>
                                             </div>
-                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>{filtered.length} shown</span>
+                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>{filtered.length} shown</span>
                                         </div>
 
                                         {auditError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{auditError}</div>}
-                                        {!loading && filtered.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No full audits found.</div>}
+                                        {!loading && filtered.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)', fontStyle: 'italic' }}>No full audits found.</div>}
 
                                         {filtered.map((rec) => (
                                             <div key={rec._id || rec.taskId} className="ac-card">
@@ -332,7 +332,7 @@ export default function Account() {
                                                             <ScorePill value={rec.score ?? rec.scoreCard?.overallScore} />
                                                             <RiskPill value={rec.scoreCard?.riskTier} />
                                                         </div>
-                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                                                             <span>Task: {rec.taskId}</span>
                                                             {rec.createdAt && <span>Created {new Date(rec.createdAt).toLocaleString()}</span>}
                                                             {typeof rec.attachmentCount === "number" && <span>PDFs: {rec.attachmentCount}</span>}
@@ -382,13 +382,13 @@ export default function Account() {
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
                                                 <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Quick Scans</h2>
-                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>Free scan requests with a live status line for pending, queued, and complete.</p>
+                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>Free scan requests with a live status line for pending, queued, and complete.</p>
                                             </div>
-                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.4)' }}>{filteredQuickScans.length} shown</span>
+                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>{filteredQuickScans.length} shown</span>
                                         </div>
 
                                         {quickScanError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{quickScanError}</div>}
-                                        {!loading && filteredQuickScans.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No quick scans found.</div>}
+                                        {!loading && filteredQuickScans.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)', fontStyle: 'italic' }}>No quick scans found.</div>}
 
                                         {filteredQuickScans.map((scan) => (
                                             <div key={scan._id || `${scan.email}-${scan.url}-${scan.createdAt || scan.scanDate}`} className="ac-card">
@@ -401,7 +401,7 @@ export default function Account() {
                                                             <ScorePill value={scan.scanScore} />
                                                         </div>
                                                         <QuickScanStatusLine value={scan.status} />
-                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
+                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
                                                             {scan.scanDate && <span>Scanned {new Date(scan.scanDate).toLocaleString()}</span>}
                                                             {scan.createdAt && <span>Requested {new Date(scan.createdAt).toLocaleString()}</span>}
                                                             {scan.reportGenerated && <span>Report generated</span>}
