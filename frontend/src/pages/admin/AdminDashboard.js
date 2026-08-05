@@ -8,13 +8,13 @@ const STYLES = `
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
 .ap-sub { font-size: 14px; color: var(--ink6); }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; display: flex; align-items: center; gap: 16px; }
-.ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t5); }
+.ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t6); }
 .ap-stat-val { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
 .ap-stat-lbl { font-size: 13px; color: var(--ink6); margin-top: 2px; }
 .ap-stat-sub { font-size: 12px; color: var(--ink6); margin-top: 1px; }
 .ap-quick-btn { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
 .ap-quick-btn:hover { border-color: var(--t4); background: var(--t05); }
-.ap-quick-btn-icon { display: flex; align-items: center; justify-content: center; color: var(--t5); }
+.ap-quick-btn-icon { display: flex; align-items: center; justify-content: center; color: var(--t4); }
 .ap-quick-btn-lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
 .ap-quick-btn:hover .ap-quick-btn-lbl { color: var(--t6); }
 .ap-activity-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--sandd); }

@@ -26,7 +26,7 @@ const STYLES = `
 .ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
 .ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
-.ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t5); }
+.ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t6); }
 .ap-blog-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
 .ap-blog-card:hover { box-shadow: 0 4px 16px rgba(4,46,34,0.08); }
 .pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
