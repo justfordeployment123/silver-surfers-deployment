@@ -36,7 +36,7 @@ const STYLES = `
 .mo-btn-del { border-color: rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); color: #fca5a5; }
 .mo-btn-del:hover { background: rgba(239,68,68,0.15); }
 .mo-empty { text-align: center; padding: 60px 24px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 20px; }
-.mo-empty h3 { font-size: 20px; margin-bottom: 8px; }
+.mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
 .mo-empty p { color: rgba(255,255,255,0.6); max-width: 460px; margin: 0 auto 20px auto; font-size: 14px; }
 `;
 
