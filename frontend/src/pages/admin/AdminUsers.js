@@ -42,22 +42,19 @@ const STYLES = `
 .ap-modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: background .15s, color .15s; }
 .ap-modal-close:hover { background: var(--sand); color: var(--ink); }
 .ap-modal-body { overflow-y: auto; flex: 1; padding: 20px 24px; }
-.ap-action-btn { width: 100%; padding: 10px 14px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: background .15s; }
+.ap-action-btn { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: background .15s, border-color .15s, color .15s; }
 .ap-action-btn-teal { background: var(--t4); color: #fff; }
 .ap-action-btn-teal:hover:not(:disabled) { background: var(--t8); }
-.ap-action-btn-green { background: #16a34a; color: #fff; }
-.ap-action-btn-green:hover:not(:disabled) { background: #15803d; }
-.ap-action-btn-amber { background: #d97706; color: #fff; }
-.ap-action-btn-amber:hover:not(:disabled) { background: #b45309; }
-.ap-action-btn-red { background: #ef4444; color: #fff; }
-.ap-action-btn-red:hover:not(:disabled) { background: #dc2626; }
-.ap-action-btn-orange { background: #ea580c; color: #fff; }
-.ap-action-btn-orange:hover:not(:disabled) { background: #c2410c; }
-.ap-action-btn-gray { background: #6b7280; color: #fff; }
-.ap-action-btn-gray:hover:not(:disabled) { background: #4b5563; }
+.ap-action-btn-amber { background: var(--amberbg); color: var(--amber); }
+.ap-action-btn-amber:hover:not(:disabled) { background: var(--amber); color: #fff; }
+.ap-action-btn-neutral { background: var(--sand); border-color: var(--sandd); color: var(--ink); }
+.ap-action-btn-neutral:hover:not(:disabled) { background: var(--sandd); }
+.ap-action-btn-danger { background: var(--coralbg); color: var(--coral); }
+.ap-action-btn-danger:hover:not(:disabled) { background: var(--coral); color: #fff; }
 .ap-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .ap-detail-lbl { font-size: 11px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
-.ap-detail-val { font-size: 14px; color: var(--ink); }
+.ap-detail-val { font-size: 14px; color: var(--ink); word-break: break-word; overflow-wrap: anywhere; }
+.ap-detail-item { min-width: 0; }
 .ap-section-hdr { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--sandd); }
 .ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
 @keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
@@ -372,7 +369,7 @@ const AdminUsers = () => {
                     { label: 'Account Status', val: showUserDetail.accountStatus || 'active' },
                     { label: 'Account Type', val: showUserDetail.isInternal ? 'Internal' : 'External / Client' },
                   ].map(({ label, val }) => (
-                    <div key={label}>
+                    <div key={label} className="ap-detail-item">
                       <div className="ap-detail-lbl">{label}</div>
                       <div className="ap-detail-val" style={{ textTransform: 'capitalize' }}>{val}</div>
                     </div>
@@ -390,7 +387,7 @@ const AdminUsers = () => {
                         { label: 'Period End', val: showUserDetail.subscription.currentPeriodEnd && new Date(showUserDetail.subscription.currentPeriodEnd).getTime() > 0 ? new Date(showUserDetail.subscription.currentPeriodEnd).toLocaleDateString() : 'No expiry' },
                         { label: 'Billing Cycle', val: showUserDetail.subscription.billingCycle || 'Unknown' },
                       ].map(({ label, val }) => (
-                        <div key={label}>
+                        <div key={label} className="ap-detail-item">
                           <div className="ap-detail-lbl">{label}</div>
                           <div className="ap-detail-val" style={{ textTransform: 'capitalize' }}>{val}</div>
                         </div>
@@ -415,7 +412,7 @@ const AdminUsers = () => {
                       <button
                         onClick={() => handleToggleInternal(showUserDetail._id)}
                         disabled={currentUserId === showUserDetail._id}
-                        className={`ap-action-btn ${showUserDetail.isInternal ? 'ap-action-btn-orange' : 'ap-action-btn-gray'}`}
+                        className="ap-action-btn ap-action-btn-neutral"
                       >
                         {showUserDetail.isInternal ? 'Remove Internal Flag' : 'Mark as Internal (Staff/Contractor)'}
                       </button>
@@ -424,14 +421,14 @@ const AdminUsers = () => {
                     <div style={{ borderTop: '1px solid var(--sandd)', marginTop: '4px', paddingTop: '12px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Role Management</div>
                       {showUserDetail.role === 'user' ? (
-                        <button onClick={() => handleUpdateRole(showUserDetail._id, 'admin')} className="ap-action-btn ap-action-btn-green">
+                        <button onClick={() => handleUpdateRole(showUserDetail._id, 'admin')} className="ap-action-btn ap-action-btn-teal">
                           Promote to Admin
                         </button>
                       ) : (
                         <button
                           onClick={() => handleUpdateRole(showUserDetail._id, 'user')}
                           disabled={currentUserId === showUserDetail._id}
-                          className="ap-action-btn ap-action-btn-red"
+                          className="ap-action-btn ap-action-btn-danger"
                           title={currentUserId === showUserDetail._id ? 'You cannot demote yourself' : ''}
                         >
                           {currentUserId === showUserDetail._id ? 'Cannot Demote Yourself' : 'Remove Admin Privileges'}
@@ -442,11 +439,11 @@ const AdminUsers = () => {
                     <div style={{ borderTop: '1px solid var(--sandd)', marginTop: '4px', paddingTop: '12px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Account Status</div>
                       {isSuspended(showUserDetail) ? (
-                        <button onClick={() => handleUpdateStatus(showUserDetail._id, 'active')} className="ap-action-btn ap-action-btn-green">
+                        <button onClick={() => handleUpdateStatus(showUserDetail._id, 'active')} className="ap-action-btn ap-action-btn-teal">
                           Reactivate User
                         </button>
                       ) : (
-                        <button onClick={() => handleUpdateStatus(showUserDetail._id, 'suspended')} className="ap-action-btn ap-action-btn-red">
+                        <button onClick={() => handleUpdateStatus(showUserDetail._id, 'suspended')} className="ap-action-btn ap-action-btn-danger">
                           Suspend User
                         </button>
                       )}
