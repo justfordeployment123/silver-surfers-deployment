@@ -21,73 +21,175 @@ export function buildReportUrl(auditModel: 'AnalysisRecord' | 'QuickScan', optio
   return `${base}/account/quick-scans/${encodeURIComponent(options.auditId || '')}`;
 }
 
-// Same table-free, template-literal wrapper style as
-// billing-email.service.ts's wrapBillingEmail — kept consistent rather than
-// introducing a third HTML-building convention into the codebase.
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/** Strips the protocol for display in subject lines and the header stat strip — a bare
+ * domain reads as a professional report subject, a raw URL reads as a phishing/spam tell. */
+function displayDomain(domain: string): string {
+  return String(domain || '').replace(/^https?:\/\//i, '').replace(/\/+$/, '') || domain;
+}
+
+/**
+ * Shared branded wrapper for all monitoring alert emails — a table-based layout matching
+ * the same navy-header / stat-strip / blue-button system used by the audit report email
+ * (see buildAuditReportEmailBody in report-delivery.ts), rather than the earlier ad-hoc
+ * div-based template. Table layout renders consistently in Outlook and other clients that
+ * ignore modern CSS, and a consistent header/footer across every SilverSurfers email is
+ * what actually reads as "not spam" rather than any one visual trick.
+ */
 function wrapMonitoringEmail(options: {
-  bannerTitle: string;
+  subject: string;
+  preheader: string;
+  eyebrowRight: string;
   heading: string;
+  domain: string;
   intro: string;
+  stats?: Array<{ label: string; value: string }>;
   bodyLines?: string[];
   bullets?: string[];
   actionLabel?: string;
   actionUrl?: string;
-  footer: string;
-  accentColor: string;
-  subject: string;
+  footerNote: string;
 }): MonitoringEmailContent {
-  const bulletList = options.bullets && options.bullets.length > 0
-    ? `<ul style="margin:0 0 20px 0;padding-left:20px;color:#374151;">${options.bullets.map((item) => `<li>${item}</li>`).join('')}</ul>`
-    : '';
+  const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  const preheaderText = escapeHtml(options.preheader);
 
-  const action = options.actionLabel && options.actionUrl
+  const statsHtml = options.stats && options.stats.length > 0
     ? `
-      <p style="margin:20px 0;">
-        <a href="${options.actionUrl}" style="background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold">${options.actionLabel}</a>
-      </p>
-      <p style="margin:16px 0;color:#6b7280;font-size:14px;">${options.actionUrl}</p>
+      <tr>
+        <td style="border-bottom:1px solid #d7dde8;padding:22px 0 0 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;">
+            <tr>
+              ${options.stats.map((stat, index) => `
+                <td align="center" width="${Math.floor(100 / options.stats!.length)}%" style="${index < options.stats!.length - 1 ? 'border-right:1px solid #d7dde8;' : ''}font-family:Arial,sans-serif;padding:9px 6px 13px 6px;">
+                  <div style="color:#596274;font-size:9px;letter-spacing:.8px;line-height:12px;text-transform:uppercase;">${escapeHtml(stat.label)}</div>
+                  <div style="color:#111827;font-size:14px;font-weight:bold;line-height:18px;">${escapeHtml(stat.value)}</div>
+                </td>
+              `).join('')}
+            </tr>
+          </table>
+        </td>
+      </tr>
     `
     : '';
 
-  const bodyParagraphs = (options.bodyLines || [])
-    .map((line) => `<p style="margin:0 0 16px 0;line-height:1.6;color:#374151;">${line}</p>`)
+  const bodyParagraphsHtml = (options.bodyLines || [])
+    .map((line) => `<div style="font-family:Arial,sans-serif;color:#4b5563;font-size:14px;line-height:20px;padding:0 0 10px 0;">${line}</div>`)
     .join('');
 
+  const bulletsHtml = options.bullets && options.bullets.length > 0
+    ? `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #d7dde8;border-collapse:collapse;margin:4px 0 20px 0;">
+        <tr>
+          <td style="padding:16px 20px;font-family:Arial,sans-serif;color:#111827;font-size:14px;line-height:22px;">
+            ${options.bullets.map((item) => `&bull;&nbsp; ${item}<br/>`).join('')}
+          </td>
+        </tr>
+      </table>
+    `
+    : '';
+
+  const actionHtml = options.actionLabel && options.actionUrl
+    ? `
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:8px 0 4px 0;">
+        <tr>
+          <td>
+            <a href="${escapeHtml(options.actionUrl)}" target="_blank" rel="noopener noreferrer" style="background:#1f5be3;color:#ffffff;display:inline-block;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;line-height:16px;padding:12px 24px;text-align:center;text-decoration:none;">
+              ${escapeHtml(options.actionLabel)}
+            </a>
+          </td>
+        </tr>
+      </table>
+    `
+    : '';
+
   const html = `
-    <div style="font-family: Arial,sans-serif;background:#f7f7fb;padding:24px;">
-      <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-        <div style="padding:20px 24px;border-bottom:1px solid #eef2f7;background:${options.accentColor};color:#fff;">
-          <h1 style="margin:0;font-size:20px;">${options.bannerTitle}</h1>
-        </div>
-        <div style="padding:24px;color:#111827;">
-          <h2 style="margin:0 0 8px 0;font-size:18px;">${options.heading}</h2>
-          <p style="margin:0 0 16px 0;line-height:1.6;color:#374151;">${options.intro}</p>
-          ${bodyParagraphs}
-          ${bulletList}
-          ${action}
-          <p style="margin:0;font-size:12px;color:#9ca3af;">${options.footer}</p>
-        </div>
-        <div style="padding:16px 24px;border-top:1px solid #eef2f7;color:#6b7280;font-size:12px;">SilverSurfers • Accessibility for Everyone</div>
-      </div>
-    </div>`;
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>${escapeHtml(options.heading)}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#ffffff;">
+      <div style="display:none;font-size:1px;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">${preheaderText}</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-collapse:collapse;margin:0;padding:0;">
+        <tr>
+          <td align="center" style="padding:16px 12px;">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:640px;max-width:640px;">
+              <tr>
+                <td align="center" style="background:#102447;padding:22px 24px 24px 24px;">
+                  <div style="color:#b9c8df;font-family:Arial,sans-serif;font-size:9px;font-weight:bold;letter-spacing:.7px;line-height:12px;text-transform:uppercase;">SilverSurfers AI &nbsp;&middot;&nbsp; ${escapeHtml(options.eyebrowRight)}</div>
+                  <div style="color:#ffffff;font-family:Arial,sans-serif;font-size:24px;font-weight:bold;line-height:30px;margin-top:5px;">${escapeHtml(options.heading)}</div>
+                  <div style="color:#dbe5f3;font-family:Arial,sans-serif;font-size:12px;line-height:16px;margin-top:3px;">${escapeHtml(displayDomain(options.domain))} &nbsp;-&nbsp; ${escapeHtml(generatedDate)}</div>
+                </td>
+              </tr>
+              ${statsHtml}
+              <tr>
+                <td style="font-family:Arial,sans-serif;color:#111827;font-size:16px;line-height:21px;padding:26px 0 14px 0;">
+                  ${options.intro}
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  ${bodyParagraphsHtml}
+                  ${bulletsHtml}
+                  ${actionHtml}
+                </td>
+              </tr>
+              <tr>
+                <td style="border-top:1px solid #d7dde8;font-family:Arial,sans-serif;padding:24px 0 20px 0;">
+                  <div style="color:#4b5563;font-size:13px;line-height:18px;">${options.footerNote}</div>
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="background:#f5f7fb;font-family:Arial,sans-serif;color:#6b7280;font-size:10px;line-height:15px;padding:16px 20px;">
+                  This email was generated automatically - please don't reply directly.<br />
+                  Questions? Reach our team at hello@silversurfers.ai.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `.trim();
 
   const text = [
     options.subject,
     '',
     options.heading,
-    options.intro,
+    displayDomain(options.domain),
     '',
-    ...(options.bodyLines || []),
+    ...(options.stats || []).map((stat) => `${stat.label}: ${stat.value}`),
     '',
-    ...((options.bullets || []).map((item) => `- ${item}`)),
+    stripHtml(options.intro),
+    '',
+    ...(options.bodyLines || []).map(stripHtml),
+    ...(options.bullets || []).map((item) => `- ${stripHtml(item)}`),
     ...(options.actionLabel && options.actionUrl ? ['', `${options.actionLabel}: ${options.actionUrl}`] : []),
     '',
-    options.footer,
+    stripHtml(options.footerNote),
+    '',
+    "This email was generated automatically - please don't reply directly.",
+    'Questions? Reach our team at hello@silversurfers.ai.',
   ]
     .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
     .join('\n');
 
   return { html, text };
+}
+
+function stripHtml(value: string): string {
+  return String(value ?? '').replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' ');
 }
 
 export function buildRunCompleteEmailContent(options: {
@@ -99,22 +201,25 @@ export function buildRunCompleteEmailContent(options: {
   errorMessage?: string;
   reportUrl: string;
 }): { subject: string; content: MonitoringEmailContent } {
-  const subject = options.succeeded
-    ? `SilverSurfers.ai — Audit complete for ${options.domain}`
-    : `SilverSurfers.ai — Scheduled audit failed for ${options.domain}`;
+  const domain = displayDomain(options.domain);
 
   if (!options.succeeded) {
+    const subject = `Scheduled Scan Failed for ${domain}`;
     return {
       subject,
       content: wrapMonitoringEmail({
         subject,
-        bannerTitle: 'Scheduled Audit Failed',
-        accentColor: '#C84B2F',
-        heading: `The scheduled audit for ${options.domain} did not complete.`,
-        intro: options.errorMessage
-          ? `The scan failed with the following error: ${options.errorMessage}`
-          : 'The scan failed for an unknown reason. Please check the domain is reachable and try again.',
-        footer: 'You are receiving this because monitoring is enabled for this domain. You can adjust notification settings from your account.',
+        preheader: `Your scheduled SilverSurfers scan for ${domain} could not complete.`,
+        eyebrowRight: 'Monitoring Update',
+        heading: 'Scheduled Audit Failed',
+        domain: options.domain,
+        intro: `The scheduled audit for <strong>${escapeHtml(domain)}</strong> did not complete.`,
+        bodyLines: [
+          options.errorMessage
+            ? `The scan failed with the following error: ${escapeHtml(options.errorMessage)}`
+            : 'The scan failed for an unknown reason. Please check that the domain is reachable and try again.',
+        ],
+        footerNote: 'You are receiving this because monitoring is enabled for this domain. You can adjust notification settings from your account.',
       }),
     };
   }
@@ -125,20 +230,24 @@ export function buildRunCompleteEmailContent(options: {
       : `${options.scoreDelta > 0 ? 'Up' : 'Down'} ${Math.abs(options.scoreDelta)} point(s) since the last run.`)
     : 'This is the first recorded run for this monitor.';
 
+  const subject = `Your SilverSurfers Monitoring Report for ${domain}`;
   return {
     subject,
     content: wrapMonitoringEmail({
       subject,
-      bannerTitle: 'Scheduled Audit Complete',
-      accentColor: '#1D9E75',
-      heading: `Your Silver Score™ for ${options.domain} is ${options.score ?? 'N/A'}.`,
-      intro: deltaLine,
-      bodyLines: [
-        typeof options.issueCount === 'number' ? `Total issues found: <strong>${options.issueCount}</strong>` : '',
-      ].filter(Boolean),
+      preheader: `Your Silver Score for ${domain} is ${options.score ?? 'N/A'}. ${deltaLine}`,
+      eyebrowRight: 'Monitoring Update',
+      heading: 'Scheduled Audit Complete',
+      domain: options.domain,
+      intro: `Your Silver Score&trade; for <strong>${escapeHtml(domain)}</strong> is <strong>${options.score ?? 'N/A'}</strong>.`,
+      stats: [
+        { label: 'Silver Score', value: String(options.score ?? '—') },
+        { label: 'Change', value: deltaLine === 'This is the first recorded run for this monitor.' ? 'First run' : deltaLine.replace(' since the last run.', '') },
+        { label: 'Issues Found', value: typeof options.issueCount === 'number' ? String(options.issueCount) : '—' },
+      ],
       actionLabel: 'View Full Report',
       actionUrl: options.reportUrl,
-      footer: 'You are receiving this because monitoring is enabled for this domain. You can adjust notification settings from your account.',
+      footerNote: 'You are receiving this because monitoring is enabled for this domain. You can adjust notification settings from your account.',
     }),
   };
 }
@@ -151,22 +260,28 @@ export function buildScoreDropEmailContent(options: {
   alertThreshold: number;
   reportUrl: string;
 }): { subject: string; content: MonitoringEmailContent } {
-  const subject = `Action Required — Silver Score™ dropped for ${options.domain}`;
+  const domain = displayDomain(options.domain);
+  const subject = `Silver Score Alert for ${domain}`;
   return {
     subject,
     content: wrapMonitoringEmail({
       subject,
-      bannerTitle: 'Silver Score™ Alert',
-      accentColor: '#C84B2F',
-      heading: `${options.domain} dropped below your alert threshold.`,
-      intro: `The current score is <strong>${options.score}</strong>, below your alert threshold of <strong>${options.alertThreshold}</strong>.`,
+      preheader: `${domain} dropped to ${options.score}, below your alert threshold of ${options.alertThreshold}.`,
+      eyebrowRight: 'Score Alert',
+      heading: 'Silver Score Alert',
+      domain: options.domain,
+      intro: `<strong>${escapeHtml(domain)}</strong> dropped below your alert threshold.`,
+      stats: [
+        { label: 'Current Score', value: String(options.score) },
+        { label: 'Previous Score', value: typeof options.previousScore === 'number' ? String(options.previousScore) : '—' },
+        { label: 'Alert Threshold', value: String(options.alertThreshold) },
+      ],
       bodyLines: [
-        typeof options.previousScore === 'number' ? `Previous score: <strong>${options.previousScore}</strong>` : '',
-        typeof options.scoreDelta === 'number' ? `Change: <strong>${options.scoreDelta}</strong> point(s)` : '',
+        typeof options.scoreDelta === 'number' ? `Change: <strong>${options.scoreDelta}</strong> point(s).` : '',
       ].filter(Boolean),
       actionLabel: 'View Full Report',
       actionUrl: options.reportUrl,
-      footer: 'You are receiving this because an alert threshold is set for this monitoring job. You can adjust or disable it from your account.',
+      footerNote: 'You are receiving this because an alert threshold is set for this monitoring job. You can adjust or disable it from your account.',
     }),
   };
 }
@@ -177,19 +292,25 @@ export function buildNewIssuesEmailContent(options: {
   topIssues: MonitoringIssueLike[];
   reportUrl: string;
 }): { subject: string; content: MonitoringEmailContent } {
-  const subject = `New accessibility issues found on ${options.domain}`;
+  const domain = displayDomain(options.domain);
+  const subject = `New Accessibility Issues Found on ${domain}`;
   return {
     subject,
     content: wrapMonitoringEmail({
       subject,
-      bannerTitle: 'New Issues Detected',
-      accentColor: '#B06A10',
-      heading: `${options.newIssueCount} new issue(s) found on ${options.domain}.`,
-      intro: 'These issues were not present in the previous monitoring run.',
-      bullets: options.topIssues.slice(0, 3).map((issue) => `${issue.title || 'Untitled issue'}${issue.severity ? ` (${issue.severity})` : ''}`),
+      preheader: `${options.newIssueCount} new accessibility issue(s) found on ${domain} since the last scan.`,
+      eyebrowRight: 'New Issues',
+      heading: 'New Issues Detected',
+      domain: options.domain,
+      intro: `<strong>${options.newIssueCount}</strong> new issue${options.newIssueCount === 1 ? '' : 's'} found on <strong>${escapeHtml(domain)}</strong>.`,
+      bodyLines: ['These issues were not present in the previous monitoring run:'],
+      bullets: options.topIssues.slice(0, 3).map((issue) => {
+        const title = escapeHtml(issue.title || 'Untitled issue');
+        return issue.severity ? `${title} (${escapeHtml(issue.severity)})` : title;
+      }),
       actionLabel: 'View Full Report',
       actionUrl: options.reportUrl,
-      footer: 'You are receiving this because new-issue alerts are enabled for this monitoring job. You can adjust notification settings from your account.',
+      footerNote: 'You are receiving this because new-issue alerts are enabled for this monitoring job. You can adjust notification settings from your account.',
     }),
   };
 }
