@@ -314,8 +314,13 @@ const Header = () => {
 
         .ss-mobile-search { padding: 0 0 8px; }
 
-        /* ── Desktop hidden at ≤1024px ─────────────────── */
-        @media (max-width: 1024px) {
+        /* ── Desktop hidden at ≤1240px ─────────────────────
+           Was 1024px, but the larger ≥44px tap targets on every nav
+           link/button (WCAG 2.5.8) push the full desktop row past 1024px
+           before it actually has room — it was clipping/overflowing off
+           the right edge around 1024–1145px. Collapsing to the hamburger
+           earlier keeps every item fully visible instead of cramped. ── */
+        @media (max-width: 1240px) {
           .ss-nav-links        { display: none; }
           .ss-nav-cta          { display: none; }
           .ss-search-desktop   { display: none; }
