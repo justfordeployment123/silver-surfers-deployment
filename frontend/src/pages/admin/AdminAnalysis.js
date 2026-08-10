@@ -4,19 +4,19 @@ import { adminListAnalysis } from '../../api';
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-.ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
+.ap-sub { font-size: 16px; color: var(--ink6); }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; }
 .ap-sel:focus { border-color: var(--t4); }
-.ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.ap-btn-p { background: var(--t6); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
-.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
-.ap-warn { background: #fef3c7; border: 1px solid #fcd34d; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #92400e; }
-.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #991b1b; }
+.ap-warn { background: #fef3c7; border: 1px solid #fcd34d; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #92400e; }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 16px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-a { background: #fef3c7; color: #92400e; }
 .pill-r { background: #fee2e2; color: #991b1b; }
@@ -187,7 +187,7 @@ const AdminAnalysis = () => {
               <div key={status} className="ap-card">
                 <div style={{ padding: '14px 24px', borderBottom: '1px solid var(--sandd)', display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: dotColor(status), flexShrink: 0 }} />
-                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)', textTransform: 'capitalize' }}>
+                  <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)', textTransform: 'capitalize' }}>
                     {status.replace(/_/g, ' ')} ({groupedAnalysis[status].length})
                   </h3>
                 </div>
@@ -198,11 +198,11 @@ const AdminAnalysis = () => {
                       borderTop: idx === 0 ? 'none' : '1px solid var(--sandd)',
                     }}>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)', wordBreak: 'break-all' }}>{record.url}</span>
+                        <span style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)', wordBreak: 'break-all' }}>{record.url}</span>
                         {getStatusPill(record.status)}
                         {getEmailPill(record.emailStatus)}
                       </div>
-                      <div style={{ fontSize: '12px', color: 'var(--ink6)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '4px' }}>
+                      <div style={{ fontSize: '16px', color: 'var(--ink6)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '4px' }}>
                         <span>Email: {record.email}</span>
                         <span>Task: {record.taskId}</span>
                         {record.createdAt && <span>Created: {formatDate(record.createdAt)}</span>}
@@ -210,12 +210,12 @@ const AdminAnalysis = () => {
                         {typeof record.attachmentCount === 'number' && <span>PDFs: {record.attachmentCount}</span>}
                       </div>
                       {record.failureReason && (
-                        <div className="ap-err" style={{ marginTop: '8px', padding: '8px 12px', fontSize: '12px' }}>
+                        <div className="ap-err" style={{ marginTop: '8px', padding: '8px 12px', fontSize: '16px' }}>
                           <strong>Failure reason:</strong> {record.failureReason}
                         </div>
                       )}
                       {record.emailError && (
-                        <div className="ap-warn" style={{ marginTop: '8px', padding: '8px 12px', fontSize: '12px' }}>
+                        <div className="ap-warn" style={{ marginTop: '8px', padding: '8px 12px', fontSize: '16px' }}>
                           <strong>Email error:</strong> {record.emailError}
                         </div>
                       )}
@@ -230,7 +230,7 @@ const AdminAnalysis = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
               </svg>
               <p style={{ fontWeight: 600, color: 'var(--ink)', marginBottom: '4px' }}>No analysis records</p>
-              <p style={{ fontSize: '13px' }}>No analysis requests found matching your criteria.</p>
+              <p style={{ fontSize: '16px' }}>No analysis requests found matching your criteria.</p>
             </div>
           )}
         </div>

@@ -34,14 +34,14 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
           }}>
             {result.score}/100
           </div>
-          <p style={{ fontSize: 15, color: 'var(--ink6)', lineHeight: 1.7 }}>{result.summary}</p>
+          <p style={{ fontSize: 16, color: 'var(--ink6)', lineHeight: 1.7 }}>{result.summary}</p>
         </div>
 
         <div style={{ marginBottom: 24 }}>
           <h4 style={{ fontFamily: 'var(--ffd)', fontSize: 16, color: 'var(--ink)', marginBottom: 10 }}>
             Recommendations:
           </h4>
-          <ul style={{ paddingLeft: 18, color: 'var(--ink6)', fontSize: 14, lineHeight: 1.8 }}>
+          <ul style={{ paddingLeft: 18, color: 'var(--ink6)', fontSize: 16, lineHeight: 1.8 }}>
             {result.recommendations.map((rec, i) => (
               <li key={i} style={{ listStyle: 'disc', marginBottom: 4 }}>{rec}</li>
             ))}
@@ -51,7 +51,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         <button
           onClick={onClose}
           className="btn btn-d"
-          style={{ width: '100%', justifyContent: 'center', fontSize: 15 }}
+          style={{ width: '100%', justifyContent: 'center', fontSize: 16 }}
         >
           Close
         </button>
@@ -91,10 +91,10 @@ const MainScreen = () => {
     fallback.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:12px">
         <div style="flex:1">
-          <p style="font-size:13px;font-weight:600;color:var(--ink);margin-bottom:4px">Email us directly:</p>
-          <p style="font-size:13px;color:var(--t6);font-family:monospace;margin-bottom:6px">${email}</p>
-          <p style="font-size:12px;color:var(--ink3);margin-bottom:6px">Click to copy or email us manually</p>
-          <button onclick="navigator.clipboard.writeText('${email}')" style="font-size:12px;color:var(--t6);background:none;border:none;cursor:pointer;font-family:var(--ff);padding:0">Copy address</button>
+          <p style="font-size: 16px;font-weight:600;color:var(--ink);margin-bottom:4px">Email us directly:</p>
+          <p style="font-size: 16px;color:var(--t6);font-family:monospace;margin-bottom:6px">${email}</p>
+          <p style="font-size: 16px;color:var(--ink3);margin-bottom:6px">Click to copy or email us manually</p>
+          <button onclick="navigator.clipboard.writeText('${email}')" style="font-size: 16px;color:var(--t6);background:none;border:none;cursor:pointer;font-family:var(--ff);padding:0">Copy address</button>
         </div>
         <button onclick="this.parentElement.parentElement.remove()" style="color:var(--ink3);background:none;border:none;cursor:pointer;font-size:18px;line-height:1;padding:0;flex-shrink:0">&times;</button>
       </div>`;
@@ -187,8 +187,8 @@ const MainScreen = () => {
         }}
       >
         <DeviceIcon device={device} />
-        <div style={{ fontSize: 13, fontWeight: 600, marginTop: 4 }}>{label}</div>
-        <div style={{ fontSize: 11, marginTop: 2, color: disabled ? 'rgba(255,255,255,0.35)' : active ? 'var(--t2)' : 'rgba(255,255,255,0.45)' }}>
+        <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{label}</div>
+        <div style={{ fontSize: 16, marginTop: 2, color: disabled ? 'rgba(255,255,255,0.35)' : active ? 'var(--t1)' : 'rgba(255,255,255,0.75)' }}>
           {locked ? (hasSubscriptionQuickScanAccess ? 'Unlocked' : 'Subscription') : 'FREE'}
         </div>
       </button>
@@ -233,13 +233,16 @@ const MainScreen = () => {
           background: rgba(255,255,255,0.92);
           border: 1.5px solid transparent;
           border-radius: var(--r);
-          font-size: 15px;
+          font-size: 16px;
           font-family: var(--ff);
-          color: var(--ink);
+          /* Fixed dark ink, not the theme-flipping --ink — this field's
+             background always stays light (it sits in the permanently-dark
+             hero regardless of site theme), so its text must stay dark too. */
+          color: #1A1A18;
           outline: none;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .home-input::placeholder { color: var(--ink3); }
+        .home-input::placeholder { color: #6E6E6B; }
         .home-input:focus {
           border-color: var(--t4);
           box-shadow: 0 0 0 3px rgba(29,158,117,0.15);
@@ -330,7 +333,7 @@ const MainScreen = () => {
               </em>
             </h1>
 
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.6)', maxWidth: 560, marginBottom: 40 }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 560, marginBottom: 40 }}>
               <strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
                 Reach 124 million older adults with $8.3 trillion in buying power.
               </strong>{' '}
@@ -398,8 +401,8 @@ const MainScreen = () => {
                   {/* Device selector */}
                   <div style={{ marginBottom: 20 }}>
                     <label style={{
-                      display: 'block', fontSize: 12, fontWeight: 600,
-                      color: 'rgba(255,255,255,0.6)', letterSpacing: '0.08em',
+                      display: 'block', fontSize: 16, fontWeight: 600,
+                      color: 'rgba(255, 255, 255, 0.75)', letterSpacing: '0.08em',
                       textTransform: 'uppercase', marginBottom: 10,
                     }}>
                       Select Device Type
@@ -409,7 +412,7 @@ const MainScreen = () => {
                       <DeviceBtn device="tablet"  label="Tablet"  locked={true}  />
                       <DeviceBtn device="mobile"  label="Mobile"  locked={true}  />
                     </div>
-                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.42)', textAlign: 'center', marginTop: 8 }}>
+                    <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', textAlign: 'center', marginTop: 8 }}>
                       {hasSubscriptionQuickScanAccess
                         ? 'Active subscription detected. Tablet and mobile quick scans are unlocked.'
                         : <><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet and Mobile testing available with <a href="/services" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a></>
@@ -432,7 +435,7 @@ const MainScreen = () => {
                     type="submit"
                     disabled={isScanning}
                     className="btn btn-p"
-                    style={{ width: '100%', justifyContent: 'center', fontSize: 15, padding: '14px 22px', opacity: isScanning ? 0.65 : 1 }}
+                    style={{ width: '100%', justifyContent: 'center', fontSize: 16, padding: '14px 22px', opacity: isScanning ? 0.65 : 1 }}
                   >
                     {isScanning
                       ? <><Spinner /> Analyzing…</>
@@ -450,14 +453,14 @@ const MainScreen = () => {
                   >
                     Get Full Audit Here
                   </a>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.38)' }}>
+                  <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)' }}>
                     Tablet and Mobile testing available with{' '}
                     <a href="/subscription" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a>
                   </p>
                 </div>
 
                 <p style={{
-                  fontSize: 13, color: 'rgba(255,255,255,0.45)', lineHeight: 1.65,
+                  fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.65,
                   textAlign: 'center', marginTop: 18, fontWeight: 300,
                 }}>
                   Earn the SilverSurfers Seal of Approval through expert audits that score your site and
@@ -465,7 +468,7 @@ const MainScreen = () => {
                 </p>
               </div>
 
-              <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', lineHeight: 1.7, marginTop: 24, fontWeight: 300 }}>
+              <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.7, marginTop: 24, fontWeight: 300 }}>
                 SilverSurfers empowers organizations to create accessible and inclusive digital experiences
                 that delight and engage SilverSurfers (adults 50+) as they surf the digital oceans.
               </p>
@@ -506,7 +509,7 @@ const MainScreen = () => {
               ].map(({ n, l }) => (
                 <div key={l} style={{ textAlign: 'center' }}>
                   <div style={{ fontFamily: 'var(--ffd)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 700, color: 'var(--t4)', lineHeight: 1, marginBottom: 6 }}>{n}</div>
-                  <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink6)' }}>{l}</div>
+                  <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink6)' }}>{l}</div>
                 </div>
               ))}
             </div>
@@ -637,8 +640,8 @@ const MainScreen = () => {
                 <blockquote className="proof-q" style={{ fontSize: 18, maxWidth: 680, margin: '0 auto 20px' }}>
                   SilverSurfers helped us create a website that our older customers can actually use. Our conversion rate from senior visitors increased by 40% after implementing their recommendations.
                 </blockquote>
-                <div className="proof-a" style={{ fontSize: 13 }}>
-                  <strong style={{ color: 'rgba(255,255,255,0.65)', fontWeight: 600, display: 'block', marginBottom: 2 }}>
+                <div className="proof-a" style={{ fontSize: 16 }}>
+                  <strong style={{ color: 'rgba(255, 255, 255, 0.75)', fontWeight: 600, display: 'block', marginBottom: 2 }}>
                     Maria Rodriguez
                   </strong>
                   Owner, Sunset Health Services
@@ -663,7 +666,7 @@ const MainScreen = () => {
             <h2 className="h2" style={{ color: '#fff', marginBottom: 14 }}>
               Ready to welcome <em style={{ fontStyle: 'italic', color: 'var(--t1)' }}>all generations?</em>
             </h2>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.5)', maxWidth: 560, margin: '0 auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 560, margin: '0 auto' }}>
               Start your journey to creating an inclusive and delightful digital experience for everyone.
               Get your free assessment and discover how to make your digital assets accessible to users of all ages.
             </p>
@@ -681,7 +684,7 @@ const MainScreen = () => {
             </div>
 
             <div style={{ marginTop: 24, textAlign: 'center' }}>
-              <a href="/subscription" className="btn btn-o" style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.7)' }}>
+              <a href="/subscription" className="btn btn-o" style={{ background: 'transparent', borderColor: 'rgba(255,255,255,0.3)', color: 'rgba(255, 255, 255, 0.75)' }}>
                 Get Full Audit Here
               </a>
               <p className="cta-note" style={{ marginTop: 12 }}>

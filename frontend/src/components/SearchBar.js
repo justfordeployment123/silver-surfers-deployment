@@ -159,12 +159,12 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
       {/* Search Button/Input */}
       <form onSubmit={handleSearch} className="relative">
         <div className={`flex items-center gap-2 transition-all duration-300 ${
-          isSearchOpen ? 'w-48 sm:w-56 md:w-64' : 'w-10'
+          isSearchOpen ? 'w-48 sm:w-56 md:w-64' : 'w-11'
         }`}>
           <button
             type="button"
             onClick={() => setIsSearchOpen(!isSearchOpen)}
-            className="ss-search-btn p-2 rounded-lg transition-all duration-300"
+            className="ss-search-btn min-w-11 min-h-11 flex items-center justify-center rounded-lg transition-all duration-300"
             aria-label="Search"
           >
             <svg
@@ -189,6 +189,7 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearchOpen(true)}
               placeholder="Search..."
+              aria-label="Search the site"
               autoFocus
               className="ss-search-input flex-1 px-4 py-2 rounded-lg border outline-none transition-all duration-300"
             />
@@ -214,12 +215,12 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
                     {result.title}
                   </div>
                   {result.description && (
-                    <div className="ss-search-result-desc text-xs mt-0.5 line-clamp-2">
+                    <div className="ss-search-result-desc text-base mt-0.5 line-clamp-2">
                       {result.description}
                     </div>
                   )}
-                  <div className="ss-search-result-meta text-xs mt-1 flex items-center gap-1">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                  <div className="ss-search-result-meta text-base mt-1 flex items-center gap-1">
+                    <span className={`px-1.5 py-0.5 rounded text-base font-medium ${
                       result.type === 'page' ? 'bg-blue-100 text-blue-700' :
                       result.type === 'section' ? 'bg-green-100 text-green-700' :
                       'bg-purple-100 text-purple-700'

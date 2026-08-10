@@ -8,14 +8,14 @@ const STYLES = `
 .srm-close-btn:hover { background: #e5e7eb; color: #111; }
 .srm-body { padding: 24px; display: flex; flex-direction: column; gap: 32px; }
 .srm-result-header { text-align: center; background: var(--sandd); border-radius: 16px; padding: 32px; border: 1px solid var(--t1); }
-.srm-score-pill { display: inline-flex; align-items: center; padding: 10px 24px; border-radius: 9999px; font-weight: 700; font-size: 15px; }
-.srm-score-pill-green { background: var(--t4); color: #fff; }
+.srm-score-pill { display: inline-flex; align-items: center; padding: 10px 24px; border-radius: 9999px; font-weight: 700; font-size: 16px; }
+.srm-score-pill-green { background: var(--t6); color: #fff; }
 .srm-score-pill-yellow { background: #f59e0b; color: #fff; }
 .srm-score-pill-red { background: var(--coral); color: #fff; }
 .srm-section { background: var(--surface); border-radius: 16px; padding: 24px; border: 1px solid #e5e7eb; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
 .srm-section-icon { color: var(--t4); flex-shrink: 0; }
 .srm-rec-item { display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; background: var(--sandd); border-radius: 12px; border: 1px solid var(--t1); }
-.srm-rec-num { flex-shrink: 0; width: 24px; height: 24px; background: var(--t4); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
+.srm-rec-num { flex-shrink: 0; width: 24px; height: 24px; background: var(--t6); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; font-weight: 700; }
 .srm-cta { background: var(--t9); border-radius: 16px; padding: 32px; color: #fff; }
 .srm-email-notice { background: var(--sandd); border-radius: 16px; padding: 24px; border: 1px solid var(--t1); }
 .srm-email-icon { flex-shrink: 0; width: 40px; height: 40px; background: var(--t4); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
@@ -91,7 +91,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 24px', gap: '24px' }}>
               <div className="srm-spinner"></div>
               <h2 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: 'var(--t9)' }}>Analyzing your website…</h2>
-              <p style={{ fontSize: '14px', color: 'var(--ink6)', textAlign: 'center' }}>Our AI is scanning your site for visibility factors</p>
+              <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center' }}>Our AI is scanning your site for visibility factors</p>
             </div>
           )}
 
@@ -103,7 +103,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                 </svg>
               </div>
               <h2 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: 'var(--t9)' }}>Oops! Something went wrong</h2>
-              <p style={{ fontSize: '14px', color: 'var(--ink6)', textAlign: 'center' }}>{error}</p>
+              <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center' }}>{error}</p>
               <button onClick={onClose} className="btn btn-d">Try Another Scan</button>
             </div>
           )}
@@ -142,7 +142,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                   </svg>
                   Summary
                 </h3>
-                <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: 1.7 }}>{getSummaryText(displayScore, scanData.summary)}</p>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: 1.7 }}>{getSummaryText(displayScore, scanData.summary)}</p>
               </div>
 
               <div className="srm-section">
@@ -156,7 +156,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                   {(scanData.recommendations || []).slice(0, 5).map((rec, idx) => (
                     <div key={idx} className="srm-rec-item">
                       <div className="srm-rec-num">{idx + 1}</div>
-                      <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: 1.6 }}>{rec}</p>
+                      <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: 1.6 }}>{rec}</p>
                     </div>
                   ))}
                 </div>
@@ -165,7 +165,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
               <div className="srm-cta">
                 <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                   <h3 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>Ready to Improve Your Score?</h3>
-                  <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)' }}>See our full report and strategy for improving your AI visibility</p>
+                  <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>See our full report and strategy for improving your AI visibility</p>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', justifyContent: 'center' }}>
                   <a href="/services" className="btn btn-p" style={{ textDecoration: 'none' }}>Get My Detailed Report</a>
@@ -181,8 +181,8 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                     </svg>
                   </div>
                   <div>
-                    <h4 style={{ fontSize: '14px', fontWeight: 700, color: 'var(--t9)', marginBottom: '6px' }}>Results Sent!</h4>
-                    <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: 1.6 }}>
+                    <h4 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--t9)', marginBottom: '6px' }}>Results Sent!</h4>
+                    <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: 1.6 }}>
                       A copy of these results has been sent to <strong>{scanData.email}</strong>.
                       Check your inbox for your AI Visibility Score and next steps.
                     </p>
@@ -194,7 +194,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                 <h3 style={{ fontFamily: 'var(--ffd)', fontSize: '22px', fontWeight: 700, color: 'var(--t9)', marginBottom: '12px' }}>
                   Turn Your Score of {scanData.score} into 90+
                 </h3>
-                <p style={{ fontSize: '14px', color: 'var(--ink6)', marginBottom: '24px', maxWidth: '540px', margin: '0 auto 24px' }}>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '24px', maxWidth: '540px', margin: '0 auto 24px' }}>
                   Our experts can help you improve your AI visibility significantly. Pick a plan below to get started.
                 </p>
                 <div className="srm-lead-inner">
@@ -203,7 +203,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
                   </div>
-                  <p style={{ fontSize: '14px', color: 'var(--ink)', fontWeight: 600, marginBottom: '16px' }}>
+                  <p style={{ fontSize: '16px', color: 'var(--ink)', fontWeight: 600, marginBottom: '16px' }}>
                     Next Step: Get a professional AI Visibility Report for a full diagnosis and custom action plan.
                   </p>
                   <a href="/services" className="btn btn-d" style={{ textDecoration: 'none' }}>
@@ -216,7 +216,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
               </div>
 
               <div style={{ textAlign: 'center' }}>
-                <p style={{ fontSize: '12px', color: 'var(--ink6)' }}>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>
                   We only use your URL to perform this one-time analysis. We won't share your data. Unsubscribe anytime.{' '}
                   <a href="/privacy" style={{ color: 'var(--t4)', textDecoration: 'underline' }}>Privacy Policy</a>
                 </p>

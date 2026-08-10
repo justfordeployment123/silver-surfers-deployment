@@ -99,7 +99,7 @@ const ProtectedRoute = ({ role = null, children }) => {
             justify-content: center;
             overflow: hidden;
             height: 1.3em;
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 500;
             color: var(--ink6);
           }

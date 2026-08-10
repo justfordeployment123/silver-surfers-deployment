@@ -122,15 +122,16 @@ const Contact = () => {
         .contact-method-lnk {
           display: inline-flex;
           align-items: center;
+          min-height: 44px;
           gap: 6px;
-          font-size: 13.5px;
+          font-size: 16px;
           font-weight: 500;
-          color: var(--t4);
+          color: var(--tlink);
           text-decoration: none;
           margin-top: 14px;
           transition: color 0.15s;
         }
-        .contact-method-lnk:hover { color: var(--t3); }
+        .contact-method-lnk:hover { color: var(--ink); text-decoration: underline; }
         .contact-info-icon {
           width: 44px;
           height: 44px;
@@ -143,13 +144,16 @@ const Contact = () => {
           margin-bottom: 12px;
         }
         .contact-info-val {
-          font-size: 13.5px;
-          color: var(--t4);
+          display: inline-flex;
+          align-items: center;
+          min-height: 44px;
+          font-size: 16px;
+          color: var(--tlink);
           font-weight: 500;
           text-decoration: none;
           transition: color 0.15s;
         }
-        a.contact-info-val:hover { color: var(--t3); }
+        a.contact-info-val:hover { color: var(--ink); text-decoration: underline; }
         .contact-form-wrap {
           max-width: 720px;
           margin: 0 auto;
@@ -193,7 +197,7 @@ const Contact = () => {
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
             <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>Contact</p>
             <h1 className="h1" style={{ color: '#fff' }}>Get in Touch</h1>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '540px', margin: '0 auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: '540px', margin: '0 auto' }}>
               Have questions or need a custom quote? Our friendly, expert team is here to help.
             </p>
           </div>
@@ -213,7 +217,7 @@ const Contact = () => {
                   <div className="card-bar" />
                   <div className="contact-method-icon">{method.icon}</div>
                   <h3 className="h3" style={{ marginBottom: '8px' }}>{method.title}</h3>
-                  <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: '1.65' }}>
+                  <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65' }}>
                     {method.description}
                   </p>
                   <a
@@ -359,7 +363,7 @@ const Contact = () => {
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Email</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>For general inquiries and support</p>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>For general inquiries and support</p>
                 <a
                   href={`https://mail.google.com/mail/?view=cm&fs=1&to=${contactInfo.email}`}
                   target="_blank"
@@ -374,7 +378,7 @@ const Contact = () => {
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Phone</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>For sales and urgent inquiries</p>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>For sales and urgent inquiries</p>
                 <a href={`tel:${contactInfo.phone}`} className="contact-info-val">
                   {contactInfo.phoneDisplay}
                 </a>
@@ -384,32 +388,32 @@ const Contact = () => {
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Office Address</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>Our headquarters</p>
-                <span style={{ fontSize: '13.5px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.address}</span>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>Our headquarters</p>
+                <span style={{ fontSize: '16px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.address}</span>
               </div>
 
               <div className="card">
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Office Hours</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>When we're available</p>
-                <span style={{ fontSize: '13.5px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.officeHours}</span>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>When we're available</p>
+                <span style={{ fontSize: '16px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.officeHours}</span>
               </div>
 
               <div className="card">
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Response Time</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>How quickly we'll get back to you</p>
-                <span style={{ fontSize: '13.5px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.responseTime}</span>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>How quickly we'll get back to you</p>
+                <span style={{ fontSize: '16px', color: 'var(--ink)', fontWeight: 500 }}>{contactInfo.responseTime}</span>
               </div>
 
               <div className="card">
                 <div className="card-bar" />
                 <div className="contact-info-icon"><svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg></div>
                 <h3 className="h3" style={{ marginBottom: '4px' }}>Custom Solutions</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '8px' }}>Need something specific?</p>
-                <span style={{ fontSize: '13.5px', color: 'var(--ink)' }}>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '8px' }}>Need something specific?</p>
+                <span style={{ fontSize: '16px', color: 'var(--ink)' }}>
                   We can create custom solutions for your digital business. Contact us today.
                 </span>
               </div>
@@ -424,7 +428,7 @@ const Contact = () => {
             <h2 className="h2" style={{ color: '#fff', marginBottom: '16px' }}>
               Ready to Improve Your Digital Experience?
             </h2>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.65)', marginBottom: '36px', maxWidth: '580px', marginLeft: 'auto', marginRight: 'auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '36px', maxWidth: '580px', marginLeft: 'auto', marginRight: 'auto' }}>
               Join hundreds of businesses that are already enhancing their digital experience
               to capture the SilverSurfers market. Our expert team is ready to help!
             </p>

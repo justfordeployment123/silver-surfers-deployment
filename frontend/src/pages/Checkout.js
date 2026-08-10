@@ -212,7 +212,7 @@ const Checkout = () => {
         .co-sub-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
         .co-stat-cell { text-align: center; }
         .co-stat-num { font-size: 24px; font-weight: 700; font-family: var(--ffd); color: var(--ink); }
-        .co-stat-label { font-size: 11px; color: var(--ink6); margin-top: 2px; }
+        .co-stat-label { font-size: 16px; color: var(--ink6); margin-top: 2px; }
         .co-use-ok { background: var(--t05); color: var(--t4); border-radius: var(--r); padding: 10px 14px; }
         .co-use-warn { background: rgba(245,158,11,0.08); color: var(--amber); border-radius: var(--r); padding: 10px 14px; }
         .co-use-danger { background: rgba(239,68,68,0.08); color: var(--coral); border-radius: var(--r); padding: 10px 14px; }
@@ -261,7 +261,7 @@ const Checkout = () => {
           color: var(--ink6);
           cursor: pointer;
           transition: border-color 0.15s, color 0.15s, background 0.15s;
-          font-size: 13px;
+          font-size: 16px;
           font-weight: 500;
         }
         .co-device-btn.active {
@@ -275,13 +275,13 @@ const Checkout = () => {
           border-radius: var(--r);
           padding: 12px 14px;
           margin-bottom: 20px;
-          font-size: 13px;
+          font-size: 16px;
           color: var(--t7);
           display: flex;
           align-items: center;
           gap: 8px;
         }
-        .co-sku { background: var(--t4); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
+        .co-sku { background: var(--t6); color: #fff; font-size: 16px; font-weight: 600; padding: 2px 8px; border-radius: 20px; }
         .co-spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: coSpin 0.7s linear infinite; vertical-align: middle; margin-right: 8px; }
         @keyframes coSpin { to { transform: rotate(360deg); } }
         .co-skel { animation: coSkelPulse 1.2s ease-in-out infinite; }
@@ -294,7 +294,7 @@ const Checkout = () => {
 
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <h1 className="h1" style={{ color: '#fff', marginBottom: '8px' }}>Start Your Accessibility Audit</h1>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.65)' }}>Enter your website URL to begin a comprehensive accessibility analysis</p>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Enter your website URL to begin a comprehensive accessibility analysis</p>
           </div>
 
           <div className="co-card">
@@ -327,7 +327,7 @@ const Checkout = () => {
                   </div>
                 </div>
 
-                <div className={`${getUsageStatusColor()}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 500 }}>
+                <div className={`${getUsageStatusColor()}`} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', fontWeight: 500 }}>
                   <svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
@@ -346,8 +346,8 @@ const Checkout = () => {
                       <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                     <div>
-                      <div style={{ fontWeight: 600, color: 'var(--coral)', fontSize: '14px' }}>No Active Subscription</div>
-                      <div style={{ fontSize: '13px', color: 'var(--ink6)' }}>You need an active subscription to start audits.</div>
+                      <div style={{ fontWeight: 600, color: 'var(--coral)', fontSize: '16px' }}>No Active Subscription</div>
+                      <div style={{ fontSize: '16px', color: 'var(--ink6)' }}>You need an active subscription to start audits.</div>
                     </div>
                   </div>
                 </div>
@@ -363,8 +363,8 @@ const Checkout = () => {
                     <path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" />
                   </svg>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>One-Time Scan Credits</div>
-                    <div style={{ fontSize: '12px', color: 'var(--ink6)' }}>You have {oneTimeScans} one-time scan{oneTimeScans !== 1 ? 's' : ''} available</div>
+                    <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>One-Time Scan Credits</div>
+                    <div style={{ fontSize: '16px', color: 'var(--ink6)' }}>You have {oneTimeScans} one-time scan{oneTimeScans !== 1 ? 's' : ''} available</div>
                   </div>
                 </div>
                 <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--t4)', fontFamily: 'var(--ffd)' }}>{oneTimeScans}</div>
@@ -429,8 +429,8 @@ const Checkout = () => {
                     <label className={`co-credit-opt${creditType === 'subscription' ? ' selected' : ''}`}>
                       <input type="radio" name="creditType" value="subscription" checked={creditType === 'subscription'} onChange={(e) => setCreditType(e.target.value)} style={{ accentColor: 'var(--t4)', width: '18px', height: '18px', flexShrink: 0, marginTop: '2px' }} />
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>Use Subscription ({subscription.plan?.name || 'Plan'})</div>
-                        <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>Use Subscription ({subscription.plan?.name || 'Plan'})</div>
+                        <div style={{ fontSize: '16px', color: 'var(--ink6)', marginTop: '2px' }}>
                           {getRemainingScans()} scan{getRemainingScans() !== 1 ? 's' : ''} remaining this month
                           {subscription.planId === 'pro' && ' • Tests all devices (Desktop, Tablet, Mobile)'}
                           {subscription.planId === 'starter' && ' • Select one device type per scan'}
@@ -440,8 +440,8 @@ const Checkout = () => {
                     <label className={`co-credit-opt${creditType === 'oneTime' ? ' selected' : ''}`}>
                       <input type="radio" name="creditType" value="oneTime" checked={creditType === 'oneTime'} onChange={(e) => setCreditType(e.target.value)} style={{ accentColor: 'var(--t4)', width: '18px', height: '18px', flexShrink: 0, marginTop: '2px' }} />
                       <div>
-                        <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>Use One-Time Scan Credit</div>
-                        <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>
+                        <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>Use One-Time Scan Credit</div>
+                        <div style={{ fontSize: '16px', color: 'var(--ink6)', marginTop: '2px' }}>
                           {oneTimeScans} credit{oneTimeScans !== 1 ? 's' : ''} available • Select one device type per scan
                         </div>
                       </div>
@@ -454,7 +454,7 @@ const Checkout = () => {
               {shouldShowDeviceSelection() && (
                 <div style={{ marginBottom: '16px' }}>
                   <label className="ss-label">Select Device Type</label>
-                  <p style={{ fontSize: '12px', color: 'var(--ink6)', marginBottom: '10px' }}>
+                  <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '10px' }}>
                     {creditType === 'oneTime'
                       ? 'Select which device type to audit for this one-time scan. One-time scans audit one device type per scan.'
                       : 'Your Starter plan allows auditing for one device type per scan.'}
@@ -515,7 +515,7 @@ const Checkout = () => {
             </form>
 
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <button onClick={() => navigate('/subscription')} className="btn btn-o" style={{ fontSize: '13px' }}>
+              <button onClick={() => navigate('/subscription')} className="btn btn-o" style={{ fontSize: '16px' }}>
                 ← Back to Subscription
               </button>
             </div>

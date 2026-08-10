@@ -88,6 +88,7 @@ const Header = () => {
         .ss-logo {
           display: flex;
           align-items: center;
+          min-height: 44px;
           gap: 8px;
           font-family: var(--ffd);
           font-size: 20px;
@@ -104,16 +105,21 @@ const Header = () => {
         /* ── Desktop links ─────────────────────────────── */
         .ss-nav-links {
           display: flex;
-          gap: 28px;
+          gap: 12px;
           list-style: none;
           align-items: center;
         }
         .ss-nav-link {
-          font-size: 13.5px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+          font-size: 16px;
           font-weight: 500;
           color: var(--ink6);
           cursor: pointer;
-          padding: 4px 0;
+          padding: 10px 8px;
           border-bottom: 2px solid transparent;
           transition: color 0.15s, border-color 0.15s;
           white-space: nowrap;
@@ -121,7 +127,7 @@ const Header = () => {
         }
         .ss-nav-link:hover,
         .ss-nav-link.active {
-          color: var(--t6);
+          color: var(--tlink);
           border-bottom-color: var(--t4);
         }
 
@@ -129,7 +135,7 @@ const Header = () => {
         .ss-nav-cta {
           background: var(--t8);
           color: #fff;
-          font-size: 13px;
+          font-size: 16px;
           font-weight: 600;
           padding: 10px 20px;
           border-radius: var(--r);
@@ -155,9 +161,10 @@ const Header = () => {
         .ss-avatar-btn {
           display: flex;
           align-items: center;
+          min-height: 44px;
           gap: 5px;
-          padding: 5px 8px 5px 5px;
-          border-radius: 20px;
+          padding: 8px 10px 8px 8px;
+          border-radius: 22px;
           border: 1px solid var(--sandd);
           background: var(--surface);
           cursor: pointer;
@@ -172,13 +179,13 @@ const Header = () => {
           width: 28px;
           height: 28px;
           border-radius: 50%;
-          background: var(--t4);
+          background: var(--t6);
           color: #fff;
           display: flex;
           align-items: center;
           justify-content: center;
           font-family: var(--ff);
-          font-size: 12px;
+          font-size: 16px;
           font-weight: 600;
         }
 
@@ -203,7 +210,7 @@ const Header = () => {
 
         .ss-dropdown-email {
           padding: 10px 16px;
-          font-size: 12px;
+          font-size: 16px;
           color: var(--ink3);
           border-bottom: 1px solid var(--sandd);
         }
@@ -211,7 +218,7 @@ const Header = () => {
         .ss-dropdown-item {
           display: block;
           padding: 10px 16px;
-          font-size: 13.5px;
+          font-size: 16px;
           color: var(--ink6);
           text-decoration: none;
           transition: background 0.12s, color 0.12s;
@@ -243,9 +250,9 @@ const Header = () => {
           flex-direction: column;
           justify-content: center;
           gap: 5px;
-          width: 36px;
-          height: 36px;
-          padding: 4px;
+          width: 44px;
+          height: 44px;
+          padding: 8px;
           cursor: pointer;
           background: none;
           border: none;
@@ -289,7 +296,7 @@ const Header = () => {
         .ss-mobile-link {
           display: block;
           padding: 11px 14px;
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 500;
           color: var(--ink6);
           border-radius: var(--r);
@@ -318,7 +325,31 @@ const Header = () => {
         @media (max-width: 1200px) {
           .ss-nav-inner { padding: 0 24px; }
         }
+
+        /* ── Skip link (WCAG 2.4.1 Bypass Blocks) ───────── */
+        .ss-skip-link {
+          position: absolute;
+          top: -80px;
+          left: 12px;
+          z-index: 2000;
+          background: var(--t8);
+          color: #fff;
+          font-size: 16px;
+          font-weight: 600;
+          padding: 12px 20px;
+          border-radius: var(--r);
+          text-decoration: none;
+          min-height: 44px;
+          display: inline-flex;
+          align-items: center;
+          transition: top 0.15s ease;
+        }
+        .ss-skip-link:focus {
+          top: 12px;
+        }
       `}</style>
+
+      <a href="#main-content" className="ss-skip-link">Skip to main content</a>
 
       {/* ── Fixed navbar ───────────────────────────────── */}
       <header className={`ss-nav${isScrolled ? ' scrolled' : ''}`} role="banner">
@@ -331,7 +362,8 @@ const Header = () => {
           </Link>
 
           {/* Desktop links */}
-          <ul className="ss-nav-links" role="navigation" aria-label="Main navigation">
+          <nav aria-label="Main navigation">
+          <ul className="ss-nav-links">
             {navLinks.map(({ to, label }) => (
               <li key={to}>
                 <Link
@@ -353,6 +385,7 @@ const Header = () => {
               </li>
             )}
           </ul>
+          </nav>
 
           {/* Right cluster */}
           <div className="ss-nav-right">
@@ -487,7 +520,7 @@ const Header = () => {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 14px' }}>
-            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--ink6)' }}>Appearance</span>
+            <span style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink6)' }}>Appearance</span>
             <ThemeToggle />
           </div>
 
@@ -527,7 +560,7 @@ const Header = () => {
               color: '#fff',
               borderRadius: 'var(--r)',
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: 16,
               marginTop: 4,
               textDecoration: 'none',
             }}
@@ -556,7 +589,7 @@ const Header = () => {
                   color: 'var(--coral)',
                   borderRadius: 'var(--r)',
                   fontWeight: 600,
-                  fontSize: 14,
+                  fontSize: 16,
                   marginTop: 4,
                   border: '1px solid #F5C4B8',
                   cursor: 'pointer',
@@ -578,7 +611,7 @@ const Header = () => {
                 style={{
                   flex: 1, textAlign: 'center', padding: '12px',
                   background: 'var(--sand)', color: 'var(--ink)',
-                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 14,
+                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 16,
                   border: '1px solid var(--sandd)', textDecoration: 'none',
                 }}
               >
@@ -590,7 +623,7 @@ const Header = () => {
                 style={{
                   flex: 1, textAlign: 'center', padding: '12px',
                   background: 'var(--t9)', color: '#fff',
-                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 14,
+                  borderRadius: 'var(--r)', fontWeight: 600, fontSize: 16,
                   textDecoration: 'none',
                 }}
               >

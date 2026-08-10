@@ -12,16 +12,22 @@
   /* Ink / neutral */
   --ink:  #1A1A18;
   --ink6: #5C5C58;
-  --ink3: #ADADAA;
+  /* ink3 was #ADADAA (2.25:1 on white) — too light to ever pass 4.5:1 AA as
+     text, which it was used for in many places. Darkened to keep it the
+     most muted tier while clearing 4.5:1 against white and --sand. */
+  --ink3: #6E6E6B;
 
   /* Sand */
   --sand:  #F7F5F0;
   --sandd: #EAE8E3;
 
   /* Semantic */
-  --coral:    #C84B2F;
+  /* Darkened from #C84B2F (4.66:1 on white, 4.05:1 on --coralbg — failed
+     AA on its own tinted background) so error text reliably clears 4.5:1. */
+  --coral:    #A83A22;
   --coralbg:  #FAECE7;
-  --amber:    #B06A10;
+  /* Darkened from #B06A10 (4.27:1 on white, 3.72:1 on --amberbg — failed AA). */
+  --amber:    #8F5209;
   --amberbg:  #FAEEDA;
   --blue:     #185FA5;
   --bluebg:   #E6F1FB;
@@ -39,6 +45,19 @@
   --surface: #fff;
   --nav-bg:  rgba(255, 255, 255, 0.97);
 
+  /* Teal "accent text" for links/labels on theme-aware surfaces (cards, body
+     copy, form hints) — NOT for the permanently-dark hero/CTA/footer
+     sections, which should keep using --t2 directly. --t4 itself only
+     reaches ~3.4:1 on white, so it can't be used as text; --tlink swaps in
+     the teal shade that actually clears 4.5:1 against the surface color
+     the current theme is using. */
+  --tlink: var(--t6);
+  /* --t3 was referenced in ~15 places (hover states, status badges) but was
+     never defined in the teal scale above — every one of those declarations
+     was silently invalid. Alias it to --tlink so they resolve to a real,
+     theme-appropriate, contrast-passing color instead of doing nothing. */
+  --t3: var(--tlink);
+
   color-scheme: light;
 }
 
@@ -51,7 +70,8 @@
 :root[data-theme='dark'] {
   --ink:  #F2F1ED;
   --ink6: #B7B6B0;
-  --ink3: #75746E;
+  /* Same 4.5:1 fix as light mode's --ink3, mirrored for the dark surfaces. */
+  --ink3: #8C8B85;
 
   --sand:  #14211C;
   --sandd: #253531;
@@ -59,6 +79,16 @@
   --bg:      #0B1210;
   --surface: #101815;
   --nav-bg:  rgba(11, 18, 16, 0.86);
+
+  --tlink: var(--t2);
+
+  /* Light-mode coral/amber/blue are tuned to pass 4.5:1 on light surfaces;
+     re-lighten them here so they keep passing once --surface/--sand/--bg
+     flip dark. (--coralbg/--amberbg/--bluebg are fixed pastel chips that
+     intentionally don't flip, same as the teal scale.) */
+  --coral: #EF8266;
+  --amber: #E8B34D;
+  --blue:  #6BAEE8;
 
   color-scheme: dark;
 }
@@ -114,7 +144,7 @@ p { line-height: 1.7; }
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--ffd);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.5;
   color: var(--ink);
 }
 

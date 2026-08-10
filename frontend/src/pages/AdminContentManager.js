@@ -9,37 +9,37 @@ import {
 const STYLES = `
 .cm-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; padding-left: 16px; padding-right: 16px; background: var(--t9); color: #fff; }
 @media (min-width: 640px) { .cm-pg { padding-left: 40px; padding-right: 40px; } }
-.cm-inp { width: 100%; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 14px; outline: none; }
-.cm-inp::placeholder { color: rgba(255,255,255,0.45); }
+.cm-inp { width: 100%; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 16px; outline: none; }
+.cm-inp::placeholder { color: rgba(255,255,255,0.75); }
 .cm-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px var(--t05); }
-.cm-sel { padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 14px; outline: none; }
+.cm-sel { padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; font-size: 16px; outline: none; }
 .cm-sel:focus { border-color: var(--t4); box-shadow: 0 0 0 2px var(--t05); }
 .cm-view-sel { appearance: none; width: 288px; font-size: 18px; font-weight: 600; padding: 16px 48px 16px 24px; border-radius: 16px; background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.25); color: #fff; outline: none; box-shadow: 0 8px 32px rgba(0,0,0,0.2); letter-spacing: 0.04em; }
 @media (min-width: 768px) { .cm-view-sel { width: 384px; } }
 .cm-view-sel:focus { border-color: var(--t4); box-shadow: 0 0 0 3px var(--t05); }
-.cm-btn-add { padding: 10px 16px; border-radius: 16px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cm-btn-add { padding: 10px 16px; border-radius: 16px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 16px; }
 .cm-btn-add:hover { background: var(--t8); }
-.cm-btn-clear { padding: 10px 16px; border-radius: 16px; background: rgba(255,255,255,0.1); color: #fff; font-weight: 700; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.cm-btn-clear { padding: 10px 16px; border-radius: 16px; background: rgba(255,255,255,0.1); color: #fff; font-weight: 700; border: 1px solid rgba(255,255,255,0.15); cursor: pointer; display: flex; align-items: center; gap: 8px; font-size: 16px; }
 .cm-btn-clear:hover { background: rgba(255,255,255,0.16); }
-.cm-btn-save { padding: 8px 16px; border-radius: 12px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; font-size: 14px; }
+.cm-btn-save { padding: 8px 16px; border-radius: 12px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; font-size: 16px; }
 .cm-btn-save:hover { background: var(--t8); }
-.cm-btn-cancel { padding: 8px 16px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; font-size: 14px; }
+.cm-btn-cancel { padding: 8px 16px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; font-size: 16px; }
 .cm-btn-cancel:hover { background: rgba(255,255,255,0.16); }
-.cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t4); color: #fff; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-create:hover { background: var(--t8); }
-.cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-rerun:hover { background: var(--t4); }
-.cm-btn-refresh { padding: 8px 16px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-refresh { padding: 8px 16px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-refresh:hover { background: var(--t4); }
 .cm-btn-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; cursor: pointer; }
 .cm-btn-icon:hover { background: rgba(255,255,255,0.16); }
 .cm-btn-del-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fca5a5; cursor: pointer; }
 .cm-btn-del-icon:hover { background: rgba(239,68,68,0.2); }
-.cm-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700; border: 1px solid; }
+.cm-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 16px; font-weight: 700; border: 1px solid; }
 .cm-pill-pub { background: rgba(29,158,117,0.35); border-color: rgba(29,158,117,0.45); color: var(--t3); }
-.cm-pill-draft { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.55); }
+.cm-pill-draft { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 .cm-pill-feat { background: rgba(217,119,6,0.45); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
-.cm-pill-gray { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.65); }
+.cm-pill-gray { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 .cm-status-completed { background: rgba(29,158,117,0.45); }
 .cm-status-failed { background: rgba(239,68,68,0.5); }
 .cm-status-processing { background: rgba(56,189,248,0.35); }
@@ -52,11 +52,11 @@ const STYLES = `
 .cm-queue-row:hover { border-color: rgba(29,158,117,0.4); }
 .cm-contact-row { padding: 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
 .cm-contact-row:hover { border-color: rgba(29,158,117,0.4); }
-.cm-btn-mark-read { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-mark-read { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-mark-read:hover { background: var(--t4); }
-.cm-btn-close-msg { padding: 6px 12px; border-radius: 8px; background: rgba(56,189,248,0.35); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-close-msg { padding: 6px 12px; border-radius: 8px; background: rgba(56,189,248,0.35); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-close-msg:hover { background: rgba(56,189,248,0.55); }
-.cm-btn-del-msg { padding: 6px 12px; border-radius: 8px; background: rgba(239,68,68,0.5); color: #fff; font-size: 11px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-del-msg { padding: 6px 12px; border-radius: 8px; background: rgba(239,68,68,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-del-msg:hover { background: rgba(239,68,68,0.7); }
 `;
 
@@ -238,7 +238,7 @@ const AdminContentManager = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', marginBottom: '40px' }}>
             <div>
               <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>Content Administration</h1>
-              <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.55)' }}>Manage blog posts & FAQs. Review analysis queue and re-run jobs.</p>
+              <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Manage blog posts & FAQs. Review analysis queue and re-run jobs.</p>
             </div>
           </div>
 
@@ -256,7 +256,7 @@ const AdminContentManager = () => {
             </div>
           </div>
 
-          {error && <p style={{ fontSize: '14px', color: '#fca5a5', marginBottom: '24px', textAlign: 'center' }}>{error}</p>}
+          {error && <p style={{ fontSize: '16px', color: '#fca5a5', marginBottom: '24px', textAlign: 'center' }}>{error}</p>}
 
           {view === 'blog' && (() => {
             const items = (postQuery
@@ -274,7 +274,7 @@ const AdminContentManager = () => {
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
                       <input value={postQuery} onChange={e => setPostQuery(e.target.value)} placeholder="Search posts..." className="cm-inp" style={{ paddingLeft: '36px' }} />
-                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)' }}>
+                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.75)' }}>
                         <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
                       </span>
                     </div>
@@ -302,10 +302,10 @@ const AdminContentManager = () => {
                       <input type="date" className="cm-inp" value={blogForm.date} onChange={e => setBlogForm({...blogForm, date: e.target.value})} />
                       <input className="cm-inp" placeholder="Read time (e.g., '6 min read')" value={blogForm.readTime} onChange={e => setBlogForm({...blogForm, readTime: e.target.value})} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', gridColumn: '1 / -1' }}>
-                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                           <input type="checkbox" checked={blogForm.featured} onChange={e => setBlogForm({...blogForm, featured: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Featured
                         </label>
-                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                           <input type="checkbox" checked={blogForm.published} onChange={e => setBlogForm({...blogForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
                         </label>
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
@@ -331,10 +331,10 @@ const AdminContentManager = () => {
                               <input className="cm-inp" placeholder="Author" value={editForm.author} onChange={e => setEditForm({...editForm, author: e.target.value})} />
                               <input type="date" className="cm-inp" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} />
                               <input className="cm-inp" placeholder="Read time (e.g., '6 min read')" value={editForm.readTime} onChange={e => setEditForm({...editForm, readTime: e.target.value})} />
-                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={!!editForm.published} onChange={e => setEditForm({...editForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
                               </label>
-                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={!!editForm.featured} onChange={e => setEditForm({...editForm, featured: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Featured
                               </label>
                               <div style={{ display: 'flex', gap: '12px' }}>
@@ -351,7 +351,7 @@ const AdminContentManager = () => {
                                 {b.featured && <span className="cm-pill cm-pill-feat">FEATURED</span>}
                                 {b.createdAt && <span className="cm-pill cm-pill-gray">{formatDate(b.createdAt)}</span>}
                               </div>
-                              {b.excerpt && <p style={{ marginTop: '8px', fontSize: '14px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.excerpt}</p>}
+                              {b.excerpt && <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{b.excerpt}</p>}
                               <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                 {b.category && <span className="cm-pill cm-pill-gray">{b.category}</span>}
                                 {b.author && <span className="cm-pill cm-pill-gray">By {b.author}</span>}
@@ -376,7 +376,7 @@ const AdminContentManager = () => {
                       </div>
                     </div>
                   ))}
-                  {items.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)' }}>No posts</div>}
+                  {items.length === 0 && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>No posts</div>}
                 </div>
               </section>
             );
@@ -397,7 +397,7 @@ const AdminContentManager = () => {
                   <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                     <div style={{ flex: 1, minWidth: '200px', position: 'relative' }}>
                       <input value={faqQuery} onChange={e => setFaqQuery(e.target.value)} placeholder="Search FAQs..." className="cm-inp" style={{ paddingLeft: '36px' }} />
-                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255,255,255,0.45)' }}>
+                      <span style={{ pointerEvents: 'none', position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'rgba(255, 255, 255, 0.75)' }}>
                         <svg style={{ width: '16px', height: '16px' }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 103 10.5a7.5 7.5 0 0013.65 6.15z"/></svg>
                       </span>
                     </div>
@@ -420,7 +420,7 @@ const AdminContentManager = () => {
                       <input type="number" className="cm-inp" placeholder="Order" value={faqForm.order} onChange={e => setFaqForm({...faqForm, order: e.target.value})} />
                       <textarea rows={4} className="cm-inp" placeholder="Answer" value={faqForm.answer} onChange={e => setFaqForm({...faqForm, answer: e.target.value})} style={{ gridColumn: '1 / -1' }} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: '16px', gridColumn: '1 / -1' }}>
-                        <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                        <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                           <input type="checkbox" checked={faqForm.published} onChange={e => setFaqForm({...faqForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
                         </label>
                         <div style={{ marginLeft: 'auto', display: 'flex', gap: '12px' }}>
@@ -442,7 +442,7 @@ const AdminContentManager = () => {
                               <input className="cm-inp" placeholder="Question" value={faqEditForm.question} onChange={e => setFaqEditForm({...faqEditForm, question: e.target.value})} />
                               <input type="number" className="cm-inp" placeholder="Order" value={faqEditForm.order} onChange={e => setFaqEditForm({...faqEditForm, order: e.target.value})} />
                               <textarea rows={3} className="cm-inp" placeholder="Answer" value={faqEditForm.answer} onChange={e => setFaqEditForm({...faqEditForm, answer: e.target.value})} />
-                              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                              <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
                                 <input type="checkbox" checked={!!faqEditForm.published} onChange={e => setFaqEditForm({...faqEditForm, published: e.target.checked})} style={{ accentColor: 'var(--t4)' }} /> Published
                               </label>
                               <div style={{ display: 'flex', gap: '12px' }}>
@@ -457,7 +457,7 @@ const AdminContentManager = () => {
                                 <span className={`cm-pill ${f.published ? 'cm-pill-pub' : 'cm-pill-draft'}`}>{f.published ? 'PUBLISHED' : 'DRAFT'}</span>
                                 {f.createdAt && <span className="cm-pill cm-pill-gray">{formatDate(f.createdAt)}</span>}
                               </div>
-                              {f.answer && <p style={{ marginTop: '8px', fontSize: '14px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.answer}</p>}
+                              {f.answer && <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(255,255,255,0.75)', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{f.answer}</p>}
                             </>
                           )}
                         </div>
@@ -476,7 +476,7 @@ const AdminContentManager = () => {
                       </div>
                     </div>
                   ))}
-                  {items.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.45)' }}>No FAQs</div>}
+                  {items.length === 0 && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>No FAQs</div>}
                 </div>
               </section>
             );
@@ -501,7 +501,7 @@ const AdminContentManager = () => {
                   <button onClick={() => loadAnalysis()} className="cm-btn-refresh">Refresh</button>
                 </div>
               </header>
-              {analysisError && <div style={{ fontSize: '14px', color: '#fca5a5', marginBottom: '8px' }}>{analysisError}</div>}
+              {analysisError && <div style={{ fontSize: '16px', color: '#fca5a5', marginBottom: '8px' }}>{analysisError}</div>}
               <div className="cm-queue">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {analysis.map(rec => {
@@ -516,14 +516,14 @@ const AdminContentManager = () => {
                               <span className={`cm-pill ${statusClass(computedStatus)}`} style={{ border: 'none' }}>{(computedStatus||'').toUpperCase()}</span>
                               <span className={`cm-pill ${statusClass(rec.emailStatus === 'sent' ? 'completed' : rec.emailStatus === 'failed' ? 'failed' : rec.emailStatus === 'sending' ? 'processing' : '')}`} style={{ border: 'none' }}>EMAIL {(rec.emailStatus||'').toUpperCase()}</span>
                             </div>
-                            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                            <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                               <span>Task: {rec.taskId}</span>
                               <span>Created {rec.createdAt ? new Date(rec.createdAt).toLocaleString() : ''}</span>
                               {typeof rec.attachmentCount === 'number' && <span>PDFs: {rec.attachmentCount}</span>}
                               {rec.reportDirectory && <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>Dir: {rec.reportDirectory}</span>}
                             </div>
-                            {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '11px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
-                            {rec.emailError && <div style={{ marginTop: '4px', fontSize: '11px', color: '#fca5a5' }}>Email Error: {rec.emailError}</div>}
+                            {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '16px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
+                            {rec.emailError && <div style={{ marginTop: '4px', fontSize: '16px', color: '#fca5a5' }}>Email Error: {rec.emailError}</div>}
                           </div>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
                             {rec.email && rec.url && (
@@ -540,8 +540,8 @@ const AdminContentManager = () => {
                       </div>
                     );
                   })}
-                  {analysis.length === 0 && !analysisLoading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No records.</div>}
-                  {analysisLoading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>Loading...</div>}
+                  {analysis.length === 0 && !analysisLoading && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', fontStyle: 'italic' }}>No records.</div>}
+                  {analysisLoading && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', fontStyle: 'italic' }}>Loading...</div>}
                 </div>
               </div>
             </section>
@@ -577,8 +577,8 @@ const AdminContentManager = () => {
                             <span className={`cm-pill ${statusClass(msg.status === 'new' ? 'processing' : msg.status === 'read' ? 'completed' : '')}`} style={{ border: 'none' }}>{(msg.status||'new').toUpperCase()}</span>
                             {msg.createdAt && <span className="cm-pill cm-pill-gray">{new Date(msg.createdAt).toLocaleString()}</span>}
                           </div>
-                          {msg.name && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)', marginBottom: '4px' }}>From: {msg.name}</div>}
-                          <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.message}</div>
+                          {msg.name && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', marginBottom: '4px' }}>From: {msg.name}</div>}
+                          <div style={{ fontSize: '16px', color: 'rgba(255,255,255,0.8)', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{msg.message}</div>
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flexShrink: 0 }}>
                           {msg.status !== 'read' && <button onClick={async () => { await adminUpdateContact(msg._id, { status: 'read' }); loadContact(); }} className="cm-btn-mark-read">Mark Read</button>}
@@ -588,7 +588,7 @@ const AdminContentManager = () => {
                       </div>
                     </div>
                   ))}
-                  {contact.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>No messages.</div>}
+                  {contact.length === 0 && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', fontStyle: 'italic' }}>No messages.</div>}
                 </div>
               </div>
             </section>

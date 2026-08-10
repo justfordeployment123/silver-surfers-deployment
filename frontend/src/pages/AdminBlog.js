@@ -10,8 +10,8 @@ const STYLES = `
 .apanel-row input { flex: 1; min-width: 160px; }
 .apanel-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .apanel-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: var(--sandd); border-radius: 10px; }
-.apanel-item-lbl { font-size: 14px; color: var(--ink); }
-.apanel-del { font-size: 12px; font-weight: 600; color: var(--coral); background: none; border: 1px solid var(--coral); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.apanel-item-lbl { font-size: 16px; color: var(--ink); }
+.apanel-del { font-size: 16px; font-weight: 600; color: var(--coral); background: none; border: 1px solid var(--coral); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
 .apanel-del:hover { background: var(--coral); color: #fff; }
 `;
 
@@ -45,7 +45,7 @@ const AdminBlog = () => {
       <div className="apanel-bg">
         <div className="apanel-card">
           <h1 className="apanel-h">Manage Blog</h1>
-          {error && <p style={{ fontSize: '13px', color: 'var(--coral)', marginBottom: '12px' }}>{error}</p>}
+          {error && <p style={{ fontSize: '16px', color: 'var(--coral)', marginBottom: '12px' }}>{error}</p>}
           <form onSubmit={onCreate} className="apanel-form">
             <div className="apanel-row">
               <input className="ss-input" placeholder="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
@@ -54,7 +54,7 @@ const AdminBlog = () => {
             <input className="ss-input" placeholder="Excerpt" value={form.excerpt} onChange={e => setForm({ ...form, excerpt: e.target.value })} />
             <textarea className="ss-input" placeholder="Content" value={form.content} onChange={e => setForm({ ...form, content: e.target.value })} rows={6} style={{ resize: 'vertical' }} />
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              <label style={{ fontSize: '14px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+              <label style={{ fontSize: '16px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
                 <input type="checkbox" checked={form.published} onChange={e => setForm({ ...form, published: e.target.checked })} /> Published
               </label>
               <button type="submit" className="btn btn-d">Create Post</button>
@@ -63,11 +63,11 @@ const AdminBlog = () => {
           <ul className="apanel-list">
             {items.map(i => (
               <li key={i._id} className="apanel-item">
-                <span className="apanel-item-lbl"><strong>{i.title}</strong> <span style={{ color: 'var(--ink6)', fontSize: '12px' }}>({i.slug})</span> {i.published ? '✅' : '⏸️'}</span>
+                <span className="apanel-item-lbl"><strong>{i.title}</strong> <span style={{ color: 'var(--ink6)', fontSize: '16px' }}>({i.slug})</span> {i.published ? '✅' : '⏸️'}</span>
                 <button className="apanel-del" onClick={() => { if (window.confirm('Delete this post?')) onDelete(i._id); }}>Delete</button>
               </li>
             ))}
-            {items.length === 0 && <li style={{ fontSize: '13px', color: 'var(--ink6)' }}>No posts yet.</li>}
+            {items.length === 0 && <li style={{ fontSize: '16px', color: 'var(--ink6)' }}>No posts yet.</li>}
           </ul>
         </div>
       </div>

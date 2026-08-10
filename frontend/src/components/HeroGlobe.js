@@ -246,8 +246,8 @@ const HeroGlobe = () => {
           z-index: 5;
           box-shadow: 0 8px 24px rgba(0,0,0,0.35);
         }
-        .hg3-tip-title { font-size: 12.5px; font-weight: 700; color: #fff; margin-bottom: 3px; }
-        .hg3-tip-stat  { font-size: 11px; color: var(--t2); line-height: 1.5; }
+        .hg3-tip-title { font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+        .hg3-tip-stat  { font-size: 16px; color: var(--t2); line-height: 1.5; }
 
         @media (prefers-reduced-motion: reduce) {
           .hg3-wrap { animation: none; }

@@ -26,7 +26,7 @@
   font-family: var(--ffd);
   font-size: clamp(32px, 4.5vw, 54px);
   font-weight: 700;
-  line-height: 1.08;
+  line-height: 1.5;
   letter-spacing: -0.03em;
   color: var(--ink);
 }
@@ -35,7 +35,7 @@
   font-family: var(--ffd);
   font-size: clamp(24px, 3vw, 38px);
   font-weight: 700;
-  line-height: 1.12;
+  line-height: 1.5;
   letter-spacing: -0.025em;
   color: var(--ink);
 }
@@ -44,7 +44,7 @@
   font-family: var(--ffd);
   font-size: clamp(18px, 2vw, 24px);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.5;
   letter-spacing: -0.015em;
   color: var(--ink);
 }
@@ -57,7 +57,7 @@
 }
 
 .sub {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--ink6);
   line-height: 1.65;
   font-weight: 300;
@@ -65,11 +65,11 @@
 
 /* ── Eyebrow ───────────────────────────────────────────────── */
 .eyebrow {
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--t6);
+  color: var(--tlink);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -84,12 +84,13 @@
   flex-shrink: 0;
 }
 
-/* Eyebrow on dark (t8/t9) backgrounds */
+/* Eyebrow on dark (t8/t9) backgrounds — t2 (not t4) so the 16px label
+   still clears 4.5:1 against the dark hero/CTA backgrounds. */
 .eyebrow--light {
-  color: var(--t4);
+  color: var(--t2);
 }
 .eyebrow--light::before {
-  background: var(--t4);
+  background: var(--t2);
 }
 
 /* ── Grids ─────────────────────────────────────────────────── */
@@ -104,7 +105,7 @@
   gap: 7px;
   font-family: var(--ff);
   font-weight: 600;
-  font-size: 14px;
+  font-size: 16px;
   padding: 12px 22px;
   border-radius: var(--r);
   cursor: pointer;
@@ -114,12 +115,13 @@
   text-decoration: none;
 }
 
-/* Primary — light bg */
+/* Primary — light bg. Uses t6 (not the brighter t4) so white button text
+   clears 4.5:1 contrast (t4 + white only reaches ~3.4:1). */
 .btn-p {
-  background: var(--t4);
+  background: var(--t6);
   color: #fff;
 }
-.btn-p:hover { background: var(--t6); }
+.btn-p:hover { background: var(--t8); }
 
 /* Primary Dark */
 .btn-d {
@@ -142,10 +144,10 @@
 /* Outline — for use on light backgrounds */
 .btn-o {
   background: transparent;
-  color: var(--t6);
-  border: 1.5px solid var(--t6);
+  color: var(--tlink);
+  border: 1.5px solid var(--tlink);
 }
-.btn-o:hover { background: var(--t05); }
+.btn-o:hover { background: var(--sand); }
 
 .btn-row {
   display: flex;
@@ -186,11 +188,11 @@
   font-weight: 700;
   color: var(--ink);
   margin-bottom: 10px;
-  line-height: 1.25;
+  line-height: 1.5;
 }
 
 .card p {
-  font-size: 14px;
+  font-size: 16px;
   color: var(--ink6);
   line-height: 1.65;
 }
@@ -198,7 +200,7 @@
 /* Tag chip */
 .tag {
   display: inline-block;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -214,9 +216,9 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--t6);
+  color: var(--tlink);
   margin-top: 16px;
   cursor: pointer;
   text-decoration: none;
@@ -260,8 +262,8 @@
 }
 
 .stat-l {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.42);
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
 }
 
 /* ── Proof / testimonial strip ─────────────────────────────── */
@@ -283,7 +285,7 @@
 
 .proof-q {
   font-family: var(--ffd);
-  font-size: 14.5px;
+  font-size: 16px;
   font-style: italic;
   color: var(--t1);
   line-height: 1.6;
@@ -291,8 +293,8 @@
 }
 
 .proof-a {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.38);
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
 }
 
 /* ── Dark CTA section ──────────────────────────────────────── */
@@ -305,13 +307,13 @@
 }
 .cta-sec .h2 { color: #fff; }
 .cta-sec .lead {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255,255,255,0.75);
   margin: 14px auto 0;
   max-width: 480px;
 }
 .cta-note {
-  font-size: 12px;
-  color: rgba(255, 255, 255, 0.28);
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
   margin-top: 18px;
 }
 
@@ -321,7 +323,7 @@
   padding: 80px 0 64px;
 }
 .pg-hero .h1 { color: #fff; max-width: 640px; margin: 0 auto 18px; }
-.pg-hero .lead { color: rgba(255, 255, 255, 0.6); max-width: 560px; margin-left: auto; margin-right: auto; }
+.pg-hero .lead { color: rgba(255,255,255,0.75); max-width: 560px; margin-left: auto; margin-right: auto; }
 
 /* ── Problem bridge ────────────────────────────────────────── */
 .prob-bridge {
@@ -361,8 +363,8 @@
   border-radius: var(--r);
   padding: 18px;
 }
-.dim-card h4 { font-size: 13.5px; font-weight: 600; color: var(--t8); margin-bottom: 5px; }
-.dim-card p  { font-size: 13px; color: var(--ink6); line-height: 1.5; }
+.dim-card h4 { font-size: 16px; font-weight: 600; color: var(--t8); margin-bottom: 5px; }
+.dim-card p  { font-size: 16px; color: var(--ink6); line-height: 1.5; }
 
 /* ── Dark diff/mission block ───────────────────────────────── */
 .diff {
@@ -371,7 +373,7 @@
   padding: 36px;
 }
 .diff .h3 { color: #fff; margin-bottom: 12px; }
-.diff p   { font-size: 14px; color: rgba(255, 255, 255, 0.6); line-height: 1.65; }
+.diff p   { font-size: 16px; color: rgba(255,255,255,0.75); line-height: 1.65; }
 
 /* ── Vertical card (industry teaser) ───────────────────────── */
 .v-card {
@@ -398,9 +400,9 @@
   font-size: 20px;
   margin-bottom: 12px;
 }
-.v-card h4 { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
-.v-card p  { font-size: 13px; color: var(--ink6); line-height: 1.5; margin-bottom: 10px; }
-.v-lnk { font-size: 12px; font-weight: 600; color: var(--t6); }
+.v-card h4 { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.v-card p  { font-size: 16px; color: var(--ink6); line-height: 1.5; margin-bottom: 10px; }
+.v-lnk { font-size: 16px; font-weight: 600; color: var(--tlink); }
 
 /* ── Pricing plan cards ────────────────────────────────────── */
 .plan-g {
@@ -430,9 +432,9 @@
   top: -12px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--t4);
+  background: var(--t6);
   color: #fff;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 700;
   padding: 4px 14px;
   border-radius: 20px;
@@ -440,7 +442,7 @@
 }
 
 .plan-nm {
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink6);
   text-transform: uppercase;
@@ -458,14 +460,14 @@
 }
 
 .plan-pr span {
-  font-size: 14px;
+  font-size: 16px;
   font-family: var(--ff);
   font-weight: 400;
   color: var(--ink6);
 }
 
 .plan-sub {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--ink6);
   margin-bottom: 18px;
 }
@@ -477,7 +479,7 @@
 }
 
 .plan-feat {
-  font-size: 13px;
+  font-size: 16px;
   color: var(--ink6);
   line-height: 2.1;
   flex: 1;
@@ -491,9 +493,9 @@
 }
 .plan-dark .plan-nm  { color: var(--t2); }
 .plan-dark .plan-pr  { color: #fff; }
-.plan-dark .plan-sub { color: rgba(255, 255, 255, 0.45); }
-.plan-dark .plan-div { border-color: rgba(255, 255, 255, 0.1); }
-.plan-dark .plan-feat{ color: rgba(255, 255, 255, 0.7); }
+.plan-dark .plan-sub { color: rgba(255,255,255,0.75); }
+.plan-dark .plan-div { border-color: rgba(255,255,255,0.1); }
+.plan-dark .plan-feat{ color: rgba(255,255,255,0.75); }
 
 .plan-cta { margin-top: 18px; }
 
@@ -503,7 +505,7 @@
   border: 1.5px solid var(--sandd);
   border-radius: var(--r);
   padding: 12px 16px;
-  font-size: 15px;
+  font-size: 16px;
   font-family: var(--ff);
   color: var(--ink);
   background: var(--surface);
@@ -514,7 +516,7 @@
 .ss-input::placeholder { color: var(--ink3); }
 
 .ss-label {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--ink);
   margin-bottom: 6px;
@@ -527,7 +529,7 @@
   border: 1px solid #F5C4B8;
   border-radius: var(--r);
   padding: 12px 16px;
-  font-size: 13.5px;
+  font-size: 16px;
   color: #7A2B18;
   line-height: 1.5;
 }
@@ -537,7 +539,7 @@
   border: 1px solid var(--t1);
   border-radius: var(--r);
   padding: 12px 16px;
-  font-size: 13.5px;
+  font-size: 16px;
   color: var(--t8);
   line-height: 1.5;
 }
@@ -556,7 +558,7 @@
 /* ── WCAG badge ────────────────────────────────────────────── */
 .wcag-badge {
   display: inline-block;
-  font-size: 11px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.06em;
   background: var(--t05);

@@ -9,16 +9,16 @@ const STYLES = `
 .al-icon { display: inline-flex; align-items: center; justify-content: center; width: 64px; height: 64px; background: var(--t4); border-radius: 20px; margin-bottom: 16px; }
 .al-card { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.16); border-radius: var(--r); padding: 32px; }
 .al-title { font-family: var(--ffd); font-size: 22px; font-weight: 700; color: #fff; text-align: center; margin-bottom: 24px; }
-.al-lbl { display: block; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
-.al-input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; color: #fff; font-size: 14px; outline: none; transition: border-color .15s; box-sizing: border-box; }
-.al-input::placeholder { color: rgba(255,255,255,0.4); }
+.al-lbl { display: block; font-size: 16px; font-weight: 600; color: rgba(255,255,255,0.75); margin-bottom: 8px; }
+.al-input { width: 100%; padding: 12px 16px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 10px; color: #fff; font-size: 16px; outline: none; transition: border-color .15s; box-sizing: border-box; }
+.al-input::placeholder { color: rgba(255,255,255,0.75); }
 .al-input:focus { border-color: var(--t4); }
 .al-err { margin-bottom: 20px; padding: 12px 16px; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); border-radius: 10px; display: flex; align-items: center; gap: 8px; }
-.al-err-txt { font-size: 13px; color: #fca5a5; }
+.al-err-txt { font-size: 16px; color: #fca5a5; }
 .al-warn { margin-top: 20px; padding: 12px 16px; background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.35); border-radius: 10px; display: flex; gap: 10px; }
-.al-warn-t { font-size: 12px; font-weight: 600; color: #fcd34d; margin-bottom: 4px; }
-.al-warn-b { font-size: 11px; color: rgba(252,211,77,0.75); }
-.al-back { display: block; text-align: center; margin-top: 20px; font-size: 13px; color: rgba(255,255,255,0.5); cursor: pointer; background: none; border: none; }
+.al-warn-t { font-size: 16px; font-weight: 600; color: #fcd34d; margin-bottom: 4px; }
+.al-warn-b { font-size: 16px; color: rgba(252,211,77,0.75); }
+.al-back { display: block; text-align: center; margin-top: 20px; font-size: 16px; color: rgba(255,255,255,0.75); cursor: pointer; background: none; border: none; }
 .al-back:hover { color: rgba(255,255,255,0.85); }
 `;
 
@@ -71,7 +71,7 @@ const AdminLogin = () => {
               </svg>
             </div>
             <h1 style={{ fontFamily: 'var(--ffd)', fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Admin Portal</h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>SilverSurfers Administration</p>
+            <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>SilverSurfers Administration</p>
           </div>
 
           <div className="al-card">

@@ -17,8 +17,8 @@ const STYLES = `
 .adm-card { display: block; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12); border-radius: var(--r); padding: 20px 20px 18px; text-decoration: none; transition: border-color .15s, background .15s; }
 .adm-card:hover { background: rgba(255,255,255,0.12); border-color: var(--t4); }
 .adm-card-icon { width: 40px; height: 40px; background: var(--t05); border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
-.adm-card-label { font-family: var(--ffd); font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 6px; }
-.adm-card-desc { font-size: 12px; color: rgba(255,255,255,0.5); line-height: 1.5; }
+.adm-card-label { font-family: var(--ffd); font-size: 16px; font-weight: 700; color: #fff; margin-bottom: 6px; }
+.adm-card-desc { font-size: 16px; color: rgba(255,255,255,0.75); line-height: 1.5; }
 `;
 
 const AdminDashboard = () => (
@@ -28,7 +28,7 @@ const AdminDashboard = () => (
       <div className="adm-inner">
         <div className="adm-header">
           <h1 className="h1" style={{ color: '#fff', marginBottom: '8px' }}>Admin Dashboard</h1>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.5)' }}>SilverSurfers administration hub</p>
+          <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>SilverSurfers administration hub</p>
         </div>
         <div className="adm-grid">
           {NAV_LINKS.map(({ to, label, desc, icon }) => (

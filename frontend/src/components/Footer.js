@@ -34,20 +34,22 @@ const Footer = () => {
           font-weight: 700;
           color: #fff;
           text-decoration: none;
-          display: inline-block;
+          display: inline-flex;
+          align-items: center;
+          min-height: 44px;
           margin-bottom: 3px;
         }
-        .ss-footer-brand-name span { color: var(--t4); }
+        .ss-footer-brand-name span { color: var(--t2); }
 
         .ss-footer-tagline {
-          font-size: 11.5px;
-          color: rgba(255,255,255,0.35);
+          font-size: 16px;
+          color: rgba(255,255,255,0.75);
           margin-bottom: 16px;
         }
 
         .ss-footer-desc {
-          font-size: 14px;
-          color: rgba(255,255,255,0.45);
+          font-size: 16px;
+          color: rgba(255,255,255,0.75);
           line-height: 1.7;
           max-width: 340px;
           margin-bottom: 20px;
@@ -61,14 +63,14 @@ const Footer = () => {
         }
 
         .ss-social-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 8px;
+          width: 44px;
+          height: 44px;
+          border-radius: 10px;
           background: rgba(255,255,255,0.08);
           display: flex;
           align-items: center;
           justify-content: center;
-          color: rgba(255,255,255,0.5);
+          color: rgba(255,255,255,0.75);
           transition: background 0.15s, color 0.15s;
           text-decoration: none;
           flex-shrink: 0;
@@ -85,29 +87,33 @@ const Footer = () => {
 
         /* ── Link columns ──────────────────────────────── */
         .ss-footer-col-heading {
-          font-size: 12px;
+          font-size: 16px;
           font-weight: 600;
           letter-spacing: 0.1em;
           text-transform: uppercase;
-          color: rgba(255,255,255,0.55);
+          color: rgba(255,255,255,0.75);
           margin-bottom: 16px;
         }
 
         .ss-footer-links {
           display: flex;
           flex-direction: column;
-          gap: 10px;
           list-style: none;
         }
 
         .ss-footer-link {
-          font-size: 13.5px;
-          color: rgba(255,255,255,0.42);
+          display: inline-flex;
+          align-items: center;
+          min-width: 44px;
+          min-height: 44px;
+          padding: 4px 0;
+          font-size: 16px;
+          color: rgba(255,255,255,0.75);
           text-decoration: none;
           transition: color 0.15s;
           font-weight: 300;
         }
-        .ss-footer-link:hover { color: rgba(255,255,255,0.85); }
+        .ss-footer-link:hover { color: #fff; }
 
         /* ── Bottom bar ────────────────────────────────── */
         .ss-footer-bottom {
@@ -121,8 +127,8 @@ const Footer = () => {
         }
 
         .ss-footer-copy {
-          font-size: 12px;
-          color: rgba(255,255,255,0.28);
+          font-size: 16px;
+          color: rgba(255,255,255,0.75);
         }
 
         .ss-footer-legal {
@@ -132,12 +138,16 @@ const Footer = () => {
         }
 
         .ss-footer-legal a {
-          font-size: 12px;
-          color: rgba(255,255,255,0.28);
+          display: inline-flex;
+          align-items: center;
+          min-width: 44px;
+          min-height: 44px;
+          font-size: 16px;
+          color: rgba(255,255,255,0.75);
           text-decoration: none;
           transition: color 0.15s;
         }
-        .ss-footer-legal a:hover { color: rgba(255,255,255,0.65); }
+        .ss-footer-legal a:hover { color: #fff; }
 
         /* ── Responsive ────────────────────────────────── */
         @media (max-width: 1200px) {

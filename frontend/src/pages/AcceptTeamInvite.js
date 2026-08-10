@@ -11,17 +11,17 @@ const STYLES = `
 .ati-icon-green { background: rgba(16,185,129,0.12); }
 .ati-center { text-align: center; }
 .ati-hd { font-family: var(--ffd); font-size: 22px; font-weight: 700; color: var(--t9); margin-bottom: 10px; }
-.ati-sub { font-size: 14px; color: var(--ink6); margin-bottom: 20px; }
+.ati-sub { font-size: 16px; color: var(--ink6); margin-bottom: 20px; }
 .ati-info { background: var(--sandd); border-radius: 10px; padding: 14px 16px; margin-bottom: 20px; }
-.ati-info p { font-size: 13px; color: var(--ink6); margin: 4px 0; }
+.ati-info p { font-size: 16px; color: var(--ink6); margin: 4px 0; }
 .ati-info strong { color: var(--ink); }
 .ati-feats { background: var(--sandd); border-radius: 10px; padding: 14px 16px; margin-bottom: 24px; }
-.ati-feats h3 { font-size: 13px; font-weight: 700; color: var(--t9); margin-bottom: 10px; }
+.ati-feats h3 { font-size: 16px; font-weight: 700; color: var(--t9); margin-bottom: 10px; }
 .ati-feats ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.ati-feats li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink6); }
+.ati-feats li { display: flex; align-items: center; gap: 8px; font-size: 16px; color: var(--ink6); }
 .ati-feats li svg { flex-shrink: 0; color: var(--t4); }
 .ati-btns { display: flex; flex-direction: column; gap: 10px; }
-.ati-note { font-size: 11px; color: var(--ink6); text-align: center; margin-top: 16px; }
+.ati-note { font-size: 16px; color: var(--ink6); text-align: center; margin-top: 16px; }
 `;
 
 const CheckIcon = () => (
@@ -120,7 +120,7 @@ const AcceptTeamInvite = () => {
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
             </div>
-            <p style={{ fontSize: '14px', color: 'var(--ink6)' }}>Loading invitation…</p>
+            <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>Loading invitation…</p>
           </div>
         </div>
       </>
@@ -171,7 +171,7 @@ const AcceptTeamInvite = () => {
             <p className="ati-sub">
               You have successfully joined the SilverSurfers team. You now have access to all team features and will share the subscription benefits.
             </p>
-            <p style={{ fontSize: '12px', color: 'var(--ink6)', marginBottom: '20px' }}>Redirecting to your subscription dashboard…</p>
+            <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '20px' }}>Redirecting to your subscription dashboard…</p>
             <button onClick={() => navigate('/subscription')} className="btn btn-d" style={{ width: '100%', justifyContent: 'center' }}>
               Go to Dashboard Now
             </button>

@@ -5,30 +5,30 @@ import { IconCheckCircle, IconPencil, IconTag, IconRuler } from '../../component
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-.ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
+.ap-sub { font-size: 16px; color: var(--ink6); }
+.ap-lbl { font-size: 16px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; }
 .ap-sel:focus { border-color: var(--t4); }
-.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
+.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 14px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
 .ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-btn-p { background: var(--t4); color: #fff; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+.ap-btn-p { background: var(--t6); color: #fff; padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
 .ap-btn-danger-sm { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: color .15s, background .15s; }
 .ap-btn-danger-sm:hover { color: #ef4444; background: #fee2e2; }
 .ap-btn-edit-sm { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: color .15s, background .15s; }
 .ap-btn-edit-sm:hover { color: var(--t4); background: var(--t05); }
-.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
-.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #991b1b; }
+.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #166534; }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
 .ap-stat-icon { width: 38px; height: 38px; border-radius: 8px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t6); }
 .ap-faq-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; transition: box-shadow .15s; }
 .ap-faq-card:hover { box-shadow: 0 4px 16px rgba(4,46,34,0.08); }
-.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 16px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-gr { background: #f3f4f6; color: #374151; }
 .pill-t { background: var(--t05); color: var(--t6); }
@@ -36,7 +36,7 @@ const STYLES = `
 .ap-vt-btn { border: 1px solid var(--sandd); background: var(--surface); cursor: pointer; padding: 8px 10px; color: var(--ink6); transition: background .15s, color .15s; display: flex; align-items: center; }
 .ap-vt-btn:first-child { border-radius: 8px 0 0 8px; border-right: none; }
 .ap-vt-btn:last-child { border-radius: 0 8px 8px 0; }
-.ap-vt-btn-active { background: var(--t4); color: #fff; border-color: var(--t4); }
+.ap-vt-btn-active { background: var(--t6); color: #fff; border-color: var(--t4); }
 .ap-vt-btn:not(.ap-vt-btn-active):hover { background: var(--sand); }
 .ap-modal-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; }
 .ap-modal { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 680px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
@@ -175,11 +175,11 @@ const AdminFAQs = () => {
         <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '20px 28px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>FAQ Management</h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)' }}>Create and manage frequently asked questions</p>
+            <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.8)' }}>Create and manage frequently asked questions</p>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '28px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{faqs.length}</div>
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.8)' }}>Total FAQs</div>
+            <div style={{ fontSize: '16px', color: 'rgba(255,255,255,0.8)' }}>Total FAQs</div>
           </div>
         </div>
 
@@ -195,7 +195,7 @@ const AdminFAQs = () => {
               <div className="ap-stat-icon"><StatIcon size={18} /></div>
               <div>
                 <div style={{ fontSize: '20px', fontWeight: 700, color: 'var(--ink)', lineHeight: 1 }}>{val}</div>
-                <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>{label}</div>
+                <div style={{ fontSize: '16px', color: 'var(--ink6)', marginTop: '2px' }}>{label}</div>
               </div>
             </div>
           ))}
@@ -253,7 +253,7 @@ const AdminFAQs = () => {
 
         {/* Action bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '13px', color: 'var(--ink6)' }}>Showing {sortedFaqs.length} of {faqs.length} FAQs</span>
+          <span style={{ fontSize: '16px', color: 'var(--ink6)' }}>Showing {sortedFaqs.length} of {faqs.length} FAQs</span>
           <button
             onClick={() => { setFormData(prev => ({ ...prev, order: getNextOrder() })); setShowForm(true); }}
             className="ap-btn-p"
@@ -274,7 +274,7 @@ const AdminFAQs = () => {
                   <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--ink)', marginBottom: '4px' }}>
                     {editingId ? 'Edit FAQ' : 'Create New FAQ'}
                   </h3>
-                  <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>
+                  <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>
                     {editingId ? 'Update the FAQ information below' : 'Fill in the details to create a new FAQ'}
                   </p>
                 </div>
@@ -299,20 +299,20 @@ const AdminFAQs = () => {
                   <div>
                     <label className="ap-lbl">Answer *</label>
                     <textarea name="answer" value={formData.answer} onChange={handleInputChange} rows={8} className="ap-textarea" placeholder="Provide a detailed answer..." required />
-                    <p style={{ fontSize: '11px', color: 'var(--ink3)', marginTop: '4px' }}>{formData.answer.length} characters</p>
+                    <p style={{ fontSize: '16px', color: 'var(--ink3)', marginTop: '4px' }}>{formData.answer.length} characters</p>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', alignItems: 'center' }}>
                     <div>
                       <label className="ap-lbl">Display Order</label>
                       <input type="number" name="order" value={formData.order} onChange={handleInputChange} min="0" className="ap-inp" />
-                      <p style={{ fontSize: '11px', color: 'var(--ink3)', marginTop: '4px' }}>Lower numbers appear first</p>
+                      <p style={{ fontSize: '16px', color: 'var(--ink3)', marginTop: '4px' }}>Lower numbers appear first</p>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', paddingTop: '8px' }}>
                       <label className="ap-chk">
                         <input type="checkbox" name="published" checked={formData.published} onChange={handleInputChange} />
                         <div>
-                          <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink)' }}>Published</div>
-                          <div style={{ fontSize: '11px', color: 'var(--ink3)' }}>Make this FAQ visible to users</div>
+                          <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)' }}>Published</div>
+                          <div style={{ fontSize: '16px', color: 'var(--ink3)' }}>Make this FAQ visible to users</div>
                         </div>
                       </label>
                     </div>
@@ -342,14 +342,14 @@ const AdminFAQs = () => {
                   <span className={`pill ${faq.published ? 'pill-g' : 'pill-gr'}`}>{faq.published ? 'Published' : 'Draft'}</span>
                   {faq.category && <span className="pill pill-y">{faq.category}</span>}
                 </div>
-                <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{faq.question}</h3>
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', whiteSpace: 'pre-wrap' }}>{faq.answer}</p>
+                <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>{faq.question}</h3>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', whiteSpace: 'pre-wrap' }}>{faq.answer}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--sandd)' }}>
                   <div style={{ display: 'flex', gap: '4px' }}>
                     <button onClick={() => handleEdit(faq)} className="ap-btn-edit-sm" title="Edit"><EditIcon /></button>
                     <button onClick={() => handleDelete(faq._id)} className="ap-btn-danger-sm" title="Delete"><TrashIcon /></button>
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--ink3)' }}>{faq.answer?.length || 0} chars</span>
+                  <span style={{ fontSize: '16px', color: 'var(--ink3)' }}>{faq.answer?.length || 0} chars</span>
                 </div>
               </div>
             ))}
@@ -365,15 +365,15 @@ const AdminFAQs = () => {
                       <span className={`pill ${faq.published ? 'pill-g' : 'pill-gr'}`}>{faq.published ? 'Published' : 'Draft'}</span>
                       {faq.category && <span className="pill pill-y">{faq.category}</span>}
                     </div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px' }}>{faq.question}</h3>
-                    <p style={{ fontSize: '13px', color: 'var(--ink6)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{faq.answer}</p>
+                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '8px' }}>{faq.question}</h3>
+                    <p style={{ fontSize: '16px', color: 'var(--ink6)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{faq.answer}</p>
                   </div>
                   <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                     <button onClick={() => handleEdit(faq)} className="ap-btn-edit-sm" title="Edit"><EditIcon /></button>
                     <button onClick={() => handleDelete(faq._id)} className="ap-btn-danger-sm" title="Delete"><TrashIcon /></button>
                   </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--sandd)', fontSize: '11px', color: 'var(--ink3)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--sandd)', fontSize: '16px', color: 'var(--ink3)' }}>
                   <div style={{ display: 'flex', gap: '16px' }}>
                     <span>Created: {formatDate(faq.createdAt)}</span>
                     {faq.updatedAt && faq.updatedAt !== faq.createdAt && <span>Updated: {formatDate(faq.updatedAt)}</span>}
@@ -391,7 +391,7 @@ const AdminFAQs = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)', marginBottom: '6px' }}>No FAQs found</h3>
-            <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '20px' }}>
+            <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '20px' }}>
               {searchQuery || filterStatus !== 'all' ? 'Try adjusting your search or filters.' : 'Get started by creating your first FAQ.'}
             </p>
             {!searchQuery && filterStatus === 'all' && (

@@ -52,13 +52,13 @@ const VerifyEmail = () => {
           background: var(--t9);
           padding: 96px 16px 40px;
         }
-        .auth-error { font-size: 13px; color: var(--coral); text-align: center; margin-bottom: 8px; }
-        .auth-info { font-size: 13px; color: var(--t4); text-align: center; margin-bottom: 8px; }
-        .auth-verifying { font-size: 13px; color: var(--ink6); text-align: center; margin-bottom: 12px; }
+        .auth-error { font-size: 16px; color: var(--coral); text-align: center; margin-bottom: 8px; }
+        .auth-info { font-size: 16px; color: var(--t4); text-align: center; margin-bottom: 8px; }
+        .auth-verifying { font-size: 16px; color: var(--ink6); text-align: center; margin-bottom: 12px; }
       `}</style>
       <div className="auth-bg">
         <form onSubmit={handleVerify} className="auth-card">
-          <h2 className="h2" style={{ textAlign: 'center', marginBottom: '24px' }}>Verify Email</h2>
+          <h1 className="h2" style={{ textAlign: 'center', marginBottom: '24px' }}>Verify Email</h1>
 
           {searchParams.get('token') && loading && (
             <p className="auth-verifying">Verifying your link…</p>

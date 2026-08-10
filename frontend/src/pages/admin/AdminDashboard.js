@@ -6,23 +6,23 @@ import { IconPencil, IconQuestion, IconSearch, IconMail, IconUsers, IconClipboar
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-.ap-sub { font-size: 14px; color: var(--ink6); }
+.ap-sub { font-size: 16px; color: var(--ink6); }
 .ap-stat-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 20px; display: flex; align-items: center; gap: 16px; }
 .ap-stat-icon { width: 44px; height: 44px; border-radius: 10px; background: var(--t05); display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--t6); }
 .ap-stat-val { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
-.ap-stat-lbl { font-size: 13px; color: var(--ink6); margin-top: 2px; }
-.ap-stat-sub { font-size: 12px; color: var(--ink6); margin-top: 1px; }
+.ap-stat-lbl { font-size: 16px; color: var(--ink6); margin-top: 2px; }
+.ap-stat-sub { font-size: 16px; color: var(--ink6); margin-top: 1px; }
 .ap-quick-btn { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
 .ap-quick-btn:hover { border-color: var(--t4); background: var(--t05); }
 .ap-quick-btn-icon { display: flex; align-items: center; justify-content: center; color: var(--t4); }
-.ap-quick-btn-lbl { font-size: 13px; font-weight: 600; color: var(--ink); }
+.ap-quick-btn-lbl { font-size: 16px; font-weight: 600; color: var(--ink); }
 .ap-quick-btn:hover .ap-quick-btn-lbl { color: var(--t6); }
 .ap-activity-row { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--sandd); }
 .ap-activity-row:last-child { border-bottom: none; }
 .ap-activity-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; color: var(--ink6); }
-.ap-activity-title { font-size: 13px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ap-activity-date { font-size: 11px; color: var(--ink6); white-space: nowrap; }
-.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.ap-activity-title { font-size: 16px; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-activity-date { font-size: 16px; color: var(--ink6); white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 16px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-a { background: #fef3c7; color: #92400e; }
 .pill-r { background: #fee2e2; color: #991b1b; }
@@ -112,7 +112,7 @@ const AdminDashboard = () => {
         {/* Header */}
         <div style={{ background: 'var(--t9)', borderRadius: 'var(--r)', padding: '28px 32px' }}>
           <h1 style={{ fontSize: '28px', fontWeight: 700, color: '#fff', marginBottom: '6px' }}>Admin Dashboard</h1>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }}>Welcome back! Here's your SilverSurfers administration overview.</p>
+          <p style={{ fontSize: '16px', color: 'rgba(255,255,255,0.8)' }}>Welcome back! Here's your SilverSurfers administration overview.</p>
         </div>
 
         {/* Stats Grid */}
@@ -190,7 +190,7 @@ const AdminDashboard = () => {
                 })}
               </div>
             ) : (
-              <p style={{ fontSize: '13px', color: 'var(--ink6)', textAlign: 'center', padding: '16px 0' }}>No recent activity</p>
+              <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center', padding: '16px 0' }}>No recent activity</p>
             )}
           </div>
 
@@ -206,8 +206,8 @@ const AdminDashboard = () => {
                 <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: 'var(--t05)', borderRadius: '8px', border: '1px solid var(--t1)' }}>
                   <div className="ap-sys-dot" />
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--t8)' }}>{label}</div>
-                    <div style={{ fontSize: '12px', color: '#16a34a' }}>{status}</div>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--t8)' }}>{label}</div>
+                    <div style={{ fontSize: '16px', color: '#16a34a' }}>{status}</div>
                   </div>
                 </div>
               ))}

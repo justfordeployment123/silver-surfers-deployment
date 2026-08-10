@@ -10,23 +10,23 @@ const STYLES = `
 .adl-main { flex: 1; padding-left: 240px; display: flex; flex-direction: column; min-height: 100vh; }
 .adl-brand { display: flex; align-items: center; gap: 12px; padding: 20px 16px; border-bottom: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
 .adl-brand-icon { width: 32px; height: 32px; border-radius: var(--r); background: var(--t4); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-.adl-brand-title { font-family: var(--ffd); font-size: 15px; font-weight: 700; color: #fff; line-height: 1.2; }
-.adl-brand-sub { font-size: 11px; color: rgba(255,255,255,0.55); margin-top: 1px; }
+.adl-brand-title { font-family: var(--ffd); font-size: 16px; font-weight: 700; color: #fff; line-height: 1.2; }
+.adl-brand-sub { font-size: 16px; color: rgba(255,255,255,0.75); margin-top: 1px; }
 .adl-nav { flex: 1; padding: 12px 8px; overflow-y: auto; }
-.adl-nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border-radius: var(--r); border: none; cursor: pointer; font-family: var(--ff); font-size: 14px; font-weight: 500; text-align: left; transition: background .15s, color .15s; margin-bottom: 2px; }
+.adl-nav-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 16px; border-radius: var(--r); border: none; cursor: pointer; font-family: var(--ff); font-size: 16px; font-weight: 500; text-align: left; transition: background .15s, color .15s; margin-bottom: 2px; }
 .adl-nav-btn-active { background: rgba(255,255,255,0.1); color: #fff; }
 .adl-nav-btn-inactive { background: transparent; color: rgba(255,255,255,0.75); }
 .adl-nav-btn-inactive:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .adl-nav-icon { display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .adl-user { border-top: 1px solid rgba(255,255,255,0.08); padding: 14px 16px; flex-shrink: 0; position: relative; }
 .adl-user-row { display: flex; align-items: center; gap: 10px; }
-.adl-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t4); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: #fff; flex-shrink: 0; }
-.adl-user-email { font-size: 13px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.adl-user-role { font-size: 11px; color: rgba(255,255,255,0.55); }
-.adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.6); cursor: pointer; flex-shrink: 0; }
+.adl-avatar { width: 32px; height: 32px; border-radius: 50%; background: var(--t6); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: #fff; flex-shrink: 0; }
+.adl-user-email { font-size: 16px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.adl-user-role { font-size: 16px; color: rgba(255,255,255,0.75); }
+.adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); cursor: pointer; flex-shrink: 0; }
 .adl-menu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
 .adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
-.adl-dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; font-family: var(--ff); font-size: 13px; font-weight: 500; color: var(--ink6); background: none; border: none; cursor: pointer; text-align: left; transition: background .15s, color .15s; }
+.adl-dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; font-family: var(--ff); font-size: 16px; font-weight: 500; color: var(--ink6); background: none; border: none; cursor: pointer; text-align: left; transition: background .15s, color .15s; }
 .adl-dd-btn:hover { background: var(--t05); color: var(--t6); }
 .adl-dd-btn-danger:hover { background: var(--coralbg); color: var(--coral); }
 .adl-dd-div { border-top: 1px solid var(--sandd); }
@@ -97,7 +97,7 @@ const AdminLayout = () => {
         <div className="adl-loading">
           <div style={{ textAlign: 'center' }}>
             <div className="adl-spinner" style={{ margin: '0 auto 16px' }}></div>
-            <p style={{ fontSize: '14px', color: 'var(--ink6)' }}>Verifying admin access…</p>
+            <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>Verifying admin access…</p>
           </div>
         </div>
       </>

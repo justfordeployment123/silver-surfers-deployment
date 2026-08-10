@@ -4,31 +4,31 @@ import { adminListUsers, adminResetUserUsage, adminUpdateUserSubscription, admin
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-.ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
+.ap-sub { font-size: 16px; color: var(--ink6); }
+.ap-lbl { font-size: 16px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; }
+.ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; }
 .ap-sel:focus { border-color: var(--t4); }
-.ap-btn-p { background: var(--t4); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
+.ap-btn-p { background: var(--t6); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 500; transition: background .15s; }
+.ap-btn-s { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: 500; transition: background .15s; }
 .ap-btn-s:hover { background: var(--sand); }
-.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
-.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #991b1b; }
+.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #166534; }
 .ap-stat-mini { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); padding: 14px 18px; }
 .ap-stat-mini-val { font-size: 22px; font-weight: 700; color: var(--t4); line-height: 1; }
-.ap-stat-mini-lbl { font-size: 12px; color: var(--ink6); margin-top: 3px; }
+.ap-stat-mini-lbl { font-size: 16px; color: var(--ink6); margin-top: 3px; }
 .ap-tbl { width: 100%; border-collapse: collapse; }
 .ap-tbl thead { background: var(--sand); }
-.ap-tbl th { padding: 10px 16px; text-align: left; font-size: 11px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
-.ap-tbl td { padding: 12px 16px; font-size: 13px; color: var(--ink); border-top: 1px solid var(--sandd); }
+.ap-tbl th { padding: 10px 16px; text-align: left; font-size: 16px; font-weight: 600; color: var(--ink6); text-transform: uppercase; letter-spacing: 0.06em; white-space: nowrap; }
+.ap-tbl td { padding: 12px 16px; font-size: 16px; color: var(--ink); border-top: 1px solid var(--sandd); }
 .ap-tbl tr:hover td { background: var(--sand); }
-.ap-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--t05); border: 1px solid var(--t1); display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--t6); flex-shrink: 0; }
-.ap-link-btn { background: none; border: none; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--t4); padding: 0; transition: color .15s; }
+.ap-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--t05); border: 1px solid var(--t1); display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 700; color: var(--t6); flex-shrink: 0; }
+.ap-link-btn { background: none; border: none; cursor: pointer; font-size: 16px; font-weight: 600; color: var(--t4); padding: 0; transition: color .15s; }
 .ap-link-btn:hover { color: var(--t8); }
-.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
+.pill { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; font-size: 16px; font-weight: 600; }
 .pill-g { background: #dcfce7; color: #166534; }
 .pill-r { background: #fee2e2; color: #991b1b; }
 .pill-t { background: var(--t05); color: var(--t6); }
@@ -42,8 +42,8 @@ const STYLES = `
 .ap-modal-close { background: none; border: none; cursor: pointer; padding: 6px; border-radius: 6px; color: var(--ink3); transition: background .15s, color .15s; }
 .ap-modal-close:hover { background: var(--sand); color: var(--ink); }
 .ap-modal-body { overflow-y: auto; flex: 1; padding: 20px 24px; }
-.ap-action-btn { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 13px; font-weight: 600; text-align: left; transition: background .15s, border-color .15s, color .15s; }
-.ap-action-btn-teal { background: var(--t4); color: #fff; }
+.ap-action-btn { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; font-size: 16px; font-weight: 600; text-align: left; transition: background .15s, border-color .15s, color .15s; }
+.ap-action-btn-teal { background: var(--t6); color: #fff; }
 .ap-action-btn-teal:hover:not(:disabled) { background: var(--t8); }
 .ap-action-btn-amber { background: var(--amberbg); color: var(--amber); }
 .ap-action-btn-amber:hover:not(:disabled) { background: var(--amber); color: #fff; }
@@ -52,10 +52,10 @@ const STYLES = `
 .ap-action-btn-danger { background: var(--coralbg); color: var(--coral); }
 .ap-action-btn-danger:hover:not(:disabled) { background: var(--coral); color: #fff; }
 .ap-action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-.ap-detail-lbl { font-size: 11px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
-.ap-detail-val { font-size: 14px; color: var(--ink); word-break: break-word; overflow-wrap: anywhere; }
+.ap-detail-lbl { font-size: 16px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
+.ap-detail-val { font-size: 16px; color: var(--ink); word-break: break-word; overflow-wrap: anywhere; }
 .ap-detail-item { min-width: 0; }
-.ap-section-hdr { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--sandd); }
+.ap-section-hdr { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--sandd); }
 .ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
 @keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 `;
@@ -270,7 +270,7 @@ const AdminUsers = () => {
         {/* Users Table */}
         <div className="ap-card">
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--sandd)' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--ink)' }}>
+            <span style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink)' }}>
               Users ({filteredUsers.length}{filteredUsers.length !== users.length ? ` of ${users.length}` : ''})
             </span>
           </div>
@@ -300,7 +300,7 @@ const AdminUsers = () => {
                             <div style={{ fontWeight: 600, color: 'var(--ink)' }}>
                               {user.name || user.email.split('@')[0] || 'Unknown User'}
                             </div>
-                            <div style={{ fontSize: '12px', color: 'var(--ink6)' }}>{user.email}</div>
+                            <div style={{ fontSize: '16px', color: 'var(--ink6)' }}>{user.email}</div>
                           </div>
                         </div>
                       </td>
@@ -319,7 +319,7 @@ const AdminUsers = () => {
                             <div style={{ fontWeight: 600, color: 'var(--ink)', textTransform: 'capitalize' }}>
                               {user.subscription.planId || user.subscription.plan || 'Unknown Plan'}
                             </div>
-                            <div style={{ fontSize: '12px', color: 'var(--ink3)' }}>
+                            <div style={{ fontSize: '16px', color: 'var(--ink3)' }}>
                               {user.subscription.currentPeriodEnd && new Date(user.subscription.currentPeriodEnd).getTime() > 0
                                 ? `Until ${new Date(user.subscription.currentPeriodEnd).toLocaleDateString()}`
                                 : 'No expiry date'}
@@ -329,7 +329,7 @@ const AdminUsers = () => {
                           <span style={{ color: 'var(--ink3)' }}>No subscription</span>
                         )}
                       </td>
-                      <td style={{ whiteSpace: 'nowrap', color: 'var(--ink6)', fontSize: '12px' }}>
+                      <td style={{ whiteSpace: 'nowrap', color: 'var(--ink6)', fontSize: '16px' }}>
                         {new Date(user.createdAt).toLocaleDateString()}
                       </td>
                       <td style={{ textAlign: 'right' }}>
@@ -350,7 +350,7 @@ const AdminUsers = () => {
               <div className="ap-modal-hdr">
                 <div>
                   <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--ink)', marginBottom: '3px' }}>User Details</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>{showUserDetail.email}</p>
+                  <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>{showUserDetail.email}</p>
                 </div>
                 <button onClick={() => setShowUserDetail(null)} className="ap-modal-close">
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -408,7 +408,7 @@ const AdminUsers = () => {
                     </button>
 
                     <div style={{ borderTop: '1px solid var(--sandd)', marginTop: '4px', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Account Type</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Account Type</div>
                       <button
                         onClick={() => handleToggleInternal(showUserDetail._id)}
                         disabled={currentUserId === showUserDetail._id}
@@ -419,7 +419,7 @@ const AdminUsers = () => {
                     </div>
 
                     <div style={{ borderTop: '1px solid var(--sandd)', marginTop: '4px', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Role Management</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Role Management</div>
                       {showUserDetail.role === 'user' ? (
                         <button onClick={() => handleUpdateRole(showUserDetail._id, 'admin')} className="ap-action-btn ap-action-btn-teal">
                           Promote to Admin
@@ -437,7 +437,7 @@ const AdminUsers = () => {
                     </div>
 
                     <div style={{ borderTop: '1px solid var(--sandd)', marginTop: '4px', paddingTop: '12px' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Account Status</div>
+                      <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--ink6)', marginBottom: '8px' }}>Account Status</div>
                       {isSuspended(showUserDetail) ? (
                         <button onClick={() => handleUpdateStatus(showUserDetail._id, 'active')} className="ap-action-btn ap-action-btn-teal">
                           Reactivate User
@@ -462,7 +462,7 @@ const AdminUsers = () => {
               <div className="ap-modal-hdr">
                 <div>
                   <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--ink)', marginBottom: '3px' }}>Update Plan</h3>
-                  <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>{showPlanModal.email}</p>
+                  <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>{showPlanModal.email}</p>
                 </div>
                 <button onClick={() => setShowPlanModal(null)} className="ap-modal-close">
                   <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -471,7 +471,7 @@ const AdminUsers = () => {
                 </button>
               </div>
               <div className="ap-modal-body">
-                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '16px' }}>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '16px' }}>
                   Select a new subscription plan for <strong>{showPlanModal.email}</strong>
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

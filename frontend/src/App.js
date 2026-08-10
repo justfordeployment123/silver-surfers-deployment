@@ -56,7 +56,7 @@ function AppContent() {
     <div className="App">
       <ScrollToTop />
       {!isAdminRoute && <Header />}
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <Routes>
           <Route path="/" element={<Home />} />
           

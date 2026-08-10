@@ -13,35 +13,35 @@ const STYLES = `
 .mjm-step-dot { flex: 1; height: 4px; border-radius: 2px; background: var(--sandd); }
 .mjm-step-dot.active { background: var(--t4); }
 .mjm-body { padding: 24px; display: flex; flex-direction: column; gap: 18px; }
-.mjm-label { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; display: block; }
-.mjm-hint { font-size: 12px; color: var(--ink3); margin-top: 4px; }
-.mjm-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sandd); background: var(--bg); color: var(--ink); font-size: 14px; outline: none; box-sizing: border-box; }
+.mjm-label { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; display: block; }
+.mjm-hint { font-size: 16px; color: var(--ink3); margin-top: 4px; }
+.mjm-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sandd); background: var(--bg); color: var(--ink); font-size: 16px; outline: none; box-sizing: border-box; }
 .mjm-input:focus { border-color: var(--t4); }
-.mjm-error { font-size: 13px; color: var(--coral); margin-top: -6px; }
+.mjm-error { font-size: 16px; color: var(--coral); margin-top: -6px; }
 .mjm-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mjm-opt-card { border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
 .mjm-opt-card:hover { border-color: var(--t1); }
 .mjm-opt-card.selected { border-color: var(--t4); background: var(--t05, var(--t1)); }
 .mjm-opt-card:disabled { opacity: 0.45; cursor: not-allowed; }
-.mjm-opt-name { font-size: 14px; font-weight: 700; margin: 0 0 2px 0; }
-.mjm-opt-desc { font-size: 12px; color: var(--ink3); margin: 0; }
+.mjm-opt-name { font-size: 16px; font-weight: 700; margin: 0 0 2px 0; }
+.mjm-opt-desc { font-size: 16px; color: var(--ink3); margin: 0; }
 .mjm-check-row { display: flex; flex-wrap: wrap; gap: 10px; }
-.mjm-check-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9999px; border: 1px solid var(--sandd); background: var(--bg); cursor: pointer; font-size: 13px; }
+.mjm-check-pill { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 9999px; border: 1px solid var(--sandd); background: var(--bg); cursor: pointer; font-size: 16px; }
 .mjm-check-pill.selected { border-color: var(--t4); background: var(--t1); color: var(--t9); font-weight: 700; }
 .mjm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.mjm-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 9999px; background: var(--t1); color: var(--t9); font-size: 12px; font-weight: 600; }
-.mjm-chip-x { border: none; background: none; cursor: pointer; color: var(--t9); font-size: 14px; line-height: 1; padding: 0; }
+.mjm-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 9999px; background: var(--t1); color: var(--t9); font-size: 16px; font-weight: 600; }
+.mjm-chip-x { border: none; background: none; cursor: pointer; color: var(--t9); font-size: 16px; line-height: 1; padding: 0; }
 .mjm-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--sandd); border-radius: 10px; background: var(--bg); }
-.mjm-toggle-label { font-size: 13px; font-weight: 600; }
+.mjm-toggle-label { font-size: 16px; font-weight: 600; }
 .mjm-switch { position: relative; width: 40px; height: 22px; border-radius: 9999px; background: var(--sandd); border: none; cursor: pointer; flex-shrink: 0; transition: background .15s; }
 .mjm-switch.on { background: var(--t4); }
 .mjm-switch-knob { position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
 .mjm-switch.on .mjm-switch-knob { left: 20px; }
-.mjm-review-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sandd); font-size: 13px; }
+.mjm-review-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sandd); font-size: 16px; }
 .mjm-review-k { color: var(--ink3); }
 .mjm-review-v { font-weight: 700; text-align: right; }
 .mjm-footer { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-top: 1px solid var(--sandd); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 24px 24px; }
-.mjm-preview-box { padding: 10px 14px; border-radius: 10px; background: var(--t05, var(--t1)); color: var(--t9); font-size: 13px; font-weight: 600; }
+.mjm-preview-box { padding: 10px 14px; border-radius: 10px; background: var(--t05, var(--t1)); color: var(--t9); font-size: 16px; font-weight: 600; }
 `;
 
 const SCHEDULE_CARDS = [

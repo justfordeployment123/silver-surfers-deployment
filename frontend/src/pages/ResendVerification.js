@@ -29,7 +29,7 @@ const ResendVerification = () => {
       `}</style>
       <div className="auth-bg">
         <form onSubmit={onSubmit} className="auth-card">
-          <h2 className="h2" style={{ textAlign: 'center', marginBottom: '24px' }}>Resend Verification</h2>
+          <h1 className="h2" style={{ textAlign: 'center', marginBottom: '24px' }}>Resend Verification</h1>
           <div style={{ marginBottom: '16px' }}>
             <label className="ss-label" htmlFor="rv-email">Email</label>
             <input
@@ -42,12 +42,12 @@ const ResendVerification = () => {
               required
             />
           </div>
-          {error && <p style={{ fontSize: '13px', color: 'var(--coral)', textAlign: 'center', marginBottom: '8px' }}>{error}</p>}
-          {msg && <p style={{ fontSize: '13px', color: 'var(--t4)', textAlign: 'center', marginBottom: '8px' }}>{msg}</p>}
+          {error && <p style={{ fontSize: '16px', color: 'var(--coral)', textAlign: 'center', marginBottom: '8px' }}>{error}</p>}
+          {msg && <p style={{ fontSize: '16px', color: 'var(--t4)', textAlign: 'center', marginBottom: '8px' }}>{msg}</p>}
           <button type="submit" disabled={loading} className="btn btn-d" style={{ width: '100%', justifyContent: 'center', opacity: loading ? 0.65 : 1 }}>
             {loading ? 'Sending…' : 'Send Email'}
           </button>
-          <p style={{ fontSize: '13px', color: 'var(--ink6)', textAlign: 'center', marginTop: '16px' }}>
+          <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center', marginTop: '16px' }}>
             <a href="/login" style={{ color: 'var(--t4)', textDecoration: 'none' }}>Back to login</a>
           </p>
         </form>

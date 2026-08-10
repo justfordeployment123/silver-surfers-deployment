@@ -103,7 +103,7 @@ const FAQ = () => {
                     border-radius: 50%;
                     background: var(--t05);
                     color: var(--t4);
-                    font-size: 12px;
+                    font-size: 16px;
                     font-weight: 600;
                     display: flex;
                     align-items: center;
@@ -112,7 +112,7 @@ const FAQ = () => {
                     font-family: var(--ff);
                 }
                 .faq-q-text {
-                    font-size: 15.5px;
+                    font-size: 16px;
                     font-weight: 500;
                     color: var(--ink);
                     line-height: 1.45;
@@ -130,14 +130,14 @@ const FAQ = () => {
                     padding: 0 4px 20px 42px;
                 }
                 .faq-answer-text {
-                    font-size: 14.5px;
+                    font-size: 16px;
                     color: var(--ink6);
                     line-height: 1.75;
                 }
                 .faq-status {
                     text-align: center;
                     padding: 40px 0;
-                    font-size: 15px;
+                    font-size: 16px;
                     color: var(--ink6);
                 }
                 .faq-status.err { color: var(--coral); }
@@ -152,7 +152,7 @@ const FAQ = () => {
                     <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
                         <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>FAQ</p>
                         <h1 className="h1" style={{ color: '#fff' }}>Frequently Asked Questions</h1>
-                        <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '560px', margin: '0 auto' }}>
+                        <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: '560px', margin: '0 auto' }}>
                             Find answers to the most frequently asked questions about SilverSurfers
                         </p>
                     </div>
@@ -219,7 +219,7 @@ const FAQ = () => {
                                     </svg>
                                 </div>
                                 <h3 className="h3" style={{ marginBottom: '8px' }}>SilverSurfers Blog</h3>
-                                <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: '1.65', marginBottom: '16px' }}>
+                                <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65', marginBottom: '16px' }}>
                                     See how we've helped businesses improve their digital platforms
                                 </p>
                                 <button
@@ -240,7 +240,7 @@ const FAQ = () => {
                         <h2 className="h2" style={{ color: '#fff', marginBottom: '16px' }}>
                             Ready to Get Started?
                         </h2>
-                        <p className="lead" style={{ color: 'rgba(255,255,255,0.65)', marginBottom: '36px', maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
+                        <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '36px', maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
                             Join the growing community of businesses elevating their digital experience
                             with SilverSurfers.ai
                         </p>

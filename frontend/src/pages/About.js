@@ -77,7 +77,7 @@ const About = () => {
         }
         .about-stat-n { color: var(--t4); }
         .about-stat-l { color: var(--ink6); }
-        .about-stat-desc { color: var(--ink3); }
+        .about-stat-desc { color: var(--ink6); }
         .about-val-row {
           display: flex;
           align-items: flex-start;
@@ -87,7 +87,7 @@ const About = () => {
           width: 48px;
           height: 48px;
           flex-shrink: 0;
-          background: var(--t4);
+          background: var(--t6);
           border-radius: 10px;
           display: flex;
           align-items: center;
@@ -115,7 +115,7 @@ const About = () => {
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
             <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>About Us</p>
             <h1 className="h1" style={{ color: '#fff' }}>About SilverSurfers</h1>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '600px', margin: '0 auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: '600px', margin: '0 auto' }}>
               Experts in Creating Inclusive Digital Experiences — we help businesses make their
               digital experiences welcoming and easy to use for everyone.
             </p>
@@ -130,7 +130,7 @@ const About = () => {
               <h2 className="h2">{mission.title}</h2>
             </div>
             <div className="diff">
-              <p style={{ color: 'rgba(255,255,255,0.72)', fontSize: '17px', lineHeight: '1.8', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
+              <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '17px', lineHeight: '1.8', maxWidth: '800px', margin: '0 auto', textAlign: 'center' }}>
                 {mission.description}
               </p>
             </div>
@@ -150,7 +150,7 @@ const About = () => {
                 <div className="stat" key={i}>
                   <span className="stat-n about-stat-n">{s.number}</span>
                   <span className="stat-l about-stat-l">{s.label}</span>
-                  <span className="about-stat-desc" style={{ fontSize: '13px', marginTop: '4px', display: 'block' }}>
+                  <span className="about-stat-desc" style={{ fontSize: '16px', marginTop: '4px', display: 'block' }}>
                     {s.description}
                   </span>
                 </div>
@@ -175,7 +175,7 @@ const About = () => {
                     <div className="about-icon-box">{item.icon}</div>
                     <div>
                       <h3 className="h3" style={{ marginBottom: '8px' }}>{item.title}</h3>
-                      <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: '1.65' }}>
+                      <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65' }}>
                         {item.description}
                       </p>
                     </div>
@@ -209,7 +209,7 @@ const About = () => {
                     <div className="about-val-letter">{val.letter}</div>
                     <div>
                       <h3 className="h3" style={{ marginBottom: '6px' }}>{val.title}</h3>
-                      <p style={{ fontSize: '14px', color: 'var(--ink6)', lineHeight: '1.65' }}>
+                      <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65' }}>
                         {val.description}
                       </p>
                     </div>
@@ -226,7 +226,7 @@ const About = () => {
             <h2 className="h2" style={{ color: '#fff', marginBottom: '16px' }}>
               Curious to learn more or have questions?
             </h2>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.65)', marginBottom: '36px', maxWidth: '580px', marginLeft: 'auto', marginRight: 'auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '36px', maxWidth: '580px', marginLeft: 'auto', marginRight: 'auto' }}>
               We're not a faceless company – we're people who care deeply about inclusive,
               older adult–friendly digital experiences. Reach out anytime.
             </p>

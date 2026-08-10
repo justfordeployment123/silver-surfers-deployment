@@ -57,8 +57,8 @@ export default function BlogPost() {
         <style>{`.bp-page { background: var(--t9); min-height: 100vh; }`}</style>
         <div className="bp-page" style={{ paddingTop: '160px', paddingBottom: '60px', textAlign: 'center' }}>
           <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 24px' }}>
-            <p style={{ color: 'rgba(255,255,255,0.7)', marginBottom: '20px' }}>{error || 'Post not found.'}</p>
-            <Link to="/blog" style={{ color: 'var(--t4)', textDecoration: 'none', fontSize: '14px' }}>
+            <p style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '20px' }}>{error || 'Post not found.'}</p>
+            <Link to="/blog" style={{ color: 'var(--t4)', textDecoration: 'none', fontSize: '16px' }}>
               ← Back to Blog
             </Link>
           </div>
@@ -74,7 +74,7 @@ export default function BlogPost() {
         .bp-header { padding: 120px 0 52px; }
         .bp-back {
           display: inline-flex; align-items: center; gap: 6px;
-          color: rgba(255,255,255,0.55); font-size: 13.5px; text-decoration: none;
+          color: rgba(255,255,255,0.75); font-size: 16px; text-decoration: none;
           margin-bottom: 28px; transition: color 0.15s;
         }
         .bp-back:hover { color: rgba(255,255,255,0.9); }
@@ -87,7 +87,7 @@ export default function BlogPost() {
           margin-bottom: 20px;
         }
         .bp-meta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 4px; }
-        .bp-meta-item { font-size: 13px; color: rgba(255,255,255,0.5); }
+        .bp-meta-item { font-size: 16px; color: rgba(255,255,255,0.75); }
         .bp-excerpt {
           background: rgba(255,255,255,0.05);
           border-top: 1px solid rgba(255,255,255,0.08);

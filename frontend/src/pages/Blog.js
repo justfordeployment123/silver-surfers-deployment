@@ -67,18 +67,18 @@ const Blog = () => {
           flex-wrap: wrap;
           gap: 16px;
           margin: 16px 0 20px;
-          font-size: 13px;
+          font-size: 16px;
           color: var(--ink6);
         }
         .blog-feat-meta-item { display: flex; align-items: center; gap: 5px; }
-        .blog-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--ink6); margin: 10px 0 16px; }
-        .blog-post-excerpt { font-size: 14px; color: var(--ink6); line-height: 1.65; margin: 8px 0; }
+        .blog-meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 16px; color: var(--ink6); margin: 10px 0 16px; }
+        .blog-post-excerpt { font-size: 16px; color: var(--ink6); line-height: 1.65; margin: 8px 0; }
         .blog-no-posts { text-align: center; padding: 60px 0; }
         .blog-no-posts-icon {
           width: 56px; height: 56px; background: var(--t05); border-radius: 12px;
           display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; color: var(--t4);
         }
-        .blog-status { text-align: center; padding: 40px 0; font-size: 15px; color: var(--ink6); }
+        .blog-status { text-align: center; padding: 40px 0; font-size: 16px; color: var(--ink6); }
         .blog-status.err { color: var(--coral); }
       `}</style>
 
@@ -91,7 +91,7 @@ const Blog = () => {
           <div className="wrap" style={{ position: 'relative', zIndex: 1, textAlign: 'center' }}>
             <p className="eyebrow eyebrow--light" style={{ justifyContent: 'center' }}>Blog</p>
             <h1 className="h1" style={{ color: '#fff' }}>Accessibility & Silver UX</h1>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.7)', maxWidth: '560px', margin: '0 auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: '560px', margin: '0 auto' }}>
               Practical guides, tips, and case studies on creating a delightful digital experience.
             </p>
           </div>
@@ -196,7 +196,7 @@ const Blog = () => {
                   </svg>
                 </div>
                 <h3 className="h3" style={{ marginBottom: '8px' }}>No posts found</h3>
-                <p style={{ fontSize: '14px', color: 'var(--ink6)' }}>Check back later for new content.</p>
+                <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>Check back later for new content.</p>
               </div>
             ))}
           </div>
@@ -206,7 +206,7 @@ const Blog = () => {
         <section className="cta-sec">
           <div className="wrap" style={{ textAlign: 'center' }}>
             <h2 className="h2" style={{ color: '#fff', marginBottom: '16px' }}>Ready to Get Started?</h2>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.65)', marginBottom: '36px', maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '36px', maxWidth: '560px', marginLeft: 'auto', marginRight: 'auto' }}>
               Join the growing community of businesses elevating their digital experience with SilverSurfers.ai
             </p>
             <div className="btn-row" style={{ justifyContent: 'center' }}>

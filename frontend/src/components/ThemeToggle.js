@@ -19,7 +19,23 @@ const ThemeToggle = ({ className = '' }) => {
   return (
     <>
       <style>{`
+        /* Outer element is the actual button: it owns the ≥44x44px hit
+           area (WCAG 2.5.8) but stays visually invisible so the compact
+           pill track below keeps its original slim appearance. */
         .ss-theme-toggle {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 44px;
+          min-height: 44px;
+          padding: 0;
+          border: none;
+          background: none;
+          flex-shrink: 0;
+        }
+
+        .ss-theme-track {
           position: relative;
           width: 54px;
           height: 30px;
@@ -33,10 +49,9 @@ const ThemeToggle = ({ className = '' }) => {
             inset 0 1px 1px rgba(255,255,255,0.6),
             inset 0 -1px 2px rgba(0,0,0,0.06),
             0 1px 3px rgba(0,0,0,0.08);
-          flex-shrink: 0;
           transition: background 0.3s ease, border-color 0.3s ease;
         }
-        :root[data-theme='dark'] .ss-theme-toggle {
+        :root[data-theme='dark'] .ss-theme-track {
           border-color: rgba(255,255,255,0.14);
           background: linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.02));
           box-shadow:
@@ -59,7 +74,7 @@ const ThemeToggle = ({ className = '' }) => {
         .ss-theme-track-icon--moon { right: 7px; opacity: 0.35; }
         .ss-theme-toggle[aria-pressed='true'] .ss-theme-track-icon--sun  { opacity: 0.35; }
         .ss-theme-toggle[aria-pressed='true'] .ss-theme-track-icon--moon { opacity: 1; }
-        :root[data-theme='dark'] .ss-theme-track-icon { color: rgba(255,255,255,0.55); }
+        :root[data-theme='dark'] .ss-theme-track-icon { color: rgba(255,255,255,0.75); }
 
         .ss-theme-thumb {
           position: relative;
@@ -94,7 +109,7 @@ const ThemeToggle = ({ className = '' }) => {
         }
 
         @media (max-width: 1024px) {
-          .ss-theme-toggle { width: 48px; height: 26px; }
+          .ss-theme-track  { width: 48px; height: 26px; }
           .ss-theme-thumb  { width: 20px; height: 20px; }
           .ss-theme-toggle[aria-pressed='true'] .ss-theme-thumb { transform: translateX(22px); }
           .ss-theme-track-icon { width: 12px; height: 12px; }
@@ -110,25 +125,27 @@ const ThemeToggle = ({ className = '' }) => {
         aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
       >
-        <svg className="ss-theme-track-icon ss-theme-track-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <circle cx="12" cy="12" r="4" />
-          <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-        </svg>
-        <svg className="ss-theme-track-icon ss-theme-track-icon--moon" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-        </svg>
+        <span className="ss-theme-track">
+          <svg className="ss-theme-track-icon ss-theme-track-icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="4" />
+            <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+          </svg>
+          <svg className="ss-theme-track-icon ss-theme-track-icon--moon" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+          </svg>
 
-        <span className="ss-theme-thumb">
-          {isDark ? (
-            <svg className="ss-theme-thumb-icon" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
-            </svg>
-          ) : (
-            <svg className="ss-theme-thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="4" />
-              <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
-            </svg>
-          )}
+          <span className="ss-theme-thumb">
+            {isDark ? (
+              <svg className="ss-theme-thumb-icon" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+              </svg>
+            ) : (
+              <svg className="ss-theme-thumb-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="4" />
+                <path strokeLinecap="round" d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              </svg>
+            )}
+          </span>
         </span>
       </button>
     </>

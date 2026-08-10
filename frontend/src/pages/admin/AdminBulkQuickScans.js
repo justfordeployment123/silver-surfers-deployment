@@ -4,18 +4,18 @@ import { adminBulkQuickScans } from '../../api';
 const STYLES = `
 .ap-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--r); }
 .ap-h1 { font-size: 26px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-.ap-sub { font-size: 14px; color: var(--ink6); }
-.ap-lbl { font-size: 13px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
-.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 14px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
+.ap-sub { font-size: 16px; color: var(--ink6); }
+.ap-lbl { font-size: 16px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
+.ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
 .ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 12px; font-size: 13px; font-family: monospace; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
+.ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 12px; font-size: 16px; font-family: monospace; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
 .ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
-.ap-btn-p { background: var(--t4); color: #fff; padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
+.ap-btn-p { background: var(--t6); color: #fff; padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }
-.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #991b1b; }
-.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 13px; color: #166534; }
-.ap-info { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 16px; font-size: 13px; color: var(--t6); }
+.ap-err { background: #fee2e2; border: 1px solid #fca5a5; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #991b1b; }
+.ap-ok { background: #dcfce7; border: 1px solid #86efac; border-radius: var(--r); padding: 12px 16px; font-size: 16px; color: #166534; }
+.ap-info { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 16px; font-size: 16px; color: var(--t6); }
 .ap-spin { animation: ap-spin-kf 0.7s linear infinite; }
 @keyframes ap-spin-kf { to { transform: rotate(360deg); } }
 `;
@@ -180,7 +180,7 @@ const AdminBulkQuickScans = () => {
                 required
                 className="ap-textarea"
               />
-              <p style={{ marginTop: '6px', fontSize: '12px', color: 'var(--ink3)' }}>
+              <p style={{ marginTop: '6px', fontSize: '16px', color: 'var(--ink3)' }}>
                 Enter one URL per line. URLs can include or omit the protocol (http:// or https://).
               </p>
             </div>

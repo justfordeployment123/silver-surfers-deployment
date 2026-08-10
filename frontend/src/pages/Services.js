@@ -153,15 +153,15 @@ const Services = () => {
         .free-card h3 { color: var(--ink); }
         .free-card .free-card-label { color: var(--ink); }
         .free-card .free-card-feature { color: var(--ink6); }
-        .free-card .free-card-note { color: var(--t6); }
+        .free-card .free-card-note { color: var(--tlink); }
         .free-card-bar {
           position: absolute; top: 0; left: 0; right: 0;
           height: 4px; background: var(--t4);
         }
         .free-card-badge {
           position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
-          background: var(--t4); color: #fff;
-          font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+          background: var(--t6); color: #fff;
+          font-size: 16px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
           padding: 5px 18px; border-radius: 0 0 8px 8px;
           white-space: nowrap;
         }
@@ -176,9 +176,10 @@ const Services = () => {
           gap: 2px;
         }
         .billing-opt {
-          padding: 8px 22px;
+          min-height: 44px;
+          padding: 10px 22px;
           border-radius: 24px;
-          font-size: 13px;
+          font-size: 16px;
           font-weight: 600;
           font-family: var(--ff);
           border: none;
@@ -228,14 +229,14 @@ const Services = () => {
 
         .svc-plan-pop {
           position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
-          font-size: 11px; font-weight: 700; padding: 5px 16px;
+          font-size: 16px; font-weight: 700; padding: 5px 16px;
           border-radius: 0 0 8px 8px; white-space: nowrap;
         }
-        .svc-plan-pop.teal  { background: var(--t4); color: #fff; }
+        .svc-plan-pop.teal  { background: var(--t6); color: #fff; }
         .svc-plan-pop.green { background: var(--t6); color: #fff; }
 
         .svc-plan-name {
-          font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+          font-size: 16px; font-weight: 600; letter-spacing: 0.1em;
           text-transform: uppercase; color: var(--ink6); margin-bottom: 6px;
         }
         .dark-plan .svc-plan-name { color: var(--t2); }
@@ -249,14 +250,14 @@ const Services = () => {
         .dark-plan .svc-plan-price { color: #fff; }
 
         .svc-plan-price-suffix {
-          font-family: var(--ff); font-size: 14px; font-weight: 400; color: var(--ink6);
+          font-family: var(--ff); font-size: 16px; font-weight: 400; color: var(--ink6);
         }
-        .dark-plan .svc-plan-price-suffix { color: rgba(255,255,255,0.45); }
+        .dark-plan .svc-plan-price-suffix { color: rgba(255,255,255,0.75); }
 
         .svc-plan-caption {
-          font-size: 12px; color: var(--ink3); margin-bottom: 16px;
+          font-size: 16px; color: var(--ink3); margin-bottom: 16px;
         }
-        .dark-plan .svc-plan-caption { color: rgba(255,255,255,0.35); }
+        .dark-plan .svc-plan-caption { color: rgba(255,255,255,0.75); }
 
         .svc-plan-divider {
           border: none; border-top: 1px solid var(--sandd); margin-bottom: 16px;
@@ -264,15 +265,15 @@ const Services = () => {
         .dark-plan .svc-plan-divider { border-color: rgba(255,255,255,0.1); }
 
         .svc-plan-desc {
-          font-size: 13px; color: var(--ink6); margin-bottom: 14px; line-height: 1.55;
+          font-size: 16px; color: var(--ink6); margin-bottom: 14px; line-height: 1.55;
         }
-        .dark-plan .svc-plan-desc { color: rgba(255,255,255,0.5); }
+        .dark-plan .svc-plan-desc { color: rgba(255,255,255,0.75); }
 
         .svc-plan-feature {
           display: flex; align-items: flex-start; gap: 10px;
-          font-size: 13px; color: var(--ink6); line-height: 1.5; margin-bottom: 8px;
+          font-size: 16px; color: var(--ink6); line-height: 1.5; margin-bottom: 8px;
         }
-        .dark-plan .svc-plan-feature { color: rgba(255,255,255,0.6); }
+        .dark-plan .svc-plan-feature { color: rgba(255,255,255,0.75); }
 
         .svc-check {
           width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; color: var(--t4);
@@ -329,7 +330,7 @@ const Services = () => {
             <h1 className="h1" style={{ color: '#fff', maxWidth: 700, margin: '0 auto 18px' }}>
               Service Packages &amp; Pricing
             </h1>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.6)', maxWidth: 600, margin: '0 auto 32px' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 600, margin: '0 auto 32px' }}>
               We help businesses create digital experiences that engage and delight older adults — with expert
               digital experience assessments, actionable enhancements, and certification to showcase your
               commitment to accessibility.
@@ -370,13 +371,13 @@ const Services = () => {
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 40, alignItems: 'center' }}>
                   <div>
-                    <p className="free-card-label" style={{ fontSize: 13, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
+                    <p className="free-card-label" style={{ fontSize: 16, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 14 }}>
                       What you get
                     </p>
                     {freeAudit.features.map((f, i) => (
                       <div key={i} className="svc-plan-feature">
                         <CheckIcon />
-                        <span className="free-card-feature" style={{ fontSize: 14 }}>{f}</span>
+                        <span className="free-card-feature" style={{ fontSize: 16 }}>{f}</span>
                       </div>
                     ))}
                   </div>
@@ -388,13 +389,13 @@ const Services = () => {
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3"/>
                       </svg>
                     </a>
-                    <p className="free-card-note" style={{ fontSize: 12, marginBottom: 14 }}>No credit card required</p>
+                    <p className="free-card-note" style={{ fontSize: 16, marginBottom: 14 }}>No credit card required</p>
                     <a href="/subscription" className="btn btn-o" style={{ display: 'inline-flex' }}>
                       Get Full Audit Here
                     </a>
-                    <p style={{ fontSize: 12, color: 'var(--ink3)', marginTop: 12 }}>
+                    <p style={{ fontSize: 16, color: 'var(--ink3)', marginTop: 12 }}>
                       <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet &amp; Mobile testing available with{' '}
-                      <a href="/subscription" style={{ color: 'var(--t6)', textDecoration: 'underline' }}>paid subscriptions</a>
+                      <a href="/subscription" style={{ color: 'var(--tlink)', textDecoration: 'underline' }}>paid subscriptions</a>
                     </p>
                   </div>
                 </div>
@@ -547,7 +548,7 @@ const Services = () => {
                 <div key={i} className="choose-card">
                   <div className="choose-card-bar" />
                   <h3 className="h3" style={{ marginBottom: 8, marginTop: 4 }}>{item.title}</h3>
-                  <p style={{ fontSize: 14, color: 'var(--ink6)', lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{item.desc}</p>
+                  <p style={{ fontSize: 16, color: 'var(--ink6)', lineHeight: 1.65, flex: 1, marginBottom: 20 }}>{item.desc}</p>
                   <a href={item.link} className="btn btn-p" style={{ display: 'inline-flex' }}>{item.cta}</a>
                 </div>
               ))}
@@ -561,7 +562,7 @@ const Services = () => {
         <section className="cta-sec">
           <div className="wrap">
             <h2 className="h2" style={{ marginBottom: 14 }}>Ready to Get Started?</h2>
-            <p className="lead" style={{ color: 'rgba(255,255,255,0.5)', maxWidth: 520, margin: '0 auto' }}>
+            <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 520, margin: '0 auto' }}>
               Join the growing community of businesses elevating their digital experience with SilverSurfers.ai
             </p>
             <div className="btn-row" style={{ justifyContent: 'center' }}>

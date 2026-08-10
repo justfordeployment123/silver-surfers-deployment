@@ -36,31 +36,31 @@ const STYLES = `
     display: inline-block;
     background: rgba(245,158,11,0.1);
     color: var(--amber);
-    font-size: 12px;
+    font-size: 16px;
     font-weight: 600;
     padding: 3px 10px;
     border-radius: 20px;
     margin-bottom: 12px;
   }
-  .sub-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sand); font-size: 14px; }
+  .sub-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sand); font-size: 16px; }
   .sub-row:last-child { border-bottom: none; }
   .sub-row-label { color: var(--ink6); }
   .sub-row-val { font-weight: 600; color: var(--ink); }
-  .sub-status { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .sub-status { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 16px; font-weight: 600; }
   .sub-status-active { background: var(--t05); color: var(--t4); }
   .sub-status-trial { background: rgba(59,130,246,0.1); color: #2563eb; }
   .sub-status-warn { background: rgba(245,158,11,0.1); color: var(--amber); }
   .sub-status-canceled { background: rgba(239,68,68,0.1); color: var(--coral); }
   .sub-status-default { background: var(--sand); color: var(--ink6); }
-  .sub-cancel-note { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--r); padding: 10px 14px; font-size: 13px; color: var(--amber); }
-  .sub-portal-note { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 10px 14px; font-size: 13px; color: var(--t7); text-align: center; }
+  .sub-cancel-note { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--r); padding: 10px 14px; font-size: 16px; color: var(--amber); }
+  .sub-portal-note { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 10px 14px; font-size: 16px; color: var(--t7); text-align: center; }
   .sub-team-info { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--rl); padding: 28px; text-align: center; }
   .sub-team-icon { width: 56px; height: 56px; background: var(--sandd); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; color: var(--ink6); }
   .sub-billing-toggle { display: inline-flex; align-items: center; background: var(--sand); border: 2px solid var(--sandd); border-radius: 999px; padding: 3px; }
   .sub-billing-opt {
     padding: 6px 20px;
     border-radius: 999px;
-    font-size: 13px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--ink6);
     background: none;
@@ -68,7 +68,7 @@ const STYLES = `
     cursor: pointer;
     transition: background 0.15s, color 0.15s;
   }
-  .sub-billing-opt.active { background: var(--t4); color: #fff; }
+  .sub-billing-opt.active { background: var(--t6); color: #fff; }
   .sub-plan-card {
     border: 2px solid var(--sandd);
     border-radius: var(--r);
@@ -82,23 +82,23 @@ const STYLES = `
   .sub-plan-card.popular { border-color: var(--t3); }
   .sub-plan-tag {
     display: inline-block;
-    font-size: 11px;
+    font-size: 16px;
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 20px;
     margin-bottom: 8px;
   }
-  .sub-plan-tag.current-tag { background: var(--t4); color: #fff; }
+  .sub-plan-tag.current-tag { background: var(--t6); color: #fff; }
   .sub-plan-tag.popular-tag { background: var(--t05); color: var(--t4); border: 1px solid var(--t3); }
   .sub-plan-price { font-size: 26px; font-weight: 700; color: var(--ink); font-family: var(--ffd); }
-  .sub-plan-price-suffix { font-size: 13px; font-weight: 600; color: var(--ink6); }
-  .sub-plan-caption { font-size: 12px; color: var(--ink6); margin-top: 2px; }
+  .sub-plan-price-suffix { font-size: 16px; font-weight: 600; color: var(--ink6); }
+  .sub-plan-caption { font-size: 16px; color: var(--ink6); margin-top: 2px; }
   .sub-feat-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-  .sub-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--ink6); }
+  .sub-feat-item { display: flex; align-items: flex-start; gap: 8px; font-size: 16px; color: var(--ink6); }
   .sub-feat-check { color: var(--t4); flex-shrink: 0; margin-top: 1px; }
   .sub-member-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: var(--sand); border-radius: var(--r); }
   .sub-member-avatar { width: 32px; height: 32px; background: var(--t05); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--t4); flex-shrink: 0; }
-  .sub-member-status { font-size: 11px; font-weight: 600; }
+  .sub-member-status { font-size: 16px; font-weight: 600; }
   .sub-member-status.active { color: var(--t4); }
   .sub-member-status.pending { color: var(--amber); }
   .sub-remove-btn { color: var(--coral); background: none; border: none; cursor: pointer; padding: 4px; line-height: 1; transition: opacity 0.15s; }
@@ -106,7 +106,7 @@ const STYLES = `
   .sub-remove-btn:disabled { color: var(--ink3); cursor: not-allowed; }
   .sub-scan-row { border: 1px solid var(--sandd); border-radius: var(--r); padding: 14px; transition: background 0.1s; }
   .sub-scan-row:hover { background: var(--sand); }
-  .sub-scan-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .sub-scan-pill { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 16px; font-weight: 600; }
   .scan-ok { background: var(--t05); color: var(--t4); }
   .scan-warn { background: rgba(245,158,11,0.1); color: var(--amber); }
   .scan-err { background: rgba(239,68,68,0.1); color: var(--coral); }
@@ -403,7 +403,7 @@ const Subscription = () => {
                                 </div>
                             ))}
                         </div>
-                        <div style={{ textAlign: 'center', marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+                        <div style={{ textAlign: 'center', marginTop: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', color: 'rgba(255, 255, 255, 0.75)', fontSize: '16px' }}>
                             <div className="sub-spin" />
                             Loading your subscription details...
                         </div>
@@ -421,7 +421,7 @@ const Subscription = () => {
 
                     <div style={{ textAlign: 'center', marginBottom: '36px' }}>
                         <h1 className="h1" style={{ color: '#fff', marginBottom: '8px' }}>Subscription Management</h1>
-                        <p className="lead" style={{ color: 'rgba(255,255,255,0.65)' }}>Manage your SilverSurfers subscription</p>
+                        <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Manage your SilverSurfers subscription</p>
                     </div>
 
                     {error && <div className="alert-error" style={{ marginBottom: '20px' }}><svg width="16" height="16" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>{error}</div>}
@@ -434,7 +434,7 @@ const Subscription = () => {
                                 <div className={`sub-audit-banner${currentSubscription.isTeamMember ? ' team' : ''}`}>
                                     {currentSubscription.isTeamMember && <div className="sub-team-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>Team Member</div>}
                                     <h3 className="h3" style={{ marginBottom: '10px' }}>Ready to Start Your Audit?</h3>
-                                    <p style={{ fontSize: '14px', color: 'var(--ink6)', marginBottom: '20px' }}>
+                                    <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '20px' }}>
                                         You have {currentSubscription.isTeamMember ? "team access to an" : "an"} active subscription. Start auditing your website now!
                                     </p>
                                     <button onClick={() => navigate("/checkout")} className="btn btn-p">
@@ -463,7 +463,7 @@ const Subscription = () => {
                                         </div>
                                         <div className="sub-row">
                                             <span className="sub-row-label">Period</span>
-                                            <span className="sub-row-val" style={{ fontSize: '12px' }}>
+                                            <span className="sub-row-val" style={{ fontSize: '16px' }}>
                                                 {formatDate(currentSubscription.currentPeriodStart)} – {formatDate(currentSubscription.currentPeriodEnd)}
                                             </span>
                                         </div>
@@ -482,7 +482,7 @@ const Subscription = () => {
                                                     <button onClick={handleManageSubscription} disabled={actionLoading} className="btn btn-d" style={{ width: '100%', justifyContent: 'center', marginBottom: '6px' }}>
                                                         {actionLoading ? "Opening Portal..." : "Manage Subscription"}
                                                     </button>
-                                                    <p style={{ fontSize: '11px', color: 'var(--ink6)', textAlign: 'center' }}>Change plan, update billing, or cancel subscription</p>
+                                                    <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center' }}>Change plan, update billing, or cancel subscription</p>
                                                 </>
                                             ) : (
                                                 <div className="sub-portal-note">This subscription is managed locally by an admin — Stripe billing portal is not available.</div>
@@ -500,7 +500,7 @@ const Subscription = () => {
                                                 <button onClick={() => handleLeaveTeam()} disabled={actionLoading} className="btn btn-o" style={{ width: '100%', justifyContent: 'center', color: 'var(--coral)', borderColor: 'var(--coral)' }}>
                                                     {actionLoading ? "Leaving..." : "Leave Team"}
                                                 </button>
-                                                <p style={{ fontSize: '12px', color: 'var(--ink6)', textAlign: 'center' }}>You're using a team plan. Contact the plan owner to manage the subscription.</p>
+                                                <p style={{ fontSize: '16px', color: 'var(--ink6)', textAlign: 'center' }}>You're using a team plan. Contact the plan owner to manage the subscription.</p>
                                             </>
                                         ) : (
                                             <>
@@ -524,10 +524,10 @@ const Subscription = () => {
                                             </svg>
                                         </div>
                                         <h3 className="h3" style={{ marginBottom: '10px' }}>Team Plan Member</h3>
-                                        <p style={{ fontSize: '14px', color: 'var(--ink6)', marginBottom: '10px' }}>
+                                        <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '10px' }}>
                                             You're using a team plan. Only the plan owner can upgrade, downgrade, or cancel the subscription.
                                         </p>
-                                        <p style={{ fontSize: '12px', color: 'var(--ink3)' }}>Contact your team owner if you need changes to the plan or have questions.</p>
+                                        <p style={{ fontSize: '16px', color: 'var(--ink3)' }}>Contact your team owner if you need changes to the plan or have questions.</p>
                                     </div>
                                 )}
 
@@ -538,8 +538,8 @@ const Subscription = () => {
 
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
                                             <div>
-                                                <div style={{ fontWeight: 600, fontSize: '14px', color: 'var(--ink)' }}>Team Members</div>
-                                                <div style={{ fontSize: '12px', color: 'var(--ink6)', marginTop: '2px' }}>
+                                                <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>Team Members</div>
+                                                <div style={{ fontSize: '16px', color: 'var(--ink6)', marginTop: '2px' }}>
                                                     {teamMembers.length} / {currentSubscription.limits.maxUsers === -1 ? "∞" : currentSubscription.limits.maxUsers} members
                                                 </div>
                                             </div>
@@ -565,7 +565,7 @@ const Subscription = () => {
 
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {teamMembers.length === 0 ? (
-                                                <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>No team members yet. Invite someone to get started!</p>
+                                                <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>No team members yet. Invite someone to get started!</p>
                                             ) : (
                                                 teamMembers.map((member, index) => (
                                                     <div key={index} className="sub-member-row">
@@ -576,7 +576,7 @@ const Subscription = () => {
                                                                 </svg>
                                                             </div>
                                                             <div>
-                                                                <div style={{ fontWeight: 500, fontSize: '13px', color: 'var(--ink)' }}>{member.email}</div>
+                                                                <div style={{ fontWeight: 500, fontSize: '16px', color: 'var(--ink)' }}>{member.email}</div>
                                                                 <div className={`sub-member-status ${member.status === "active" ? "active" : "pending"}`}>
                                                                     {member.status === "active" ? "Active" : "Pending"}
                                                                 </div>
@@ -602,7 +602,7 @@ const Subscription = () => {
                                         </h2>
 
                                         {scansLoading ? (
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '24px 0', color: 'var(--ink6)', fontSize: '13px' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '24px 0', color: 'var(--ink6)', fontSize: '16px' }}>
                                                 <div className="sub-spin" />
                                                 {currentSubscription.limits?.maxUsers > 1 ? "Loading team scans..." : "Loading scans..."}
                                             </div>
@@ -613,7 +613,7 @@ const Subscription = () => {
                                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                                     </svg>
                                                 </div>
-                                                <p style={{ fontSize: '13px', color: 'var(--ink6)' }}>
+                                                <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>
                                                     {currentSubscription.limits?.maxUsers > 1 ? "No scans performed by team members yet." : "No scans performed yet."}
                                                 </p>
                                             </div>
@@ -629,13 +629,13 @@ const Subscription = () => {
                                                                     </span>
                                                                     {scan.isOwner && <span className="sub-scan-pill" style={{ background: 'var(--t05)', color: 'var(--t4)' }}>Owner</span>}
                                                                 </div>
-                                                                <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--ink)', margin: '0 0 2px' }}>{scan.url}</p>
-                                                                <p style={{ fontSize: '12px', color: 'var(--ink6)', margin: '0 0 6px' }}>by {scan.email}</p>
-                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: 'var(--ink3)', flexWrap: 'wrap' }}>
+                                                                <p style={{ fontSize: '16px', fontWeight: 500, color: 'var(--ink)', margin: '0 0 2px' }}>{scan.url}</p>
+                                                                <p style={{ fontSize: '16px', color: 'var(--ink6)', margin: '0 0 6px' }}>by {scan.email}</p>
+                                                                <div style={{ display: 'flex', gap: '12px', fontSize: '16px', color: 'var(--ink3)', flexWrap: 'wrap' }}>
                                                                     <span>{new Date(scan.createdAt).toLocaleDateString()} at {new Date(scan.createdAt).toLocaleTimeString()}</span>
                                                                     {scan.attachmentCount > 0 && <span>{scan.attachmentCount} file{scan.attachmentCount !== 1 ? 's' : ''} generated</span>}
                                                                 </div>
-                                                                {scan.failureReason && <p style={{ fontSize: '11px', color: 'var(--coral)', marginTop: '6px' }}>Error: {scan.failureReason}</p>}
+                                                                {scan.failureReason && <p style={{ fontSize: '16px', color: 'var(--coral)', marginTop: '6px' }}>Error: {scan.failureReason}</p>}
                                                             </div>
                                                             <div className={`scan-dot ${getScanDotClass(scan.status)}`} style={{ marginTop: '4px', marginLeft: '12px' }} />
                                                         </div>
@@ -651,7 +651,7 @@ const Subscription = () => {
                                     <div className="sub-card" style={{ gridColumn: '1 / -1' }}>
                                         <div style={{ textAlign: 'center', marginBottom: '24px' }}>
                                             <h2 className="h2" style={{ marginBottom: '6px' }}>Available Plans</h2>
-                                            <p style={{ fontSize: '14px', color: 'var(--ink6)', marginBottom: '16px' }}>Upgrade or change your subscription</p>
+                                            <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '16px' }}>Upgrade or change your subscription</p>
                                             <BillingToggle />
                                         </div>
 
@@ -668,7 +668,7 @@ const Subscription = () => {
                                                                 {isCurrentPlan && <span className="sub-plan-tag current-tag">Current</span>}
                                                             </div>
                                                             <h3 className="h3" style={{ marginBottom: '6px' }}>{plan.name}</h3>
-                                                            <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '14px' }}>{plan.description}</p>
+                                                            <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '14px' }}>{plan.description}</p>
                                                             <div style={{ marginBottom: '14px' }}>
                                                                 {plan.contactSales ? (
                                                                     <div className="sub-plan-price">Contact us</div>
@@ -707,7 +707,7 @@ const Subscription = () => {
                         <div className="sub-no-sub-card">
                             <div style={{ textAlign: 'center', marginBottom: '28px' }}>
                                 <h2 className="h2" style={{ marginBottom: '8px' }}>Choose Your Plan</h2>
-                                <p style={{ fontSize: '15px', color: 'var(--ink6)', marginBottom: '20px' }}>Select the plan that fits your business needs</p>
+                                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '20px' }}>Select the plan that fits your business needs</p>
                                 <BillingToggle />
                             </div>
 
@@ -718,7 +718,7 @@ const Subscription = () => {
                                             <div key={plan.id} className="sub-plan-card" style={{ textAlign: 'center' }}>
                                                 <div style={{ marginBottom: '10px', color: 'var(--t6)' }}>{SUB_PLAN_ICONS[plan.id] || null}</div>
                                                 <h3 className="h3" style={{ marginBottom: '6px' }}>{plan.name}</h3>
-                                                <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '16px', flex: 1 }}>{plan.description}</p>
+                                                <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '16px', flex: 1 }}>{plan.description}</p>
                                                 <a href="/contact" className="btn btn-d" style={{ width: '100%', justifyContent: 'center', marginTop: 'auto' }}>Contact Sales</a>
                                             </div>
                                         );
@@ -732,7 +732,7 @@ const Subscription = () => {
                                             {plan.popular && <span className="sub-plan-tag popular-tag" style={{ marginBottom: '10px', display: 'inline-block' }}>Most Popular</span>}
                                             <div style={{ marginBottom: '8px', color: 'var(--t6)' }}>{SUB_PLAN_ICONS[plan.id] || null}</div>
                                             <h3 className="h3" style={{ marginBottom: '6px' }}>{plan.name}</h3>
-                                            <p style={{ fontSize: '13px', color: 'var(--ink6)', marginBottom: '14px' }}>{plan.description}</p>
+                                            <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '14px' }}>{plan.description}</p>
                                             <div style={{ marginBottom: '14px' }}>
                                                 {isOneTimePlan ? (
                                                     <div className="sub-plan-price">{formatPrice(getCurrentPrice(plan))}</div>

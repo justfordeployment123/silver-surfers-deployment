@@ -16,7 +16,7 @@ import {
 const STYLES = `
 .ac-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
 .ac-wrap { max-width: 1024px; margin: 0 auto; padding: 0 24px; }
-.sp { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; color: #fff; }
+.sp { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; color: #fff; }
 .sp-cmp { background: rgba(29,158,117,0.65); }
 .sp-cww { background: rgba(217,119,6,0.65); }
 .sp-fail { background: rgba(220,38,38,0.65); }
@@ -28,26 +28,26 @@ const STYLES = `
 .ac-tab-active { background: var(--surface); color: var(--ink); }
 .ac-tab-inactive { background: rgba(255,255,255,0.05); color: #fff; }
 .ac-tab-inactive:hover { background: rgba(255,255,255,0.1); }
-.ac-tab-badge { border-radius: 9999px; padding: 2px 10px; font-size: 12px; font-weight: 700; }
+.ac-tab-badge { border-radius: 9999px; padding: 2px 10px; font-size: 16px; font-weight: 700; }
 .ac-tab-badge-active { background: var(--t05); color: var(--t8); }
 .ac-tab-badge-inactive { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
-.ac-inp { flex: 1; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
-.ac-inp::placeholder { color: rgba(255,255,255,0.35); }
+.ac-inp { flex: 1; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-inp::placeholder { color: rgba(255,255,255,0.75); }
 .ac-inp:focus { border-color: var(--t4); }
-.ac-sel { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 14px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
-.ac-ref { padding: 8px 16px; border-radius: 8px; background: var(--t4); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; border: none; white-space: nowrap; }
+.ac-sel { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-ref { padding: 8px 16px; border-radius: 8px; background: var(--t6); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; border: none; white-space: nowrap; }
 .ac-ref:hover { background: var(--t8); }
 .ac-card { padding: 16px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
 .ac-card:hover { border-color: rgba(29,158,117,0.4); }
-.ac-btn-rescan { border-radius: 8px; background: var(--t4); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; border: none; cursor: pointer; transition: background .15s; }
+.ac-btn-rescan { border-radius: 8px; background: var(--t6); padding: 6px 12px; font-size: 16px; font-weight: 700; color: #fff; border: none; cursor: pointer; transition: background .15s; }
 .ac-btn-rescan:hover { background: var(--t8); }
 .ac-btn-rescan:disabled { opacity: 0.6; cursor: not-allowed; }
-.ac-btn-rerun { border-radius: 8px; background: rgba(217,119,6,0.7); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
+.ac-btn-rerun { border-radius: 8px; background: rgba(217,119,6,0.7); padding: 6px 12px; font-size: 16px; font-weight: 700; color: #fff; border: none; cursor: pointer; }
 .ac-btn-rerun:hover { background: rgba(217,119,6,0.9); }
 .ac-btn-rerun:disabled { opacity: 0.6; cursor: not-allowed; }
-.ac-btn-view { border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fff; cursor: pointer; }
+.ac-btn-view { border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; }
 .ac-btn-view:hover { background: rgba(255,255,255,0.1); }
-.ac-btn-del { border-radius: 8px; border: 1px solid rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); padding: 6px 12px; font-size: 12px; font-weight: 700; color: #fca5a5; cursor: pointer; }
+.ac-btn-del { border-radius: 8px; border: 1px solid rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); padding: 6px 12px; font-size: 16px; font-weight: 700; color: #fca5a5; cursor: pointer; }
 .ac-btn-del:hover { background: rgba(239,68,68,0.15); }
 .ac-btn-del:disabled { opacity: 0.6; cursor: not-allowed; }
 `;
@@ -107,8 +107,8 @@ const getQuickScanStatusLabel = (value) => {
 const QuickScanStatusLine = ({ value }) => {
     const failed = String(value || "").toLowerCase() === "failed";
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'rgba(255,255,255,0.65)' }}>
-            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255,255,255,0.72)', fontSize: '11px' }}>Current status</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>
+            <span style={{ fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255, 255, 255, 0.75)', fontSize: '16px' }}>Current status</span>
             <span style={{ color: failed ? '#fca5a5' : 'var(--t3)' }}>{getQuickScanStatusLabel(value)}</span>
         </div>
     );
@@ -233,11 +233,11 @@ export default function Account() {
                 <div className="ac-wrap">
                     <header style={{ marginBottom: '32px' }}>
                         <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>My Account</h1>
-                        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.6)' }}>Your full audits, quick scans, and their current delivery status.</p>
+                        <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Your full audits, quick scans, and their current delivery status.</p>
                     </header>
 
                     {!user && (
-                        <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '14px', color: 'rgba(255,255,255,0.7)' }}>
+                        <div style={{ padding: '16px', borderRadius: '12px', background: 'rgba(0,0,0,0.25)', border: '1px solid rgba(255,255,255,0.1)', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>
                             Please log in to view your account.
                         </div>
                     )}
@@ -249,12 +249,12 @@ export default function Account() {
                                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                                         <div>
                                             <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#fff', marginBottom: '8px' }}>Ready to Start Your Audit?</h3>
-                                            <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.65)' }}>
+                                            <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>
                                                 You have {subscription.isTeamMember ? "team access to" : "an active"}{" "}
                                                 <span style={{ fontWeight: 700, color: 'var(--t4)' }}>{subscription.plan?.name}</span> subscription
                                             </p>
                                             {subscription.isTeamMember && (
-                                                <p style={{ fontSize: '13px', color: '#fcd34d', marginTop: '4px', display: 'flex', alignItems: 'center', gap: 5 }}><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>You're using a team plan</p>
+                                                <p style={{ fontSize: '16px', color: '#fcd34d', marginTop: '4px', display: 'flex', alignItems: 'center', gap: 5 }}><svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>You're using a team plan</p>
                                             )}
                                         </div>
                                         <button onClick={() => navigate("/checkout")} className="btn btn-d">
@@ -278,8 +278,8 @@ export default function Account() {
                                             >
                                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                                     <div>
-                                                        <p style={{ fontSize: '15px', fontWeight: 700, color: activeTab === key ? 'var(--ink)' : '#fff', marginBottom: '2px' }}>{label}</p>
-                                                        <p style={{ fontSize: '13px', color: activeTab === key ? 'var(--ink6)' : 'rgba(255,255,255,0.72)' }}>{desc}</p>
+                                                        <p style={{ fontSize: '16px', fontWeight: 700, color: activeTab === key ? 'var(--ink)' : '#fff', marginBottom: '2px' }}>{label}</p>
+                                                        <p style={{ fontSize: '16px', color: activeTab === key ? 'var(--ink6)' : 'rgba(255,255,255,0.72)' }}>{desc}</p>
                                                     </div>
                                                     <span className={`ac-tab-badge ${activeTab === key ? 'ac-tab-badge-active' : 'ac-tab-badge-inactive'}`}>{count}</span>
                                                 </div>
@@ -306,33 +306,33 @@ export default function Account() {
                                     <button onClick={load} className="ac-ref">Refresh</button>
                                 </div>
 
-                                {loading && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)' }}>Loading...</div>}
+                                {loading && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Loading...</div>}
 
                                 {activeTab === "full-audits" ? (
                                     <section style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
                                                 <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Full Audits</h2>
-                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>Detailed accessibility audit runs linked to your account.</p>
+                                                <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Detailed accessibility audit runs linked to your account.</p>
                                             </div>
-                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>{filtered.length} shown</span>
+                                            <span style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>{filtered.length} shown</span>
                                         </div>
 
-                                        {auditError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{auditError}</div>}
-                                        {!loading && filtered.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)', fontStyle: 'italic' }}>No full audits found.</div>}
+                                        {auditError && <div style={{ fontSize: '16px', color: '#fca5a5' }}>{auditError}</div>}
+                                        {!loading && filtered.length === 0 && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', fontStyle: 'italic' }}>No full audits found.</div>}
 
                                         {filtered.map((rec) => (
                                             <div key={rec._id || rec.taskId} className="ac-card">
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '6px' }}>
-                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '14px' }}>{rec.url}</span>
+                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '16px' }}>{rec.url}</span>
                                                             <StatusPill value={rec.status} />
                                                             <EmailPill value={rec.emailStatus} />
                                                             <ScorePill value={rec.score ?? rec.scoreCard?.overallScore} />
                                                             <RiskPill value={rec.scoreCard?.riskTier} />
                                                         </div>
-                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
+                                                        <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', display: 'flex', flexWrap: 'wrap', gap: '16px' }}>
                                                             <span>Task: {rec.taskId}</span>
                                                             {rec.createdAt && <span>Created {new Date(rec.createdAt).toLocaleString()}</span>}
                                                             {typeof rec.attachmentCount === "number" && <span>PDFs: {rec.attachmentCount}</span>}
@@ -344,9 +344,9 @@ export default function Account() {
                                                             )}
                                                             {Array.isArray(rec.reportFiles) && rec.reportFiles.length > 0 && <span>Stored reports ready</span>}
                                                         </div>
-                                                        {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '12px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
+                                                        {rec.failureReason && <div style={{ marginTop: '4px', fontSize: '16px', color: '#fca5a5' }}>Reason: {rec.failureReason}</div>}
                                                         {!rec.failureReason && Array.isArray(rec.warnings) && rec.warnings.filter(w => !w.includes('dispatched to the scanner service')).length > 0 && (
-                                                            <div style={{ marginTop: '4px', fontSize: '12px', color: '#fcd34d' }}>
+                                                            <div style={{ marginTop: '4px', fontSize: '16px', color: '#fcd34d' }}>
                                                                 Warning: {rec.warnings.filter(w => !w.includes('dispatched to the scanner service'))[0]}
                                                             </div>
                                                         )}
@@ -382,33 +382,33 @@ export default function Account() {
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                             <div>
                                                 <h2 style={{ fontSize: '20px', fontWeight: 700, color: '#fff', marginBottom: '4px' }}>Quick Scans</h2>
-                                                <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>Free scan requests with a live status line for pending, queued, and complete.</p>
+                                                <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Free scan requests with a live status line for pending, queued, and complete.</p>
                                             </div>
-                                            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.72)' }}>{filteredQuickScans.length} shown</span>
+                                            <span style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>{filteredQuickScans.length} shown</span>
                                         </div>
 
-                                        {quickScanError && <div style={{ fontSize: '14px', color: '#fca5a5' }}>{quickScanError}</div>}
-                                        {!loading && filteredQuickScans.length === 0 && <div style={{ fontSize: '14px', color: 'rgba(255,255,255,0.72)', fontStyle: 'italic' }}>No quick scans found.</div>}
+                                        {quickScanError && <div style={{ fontSize: '16px', color: '#fca5a5' }}>{quickScanError}</div>}
+                                        {!loading && filteredQuickScans.length === 0 && <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', fontStyle: 'italic' }}>No quick scans found.</div>}
 
                                         {filteredQuickScans.map((scan) => (
                                             <div key={scan._id || `${scan.email}-${scan.url}-${scan.createdAt || scan.scanDate}`} className="ac-card">
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px' }}>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
-                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '14px' }}>{scan.url}</span>
+                                                            <span style={{ fontWeight: 600, wordBreak: 'break-all', fontSize: '16px' }}>{scan.url}</span>
                                                             <StatusPill value={scan.status} />
                                                             <EmailPill value={scan.emailStatus} />
                                                             <ScorePill value={scan.scanScore} />
                                                         </div>
                                                         <QuickScanStatusLine value={scan.status} />
-                                                        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.72)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
+                                                        <div style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
                                                             {scan.scanDate && <span>Scanned {new Date(scan.scanDate).toLocaleString()}</span>}
                                                             {scan.createdAt && <span>Requested {new Date(scan.createdAt).toLocaleString()}</span>}
                                                             {scan.reportGenerated && <span>Report generated</span>}
                                                             {Array.isArray(scan.reportFiles) && scan.reportFiles.length > 0 && <span>Stored reports ready</span>}
                                                         </div>
-                                                        {scan.errorMessage && <div style={{ fontSize: '12px', color: '#fca5a5', marginTop: '4px' }}>Reason: {scan.errorMessage}</div>}
-                                                        {scan.emailError && <div style={{ fontSize: '12px', color: '#fcd34d', marginTop: '4px' }}>Email: {scan.emailError}</div>}
+                                                        {scan.errorMessage && <div style={{ fontSize: '16px', color: '#fca5a5', marginTop: '4px' }}>Reason: {scan.errorMessage}</div>}
+                                                        {scan.emailError && <div style={{ fontSize: '16px', color: '#fcd34d', marginTop: '4px' }}>Email: {scan.emailError}</div>}
                                                     </div>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                                         {scan._id && (
