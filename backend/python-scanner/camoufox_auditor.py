@@ -452,7 +452,7 @@ def run_camoufox_audit_sync(
                             const bLinear = bs <= 0.03928 ? bs / 12.92 : Math.pow((bs + 0.055) / 1.055, 2.4);
                             return 0.2126 * rLinear + 0.7152 * gLinear + 0.0722 * bLinear;
                         }
-                        
+
                         // Helper function to calculate contrast ratio
                         function getContrastRatio(color1, color2) {
                             const lum1 = getLuminance(color1.r, color1.g, color1.b);
@@ -461,67 +461,105 @@ def run_camoufox_audit_sync(
                             const darker = Math.min(lum1, lum2);
                             return (lighter + 0.05) / (darker + 0.05);
                         }
-                        
-                        // Helper to parse color string to RGB
+
+                        // Parse a CSS color string into {r,g,b,a}. Unlike the previous
+                        // version, this KEEPS the alpha channel instead of discarding it -
+                        // dropping alpha made every `rgba(0,0,0,0)` (fully transparent)
+                        // background parse as opaque BLACK, and every translucent color
+                        // (badges, disabled-state overlays, tinted buttons) parse as if
+                        // fully opaque, producing false contrast failures.
                         function parseColor(colorStr) {
                             if (!colorStr || colorStr === 'transparent') return null;
-                            const rgbMatch = colorStr.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)(?:,\\s*([\\d.]+))?\\)/);
-                            if (rgbMatch) {
-                                return { r: parseInt(rgbMatch[1]), g: parseInt(rgbMatch[2]), b: parseInt(rgbMatch[3]) };
-                            }
-                            return null;
+                            const m = colorStr.match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/);
+                            if (!m) return null;
+                            const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+                            if (a <= 0) return null; // fully transparent = no color here, keep looking
+                            return { r: parseFloat(m[1]), g: parseFloat(m[2]), b: parseFloat(m[3]), a };
                         }
-                        
-                        // Sample text elements (limit to 100 for performance)
+
+                        // Alpha-composite a (possibly translucent) color over an opaque one.
+                        function compositeOver(fg, bg) {
+                            if (fg.a >= 1) return { r: fg.r, g: fg.g, b: fg.b };
+                            return {
+                                r: fg.r * fg.a + bg.r * (1 - fg.a),
+                                g: fg.g * fg.a + bg.g * (1 - fg.a),
+                                b: fg.b * fg.a + bg.b * (1 - fg.a)
+                            };
+                        }
+
+                        // Resolve an element's true rendered background by walking up the
+                        // ancestor chain and alpha-compositing every translucent background
+                        // layer found, stopping at (and including) the first fully-opaque
+                        // one. Falls back to white (the page's default canvas) if nothing
+                        // opaque is found within the walk.
+                        function resolveBackgroundColor(el) {
+                            const layers = [];
+                            let node = el;
+                            let levels = 0;
+                            while (node && levels < 10) {
+                                const c = parseColor(window.getComputedStyle(node).backgroundColor);
+                                if (c) {
+                                    layers.push(c);
+                                    if (c.a >= 1) break;
+                                }
+                                node = node.parentElement;
+                                levels++;
+                            }
+                            let result = { r: 255, g: 255, b: 255 };
+                            for (let i = layers.length - 1; i >= 0; i--) {
+                                result = compositeOver(layers[i], result);
+                            }
+                            return result;
+                        }
+
+                        // Sample real text elements (cap at 100 valid samples, scan at most
+                        // 500 candidates for performance).
                         const textElements = [];
                         const allElements = document.querySelectorAll('p, span, div, li, td, th, a, button, label, h1, h2, h3, h4, h5, h6');
-                        const maxSamples = Math.min(100, allElements.length);
-                        
-                        for (let i = 0; i < maxSamples; i++) {
+                        const scanLimit = Math.min(500, allElements.length);
+
+                        for (let i = 0; i < scanLimit && textElements.length < 100; i++) {
                             const el = allElements[i];
                             if (!el.offsetParent) continue; // Skip hidden elements
-                            
+                            // WCAG exempts disabled controls from contrast requirements - check
+                            // the element itself AND ancestors (a disabled <button>'s inner label
+                            // <div> isn't itself .disabled, but it's still part of the disabled control).
+                            if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue;
+                            if (el.closest('[disabled], [aria-disabled="true"]')) continue;
+
+                            // Only evaluate elements that render their OWN visible text (a
+                            // direct text-node child) - not wrapper divs whose .textContent
+                            // happens to include a nested <style> tag's CSS source, and not
+                            // purely decorative/structural elements with no text at all.
+                            const hasOwnText = Array.from(el.childNodes).some(
+                                n => n.nodeType === 3 && n.textContent.trim().length > 0
+                            );
+                            if (!hasOwnText) continue;
+
                             const style = window.getComputedStyle(el);
                             const fontSize = parseFloat(style.fontSize);
                             const fontWeight = parseInt(style.fontWeight) || (style.fontWeight === 'bold' ? 700 : 400);
                             const isLargeText = fontSize >= 18 || (fontSize >= 14 && fontWeight >= 700);
                             const minRatio = isLargeText ? 3.0 : 4.5; // WCAG AA standards
-                            
-                            const fgColor = parseColor(style.color);
-                            let bgColor = parseColor(style.backgroundColor);
-                            
-                            // If background is transparent, check parent (up to 3 levels)
-                            if (!bgColor || (bgColor.r === 0 && bgColor.g === 0 && bgColor.b === 0 && style.backgroundColor.includes('rgba(0, 0, 0, 0)'))) {
-                                let parentEl = el.parentElement;
-                                let levels = 0;
-                                while (parentEl && levels < 3 && !bgColor) {
-                                    const parentStyle = window.getComputedStyle(parentEl);
-                                    bgColor = parseColor(parentStyle.backgroundColor);
-                                    if (bgColor && bgColor.r > 0 && bgColor.g > 0 && bgColor.b > 0) break;
-                                    parentEl = parentEl.parentElement;
-                                    levels++;
-                                }
-                            }
-                            
-                            // Default to white if no background found
-                            if (!bgColor) {
-                                bgColor = { r: 255, g: 255, b: 255 };
-                            }
-                            
-                            if (fgColor && bgColor) {
-                                const ratio = getContrastRatio(fgColor, bgColor);
-                                textElements.push({
-                                    ratio: ratio,
-                                    minRequired: minRatio,
-                                    passes: ratio >= minRatio
-                                });
-                            }
+
+                            const fgColorRaw = parseColor(style.color);
+                            if (!fgColorRaw) continue;
+
+                            const bgColor = resolveBackgroundColor(el);
+                            const fgColor = compositeOver(fgColorRaw, bgColor);
+
+                            const ratio = getContrastRatio(fgColor, bgColor);
+                            textElements.push({
+                                ratio: ratio,
+                                minRequired: minRatio,
+                                passes: ratio >= minRatio
+                            });
                         }
-                        
+
                         const total = textElements.length;
                         const passing = textElements.filter(e => e.passes).length;
                         const failing = total - passing;
-                        
+
                         return {
                             total: total,
                             passing: passing,
@@ -2449,9 +2487,17 @@ def run_camoufox_audit_sync(
                                 const [hi, lo] = l1 > l2 ? [l1, l2] : [l2, l1];
                                 return (hi + 0.05) / (lo + 0.05);
                             }
-                            function parseRgb(str) {
-                                const m = str.match(/rgba?\\((\\d+),\\s*(\\d+),\\s*(\\d+)/);
-                                return m ? [+m[1], +m[2], +m[3]] : null;
+                            // Keep alpha instead of discarding it - a fully transparent
+                            // rgba(0,0,0,0) border/background used to parse as opaque BLACK
+                            // (a non-null [0,0,0], so the `|| [255,255,255]` fallback below
+                            // never actually ran), causing false failures on any element
+                            // with an unset/transparent border or background.
+                            function parseRgba(str) {
+                                const m = str.match(/rgba?\\(([\\d.]+),\\s*([\\d.]+),\\s*([\\d.]+)(?:,\\s*([\\d.]+))?\\)/);
+                                if (!m) return null;
+                                const a = m[4] !== undefined ? parseFloat(m[4]) : 1;
+                                if (a <= 0) return null;
+                                return [+m[1], +m[2], +m[3]];
                             }
                             const selectors = [
                                 { sel: 'input:not([type=hidden]):not([type=submit]):not([type=button]):not([type=image])', label: 'Input border' },
@@ -2467,10 +2513,23 @@ def run_camoufox_audit_sync(
                                 const els = Array.from(document.querySelectorAll(sel)).slice(0, 10);
                                 for (const el of els) {
                                     if (!el.offsetParent && el.tagName !== 'BODY') continue;
+                                    if (el.disabled || el.getAttribute('aria-disabled') === 'true') continue;
+                                    if (el.closest('[disabled], [aria-disabled="true"]')) continue;
                                     const st = window.getComputedStyle(el);
-                                    const parentSt = window.getComputedStyle(el.parentElement || document.body);
-                                    const fgRgb = parseRgb(st.borderColor || st.outlineColor || st.color);
-                                    const bgRgb = parseRgb(parentSt.backgroundColor) || [255, 255, 255];
+                                    // Walk up ancestors for the first non-transparent background,
+                                    // same as the text-contrast audit above, instead of only
+                                    // checking the immediate parent (which is very often itself
+                                    // transparent in a nested component tree).
+                                    let bgRgb = null;
+                                    let bgNode = el;
+                                    let bgLevels = 0;
+                                    while (bgNode && bgLevels < 10 && !bgRgb) {
+                                        bgRgb = parseRgba(window.getComputedStyle(bgNode).backgroundColor);
+                                        bgNode = bgNode.parentElement;
+                                        bgLevels++;
+                                    }
+                                    if (!bgRgb) bgRgb = [255, 255, 255];
+                                    const fgRgb = parseRgba(st.borderColor) || parseRgba(st.outlineColor) || parseRgba(st.color);
                                     if (!fgRgb) continue;
                                     const ratio = contrastRatio(getLuminance(...fgRgb), getLuminance(...bgRgb));
                                     if (ratio < MIN_RATIO) {

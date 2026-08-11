@@ -636,7 +636,7 @@ const MainScreen = () => {
           <div className="wrap">
             <div className="proof-g" style={{ gridTemplateColumns: '1fr' }}>
               <div className="proof-item" style={{ padding: '40px 48px', textAlign: 'center' }}>
-                <div style={{ fontSize: 48, color: 'var(--t4)', lineHeight: 1, marginBottom: 16, fontFamily: 'Georgia, serif' }}>"</div>
+                <div style={{ fontSize: 48, color: 'var(--t1)', lineHeight: 1, marginBottom: 16, fontFamily: 'Georgia, serif' }}>"</div>
                 <blockquote className="proof-q" style={{ fontSize: 18, maxWidth: 680, margin: '0 auto 20px' }}>
                   SilverSurfers helped us create a website that our older customers can actually use. Our conversion rate from senior visitors increased by 40% after implementing their recommendations.
                 </blockquote>
