@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAggregateAuditScorecard, buildAuditScorecard } from '../src/features/audits/audit-scorecard.ts';
+import { buildAggregateAuditScorecard, buildAuditScorecard, buildScoreBreakdown } from '../src/features/audits/audit-scorecard.ts';
 
 const FULL_AUDIT_IDS = [
   'color-contrast',
@@ -64,14 +64,14 @@ test('buildAuditScorecard returns a passing low-risk scorecard when all audits p
 
   const evaluationWeights = Object.fromEntries(scorecard.evaluationDimensions.map((dimension) => [dimension.key, dimension.weight]));
   assert.deepEqual(evaluationWeights, {
-    technicalAccessibility: 6.67,
-    visualClarityDesign: 15,
-    cognitiveLoadComplexity: 8.33,
-    navigationArchitecture: 8.33,
-    contentReadability: 15,
-    interactionForms: 12.5,
-    trustSecuritySignals: 6.67,
-    mobileOptimization: 27.5,
+    technicalAccessibility: 10,
+    visualClarityDesign: 22,
+    cognitiveLoadComplexity: 6.25,
+    navigationArchitecture: 12.5,
+    contentReadability: 12.92,
+    interactionForms: 17.5,
+    trustSecuritySignals: 3.33,
+    mobileOptimization: 15.5,
   });
 
   for (const dimension of scorecard.dimensions) {
@@ -87,9 +87,9 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
     'target-size': 0,
   }), { pageUrl: 'https://example.com/page-a' });
 
-  assert.equal(scorecard.overallScore, 85.77);
-  assert.equal(scorecard.scoreStatus, 'pass');
-  assert.equal(scorecard.riskTier, 'low');
+  assert.equal(scorecard.overallScore, 77);
+  assert.equal(scorecard.scoreStatus, 'needs-improvement');
+  assert.equal(scorecard.riskTier, 'medium');
 
   const visualClarityDesign = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'visualClarityDesign');
   assert.ok(visualClarityDesign);
@@ -99,7 +99,7 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
 
   const visualClarity = scorecard.dimensions.find((dimension) => dimension.key === 'visualClarity');
   assert.ok(visualClarity);
-  assert.equal(visualClarity.score, 73.41);
+  assert.equal(visualClarity.score, 61);
   assert.equal(visualClarity.issueCount, 2);
   assert.equal(visualClarity.topIssues[0].auditId, 'text-font-audit');
   assert.equal(visualClarity.topIssues[0].sourceUrl, 'https://example.com/page-a');
@@ -168,7 +168,7 @@ test('buildAuditScorecard includes dynamic axe-core violations in Silver Score d
   assert.ok(technical.score < 100);
   assert.equal(technical.topIssues[0].auditId, 'axe-aria-required-attr');
   assert.equal(technical.topIssues[0].weight, 4);
-  assert.equal(technical.topIssues[0].auditSourceType, 'wcag-aa');
+  assert.equal(technical.topIssues[0].auditSourceType, 'wcag-a');
   assert.deepEqual(technical.topIssues[0].wcagCriteria, ['4.1.2']);
   assert.ok(scorecard.overallScore < 100);
 });
@@ -220,4 +220,88 @@ test('buildAuditScorecard honors auditRefs embedded in the scanner report', () =
 
   assert.equal(scorecard.overallScore, 100);
   assert.equal(scorecard.topIssues.some((issue) => issue.auditId === 'target-size'), false);
+});
+
+test('buildAuditScorecard excludes notApplicable audits from dimension scoring', () => {
+  const report = buildReport();
+  report.audits['button-name'] = {
+    title: 'button-name',
+    description: 'No buttons were found on the page, so the check is not applicable.',
+    score: null,
+    scoreDisplayMode: 'notApplicable',
+    displayValue: 'No buttons found — check not applicable',
+  };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+
+  assert.ok(scorecard.notApplicableAuditIds.includes('button-name'));
+  const interactionForms = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'interactionForms');
+  assert.ok(interactionForms);
+  assert.equal(interactionForms.score, 100);
+  assert.equal(interactionForms.issueCount, 0);
+  assert.equal(scorecard.overallScore, 100);
+});
+
+test('buildScoreBreakdown prints true one-decimal weights that multiply and sum consistently', () => {
+  const scorecard = buildAuditScorecard(buildReport({
+    'color-contrast': 0.5,
+    'label': 0.8,
+  }));
+  const breakdown = buildScoreBreakdown(scorecard.evaluationDimensions);
+
+  const printedWeights = Object.fromEntries(breakdown.rows.map((row) => [row.key, row.weight]));
+  assert.deepEqual(printedWeights, {
+    technicalAccessibility: 10,
+    visualClarityDesign: 22,
+    cognitiveLoadComplexity: 6.3,
+    navigationArchitecture: 12.5,
+    contentReadability: 12.9,
+    interactionForms: 17.5,
+    trustSecuritySignals: 3.3,
+    mobileOptimization: 15.5,
+  });
+
+  // Every printed Weighted cell equals printed Score x printed Weight at display precision.
+  for (const row of breakdown.rows) {
+    assert.equal(row.weighted, Math.round((((row.score ?? 0) * row.weight) / 100) * 10) / 10);
+  }
+
+  // Columns sum to the printed totals, and the final score is the table's own arithmetic.
+  assert.equal(breakdown.totalWeight, 100);
+  const summedWeighted = Math.round(breakdown.rows.reduce((sum, row) => sum + (row.weighted ?? 0), 0) * 10) / 10;
+  assert.equal(breakdown.totalWeighted, summedWeighted);
+  assert.equal(breakdown.finalScore, Math.round((breakdown.totalWeighted / breakdown.totalWeight) * 100));
+});
+
+test('buildScoreBreakdown renormalizes printed weights when a dimension is excluded', () => {
+  const report = buildReport();
+  report.audits['flesch-kincaid-audit'] = {
+    title: 'flesch-kincaid-audit',
+    description: 'Not enough analyzable text, so the check is not applicable.',
+    score: null,
+    scoreDisplayMode: 'notApplicable',
+  };
+
+  const scorecard = buildAuditScorecard(report);
+  const contentReadability = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'contentReadability');
+  assert.ok(contentReadability);
+  assert.equal(contentReadability.weight, 0);
+
+  const breakdown = buildScoreBreakdown(scorecard.evaluationDimensions);
+  const excludedRow = breakdown.rows.find((row) => row.key === 'contentReadability');
+  assert.ok(excludedRow);
+  assert.equal(excludedRow.score, null);
+  assert.equal(excludedRow.weight, 0);
+  assert.equal(excludedRow.weighted, null);
+
+  // Remaining weights renormalize and the printed column still sums to 100.
+  assert.equal(breakdown.totalWeight, 100);
+  const visualRow = breakdown.rows.find((row) => row.key === 'visualClarityDesign');
+  assert.ok(visualRow);
+  assert.ok(visualRow.weight > 22);
+
+  for (const row of breakdown.rows) {
+    if (row.weighted === null) continue;
+    assert.equal(row.weighted, Math.round((((row.score ?? 0) * row.weight) / 100) * 10) / 10);
+  }
 });

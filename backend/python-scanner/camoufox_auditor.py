@@ -591,6 +591,14 @@ def run_camoufox_audit_sync(
                 "numericValue": target_score,
                 "displayValue": f"{target_size_results['small']} of {target_size_results['total']} interactive elements are below 44x44px",
             }
+            if target_size_results["total"] == 0:
+                audits["target-size"].update({
+                    "description": "This audit checks if interactive elements (buttons, links) are large enough for easy clicking. No interactive elements were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No interactive elements found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if target_details_items:
                 audits["target-size"]["details"] = {
@@ -653,6 +661,14 @@ def run_camoufox_audit_sync(
                 "numericValue": link_score,
                 "displayValue": f"{link_name_results['failing']} of {link_name_results['total']} links lack discernible text",
             }
+            if link_name_results["total"] == 0:
+                audits["link-name"].update({
+                    "description": "This audit checks if all links have descriptive text. No links were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No links found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if link_details_items:
                 audits["link-name"]["details"] = {
@@ -714,6 +730,14 @@ def run_camoufox_audit_sync(
                 "numericValue": button_score,
                 "displayValue": f"{button_name_results['failing']} of {button_name_results['total']} buttons lack a discernible accessible name",
             }
+            if button_name_results["total"] == 0:
+                audits["button-name"].update({
+                    "description": "This audit checks if all buttons have descriptive labels. No buttons were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No buttons found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if button_details_items:
                 audits["button-name"]["details"] = {
@@ -768,6 +792,14 @@ def run_camoufox_audit_sync(
                 "numericValue": label_score,
                 "displayValue": f"{label_results['failing']} of {label_results['total']} form controls lack labels",
             }
+            if label_results["total"] == 0:
+                audits["label"].update({
+                    "description": "This audit checks if all form inputs have associated labels. No form controls were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No form controls found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if label_details_items:
                 audits["label"]["details"] = {
@@ -820,6 +852,14 @@ def run_camoufox_audit_sync(
                 "numericValue": image_alt_score,
                 "displayValue": f"{image_alt_results['failing']} of {image_alt_results['total']} visible images lack text alternatives",
             }
+            if image_alt_results["total"] == 0:
+                audits["image-alt"].update({
+                    "description": "This audit checks whether meaningful images have text alternatives. No visible images were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No images found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             if image_alt_results.get("items"):
                 audits["image-alt"]["details"] = {
                     "type": "table",
@@ -905,6 +945,14 @@ def run_camoufox_audit_sync(
                 "score": text_score,
                 "numericValue": text_score,
             }
+            if total_text_elements == 0:
+                audits["text-font-audit"].update({
+                    "description": "This audit checks if text is large enough for readability. No text elements were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No text elements found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             # Add details.items if there are failing items
             if text_details_items:
@@ -984,6 +1032,14 @@ def run_camoufox_audit_sync(
                         "items": line_spacing_results.get("items", []),
                     } if line_failing else None,
                 }
+                if line_total == 0:
+                    audits["line-spacing-audit"].update({
+                        "description": "Checks whether body text line-height is at least 1.5x font size for older-adult readability. No text blocks were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No text blocks found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
             
             # --- Mobile & Cross-Platform audits (JS-injected, anti-bot safe) ---
 
@@ -1323,6 +1379,14 @@ def run_camoufox_audit_sync(
                         "items": layout_brittle_results.get("items", []),
                     } if brittle_failing else None,
                 }
+                if brittle_total == 0:
+                    audits["layout-brittle-audit"].update({
+                        "description": "This audit checks if containers have fixed heights that may prevent text spacing adjustments (WCAG 1.4.12). No text containers were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No text containers found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
                 
                 # Flesch-Kincaid readability audit
                 readability_results = page.evaluate("""
@@ -1645,6 +1709,14 @@ def run_camoufox_audit_sync(
                         "items": interactive_color_results.get("items", []),
                     } if interactive_failing else None,
                 }
+                if interactive_total == 0:
+                    audits["interactive-color-audit"].update({
+                        "description": "This audit checks if links have a noticeable color difference from surrounding text (Delta E > 10). No links were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No links found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
                 
                 # DOM size audit
                 dom_size = page.evaluate("() => document.querySelectorAll('*').length")

@@ -737,6 +737,81 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
     };
 }
 
+export interface ScoreBreakdownRow {
+    key: string;
+    name: string;
+    /** Integer percent; null when the dimension is excluded. */
+    score: number | null;
+    /** Printed one-decimal weight; 0 when the dimension is excluded. */
+    weight: number;
+    /** Printed one-decimal weighted contribution; null when excluded. */
+    weighted: number | null;
+}
+
+export interface ScoreBreakdown {
+    rows: ScoreBreakdownRow[];
+    /** Sum of the printed weights — always 100.0 when any dimension is active. */
+    totalWeight: number;
+    /** Sum of the printed weighted cells. */
+    totalWeighted: number;
+    /** round(totalWeighted / totalWeight * 100) — the table's own arithmetic. */
+    finalScore: number;
+}
+
+/**
+ * Builds the printable "Detailed Score Breakdown" rows from the scorecard's
+ * evaluation dimensions. Every printed number derives from the same source so
+ * the table self-checks in front of the reader: each Weighted cell equals the
+ * printed Score x the printed Weight (rounded at display precision), and both
+ * columns sum to the printed totals. Each active dimension prints its true
+ * PRD weight to one decimal; when any dimension is excluded, the remaining
+ * true weights are renormalized to sum 100 before printing.
+ */
+export function buildScoreBreakdown(
+    dimensions: Array<Pick<AuditEvaluationDimensionScore, "key" | "label" | "score" | "weight">>,
+): ScoreBreakdown {
+    const round1 = (value: number): number => Math.round(value * 10) / 10;
+
+    const activeDimensions = dimensions.filter((dimension) => Number(dimension.weight) > 0);
+    const trueWeightSum = activeDimensions.reduce((sum, dimension) => sum + dimension.weight, 0);
+
+    const printedWeights = new Map<string, number>();
+    for (const dimension of activeDimensions) {
+        const trueWeight = trueWeightSum > 0 ? (dimension.weight / trueWeightSum) * 100 : 0;
+        printedWeights.set(dimension.key, round1(trueWeight));
+    }
+
+    // Keep the printed weight column summing to exactly 100.0: fold any
+    // rounding drift into the largest active dimension's printed weight.
+    const printedWeightSum = [...printedWeights.values()].reduce((sum, weight) => sum + weight, 0);
+    const drift = round1(100 - printedWeightSum);
+    if (Math.abs(drift) >= 0.05 && activeDimensions.length > 0) {
+        const largest = activeDimensions.reduce((a, b) => (a.weight >= b.weight ? a : b));
+        printedWeights.set(largest.key, round1((printedWeights.get(largest.key) ?? 0) + drift));
+    }
+
+    const rows: ScoreBreakdownRow[] = dimensions.map((dimension) => {
+        const weight = printedWeights.get(dimension.key) ?? 0;
+        if (weight <= 0) {
+            return { key: dimension.key, name: dimension.label, score: null, weight: 0, weighted: null };
+        }
+        const score = Math.round(dimension.score);
+        return {
+            key: dimension.key,
+            name: dimension.label,
+            score,
+            weight,
+            weighted: round1((score * weight) / 100),
+        };
+    });
+
+    const totalWeight = round1(rows.reduce((sum, row) => sum + row.weight, 0));
+    const totalWeighted = round1(rows.reduce((sum, row) => sum + (row.weighted ?? 0), 0));
+    const finalScore = totalWeight > 0 ? Math.round((totalWeighted / totalWeight) * 100) : 0;
+
+    return { rows, totalWeight, totalWeighted, finalScore };
+}
+
 export function buildAggregateAuditScorecard(
     scorecards: AuditScorecard[],
     options: BuildAggregateAuditScorecardOptions = {},
