@@ -1,14 +1,19 @@
-// Verification for Phase 3 (scorer correctness) and Phase 4 (media audit false
-// positives) fixes. Run from backend/:
-//   node --import ./scripts/register-typescript-loader.mjs scripts/verify-phase-3-4-fixes.js
-// Exits 0 only when every check passes.
+// Rolling verification for the Phase-2 findings fixes (plan.md phases 1-4 so far).
+// Run from backend/:
+//   node --import ./scripts/register-typescript-loader.mjs scripts/verify-fixes.js
+// Exits 0 only when every check passes. Append new checks as phases land.
 
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import { buildAuditScorecard, buildScoreBreakdown } from '../src/features/audits/audit-scorecard.ts';
+import { orderMergePages, buildMergeTocEntries, buildGapCoverLine } from '../src/features/audits/report-generation.ts';
+import { scorePageUrl } from '../src/features/audits/internal-links.ts';
 
 const scannerSource = fs.readFileSync(new URL('../python-scanner/camoufox_auditor.py', import.meta.url), 'utf8');
+const scannerServiceSource = fs.readFileSync(new URL('../python-scanner/scanner_service.py', import.meta.url), 'utf8');
 const pdfSource = fs.readFileSync(new URL('../src/features/audits/scanner/pdf-generator.js', import.meta.url), 'utf8');
+const reportGenerationSource = fs.readFileSync(new URL('../src/features/audits/report-generation.ts', import.meta.url), 'utf8');
+const processorSource = fs.readFileSync(new URL('../src/features/audits/full-audit.processor.ts', import.meta.url), 'utf8');
 const mappingSource = fs.readFileSync(new URL('../src/features/audits/wcag-mapping.ts', import.meta.url), 'utf8');
 const matrixSource = fs.readFileSync(new URL('../src/features/audits/wcag-matrix.ts', import.meta.url), 'utf8');
 
@@ -18,6 +23,81 @@ function check(name, fn) {
   try { fn(); passed++; console.log(`ok   - ${name}`); }
   catch (error) { failed++; console.error(`FAIL - ${name}: ${error.message}`); }
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1 — PDF combiner & TOC integrity (F2, F3-regression, N3)
+// ---------------------------------------------------------------------------
+check('phase1: unique request-based PDF filenames (redirect-safe hash suffix)', () => {
+  assert.ok(pdfSource.includes('options.url || reportData.requestedUrl || reportData.finalUrl'), 'filename no longer based on the requested URL');
+  assert.ok(pdfSource.includes('hashInput'), 'filename hash suffix missing — redirect collisions can overwrite reports');
+});
+
+check('phase1: merger guards present (sha256 dedup, gap pages, TOC builder, cover line)', () => {
+  assert.ok(reportGenerationSource.includes("createHash('sha256')"), 'byte-identical dedup guard missing');
+  assert.ok(reportGenerationSource.includes('renderGapPage'), 'gap-page renderer missing');
+  assert.ok(reportGenerationSource.includes('buildMergeTocEntries'), 'TOC builder missing');
+  assert.ok(reportGenerationSource.includes('could not be audited due to'), 'honest cover line missing');
+});
+
+check('phase1: processor records missingPages (identity pairing, no index shift)', () => {
+  assert.ok(processorSource.includes('missingPages.push'), 'missingPages collection missing from full-audit processor');
+});
+
+check('phase1: a failed middle page re-inserts as a gap without label drift', () => {
+  const reports = [{ url: 'https://example.com/', score: 90 }, { url: 'https://example.com/about', score: 80 }];
+  const ordered = orderMergePages(reports, ['home.pdf', 'about.pdf'], [
+    { url: 'https://example.com/pricing', reason: 'PDF generation failed.', order: 1 },
+  ]);
+  assert.deepEqual(ordered.map((page) => page.kind), ['report', 'gap', 'report']);
+  assert.equal(ordered[0].pdfPath, 'home.pdf');
+  assert.equal(ordered[2].pdfPath, 'about.pdf');
+  assert.equal(ordered[2].report.url, 'https://example.com/about', 'label drift: about report paired with wrong PDF');
+});
+
+check('phase1: TOC marks gap pages N/A; cover line names the shared cause', () => {
+  const toc = buildMergeTocEntries([
+    { kind: 'report', report: { url: 'https://example.com/', score: 90 }, pageCount: 6 },
+    { kind: 'gap', url: 'https://example.com/pricing', reason: 'bot protection' },
+  ]);
+  assert.equal(toc[1].score, 'N/A');
+  assert.equal(toc[1].actualPageCount, 1);
+  assert.equal(toc[0].actualPageCount, 5);
+  const gaps = Array.from({ length: 24 }, (_, index) => ({ url: `https://x.test/${index}`, reason: 'bot protection' }));
+  assert.equal(buildGapCoverLine(1, gaps), '24 of 25 pages could not be audited due to bot protection; results below cover 1 page.');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2 — Crawler quality (F4, F5-blocked/empty)
+// ---------------------------------------------------------------------------
+check('phase2: python blocklist covers WPM fragments, UUID segments, hex stubs', () => {
+  assert.ok(scannerServiceSource.includes('previewimage|cdn|wpm|next|open|close'), 'WPM fragment tokens missing from _BLOCKED_AUDIT_PATH_RE');
+  assert.ok(scannerServiceSource.includes('[0-9a-f]{8}-[0-9a-f]{4}'), 'UUID segment rule missing');
+  assert.ok(scannerServiceSource.includes('[0-9a-f]{20,}'), 'long-hex rule missing');
+});
+
+check('phase2: scanner returns structured failures instead of scoring junk pages', () => {
+  for (const code of ['PAGE_NOT_FOUND', 'NON_HTML', 'NO_AUDITABLE_CONTENT']) {
+    assert.ok(scannerSource.includes(`"${code}"`), `${code} emission missing from camoufox_auditor.py`);
+  }
+});
+
+check('phase2: scorePageUrl blocks junk paths without over-blocking real pages', () => {
+  for (const url of [
+    'https://example.com/previewImage',
+    'https://example.com/cdn/shop/t/1/assets/widget.js',
+    'https://example.com/wpm/123',
+    'https://example.com/next',
+    'https://example.com/open',
+    'https://example.com/close',
+    'https://example.com/b2d05acc-8c4a-4e62-9f2f-1234567890ab',
+    'https://example.com/products/abcde12345abcde12345ab',
+  ]) {
+    assert.equal(scorePageUrl(url, 'https://example.com'), -1, `${url} must score -1`);
+  }
+  for (const url of ['https://example.com/next-steps', 'https://example.com/open-source', 'https://example.com/closing-remarks', 'https://example.com/about']) {
+    assert.ok(scorePageUrl(url, 'https://example.com') > 0, `${url} must keep a positive score`);
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Phase 3.1 static: 9 zero-denominator audits emit notApplicable, no percentage
