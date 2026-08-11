@@ -2917,7 +2917,7 @@ def run_camoufox_audit_sync(
                     ln_issues = label_name_results.get("issueCount", 0)
                     audits["ss-label-in-name-audit"] = {
                         "id": "ss-label-in-name-audit",
-                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "title": "Visible label is missing from the accessible name (WCAG 2.5.3)",
                         "description": (
                             f"Checks that aria-label values on interactive elements contain the visible text, "
                             f"so speech users can activate controls by speaking what they see. "
@@ -2938,7 +2938,7 @@ def run_camoufox_audit_sync(
                 except Exception as e:
                     audits["ss-label-in-name-audit"] = {
                         "id": "ss-label-in-name-audit",
-                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "title": "Visible label is missing from the accessible name (WCAG 2.5.3)",
                         "description": f"Check could not run: {e}",
                         "score": None,
                         "numericValue": None,

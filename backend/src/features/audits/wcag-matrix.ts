@@ -124,6 +124,11 @@ function collectAffectedElements(issues: AuditIssueSummary[]): string[] {
     return [...elements].slice(0, 10);
 }
 
+// Matches the evidence table's rating bands in pdf-generator.js drawCategoryTables:
+// audits scoring >= 80% rate "Pass"/"Pass with Findings" there, so a criterion
+// whose mapped audits all sit in that band must never print Fail here.
+const MATRIX_FAIL_SCORE_THRESHOLD = 80;
+
 export function buildWcagMatrix(
     issues: AuditIssueSummary[],
     notApplicableAuditIds: string[] = [],
@@ -188,15 +193,21 @@ export function buildWcagMatrix(
         if (failedCriteriaMap.has(criterion)) {
             const matchingIssues = failedCriteriaMap.get(criterion)!;
             const auditIds = matchingIssues.map((i) => i.auditId);
+            // Issues column counts failing elements (parity with the evidence
+            // sections); falls back to failing-check count when audits carry no
+            // element details. Status follows the evidence rating bands: only an
+            // audit below the pass band turns the criterion red.
+            const elementCount = matchingIssues.reduce((sum, issue) => sum + (issue.elementCount ?? 0), 0);
+            const hasFailingAudit = matchingIssues.some((issue) => issue.score < MATRIX_FAIL_SCORE_THRESHOLD);
             return {
                 criterion,
                 title: def.title,
                 level: def.level,
                 principle: def.principle,
-                status: "fail",
+                status: hasFailingAudit ? "fail" : "pass",
                 evidenceSource: resolveEvidenceSource(auditIds),
                 affectedElements: collectAffectedElements(matchingIssues),
-                issueCount: matchingIssues.length,
+                issueCount: elementCount > 0 ? elementCount : matchingIssues.length,
                 remediationGuidance: "",
                 manualReviewRequired: false,
             };

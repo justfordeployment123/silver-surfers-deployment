@@ -305,3 +305,21 @@ test('buildScoreBreakdown renormalizes printed weights when a dimension is exclu
     assert.equal(row.weighted, Math.round((((row.score ?? 0) * row.weight) / 100) * 10) / 10);
   }
 });
+
+test('buildAuditScorecard prefers failure-phrased remediation template titles for issues', () => {
+  const scorecard = buildAuditScorecard(buildReport({ 'target-size': 0 }), { pageUrl: 'https://example.com' });
+
+  const targetSizeIssue = scorecard.issues.find((issue) => issue.auditId === 'target-size');
+  assert.ok(targetSizeIssue);
+  assert.equal(targetSizeIssue.title, 'Touch targets are too small or too close together (WCAG 2.5.8)');
+});
+
+test('buildAuditScorecard captures failing-element counts from audit details', () => {
+  const report = buildReport({ 'color-contrast': 0 });
+  report.audits['color-contrast'].details = { items: [{ node: 'a' }, { node: 'b' }, { node: 'c' }] };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+  const contrastIssue = scorecard.issues.find((issue) => issue.auditId === 'color-contrast');
+  assert.ok(contrastIssue);
+  assert.equal(contrastIssue.elementCount, 3);
+});

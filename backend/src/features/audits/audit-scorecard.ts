@@ -7,6 +7,7 @@ import {
     type WcagReference,
     type WcagSummary,
 } from "./wcag-mapping.ts";
+import { getRemediationTemplateTitle } from "./analysis-details.ts";
 
 export type AuditRiskTier = "low" | "medium" | "high";
 export type AuditScoreStatus = "pass" | "needs-improvement" | "fail";
@@ -36,6 +37,8 @@ export interface AuditIssueSummary {
     wcagPrinciples?: WcagPourPrinciple[];
     displayValue?: string;
     sourceUrl?: string;
+    /** Failing-element count captured from the audit's details.items (evidence parity). */
+    elementCount?: number;
 }
 
 export interface AuditPrimaryDimensionScore {
@@ -668,6 +671,8 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         evaluationWeights.set(evaluationKey, (evaluationWeights.get(evaluationKey) || 0) + auditRef.weight);
 
         if (score < 0.999) {
+            const detailItems = audit?.details?.items;
+            const elementCount = Array.isArray(detailItems) ? detailItems.length : 0;
             const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
             const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
             const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];
@@ -682,7 +687,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
             evaluationIssueCounts.set(evaluationKey, (evaluationIssueCounts.get(evaluationKey) || 0) + 1);
             evaluationIssues.get(evaluationKey)?.push({
                 auditId: auditRef.id,
-                title: audit?.title || auditRef.id,
+                title: getRemediationTemplateTitle(auditRef.id) || audit?.title || auditRef.id,
                 description: audit?.description || "",
                 score: roundScore(score * 100),
                 weight: auditRef.weight,
@@ -693,6 +698,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
                 ...(wcagReferences.length ? { wcagReferences } : {}),
                 ...(wcagPrinciples.length ? { wcagPrinciples } : {}),
                 ...(audit?.displayValue ? { displayValue: audit.displayValue } : {}),
+                ...(elementCount > 0 ? { elementCount } : {}),
                 ...(options.pageUrl ? { sourceUrl: options.pageUrl } : {}),
             });
         }

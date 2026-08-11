@@ -405,6 +405,21 @@ a:hover, a:focus {
 <!-- Simplest fix — remove the redundant aria-label if it conflicts -->
 <button>Send</button>`,
     },
+    "ss-label-in-name-audit": {
+        title: "Visible label is missing from the accessible name (WCAG 2.5.3)",
+        action: "Ensure the accessible name of each interactive element contains its visible label text so voice-control users can activate it by speaking what they see.",
+        whyItMatters:
+            "When the accessible name does not contain the visible label, speech-recognition users — including many older adults — cannot reliably activate buttons or links by voice.",
+        effort: "low",
+        codeSnippet: `<!-- Before — aria-label does not contain the visible text -->
+<button aria-label="Submit form">Send</button>
+
+<!-- After — accessible name contains the visible label -->
+<button aria-label="Send message">Send</button>
+
+<!-- Simplest fix — drop the conflicting aria-label -->
+<button>Send</button>`,
+    },
     label: {
         action: "Add explicit form labels, instructions, and helper text for all important input fields.",
         whyItMatters: "Clear forms reduce errors and abandonment in high-friction journeys.",
@@ -471,7 +486,7 @@ document.getElementById('find-near-me-btn').addEventListener('click', () => {
 <img src="chart.png">
 
 <!-- After — descriptive alt for informational images -->
-<img src="hero.jpg" alt="Doctor and patient reviewing a digital health chart together">
+<img src="hero.jpg" alt="Descriptive text that names this product's subject, colour, and context">
 
 <!-- Decorative images should use empty alt so screen readers skip them -->
 <img src="divider.png" alt="" role="presentation">`,
@@ -704,6 +719,17 @@ function getFallbackEffort(issue: AuditIssueSummary): RemediationEffort {
     }
 
     return "low";
+}
+
+/**
+ * Failure-phrased recommendation title for an audit id (exact match, then the
+ * axe- stripped base id). Exported so scorecard issue titles and the roadmap
+ * read from one title table instead of raw pass-phrased scanner titles.
+ */
+export function getRemediationTemplateTitle(auditId: string): string | undefined {
+    const baseId = auditId.startsWith("axe-") ? auditId.slice(4) : auditId;
+    const template = REMEDIATION_TEMPLATES[auditId] || REMEDIATION_TEMPLATES[baseId];
+    return template?.title;
 }
 
 function getTemplate(issue: AuditIssueSummary): RemediationTemplate {

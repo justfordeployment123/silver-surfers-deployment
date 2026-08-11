@@ -3182,7 +3182,10 @@ addOverallScoreDisplay(scoreData) {
             rows.forEach(row => {
                 const actionText = (() => {
                     if (row.status === 'pass') {
-                        return 'Automated checks passed — no violations detected on this criterion.';
+                        const findings = row.issueCount || 0;
+                        return findings > 0
+                            ? `Automated checks passed with ${findings} finding${findings !== 1 ? 's' : ''} — no failing checks; see the evidence section for details.`
+                            : 'Automated checks passed — no violations detected on this criterion.';
                     }
                     if (row.status === 'fail') {
                         const n = row.issueCount || 0;

@@ -338,3 +338,70 @@ test('buildAnalysisDetail preserves degraded full-audit metadata for warning-awa
   assert.equal(detail.scanTargets[1]?.status, 'failed');
   assert.equal(detail.scanTargets[1]?.statusCode, 500);
 });
+
+test('buildRemediationRoadmap uses the failure-phrased template title for ss-label-in-name-audit', () => {
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 40,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'ss-label-in-name-audit',
+            title: 'Label in name matches visible text (WCAG 2.5.3)',
+            description: 'aria-label values do not contain the visible text.',
+            score: 0,
+            weight: 3,
+            severity: 'high',
+            auditSourceType: 'aging-heuristic',
+            auditSourceLabel: 'Aging Heuristic',
+            wcagCriteria: ['2.5.3'],
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  const item = roadmap.find((entry) => entry.auditId === 'ss-label-in-name-audit');
+  assert.ok(item);
+  assert.equal(item.title, 'Visible label is missing from the accessible name (WCAG 2.5.3)');
+});
+
+test('image-alt remediation snippet uses a generic placeholder, not a canned example', () => {
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 40,
+        weight: 30,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'image-alt',
+            title: 'Images missing alt text',
+            description: 'Several images lack alternative text.',
+            score: 0,
+            weight: 9,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['1.1.1'],
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  const item = roadmap.find((entry) => entry.auditId === 'image-alt');
+  assert.ok(item?.codeSnippet);
+  assert.ok(!item.codeSnippet.includes('Doctor and patient'), 'canned healthcare example must not recur across sites');
+  assert.ok(item.codeSnippet.includes('Descriptive text that names this product'), 'generic placeholder missing');
+});

@@ -8,6 +8,8 @@ import assert from 'node:assert/strict';
 import { buildAuditScorecard, buildScoreBreakdown } from '../src/features/audits/audit-scorecard.ts';
 import { orderMergePages, buildMergeTocEntries, buildGapCoverLine } from '../src/features/audits/report-generation.ts';
 import { scorePageUrl } from '../src/features/audits/internal-links.ts';
+import { buildWcagMatrix } from '../src/features/audits/wcag-matrix.ts';
+import { getRemediationTemplateTitle } from '../src/features/audits/analysis-details.ts';
 
 const scannerSource = fs.readFileSync(new URL('../python-scanner/camoufox_auditor.py', import.meta.url), 'utf8');
 const scannerServiceSource = fs.readFileSync(new URL('../python-scanner/scanner_service.py', import.meta.url), 'utf8');
@@ -16,6 +18,7 @@ const reportGenerationSource = fs.readFileSync(new URL('../src/features/audits/r
 const processorSource = fs.readFileSync(new URL('../src/features/audits/full-audit.processor.ts', import.meta.url), 'utf8');
 const mappingSource = fs.readFileSync(new URL('../src/features/audits/wcag-mapping.ts', import.meta.url), 'utf8');
 const matrixSource = fs.readFileSync(new URL('../src/features/audits/wcag-matrix.ts', import.meta.url), 'utf8');
+const analysisDetailsSource = fs.readFileSync(new URL('../src/features/audits/analysis-details.ts', import.meta.url), 'utf8');
 
 let passed = 0;
 let failed = 0;
@@ -310,6 +313,62 @@ check('4.3 mapping + manual flow into the matrix', () => {
   const scorecard = buildAuditScorecard(report);
   assert.ok(scorecard.manualReviewAuditIds.includes('autoplay-audit'), 'manual audit not surfaced for review');
   assert.equal(scorecard.evaluationDimensions.find((d) => d.key === 'cognitiveLoadComplexity').score, 100, 'manual audit must not drag the dimension');
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5 — matrix consistency & templates (F1-residual, F9, N13)
+// ---------------------------------------------------------------------------
+function makeMatrixIssue(overrides = {}) {
+  return {
+    auditId: 'color-contrast',
+    title: 'Color contrast is too low',
+    description: 'Text contrast falls below the recommended threshold.',
+    score: 0,
+    weight: 9,
+    severity: 'high',
+    auditSourceType: 'wcag-aa',
+    auditSourceLabel: 'WCAG AA',
+    wcagCriteria: ['1.4.3'],
+    ...overrides,
+  };
+}
+
+check('phase5: matrix Issues column counts failing elements (evidence parity)', () => {
+  const matrix = buildWcagMatrix([
+    makeMatrixIssue({ auditId: 'image-alt', score: 0, wcagCriteria: ['1.1.1'], elementCount: 7, sourceUrl: 'https://example.com/a' }),
+    makeMatrixIssue({ auditId: 'image-alt', score: 0, wcagCriteria: ['1.1.1'], elementCount: 5, sourceUrl: 'https://example.com/b' }),
+    makeMatrixIssue({ score: 0 }),
+  ]);
+  assert.equal(matrix.find((row) => row.criterion === '1.1.1').issueCount, 12, 'element totals must sum across pages');
+  assert.equal(matrix.find((row) => row.criterion === '1.4.3').issueCount, 1, 'no element details -> failing-check count');
+});
+
+check('phase5: criterion with only pass-band audits is never Fail', () => {
+  const matrix = buildWcagMatrix([
+    makeMatrixIssue({ score: 85, elementCount: 12 }),
+    makeMatrixIssue({ auditId: 'image-alt', score: 80, wcagCriteria: ['1.1.1'], elementCount: 4 }),
+    makeMatrixIssue({ auditId: 'target-size', score: 79, wcagCriteria: ['2.5.8'], elementCount: 3 }),
+  ]);
+  assert.equal(matrix.find((row) => row.criterion === '1.4.3').status, 'pass');
+  assert.equal(matrix.find((row) => row.criterion === '1.1.1').status, 'pass', 'score at the pass band must not fail');
+  assert.equal(matrix.find((row) => row.criterion === '2.5.8').status, 'fail', 'score below the pass band must fail');
+});
+
+check('phase5: failure-phrased titles from one title table (F9)', () => {
+  assert.equal(getRemediationTemplateTitle('ss-label-in-name-audit'), 'Visible label is missing from the accessible name (WCAG 2.5.3)');
+  assert.ok(!scannerSource.includes('Label in name matches visible text'), 'old pass-phrased scanner title still present');
+  assert.equal(scannerSource.split('Visible label is missing from the accessible name (WCAG 2.5.3)').length - 1, 2, 'scanner title must be renamed in both branches');
+  const scorecard = buildAuditScorecard(buildReport({ 'target-size': 0 }), { pageUrl: 'https://example.com' });
+  assert.equal(scorecard.issues.find((issue) => issue.auditId === 'target-size')?.title, 'Touch targets are too small or too close together (WCAG 2.5.8)', 'issue titles must prefer the template table');
+});
+
+check('phase5: N13 canned healthcare alt example removed', () => {
+  assert.ok(!analysisDetailsSource.includes('Doctor and patient'), 'canned healthcare alt string still present');
+  assert.ok(analysisDetailsSource.includes('Descriptive text that names this product'), 'generic placeholder missing');
+});
+
+check('phase5: PDF matrix pass rows acknowledge findings instead of claiming zero violations', () => {
+  assert.ok(pdfSource.includes('Automated checks passed with'), 'findings-aware pass text missing');
 });
 
 console.log(`\n${passed} passed, ${failed} failed`);
