@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -11,7 +12,7 @@ import { generateSeniorAccessibilityReport as tsGenerateSeniorAccessibilityRepor
 import { generateLiteAccessibilityReport as tsGenerateLiteAccessibilityReport } from './scanner/pdf-generator-lite.js';
 import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
-import type { AuditScorecard } from './audit-scorecard.ts';
+import { classifyRiskTier, classifyScoreStatus, type AuditScorecard } from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
 import { describeWcagStandardLabel } from './wcag-mapping.ts';
 
@@ -36,6 +37,42 @@ export interface FullAuditPlatformReport {
 export interface PlatformSummaryEntry {
   platform: string;
   score: number | null;
+  /**
+   * Number of pages this platform's average is based on. Used to weight the
+   * executive-summary headline so it reproduces the same table it sits above
+   * (Phase 6.1 / N1) instead of drifting from a differently-aggregated score.
+   */
+  pageCount?: number;
+}
+
+/**
+ * Computes the executive-summary headline score as the page-weighted mean of
+ * the platform rows actually rendered in the "Audit Summary" table, so the
+ * big number at the top of the summary is always reproducible from the table
+ * beneath it (Phase 6.1 / N1). Falls back to `fallbackScore` when no platform
+ * rows carry a usable score (e.g. a caller that doesn't pass platformSummary).
+ */
+export function computeAggregatePlatformHeadline(
+  platformSummary: PlatformSummaryEntry[] | undefined,
+  fallbackScore: number,
+): { score: number; simpleMean: number; weightedMean: number } {
+  const scoredRows = (Array.isArray(platformSummary) ? platformSummary : []).filter(
+    (entry): entry is PlatformSummaryEntry & { score: number } =>
+      Boolean(entry) && typeof entry.score === 'number' && Number.isFinite(entry.score),
+  );
+
+  if (scoredRows.length === 0) {
+    const fallback = Math.round(Number(fallbackScore) || 0);
+    return { score: fallback, simpleMean: fallback, weightedMean: fallback };
+  }
+
+  const simpleMean = scoredRows.reduce((sum, row) => sum + row.score, 0) / scoredRows.length;
+  const weightOf = (row: PlatformSummaryEntry): number => (Number(row.pageCount) > 0 ? Number(row.pageCount) : 1);
+  const totalWeight = scoredRows.reduce((sum, row) => sum + weightOf(row), 0);
+  const weightedSum = scoredRows.reduce((sum, row) => sum + row.score * weightOf(row), 0);
+  const weightedMean = totalWeight > 0 ? weightedSum / totalWeight : simpleMean;
+
+  return { score: Math.round(weightedMean), simpleMean, weightedMean };
 }
 
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {
@@ -44,6 +81,12 @@ function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumbe
   const pageWidth = doc.page.width;
   const leftMargin = 40;
   const rightMargin = pageWidth - 40;
+
+  // The footer sits below pdfkit's bottom margin, and every text drawn there
+  // makes pdfkit auto-append a blank page. Zero the bottom margin while the
+  // footer is drawn so the document keeps exactly its intended page count.
+  const bottomMargin = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
 
   doc.strokeColor('#666666')
     .lineWidth(0.5)
@@ -59,6 +102,8 @@ function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumbe
 
   doc.fontSize(9).font('RegularFont').fillColor('#666666')
     .text('Website Accessibility Audit Report', rightMargin - 200, footerY, { width: 200, align: 'right' });
+
+  doc.page.margins.bottom = bottomMargin;
 }
 
 function getRoundedScoreValue(score: number | null | undefined): number | null {
@@ -518,6 +563,12 @@ export async function generateAuditAiSummaryPdf(
     scorecard?: AuditScorecard;
     platformSummary?: PlatformSummaryEntry[];
     planType?: string;
+    /**
+     * Count of WCAG criteria flagged Fail across the same matrices the full
+     * report ships (Phase 6.3 / N6). When omitted, falls back to the
+     * scorecard's own (differently-computed) wcagSummary.criteriaCount.
+     */
+    wcagFlaggedCriteriaCount?: number;
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -572,13 +623,19 @@ export async function generateAuditAiSummaryPdf(
         ].join('|'),
       )
       : [];
-    const normalizedDimensions = Array.isArray(options.scorecard?.dimensions)
-      ? options.scorecard.dimensions
+    // Phase 6.4 / N7: weakest/strongest must name one of the eight evaluation
+    // dimensions the full report actually prints — not the four-category
+    // primary-dimension rollup, which uses names the full report never uses.
+    // Dimensions excluded on every scored page (weight 0) are dropped so an
+    // unevaluated "Excluded" component can never surface as "weakest".
+    const normalizedDimensions = Array.isArray(options.scorecard?.evaluationDimensions)
+      ? options.scorecard.evaluationDimensions
         .map((dimension) => ({
           label: String(dimension?.label || '').trim(),
           score: Number(dimension?.score || 0),
+          weight: Number(dimension?.weight || 0),
         }))
-        .filter((dimension) => dimension.label)
+        .filter((dimension) => dimension.label && dimension.weight > 0)
       : [];
     const normalizedTopIssues = Array.isArray(options.scorecard?.topIssues)
       ? dedupeByKey(options.scorecard.topIssues
@@ -586,6 +643,8 @@ export async function generateAuditAiSummaryPdf(
           title: String(issue?.title || '').trim(),
           wcagReferences: Array.isArray(issue?.wcagReferences) ? issue.wcagReferences : [],
           wcagCriteria: Array.isArray(issue?.wcagCriteria) ? issue.wcagCriteria : [],
+          // Phase 6.8 / N14: breadth behind this headline, printed alongside it.
+          pagesAffected: typeof issue?.pagesAffected === 'number' ? issue.pagesAffected : undefined,
         }))
         .filter((issue) => issue.title),
         (issue) => [
@@ -595,6 +654,39 @@ export async function generateAuditAiSummaryPdf(
         ].join('|'),
       )
       : [];
+
+    // Phase 6.1 / N1: the headline score must always be reproducible from the
+    // same platform table rendered below it, so compute it from that table
+    // (page-weighted mean) instead of a separately-aggregated scorecard
+    // number that can drift from what the reader sees. If the weighted and
+    // simple means of the table disagree by more than a rounding point, the
+    // table itself is inconsistent (e.g. wildly uneven per-platform page
+    // counts) — refuse to ship a summary that contradicts its own numbers,
+    // matching the PDF combiner's fail-loudly philosophy.
+    const platformSummaryRows = Array.isArray(options.platformSummary)
+      ? options.platformSummary.filter((entry) => entry && entry.platform)
+      : [];
+    let overallScore: number;
+    let riskTierRaw: string;
+    let scoreStatusRaw: string;
+    if (options.scorecard) {
+      const headline = computeAggregatePlatformHeadline(platformSummaryRows, Number(options.scorecard.overallScore || 0));
+      if (platformSummaryRows.some((row) => typeof row.score === 'number') && Math.abs(headline.weightedMean - headline.simpleMean) > 1) {
+        reject(new Error(
+          `Executive summary headline for ${options.url} would read ${headline.score}%, which diverges from the `
+          + `${headline.simpleMean.toFixed(1)}% mean of its own platform table by more than 1 point. `
+          + 'Refusing to generate a self-contradictory summary.',
+        ));
+        return;
+      }
+      overallScore = headline.score;
+      riskTierRaw = classifyRiskTier(overallScore);
+      scoreStatusRaw = classifyScoreStatus(overallScore).replace(/-/g, ' ');
+    } else {
+      overallScore = 0;
+      riskTierRaw = 'unknown';
+      scoreStatusRaw = 'pending';
+    }
 
     const doc = new PDFDocument({
       margins: { top: 56, bottom: 64, left: 48, right: 48 },
@@ -610,9 +702,6 @@ export async function generateAuditAiSummaryPdf(
     const pageMarginLeft = doc.page.margins.left;
     const pageMarginRight = doc.page.margins.right;
     const contentWidth = doc.page.width - pageMarginLeft - pageMarginRight;
-    const overallScore = Math.round(Number(options.scorecard?.overallScore || 0));
-    const riskTierRaw = String(options.scorecard?.riskTier || 'unknown').toLowerCase();
-    const scoreStatusRaw = String(options.scorecard?.scoreStatus || 'pending').replace(/-/g, ' ');
     const generatedAt = new Date(aiReport.generatedAt);
     const generatedAtLabel = Number.isNaN(generatedAt.getTime())
       ? aiReport.generatedAt
@@ -670,12 +759,25 @@ export async function generateAuditAiSummaryPdf(
       const detailWidth = contentWidth - scoreBoxWidth - 30;
       const weakest = [...normalizedDimensions].sort((a, b) => a.score - b.score)[0];
       const strongest = [...normalizedDimensions].sort((a, b) => b.score - a.score)[0];
+      // Phase 6.2 / N2: pageCount is the honest distinct-URL count (never
+      // multiplied by device count) once the caller builds the scorecard from
+      // buildAggregateAuditScorecard's pageCount option; see full-audit
+      // pipelines. "Pages audited" therefore reads a truthful single number.
+      const pageCount = Number(options.scorecard.pageCount || 0);
       const detailRows: Array<[string, string]> = [
         ['Status', scoreStatusRaw.replace(/\b\w/g, (c) => c.toUpperCase())],
-        ['Pages audited', String(Number(options.scorecard.pageCount || 0))],
+        ['Pages audited', String(pageCount)],
       ];
-      if (options.scorecard.wcagSummary?.criteriaCount) {
-        detailRows.push(['WCAG criteria flagged', String(options.scorecard.wcagSummary.criteriaCount)]);
+      // Phase 6.3 / N6: prefer the count of Fail criteria unioned across the
+      // same matrices the full report ships; only fall back to the
+      // scorecard's own (differently-computed) summary when the caller
+      // didn't supply one. typeof-check (not truthy) so a genuine 0 still
+      // prints instead of silently hiding the row.
+      const flaggedCount = typeof options.wcagFlaggedCriteriaCount === 'number'
+        ? options.wcagFlaggedCriteriaCount
+        : options.scorecard.wcagSummary?.criteriaCount;
+      if (typeof flaggedCount === 'number') {
+        detailRows.push(['WCAG criteria flagged', String(flaggedCount)]);
       }
       if (weakest) {
         detailRows.push(['Weakest area', `${weakest.label} (${Math.round(weakest.score)}%)`]);
@@ -693,13 +795,30 @@ export async function generateAuditAiSummaryPdf(
         rowY += 17;
       });
       doc.restore();
-      doc.y = cardTop + cardHeight + 18;
+      doc.y = cardTop + cardHeight + 6;
+
+      // Phase 6.2/6.3 (N2, N6): spell out the honest page x device math and
+      // the matrix scope in a caption beneath the fixed-width card, where a
+      // full sentence can actually fit legibly.
+      const deviceCount = platformSummaryRows.length;
+      const pageDeviceAuditCount = platformSummaryRows.reduce((sum, row) => sum + (Number(row.pageCount) || 0), 0);
+      if (deviceCount > 0 && pageDeviceAuditCount > 0) {
+        const captionParts = [
+          `Pages audited counts distinct URLs: ${pageCount} page${pageCount === 1 ? '' : 's'} x `
+          + `${deviceCount} device${deviceCount === 1 ? '' : 's'} = ${pageDeviceAuditCount} page-device audits.`,
+        ];
+        if (typeof flaggedCount === 'number') {
+          captionParts.push('WCAG criteria flagged is the union of failing criteria across all pages and devices in this audit.');
+        }
+        doc.font('RegularFont').fontSize(8).fillColor('#94A3B8')
+          .text(captionParts.join(' '), pageMarginLeft, doc.y, { width: contentWidth });
+        doc.y += 6;
+      }
+      doc.y += 12;
     };
 
     const renderAuditSummaryTable = (): void => {
-      const summary = Array.isArray(options.platformSummary)
-        ? options.platformSummary.filter((entry) => entry && entry.platform)
-        : [];
+      const summary = platformSummaryRows;
       if (summary.length === 0) return;
 
       const startY = doc.y;
@@ -838,6 +957,7 @@ export async function generateAuditAiSummaryPdf(
         .text('Highlighted issues from this scan:', pageMarginLeft, doc.y, { width: contentWidth });
       doc.moveDown(0.25);
       doc.font('RegularFont').fontSize(10).fillColor('#475569');
+      const totalPages = Number(options.scorecard?.pageCount || 0);
       issues.forEach((issue, idx) => {
         const wcagLabels = issue.wcagReferences.length
           ? issue.wcagReferences.map((reference) =>
@@ -845,7 +965,12 @@ export async function generateAuditAiSummaryPdf(
           )
           : issue.wcagCriteria.map((criterion) => `WCAG ${criterion}`);
         const suffix = wcagLabels.length ? ` - ${wcagLabels.join('; ')}` : '';
-        doc.text(`${idx + 1}. ${issue.title}${suffix}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
+        // Phase 6.8 / N14: print the breadth behind this headline so a
+        // thinly-backed finding never reads as more prominent than it is.
+        const breadth = typeof issue.pagesAffected === 'number'
+          ? ` (affects ${issue.pagesAffected} of ${totalPages > 0 ? totalPages : issue.pagesAffected} page${issue.pagesAffected === 1 ? '' : 's'})`
+          : '';
+        doc.text(`${idx + 1}. ${issue.title}${suffix}${breadth}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
       });
       doc.moveDown(0.5);
     };
@@ -895,6 +1020,228 @@ export async function generateAuditAiSummaryPdf(
   });
 }
 
+export interface MissingMergePage {
+  url: string;
+  reason: string;
+  /** Index of the page in the original crawl sequence; used to re-insert the
+   * gap page at its truthful position. Pages without an order are appended. */
+  order?: number;
+}
+
+export type OrderedMergePage =
+  | { kind: 'report'; report: FullAuditPlatformReport; pdfPath: string }
+  | { kind: 'gap'; url: string; reason: string };
+
+export interface AssembledMergeReportPage {
+  kind: 'report';
+  report: FullAuditPlatformReport;
+  pdfPath: string;
+  pageCount: number;
+}
+
+export interface AssembledMergeGapPage {
+  kind: 'gap';
+  url: string;
+  reason: string;
+}
+
+export type AssembledMergePage = AssembledMergeReportPage | AssembledMergeGapPage;
+
+/**
+ * Maps a failed scan target to a short human-readable reason, used for gap
+ * pages and the combined-report cover note.
+ */
+export function humanizeAuditFailureReason(options: { errorCode?: string | null; error?: string | null }): string {
+  const { errorCode, error } = options;
+  switch (errorCode) {
+    case 'PAGE_NOT_FOUND':
+      return 'page not found (HTTP 404)';
+    case 'PAGE_HTTP_ERROR':
+      return 'an HTTP error response';
+    case 'NON_HTML':
+      return 'non-HTML content';
+    case 'NO_AUDITABLE_CONTENT':
+      return 'insufficient auditable content';
+    default:
+      break;
+  }
+
+  const message = String(error || '').toLowerCase();
+  if (/(bot|captcha|shieldsquare|radware|verify you are a human|access to this page has been blocked)/.test(message)) {
+    return 'bot protection';
+  }
+  if (/404|not found/.test(message)) {
+    return 'page not found (HTTP 404)';
+  }
+  if (/empty|stub|insufficient auditable content/.test(message)) {
+    return 'insufficient auditable content';
+  }
+  if (/timeout|timed out/.test(message)) {
+    return 'a scan timeout';
+  }
+  return 'a scan error';
+}
+
+/**
+ * Converts an index within the successfully scanned reports array into the
+ * original crawl sequence, given the (ascending) crawl positions of the pages
+ * that failed at scan time. PDF-generation failures use this to keep gap
+ * pages at their truthful position.
+ */
+export function crawlOrderForReportIndex(reportIndex: number, scanGapOrders: number[]): number {
+  let crawlOrder = reportIndex;
+  for (const gapOrder of scanGapOrders) {
+    if (gapOrder <= crawlOrder) {
+      crawlOrder += 1;
+    }
+  }
+  return crawlOrder;
+}
+
+/**
+ * Rebuilds the original crawl sequence from the successfully generated pages
+ * and the pages that failed. `reports`/`pdfPaths` hold only successful pages
+ * in crawl order; `missingPages` entries carry their original crawl index in
+ * `order` and are slotted back into that position. Entries without a usable
+ * order (and any overflow) are appended so no page is ever dropped silently.
+ */
+export function orderMergePages(
+  reports: FullAuditPlatformReport[],
+  pdfPaths: string[],
+  missingPages: MissingMergePage[] = [],
+): OrderedMergePage[] {
+  const totalSlots = reports.length + missingPages.length;
+  const positionedGaps = new Map<number, MissingMergePage>();
+  const unpositionedGaps: MissingMergePage[] = [];
+  for (const missing of missingPages) {
+    const order = missing.order;
+    if (typeof order === 'number'
+      && Number.isInteger(order)
+      && order >= 0
+      && order < totalSlots
+      && !positionedGaps.has(order)) {
+      positionedGaps.set(order, missing);
+    } else {
+      unpositionedGaps.push(missing);
+    }
+  }
+
+  const ordered: OrderedMergePage[] = [];
+  let reportCursor = 0;
+  for (let slot = 0; slot < totalSlots; slot += 1) {
+    const gap = positionedGaps.get(slot);
+    if (gap) {
+      ordered.push({ kind: 'gap', url: gap.url, reason: gap.reason });
+      continue;
+    }
+    if (reportCursor < reports.length) {
+      ordered.push({ kind: 'report', report: reports[reportCursor], pdfPath: pdfPaths[reportCursor] });
+      reportCursor += 1;
+    }
+  }
+  for (; reportCursor < reports.length; reportCursor += 1) {
+    ordered.push({ kind: 'report', report: reports[reportCursor], pdfPath: pdfPaths[reportCursor] });
+  }
+  for (const gap of unpositionedGaps) {
+    ordered.push({ kind: 'gap', url: gap.url, reason: gap.reason });
+  }
+  return ordered;
+}
+
+/** Renders a single honest "could not be audited" page and returns its path. */
+export async function renderGapPage(options: {
+  url: string;
+  reason: string;
+  outputDir: string;
+  device: FullAuditDevice;
+}): Promise<string> {
+  const { url, reason, outputDir, device } = options;
+  const gapPagePath = path.join(
+    outputDir,
+    `gap-${device}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`,
+  );
+  const gapDoc = new PDFDocument({ margin: 40, size: 'A4' });
+  const gapStream = fsSync.createWriteStream(gapPagePath);
+  gapDoc.pipe(gapStream);
+  gapDoc.registerFont('RegularFont', 'Helvetica');
+  gapDoc.registerFont('BoldFont', 'Helvetica-Bold');
+
+  const gapMargin = 40;
+  const gapWidth = 515;
+
+  gapDoc.rect(0, 0, gapDoc.page.width, 50).fill('#1E3A8A');
+  gapDoc.fontSize(16).font('BoldFont').fillColor('#FFFFFF')
+    .text('Page Could Not Be Audited', gapMargin, 15, { width: gapWidth, align: 'left' });
+
+  let gapY = 140;
+  gapDoc.fontSize(20).font('BoldFont').fillColor('#2C3E50')
+    .text('This page could not be audited', gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 60;
+  gapDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
+    .text(getReportPageName(url), gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 30;
+  gapDoc.fontSize(10).font('RegularFont').fillColor('#6B7280')
+    .text(url, gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 50;
+  gapDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
+    .text(`Reason: ${reason}`, gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 50;
+  gapDoc.fontSize(10).font('RegularFont').fillColor('#6B7280')
+    .text(
+      new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      gapMargin,
+      gapY,
+      { width: gapWidth, align: 'center' },
+    );
+
+  gapDoc.end();
+  await new Promise<void>((resolve, reject) => {
+    gapStream.on('finish', resolve);
+    gapStream.on('error', reject);
+  });
+  return gapPagePath;
+}
+
+/**
+ * Builds the cover-page note for unaudited pages. When every gap shares one
+ * cause (e.g. bot protection), the note names it explicitly.
+ */
+export function buildGapCoverLine(auditedCount: number, gapPages: AssembledMergeGapPage[]): string {
+  const totalCount = auditedCount + gapPages.length;
+  const reasonCounts = new Map<string, number>();
+  for (const gap of gapPages) {
+    reasonCounts.set(gap.reason, (reasonCounts.get(gap.reason) ?? 0) + 1);
+  }
+  const [dominantReason, dominantCount] = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+  const pagesWord = totalCount === 1 ? 'page' : 'pages';
+  const auditedWord = auditedCount === 1 ? 'page' : 'pages';
+  if (dominantReason && dominantCount === gapPages.length) {
+    return `${gapPages.length} of ${totalCount} ${pagesWord} could not be audited due to ${dominantReason}; results below cover ${auditedCount} ${auditedWord}.`;
+  }
+  return `${gapPages.length} of ${totalCount} ${pagesWord} could not be audited; see the Table of Contents for details.`;
+}
+
+/**
+ * Builds the TOC rows for the assembled body. Gap pages always render with an
+ * honest 'N/A' score and occupy exactly one page.
+ */
+export function buildMergeTocEntries(
+  pages: AssembledMergePage[],
+): Array<{ pageName: string; score: string; actualPageCount: number }> {
+  return pages.map((page) => {
+    if (page.kind === 'gap') {
+      return { pageName: getReportPageName(page.url), score: 'N/A', actualPageCount: 1 };
+    }
+    return {
+      pageName: getReportPageName(page.report.url),
+      score: page.report.score !== null && page.report.score !== undefined
+        ? `${Math.round(page.report.score)}%`
+        : 'N/A',
+      actualPageCount: page.pageCount > 1 ? page.pageCount - 1 : 0,
+    };
+  });
+}
+
 export async function mergePDFsByPlatform(options: {
   pdfPaths: string[];
   device: FullAuditDevice;
@@ -903,10 +1250,71 @@ export async function mergePDFsByPlatform(options: {
   reports: FullAuditPlatformReport[];
   planType: string;
   platformSummary?: PlatformSummaryEntry[];
+  missingPages?: MissingMergePage[];
 }): Promise<string> {
-  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [] } = options;
+  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [], missingPages = [] } = options;
   if (!pdfPaths || pdfPaths.length === 0) {
     throw new Error('No PDF paths provided for merging');
+  }
+
+  // Rebuild the original crawl sequence: `reports`/`pdfPaths` hold only the
+  // successfully generated pages in crawl order, while `missingPages` brings
+  // the failed pages back in at their truthful positions. Every body PDF is
+  // then validated; unreadable files degrade to gap pages, and byte-identical
+  // files abort the merge because they mean two pages resolved to one PDF.
+  const orderedPages = orderMergePages(reports, pdfPaths, missingPages);
+  const assembledPages: AssembledMergePage[] = [];
+  const seenPdfHashes = new Map<string, string>();
+  for (const page of orderedPages) {
+    if (page.kind === 'gap') {
+      assembledPages.push(page);
+      continue;
+    }
+
+    const { report, pdfPath } = page;
+    const pdfExists = pdfPath
+      ? await fs.access(pdfPath).then(() => true).catch(() => false)
+      : false;
+    if (!pdfExists) {
+      assembledPages.push({
+        kind: 'gap',
+        url: report.url,
+        reason: 'The individual report file was missing when the combined PDF was assembled.',
+      });
+      continue;
+    }
+
+    let pdfBytes: Buffer;
+    let pageCount: number;
+    try {
+      pdfBytes = await fs.readFile(pdfPath);
+      pageCount = (await PDFLib.load(pdfBytes)).getPageCount();
+    } catch {
+      assembledPages.push({
+        kind: 'gap',
+        url: report.url,
+        reason: 'The individual report file could not be read when the combined PDF was assembled.',
+      });
+      continue;
+    }
+
+    const pdfHash = createHash('sha256').update(pdfBytes).digest('hex');
+    const duplicateUrl = seenPdfHashes.get(pdfHash);
+    if (duplicateUrl) {
+      throw new Error(
+        `Duplicate individual report detected while assembling the combined ${device} PDF: "${report.url}" is byte-identical to "${duplicateUrl}".`,
+      );
+    }
+    seenPdfHashes.set(pdfHash, report.url);
+
+    assembledPages.push({ kind: 'report', report, pdfPath, pageCount });
+  }
+
+  const reportPages = assembledPages.filter((page): page is AssembledMergeReportPage => page.kind === 'report');
+  const gapPages = assembledPages.filter((page): page is AssembledMergeGapPage => page.kind === 'gap');
+  const gapPageCount = gapPages.length;
+  if (reportPages.length === 0) {
+    throw new Error('No readable individual PDF reports available for merging');
   }
 
   const deviceCapitalized = device.charAt(0).toUpperCase() + device.slice(1);
@@ -924,7 +1332,7 @@ export async function mergePDFsByPlatform(options: {
   const titleMargin = 40;
   const titlePageWidth = 515;
   const titlePageHeight = titleDoc.page.height;
-  const baseUrl = reports[0]?.url || 'website';
+  const baseUrl = reportPages[0]?.report.url || reports[0]?.url || 'website';
   const siteName = extractSiteNameFromUrl(baseUrl);
 
   titleDoc.rect(0, 0, titleDoc.page.width, titlePageHeight).fill('#FFFFFF');
@@ -961,9 +1369,9 @@ export async function mergePDFsByPlatform(options: {
   const logoSize = 120;
   drawReportLogo(titleDoc, { x: logoX, y: logoY, size: logoSize });
 
-  drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reports.map((report) => ({
-    platform: getReportPageName(report.url),
-    score: report.score,
+  drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reportPages.map((page) => ({
+    platform: getReportPageName(page.report.url),
+    score: page.report.score,
   })), {
     x: titleMargin,
     y: titleY + 190,
@@ -985,8 +1393,8 @@ export async function mergePDFsByPlatform(options: {
 
   const coverMargin = 40;
   const coverWidth = 515;
-  const avgScore = reports.length > 0
-    ? reports.reduce((sum, report) => sum + (report.score || 0), 0) / reports.length
+  const avgScore = reportPages.length > 0
+    ? reportPages.reduce((sum, page) => sum + (page.report.score || 0), 0) / reportPages.length
     : 0;
   const roundedScore = Math.round(avgScore);
   const isPassing = avgScore >= 80;
@@ -1051,9 +1459,18 @@ export async function mergePDFsByPlatform(options: {
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
     .text(`Report prepared for: ${email_address}`, coverMargin + 60, coverY);
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text(`Pages audited: ${reports.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
+    .text(`Pages audited: ${reportPages.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
+  if (gapPageCount > 0) {
+    coverDoc.fontSize(11).font('RegularFont').fillColor('#B45309')
+      .text(
+        buildGapCoverLine(reportPages.length, gapPages),
+        coverMargin + 60,
+        coverY + 50,
+        { width: coverWidth - 120 },
+      );
+  }
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text(`Package: ${packageText}`, coverMargin + 60, coverY + 50, { width: coverWidth - 120 });
+    .text(`Package: ${packageText}`, coverMargin + 60, coverY + (gapPageCount > 0 ? 75 : 50), { width: coverWidth - 120 });
   addFooterToPdfDocument(coverDoc, 2);
   coverDoc.end();
 
@@ -1062,45 +1479,13 @@ export async function mergePDFsByPlatform(options: {
     coverStream.on('error', reject);
   });
 
-  const pageCounts: number[] = [];
-  const validPdfPaths: string[] = [];
-  const validReports: FullAuditPlatformReport[] = [];
-  for (let index = 0; index < pdfPaths.length; index += 1) {
-    const pdfPath = pdfPaths[index];
-    const report = reports[index];
-    if (!report) {
-      continue;
-    }
-
-    try {
-      if (!await fs.access(pdfPath).then(() => true).catch(() => false)) {
-        continue;
-      }
-
-      const pdfBytes = await fs.readFile(pdfPath);
-      const pdfDoc = await PDFLib.load(pdfBytes);
-      const pc = pdfDoc.getPageCount();
-      pageCounts.push(pc);
-      validPdfPaths.push(pdfPath);
-      validReports.push(report);
-    } catch {
-      continue;
-    }
-  }
-
   // ── TOC: two-pass rendering ──────────────────────────────────────────────
   // Collect page names, scores, and per-report page counts independently of
   // the final TOC page numbers. We can't pre-compute how many pages the TOC
   // will occupy without rendering it, so we do two passes: the first render
   // uses placeholder page numbers and gives us the actual TOC page count; the
   // second render uses the corrected numbers.
-  const tocEntryData = validReports.map((report, index) => ({
-    pageName: getReportPageName(report.url),
-    score: report.score !== null && report.score !== undefined
-      ? `${Math.round(report.score)}%`
-      : 'N/A',
-    actualPageCount: pageCounts[index] > 1 ? pageCounts[index] - 1 : 0,
-  }));
+  const tocEntryData = buildMergeTocEntries(assembledPages);
 
   const renderToc = async (
     entries: Array<{ pageName: string; score: string; startPage: number }>,
@@ -1228,17 +1613,48 @@ export async function mergePDFsByPlatform(options: {
   for (const p of allTocPages) mergedPdf.addPage(p);
   await fs.unlink(tocPagePath).catch(() => undefined);
 
-  for (let index = 0; index < validPdfPaths.length; index += 1) {
-    const pdfPath = validPdfPaths[index];
-    const pdfBytes = await fs.readFile(pdfPath);
-    const pdfDoc = await PDFLib.load(pdfBytes);
-    const pageCount = pdfDoc.getPageCount();
-
-    if (pageCount > 1) {
-      const pageIndices = Array.from({ length: pageCount - 1 }, (_value, pageIndex) => pageIndex + 1);
-      const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
+  for (const page of assembledPages) {
+    if (page.kind === 'gap') {
+      const gapPagePath = await renderGapPage({
+        url: page.url,
+        reason: page.reason,
+        outputDir,
+        device,
+      });
+      try {
+        const gapBytes = await fs.readFile(gapPagePath);
+        const gapDocLib = await PDFLib.load(gapBytes);
+        const [gapPage] = await mergedPdf.copyPages(gapDocLib, [0]);
+        mergedPdf.addPage(gapPage);
+      } finally {
+        await fs.unlink(gapPagePath).catch(() => undefined);
+      }
+      continue;
     }
+
+    const pdfBytes = await fs.readFile(page.pdfPath);
+    const pdfDoc = await PDFLib.load(pdfBytes);
+
+    if (page.pageCount > 1) {
+      const pageIndices = Array.from({ length: page.pageCount - 1 }, (_value, pageIndex) => pageIndex + 1);
+      const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
+      copiedPages.forEach((copiedPage) => mergedPdf.addPage(copiedPage));
+    }
+  }
+
+  // Post-conditions: the TOC must describe exactly the assembled body, and the
+  // merged page count must match the TOC's page-number arithmetic.
+  if (tocEntries.length !== reportPages.length + gapPageCount) {
+    throw new Error(
+      `Combined ${device} PDF assembly mismatch: TOC has ${tocEntries.length} entries but the body contains ${reportPages.length} reports and ${gapPageCount} gap pages.`,
+    );
+  }
+  const expectedMergedPageCount = 2 + actualTocPageCount
+    + tocEntryData.reduce((sum, entry) => sum + entry.actualPageCount, 0);
+  if (mergedPdf.getPageCount() !== expectedMergedPageCount) {
+    throw new Error(
+      `Combined ${device} PDF assembly mismatch: expected ${expectedMergedPageCount} pages from the TOC arithmetic but the merged document has ${mergedPdf.getPageCount()}.`,
+    );
   }
 
   const mergedPdfBytes = await mergedPdf.save();

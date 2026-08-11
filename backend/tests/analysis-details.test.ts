@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAnalysisDetail, buildRemediationRoadmap } from '../src/features/audits/analysis-details.ts';
+import { buildAggregateRemediationRoadmap, buildAnalysisDetail, buildRemediationRoadmap } from '../src/features/audits/analysis-details.ts';
 import type { AuditAiReport } from '../src/features/audits/ai-reporting.ts';
 
 const sampleScorecard = {
@@ -238,6 +238,49 @@ test('buildRemediationRoadmap turns stored scorecard issues into prioritized Pha
   assert.equal(roadmap[2].auditSourceType, 'supporting-signal');
 });
 
+// Phase 6.5 / N8 — the exec summary's roadmap must union each page's own
+// recommendation objects deduped by rule id, not by rule id *and* page, so
+// the same failing audit recurring on multiple pages counts once.
+test('buildAggregateRemediationRoadmap unions per-page roadmaps deduped by rule id, keeping the worst occurrence', () => {
+  const secondPageScorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 40,
+        weight: 30,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'color-contrast',
+            title: 'Color contrast is too low',
+            description: 'Text contrast falls below the recommended threshold.',
+            score: 35, // worse than sampleScorecard's 52 for the same audit
+            weight: 9,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['1.4.3'],
+            sourceUrl: 'https://example.com/about',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const roadmap = buildAggregateRemediationRoadmap([sampleScorecard, secondPageScorecard]);
+
+  const colorContrastItems = roadmap.filter((item) => item.auditId === 'color-contrast');
+  assert.equal(colorContrastItems.length, 1, 'color-contrast must appear once across the site, not once per page');
+  assert.equal(colorContrastItems[0].currentScore, 35, 'the worse of the two per-page occurrences represents the audit');
+  assert.equal(colorContrastItems[0].sourceUrl, 'https://example.com/about');
+
+  // sampleScorecard alone yields 3 distinct audits; the second page repeats
+  // one of them (color-contrast) and adds none new, so the union is still 3.
+  assert.equal(roadmap.length, 3);
+});
+
 test('buildAnalysisDetail returns normalized scorecard-backed detail payload for account views', () => {
   const detail = buildAnalysisDetail({
     _id: 'rec-1',
@@ -337,4 +380,71 @@ test('buildAnalysisDetail preserves degraded full-audit metadata for warning-awa
   assert.equal(detail.scanTargets[1]?.scanModeUsed, 'lite');
   assert.equal(detail.scanTargets[1]?.status, 'failed');
   assert.equal(detail.scanTargets[1]?.statusCode, 500);
+});
+
+test('buildRemediationRoadmap uses the failure-phrased template title for ss-label-in-name-audit', () => {
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 40,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'ss-label-in-name-audit',
+            title: 'Label in name matches visible text (WCAG 2.5.3)',
+            description: 'aria-label values do not contain the visible text.',
+            score: 0,
+            weight: 3,
+            severity: 'high',
+            auditSourceType: 'aging-heuristic',
+            auditSourceLabel: 'Aging Heuristic',
+            wcagCriteria: ['2.5.3'],
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  const item = roadmap.find((entry) => entry.auditId === 'ss-label-in-name-audit');
+  assert.ok(item);
+  assert.equal(item.title, 'Visible label is missing from the accessible name (WCAG 2.5.3)');
+});
+
+test('image-alt remediation snippet uses a generic placeholder, not a canned example', () => {
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 40,
+        weight: 30,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'image-alt',
+            title: 'Images missing alt text',
+            description: 'Several images lack alternative text.',
+            score: 0,
+            weight: 9,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['1.1.1'],
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  const item = roadmap.find((entry) => entry.auditId === 'image-alt');
+  assert.ok(item?.codeSnippet);
+  assert.ok(!item.codeSnippet.includes('Doctor and patient'), 'canned healthcare example must not recur across sites');
+  assert.ok(item.codeSnippet.includes('Descriptive text that names this product'), 'generic placeholder missing');
 });

@@ -7,6 +7,7 @@ import {
     type WcagReference,
     type WcagSummary,
 } from "./wcag-mapping.ts";
+import { getRemediationTemplateTitle } from "./analysis-details.ts";
 
 export type AuditRiskTier = "low" | "medium" | "high";
 export type AuditScoreStatus = "pass" | "needs-improvement" | "fail";
@@ -36,6 +37,14 @@ export interface AuditIssueSummary {
     wcagPrinciples?: WcagPourPrinciple[];
     displayValue?: string;
     sourceUrl?: string;
+    /** Failing-element count captured from the audit's details.items (evidence parity). */
+    elementCount?: number;
+    /**
+     * Number of distinct pages this audit failed on. Only set on aggregate
+     * (site-level) topIssues (Phase 6.8 / N14) — a single-page scorecard's
+     * issues always affect exactly one page, so the field is omitted there.
+     */
+    pagesAffected?: number;
 }
 
 export interface AuditPrimaryDimensionScore {
@@ -197,6 +206,10 @@ const AUDIT_EVALUATION_DIMENSION_MAP: Record<string, AuditEvaluationDimensionKey
     "total-blocking-time": "cognitiveLoadComplexity",
     "is-on-https": "trustSecuritySignals",
     "geolocation-on-start": "trustSecuritySignals",
+    "mixed-content-audit": "trustSecuritySignals",
+    "form-action-security-audit": "trustSecuritySignals",
+    "third-party-surface-audit": "trustSecuritySignals",
+    "trust-markers-audit": "trustSecuritySignals",
     "image-alt": "technicalAccessibility",
     "focus-traps": "technicalAccessibility",
     bypass: "navigationArchitecture",
@@ -360,7 +373,7 @@ function clampAuditScore(value: number | null | undefined): number {
     return Math.max(0, Math.min(1, Number(value)));
 }
 
-function classifyScoreStatus(overallScore: number): AuditScoreStatus {
+export function classifyScoreStatus(overallScore: number): AuditScoreStatus {
     if (overallScore >= 80) {
         return "pass";
     }
@@ -372,7 +385,7 @@ function classifyScoreStatus(overallScore: number): AuditScoreStatus {
     return "fail";
 }
 
-function classifyRiskTier(overallScore: number): AuditRiskTier {
+export function classifyRiskTier(overallScore: number): AuditRiskTier {
     if (overallScore >= 80) {
         return "low";
     }
@@ -568,6 +581,87 @@ function dedupeIssues(issues: AuditIssueSummary[]): AuditIssueSummary[] {
     return [...unique.values()];
 }
 
+// Minimum distinct pages an issue must affect to headline ahead of a
+// narrower one when both are otherwise comparable (Phase 6.8 / N14) — a
+// two-mention finding in a 1,132-page report shouldn't outrank something
+// that recurs sitewide just because its single occurrence scored lower.
+const MIN_PAGES_TO_HEADLINE = 2;
+
+/**
+ * Ranks the site-wide top issues by breadth (distinct pages affected) x
+ * severity, not a single page's raw score (Phase 6.8 / N14). Also collapses
+ * the input to one entry per audit id (Phase 6.6 / N9 — the prior
+ * score-only sort could surface the same audit from several pages as
+ * separate "top issues", producing duplicate titles in the summary
+ * sentence) and then to one entry per WCAG criterion (Phase 6.7b / N10 — two
+ * different audits mapped to the same criterion must not both headline).
+ * `issues` is expected to already be deduped by `auditId::sourceUrl`
+ * (i.e. one entry per audit per page), which is what feeds this from
+ * `buildAggregateAuditScorecard`.
+ */
+function buildBreadthRankedTopIssues(issues: AuditIssueSummary[], limit: number): AuditIssueSummary[] {
+    const byAuditId = new Map<string, AuditIssueSummary[]>();
+    for (const issue of issues) {
+        const list = byAuditId.get(issue.auditId) || [];
+        list.push(issue);
+        byAuditId.set(issue.auditId, list);
+    }
+
+    const candidates = [...byAuditId.entries()].map(([auditId, occurrences]) => {
+        const pageUrls = new Set(occurrences.map((occurrence) => occurrence.sourceUrl).filter(Boolean));
+        const pagesAffected = pageUrls.size || occurrences.length;
+        // Worst-scoring occurrence stands in for the audit as a whole.
+        const representative = sortIssues(occurrences)[0];
+        const impact = Math.max(0, 100 - representative.score);
+
+        return {
+            auditId,
+            pagesAffected,
+            breadthRank: pagesAffected * impact,
+            criterion: representative.wcagCriteria?.[0],
+            issue: { ...representative, pagesAffected } as AuditIssueSummary,
+        };
+    });
+
+    candidates.sort((left, right) => {
+        const leftQualifies = left.pagesAffected >= MIN_PAGES_TO_HEADLINE;
+        const rightQualifies = right.pagesAffected >= MIN_PAGES_TO_HEADLINE;
+        if (leftQualifies !== rightQualifies) {
+            return leftQualifies ? -1 : 1;
+        }
+        if (left.breadthRank !== right.breadthRank) {
+            return right.breadthRank - left.breadthRank;
+        }
+        // Equal breadth and impact: fall back to the audit's own dimension
+        // weight (heavier-weighted audits headline first), matching the
+        // pre-6.8 single-page tie-break (sortIssues) so equally-ranked
+        // single-occurrence issues keep a stable, meaningful order.
+        if (left.issue.weight !== right.issue.weight) {
+            return right.issue.weight - left.issue.weight;
+        }
+        return left.auditId.localeCompare(right.auditId);
+    });
+
+    // One headline slot per WCAG criterion — keep the first (highest-ranked)
+    // audit for a criterion already covered by an earlier, better-ranked one.
+    const seenCriteria = new Set<string>();
+    const deduped: AuditIssueSummary[] = [];
+    for (const candidate of candidates) {
+        if (candidate.criterion) {
+            if (seenCriteria.has(candidate.criterion)) {
+                continue;
+            }
+            seenCriteria.add(candidate.criterion);
+        }
+        deduped.push(candidate.issue);
+        if (deduped.length >= limit) {
+            break;
+        }
+    }
+
+    return deduped;
+}
+
 function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionScore[]): {
     dimensions: AuditPrimaryDimensionScore[];
     overallScore: number;
@@ -668,6 +762,8 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         evaluationWeights.set(evaluationKey, (evaluationWeights.get(evaluationKey) || 0) + auditRef.weight);
 
         if (score < 0.999) {
+            const detailItems = audit?.details?.items;
+            const elementCount = Array.isArray(detailItems) ? detailItems.length : 0;
             const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
             const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
             const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];
@@ -682,7 +778,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
             evaluationIssueCounts.set(evaluationKey, (evaluationIssueCounts.get(evaluationKey) || 0) + 1);
             evaluationIssues.get(evaluationKey)?.push({
                 auditId: auditRef.id,
-                title: audit?.title || auditRef.id,
+                title: getRemediationTemplateTitle(auditRef.id) || audit?.title || auditRef.id,
                 description: audit?.description || "",
                 score: roundScore(score * 100),
                 weight: auditRef.weight,
@@ -693,6 +789,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
                 ...(wcagReferences.length ? { wcagReferences } : {}),
                 ...(wcagPrinciples.length ? { wcagPrinciples } : {}),
                 ...(audit?.displayValue ? { displayValue: audit.displayValue } : {}),
+                ...(elementCount > 0 ? { elementCount } : {}),
                 ...(options.pageUrl ? { sourceUrl: options.pageUrl } : {}),
             });
         }
@@ -735,6 +832,81 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
         notApplicableAuditIds,
         manualReviewAuditIds,
     };
+}
+
+export interface ScoreBreakdownRow {
+    key: string;
+    name: string;
+    /** Integer percent; null when the dimension is excluded. */
+    score: number | null;
+    /** Printed one-decimal weight; 0 when the dimension is excluded. */
+    weight: number;
+    /** Printed one-decimal weighted contribution; null when excluded. */
+    weighted: number | null;
+}
+
+export interface ScoreBreakdown {
+    rows: ScoreBreakdownRow[];
+    /** Sum of the printed weights — always 100.0 when any dimension is active. */
+    totalWeight: number;
+    /** Sum of the printed weighted cells. */
+    totalWeighted: number;
+    /** round(totalWeighted / totalWeight * 100) — the table's own arithmetic. */
+    finalScore: number;
+}
+
+/**
+ * Builds the printable "Detailed Score Breakdown" rows from the scorecard's
+ * evaluation dimensions. Every printed number derives from the same source so
+ * the table self-checks in front of the reader: each Weighted cell equals the
+ * printed Score x the printed Weight (rounded at display precision), and both
+ * columns sum to the printed totals. Each active dimension prints its true
+ * PRD weight to one decimal; when any dimension is excluded, the remaining
+ * true weights are renormalized to sum 100 before printing.
+ */
+export function buildScoreBreakdown(
+    dimensions: Array<Pick<AuditEvaluationDimensionScore, "key" | "label" | "score" | "weight">>,
+): ScoreBreakdown {
+    const round1 = (value: number): number => Math.round(value * 10) / 10;
+
+    const activeDimensions = dimensions.filter((dimension) => Number(dimension.weight) > 0);
+    const trueWeightSum = activeDimensions.reduce((sum, dimension) => sum + dimension.weight, 0);
+
+    const printedWeights = new Map<string, number>();
+    for (const dimension of activeDimensions) {
+        const trueWeight = trueWeightSum > 0 ? (dimension.weight / trueWeightSum) * 100 : 0;
+        printedWeights.set(dimension.key, round1(trueWeight));
+    }
+
+    // Keep the printed weight column summing to exactly 100.0: fold any
+    // rounding drift into the largest active dimension's printed weight.
+    const printedWeightSum = [...printedWeights.values()].reduce((sum, weight) => sum + weight, 0);
+    const drift = round1(100 - printedWeightSum);
+    if (Math.abs(drift) >= 0.05 && activeDimensions.length > 0) {
+        const largest = activeDimensions.reduce((a, b) => (a.weight >= b.weight ? a : b));
+        printedWeights.set(largest.key, round1((printedWeights.get(largest.key) ?? 0) + drift));
+    }
+
+    const rows: ScoreBreakdownRow[] = dimensions.map((dimension) => {
+        const weight = printedWeights.get(dimension.key) ?? 0;
+        if (weight <= 0) {
+            return { key: dimension.key, name: dimension.label, score: null, weight: 0, weighted: null };
+        }
+        const score = Math.round(dimension.score);
+        return {
+            key: dimension.key,
+            name: dimension.label,
+            score,
+            weight,
+            weighted: round1((score * weight) / 100),
+        };
+    });
+
+    const totalWeight = round1(rows.reduce((sum, row) => sum + row.weight, 0));
+    const totalWeighted = round1(rows.reduce((sum, row) => sum + (row.weighted ?? 0), 0));
+    const finalScore = totalWeight > 0 ? Math.round((totalWeighted / totalWeight) * 100) : 0;
+
+    return { rows, totalWeight, totalWeighted, finalScore };
 }
 
 export function buildAggregateAuditScorecard(
@@ -833,7 +1005,9 @@ export function buildAggregateAuditScorecard(
     );
 
     const allIssues = dedupeIssues([...evaluationDimensionIssues.values()].flat());
-    const topIssues = sortIssues(allIssues).slice(0, 5);
+    // Phase 6.8/6.6/6.7b (N14, N9, N10b): breadth-ranked, one headline per
+    // audit id and per WCAG criterion — see buildBreadthRankedTopIssues.
+    const topIssues = buildBreadthRankedTopIssues(allIssues, 5);
 
     // An audit is notApplicable at aggregate level only if every page said so (intersection)
     const notApplicableSets = scorecards.map((sc) => new Set(sc.notApplicableAuditIds || []));

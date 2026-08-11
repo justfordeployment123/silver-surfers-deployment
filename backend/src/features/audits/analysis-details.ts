@@ -405,6 +405,21 @@ a:hover, a:focus {
 <!-- Simplest fix — remove the redundant aria-label if it conflicts -->
 <button>Send</button>`,
     },
+    "ss-label-in-name-audit": {
+        title: "Visible label is missing from the accessible name (WCAG 2.5.3)",
+        action: "Ensure the accessible name of each interactive element contains its visible label text so voice-control users can activate it by speaking what they see.",
+        whyItMatters:
+            "When the accessible name does not contain the visible label, speech-recognition users — including many older adults — cannot reliably activate buttons or links by voice.",
+        effort: "low",
+        codeSnippet: `<!-- Before — aria-label does not contain the visible text -->
+<button aria-label="Submit form">Send</button>
+
+<!-- After — accessible name contains the visible label -->
+<button aria-label="Send message">Send</button>
+
+<!-- Simplest fix — drop the conflicting aria-label -->
+<button>Send</button>`,
+    },
     label: {
         action: "Add explicit form labels, instructions, and helper text for all important input fields.",
         whyItMatters: "Clear forms reduce errors and abandonment in high-friction journeys.",
@@ -471,7 +486,7 @@ document.getElementById('find-near-me-btn').addEventListener('click', () => {
 <img src="chart.png">
 
 <!-- After — descriptive alt for informational images -->
-<img src="hero.jpg" alt="Doctor and patient reviewing a digital health chart together">
+<img src="hero.jpg" alt="Descriptive text that names this product's subject, colour, and context">
 
 <!-- Decorative images should use empty alt so screen readers skip them -->
 <img src="divider.png" alt="" role="presentation">`,
@@ -706,6 +721,17 @@ function getFallbackEffort(issue: AuditIssueSummary): RemediationEffort {
     return "low";
 }
 
+/**
+ * Failure-phrased recommendation title for an audit id (exact match, then the
+ * axe- stripped base id). Exported so scorecard issue titles and the roadmap
+ * read from one title table instead of raw pass-phrased scanner titles.
+ */
+export function getRemediationTemplateTitle(auditId: string): string | undefined {
+    const baseId = auditId.startsWith("axe-") ? auditId.slice(4) : auditId;
+    const template = REMEDIATION_TEMPLATES[auditId] || REMEDIATION_TEMPLATES[baseId];
+    return template?.title;
+}
+
 function getTemplate(issue: AuditIssueSummary): RemediationTemplate {
     // Exact match first, then strip the "axe-" prefix — axe-core audits duplicate many of
     // the same checks that already have full templates (e.g. axe-color-contrast → color-contrast).
@@ -866,6 +892,44 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
             return left.currentScore - right.currentScore;
         })
         .slice(0, 20);
+}
+
+/**
+ * Builds the executive summary's site-wide roadmap by unioning each page's
+ * own recommendation objects — the same ones `buildRemediationRoadmap`
+ * renders into that page's "Priority Recommendations" section of the full
+ * report — deduplicated by rule id (audit id), not by rule id *and* page
+ * (Phase 6.5 / N8). The previous approach built the exec roadmap from the
+ * aggregate scorecard's already-capped, cross-page top-3-per-dimension
+ * issue lists, whose bucket counts couldn't be reproduced from — and often
+ * contradicted — the full report's actual per-page recommendation sections.
+ */
+export function buildAggregateRemediationRoadmap(pageScorecards: Array<AuditScorecard | undefined>): AnalysisRemediationItem[] {
+    const merged = new Map<string, AnalysisRemediationItem>();
+
+    for (const pageScorecard of pageScorecards) {
+        for (const item of buildRemediationRoadmap(pageScorecard)) {
+            const existing = merged.get(item.auditId);
+            // Keep the worst-scoring occurrence as the representative, so the
+            // displayed evidence reflects the most severe instance sitewide.
+            if (!existing || item.currentScore < existing.currentScore) {
+                merged.set(item.auditId, item);
+            }
+        }
+    }
+
+    return [...merged.values()].sort((left, right) => {
+        if (rankBucket(left.bucketKey) !== rankBucket(right.bucketKey)) {
+            return rankBucket(left.bucketKey) - rankBucket(right.bucketKey);
+        }
+        if (rankImpact(left.impact) !== rankImpact(right.impact)) {
+            return rankImpact(left.impact) - rankImpact(right.impact);
+        }
+        if (rankEffort(left.effort) !== rankEffort(right.effort)) {
+            return rankEffort(left.effort) - rankEffort(right.effort);
+        }
+        return left.currentScore - right.currentScore;
+    });
 }
 
 export function buildRemediationBuckets(items: AnalysisRemediationItem[]): AnalysisRemediationBucket[] {

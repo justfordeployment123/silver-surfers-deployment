@@ -3,7 +3,7 @@ import { promises as fsPromises } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
-import { buildAuditScorecard } from '../audit-scorecard.ts';
+import { buildAuditScorecard, buildScoreBreakdown } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
 import { describeWcagStandardLabel, getWcagReference } from '../wcag-mapping.ts';
 import customConfig from './custom-config.js';
@@ -751,6 +751,16 @@ addOverallScoreDisplay(scoreData) {
             .text(pagesText, this.margin + 60, this.currentY);
         this.currentY += 25;
 
+        // Surface redirects (e.g. a soft-404 that landed on the home page)
+        // instead of letting the report silently describe a different page.
+        const requestedDisplayUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl.replace(/\/+$/, '') : '';
+        const finalDisplayUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl.replace(/\/+$/, '') : '';
+        if (requestedDisplayUrl && finalDisplayUrl && requestedDisplayUrl !== finalDisplayUrl) {
+            this.doc.fontSize(9).font('RegularFont').fillColor('#6B7280')
+                .text(`Note: the requested URL redirected to ${reportData.finalUrl} during the scan.`, this.margin + 60, this.currentY, { width: this.pageWidth - 60 });
+            this.currentY += 25;
+        }
+
         // Package information (simple label, no dev-only notes)
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
             .text(`Package: ${packageText}`, this.margin + 60, this.currentY);
@@ -780,29 +790,23 @@ addOverallScoreDisplay(scoreData) {
         const scorecard = scoreData.scorecard || buildAuditScorecard(reportData);
         const dimensions = scorecard.evaluationDimensions || [];
 
-        // Largest remainder method — ensures displayed integer weights always sum to exactly 100
-        const activeDims = dimensions.filter(d => d.weight);
-        const floors = activeDims.map(d => Math.floor(d.weight));
-        const deficit = 100 - floors.reduce((s, f) => s + f, 0);
-        activeDims
-            .map((d, i) => ({ i, r: d.weight - floors[i] }))
-            .sort((a, b) => b.r - a.r)
-            .slice(0, deficit)
-            .forEach(({ i }) => { floors[i] += 1; });
-        const weightMap = new Map(activeDims.map((d, i) => [d.key, floors[i]]));
-
-        const tableItems = dimensions.map((dimension) => {
-            const excluded = !dimension.weight;
-            return {
-                name: dimension.label,
-                score: excluded ? 'N/A' : `${Math.round(dimension.score)}%`,
-                weight: excluded ? 'Excluded' : `${weightMap.get(dimension.key) ?? Math.round(dimension.weight)}%`,
-                contribution: excluded ? 'N/A' : String(Math.round((dimension.score * dimension.weight) / 100)),
-            };
-        });
+        // Every printed number derives from the same breakdown, so the table
+        // self-checks in front of the reader: Score x printed Weight equals the
+        // printed Weighted cell, and both columns sum to the printed totals.
+        const breakdown = buildScoreBreakdown(dimensions);
+        const tableItems = breakdown.rows.map((row) => ({
+            name: row.name,
+            score: row.score === null ? 'N/A' : `${row.score}%`,
+            weight: row.weight > 0 ? `${row.weight.toFixed(1)}%` : 'Excluded',
+            contribution: row.weighted === null ? 'N/A' : row.weighted.toFixed(1),
+        }));
 
         // Draw compact table
-        this.drawScoreCalculationTable(tableItems, scoreData);
+        this.drawScoreCalculationTable(tableItems, {
+            totalWeight: breakdown.totalWeight.toFixed(1),
+            totalWeightedScore: breakdown.totalWeighted,
+            finalScore: breakdown.finalScore,
+        });
     }
 
     addAutomatedWcagResultsPage(reportData) {
@@ -1982,7 +1986,12 @@ addOverallScoreDisplay(scoreData) {
 
             // Category heading
             const dimensionScore = dimensionScoreByLabel.get(categoryName);
-            const headingSuffix = dimensionScore ? ` (${Math.round(dimensionScore.score)}%)` : '';
+            // Excluded dimensions (weight 0) have no meaningful score — print
+            // (N/A) instead of a misleading (0%) that contradicts the
+            // breakdown table's "Excluded" marker.
+            const headingSuffix = dimensionScore
+                ? (Number(dimensionScore.weight) > 0 ? ` (${Math.round(dimensionScore.score)}%)` : ' (N/A)')
+                : '';
             this.doc.fontSize(14).font('BoldFont').fillColor('#2C5F9C')
                 .text(`${categoryName}${headingSuffix}`, this.margin, this.currentY);
             this.currentY += 25;
@@ -2904,7 +2913,9 @@ addOverallScoreDisplay(scoreData) {
         currentX += colWidths[2];
         
         // Total Weighted
-        const totalWeightedText = String(Math.round(scoreData.totalWeightedScore) || '').trim();
+        const totalWeightedText = typeof scoreData.totalWeightedScore === 'number'
+            ? scoreData.totalWeightedScore.toFixed(1)
+            : String(scoreData.totalWeightedScore || '').trim();
         this.doc.fontSize(10).text(totalWeightedText, currentX + 10, tableY + 7, {
             width: colWidths[3] - 20,
             align: 'center'
@@ -2922,7 +2933,9 @@ addOverallScoreDisplay(scoreData) {
             this.addPage();
         }
         
-        const finalScoreText = `Final Score: ${Math.round(scoreData.totalWeightedScore)} ÷ ${Math.round(scoreData.totalWeight)} = ${Math.round(scoreData.finalScore)}%`;
+        const totalWeightNumber = Number(scoreData.totalWeight);
+        const finalTotalWeightText = Number.isFinite(totalWeightNumber) ? totalWeightNumber.toFixed(1) : String(scoreData.totalWeight);
+        const finalScoreText = `Final Score: ${totalWeightedText} ÷ ${finalTotalWeightText} = ${Math.round(scoreData.finalScore)}%`;
         this.doc.fontSize(11).font('BoldFont').fillColor('#2C3E50').text(
             finalScoreText,
             this.margin,
@@ -3169,7 +3182,10 @@ addOverallScoreDisplay(scoreData) {
             rows.forEach(row => {
                 const actionText = (() => {
                     if (row.status === 'pass') {
-                        return 'Automated checks passed — no violations detected on this criterion.';
+                        const findings = row.issueCount || 0;
+                        return findings > 0
+                            ? `Automated checks passed with ${findings} finding${findings !== 1 ? 's' : ''} — no failing checks; see the evidence section for details.`
+                            : 'Automated checks passed — no violations detected on this criterion.';
                     }
                     if (row.status === 'fail') {
                         const n = row.issueCount || 0;
@@ -3257,27 +3273,33 @@ addOverallScoreDisplay(scoreData) {
             console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';
-            const url = reportData.finalUrl || 'unknown-url';
+            // Name the report after the *requested* URL (unique per crawl target),
+            // not the post-redirect finalUrl: two targets that redirect to the same
+            // page must never resolve to the same filename and overwrite each other.
+            const url = options.url || reportData.requestedUrl || reportData.finalUrl || 'unknown-url';
             reportData.configSettings = {
                 ...(reportData.configSettings || {}),
                 formFactor,
             };
 
             // Create a safe, short, unique filename from URL and device
-            function safeFilename(url, device) {
+            function safeFilename(url, device, finalUrl) {
                 try {
                     const u = new URL(url.startsWith('http') ? url : `https://${url}`);
                     let hostname = u.hostname.replace(/^www\./, '');
                     let pathname = u.pathname.replace(/[^a-zA-Z0-9]/g, '_');
                     if (pathname.length > 40) pathname = pathname.slice(0, 40) + '_';
-                    const hash = String(url.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
+                    // Hash the requested URL together with the post-redirect URL so
+                    // two targets landing on the same final page still get distinct files.
+                    const hashInput = `${url}|${finalUrl || ''}`;
+                    const hash = String(hashInput.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
                     return `${hostname}${pathname ? '_' + pathname : ''}_${hash}-${device}.pdf`;
                 } catch (e) {
                     // fallback for invalid URLs
                     return `report_${device}.pdf`;
                 }
             }
-            const fileName = safeFilename(url, formFactor);
+            const fileName = safeFilename(url, formFactor, reportData.finalUrl);
 
             // Use outputDir if provided, otherwise use clientEmail as folder
             let clientFolder;

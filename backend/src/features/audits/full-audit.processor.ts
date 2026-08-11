@@ -21,7 +21,7 @@ import {
 } from '../scanner/scanner-client.ts';
 import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
-import { buildRemediationRoadmap } from './analysis-details.ts';
+import { buildAggregateRemediationRoadmap } from './analysis-details.ts';
 import { buildWcagMatrix, resolveWcagMatrixFilterOptions, type WcagMatrixFilterOptions } from './wcag-matrix.ts';
 import type { WcagMatrix } from './wcag-mapping.ts';
 import { env } from '../../config/env.ts';
@@ -57,11 +57,14 @@ import {
 } from './full-audit.strategy.ts';
 import {
   calculateSeniorFriendlinessScore,
+  crawlOrderForReportIndex,
   generateCombinedPlatformReport,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
+  humanizeAuditFailureReason,
   mergePDFsByPlatform,
   type FullAuditPlatformReport,
+  type MissingMergePage,
 } from './report-generation.ts';
 
 const fullAuditLogger = logger.child('feature:audits:full-audit');
@@ -329,6 +332,16 @@ async function auditLinkForDevice(
   }
 
   const reportData = JSON.parse(await fs.readFile(auditResult.reportPath, 'utf8')) as Record<string, unknown>;
+  const requestedPageUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl.replace(/\/+$/, '') : '';
+  const finalPageUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl.replace(/\/+$/, '') : '';
+  if (requestedPageUrl && finalPageUrl && requestedPageUrl !== finalPageUrl) {
+    fullAuditLogger.warn('Page scan redirected to a different final URL.', {
+      url: link,
+      device,
+      requestedUrl: reportData.requestedUrl,
+      finalUrl: reportData.finalUrl,
+    });
+  }
   if (env.fullAuditCacheEnabled) {
     await setCachedFullAuditPageReport({
       websiteUrl,
@@ -679,6 +692,7 @@ async function generatePlatformReports(
   wcagMatrix?: WcagMatrix,
   wcagStandard?: string | null,
   conformanceLevel?: string | null,
+  missingPagesByPlatform?: Partial<Record<FullAuditDevice, MissingMergePage[]>>,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -686,8 +700,17 @@ async function generatePlatformReports(
       continue;
     }
 
-    const individualPdfPaths: string[] = [];
-    for (const report of reports) {
+    const scanGaps = missingPagesByPlatform?.[device] ?? [];
+    const scanGapOrders = scanGaps
+      .map((gap) => gap.order ?? Number.MAX_SAFE_INTEGER)
+      .sort((a, b) => a - b);
+
+    // Pair each generated PDF with its own report entry so a failed generation
+    // can never shift the (pdfPath, report) alignment downstream; failed pages
+    // are recorded as honest gaps instead of being silently dropped.
+    const successfulPairs: Array<{ pdfPath: string; report: FullAuditReportEntry }> = [];
+    const missingPages: MissingMergePage[] = [];
+    for (const [index, report] of reports.entries()) {
       try {
         await new Promise<void>((resolve) => setImmediate(resolve));
         const seniorPdfResult = await generateSeniorAccessibilityReport({
@@ -705,7 +728,13 @@ async function generatePlatformReports(
         });
 
         if (seniorPdfResult?.reportPath) {
-          individualPdfPaths.push(seniorPdfResult.reportPath);
+          successfulPairs.push({ pdfPath: seniorPdfResult.reportPath, report });
+        } else {
+          missingPages.push({
+            url: report.url,
+            reason: 'a PDF generation error',
+            order: crawlOrderForReportIndex(index, scanGapOrders),
+          });
         }
       } catch (error) {
         fullAuditLogger.error('Failed to generate individual PDF.', {
@@ -714,23 +743,31 @@ async function generatePlatformReports(
           isLiteVersion: Boolean(report.isLiteVersion),
           error: error instanceof Error ? error.message : String(error),
         });
+        missingPages.push({
+          url: report.url,
+          reason: 'a PDF generation error',
+          order: crawlOrderForReportIndex(index, scanGapOrders),
+        });
       }
     }
 
-    if (individualPdfPaths.length > 0) {
+    if (successfulPairs.length > 0) {
       try {
         await mergePDFsByPlatform({
-          pdfPaths: individualPdfPaths,
+          pdfPaths: successfulPairs.map((pair) => pair.pdfPath),
           device,
           email_address: email,
           outputDir: finalReportFolder,
-          reports,
+          reports: successfulPairs.map((pair) => pair.report),
+          missingPages: [...scanGaps, ...missingPages],
           planType: planId,
           platformSummary: buildPlatformSummary(reportsByPlatform),
         });
       } catch (mergeError) {
-        fullAuditLogger.warn('Combined PDF merge failed. Falling back to summary PDF.', {
+        fullAuditLogger.error('Combined PDF merge failed. Falling back to summary PDF.', {
           device,
+          reportUrls: successfulPairs.map((pair) => pair.report.url),
+          missingPageUrls: missingPages.map((page) => page.url),
           error: mergeError instanceof Error ? mergeError.message : String(mergeError),
         });
 
@@ -740,7 +777,7 @@ async function generatePlatformReports(
           email_address: email,
           outputDir: finalReportFolder,
           planType: planId,
-          individualPdfPaths,
+          individualPdfPaths: successfulPairs.map((pair) => pair.pdfPath),
           wcagStandard,
           conformanceLevel,
           platformSummary: buildPlatformSummary(reportsByPlatform),
@@ -761,7 +798,7 @@ async function generatePlatformReports(
   }
 }
 
-function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>): Array<{ platform: string; score: number | null }> {
+function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>): Array<{ platform: string; score: number | null; pageCount: number }> {
   return Object.entries(reportsByPlatform).map(([deviceKey, reports]) => {
     const scores = (reports || [])
       .map((entry) => entry.score)
@@ -774,6 +811,9 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
     return {
       platform: deviceKey.charAt(0).toUpperCase() + deviceKey.slice(1),
       score: averageScore,
+      // Phase 6.1 / N1: weight for the executive-summary headline so it
+      // reproduces the page-weighted mean of this same table.
+      pageCount: scores.length,
     };
   });
 }
@@ -784,6 +824,10 @@ async function persistAggregateScorecard(
 ): Promise<WcagMatrix | undefined> {
   const platformScorecards: AuditPlatformScore[] = [];
   const allScorecards: AuditScorecard[] = [];
+  // Phase 6.2 / N2, N15: track distinct page URLs separately from the raw
+  // page x device scorecard count, so "Pages audited" never triples the real
+  // page count the way scorecards.length (one entry per device) would.
+  const uniquePageUrls = new Set<string>();
 
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -792,6 +836,11 @@ async function persistAggregateScorecard(
       .filter((scoreCard): scoreCard is AuditScorecard => Boolean(scoreCard));
 
     allScorecards.push(...deviceScorecards);
+    for (const report of reports || []) {
+      if (report.scoreCard && report.url) {
+        uniquePageUrls.add(report.url);
+      }
+    }
 
     if (deviceScorecards.length > 0) {
       const deviceAggregate = buildAggregateAuditScorecard(deviceScorecards, {
@@ -812,7 +861,7 @@ async function persistAggregateScorecard(
   }
 
   const aggregateScorecard = buildAggregateAuditScorecard(allScorecards, {
-    pageCount: allScorecards.length,
+    pageCount: uniquePageUrls.size || allScorecards.length,
     platforms: platformScorecards,
   });
 
@@ -1669,6 +1718,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     });
     const devicesToAudit = resolveDevicesToAudit(effectivePlanId, job.selectedDevice);
     const reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>> = {};
+    const missingPagesByPlatform: Partial<Record<FullAuditDevice, MissingMergePage[]>> = {};
     const scanTargets: FullAuditTargetResult[] = [];
     const warningSet = new Set<string>();
     let successfulTargetCount = 0;
@@ -2022,6 +2072,18 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
               statusCode: resolvedPageScanResult.statusCode,
             },
           ));
+          const deviceOrder = (reportsByPlatform[device]?.length ?? 0) + (missingPagesByPlatform[device]?.length ?? 0);
+          if (!missingPagesByPlatform[device]) {
+            missingPagesByPlatform[device] = [];
+          }
+          missingPagesByPlatform[device]?.push({
+            url: targetPage.url,
+            reason: humanizeAuditFailureReason({
+              errorCode: resolvedPageScanResult.errorCode,
+              error: resolvedPageScanResult.error,
+            }),
+            order: deviceOrder,
+          });
           addAuditWarning(warningSet, 'One or more page/device targets failed and were omitted from the final report package.');
           continue;
         }
@@ -2080,7 +2142,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
     const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel, missingPagesByPlatform);
     } else {
       addAuditWarning(
         warningSet,
@@ -2089,7 +2151,15 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     }
 
     if (record.scoreCard && !batchWorkerReportStorage) {
-      const remediationRoadmap = buildRemediationRoadmap(record.scoreCard);
+      // Phase 6.5 / N8: union each page's own recommendation objects — the
+      // same ones rendered into that page's "Priority Recommendations"
+      // section of the full report — deduplicated by rule id, instead of the
+      // aggregate scorecard's already-capped, cross-page top-issue lists.
+      const pageScorecards = Object.values(reportsByPlatform)
+        .flat()
+        .map((report) => report?.scoreCard)
+        .filter((scoreCard): scoreCard is AuditScorecard => Boolean(scoreCard));
+      const remediationRoadmap = buildAggregateRemediationRoadmap(pageScorecards);
       const aiReport = await generateAuditAiReport({
         url: job.url,
         fullName,
@@ -2110,6 +2180,13 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         scorecard: record.scoreCard,
         platformSummary: buildPlatformSummary(reportsByPlatform),
         planType: effectivePlanId,
+        // Phase 6.3 / N6: the same matrix stamped on every page of the
+        // delivered full report is the "matrices the summary claims to
+        // cover" — count its own Fail rows instead of a separately-computed
+        // aggregate that can disagree with what the client can see.
+        wcagFlaggedCriteriaCount: builtWcagMatrix
+          ? builtWcagMatrix.filter((row) => row.status === 'fail').length
+          : undefined,
       }).catch((error) => {
         fullAuditLogger.warn('Failed to generate AI executive summary PDF.', {
           taskId: effectiveTaskId,

@@ -90,22 +90,24 @@ def _www_to_apex_retry_url(url: str) -> Optional[str]:
     )
 
 
-def navigate_for_audit(page, url: str) -> None:
+def navigate_for_audit(page, url: str):
     """
     Prefer a complete page load, but do not fail a scan just because a site keeps
     late scripts, ads, or analytics requests open. Accessibility checks can run
     once the DOM is available.
+
+    Returns the main-document response when one is available so the caller can
+    gate on the final HTTP status and content type; recovery paths that never
+    completed a navigation return None.
     """
     try:
-        page.goto(url, wait_until="load", timeout=120000)
-        return
+        return page.goto(url, wait_until="load", timeout=120000)
     except Exception as first_error:
         first_message = safe_text(str(first_error)).lower()
         if "ssl_error_bad_cert_domain" in first_message:
             apex_retry_url = _www_to_apex_retry_url(url)
             if apex_retry_url and apex_retry_url != url:
-                page.goto(apex_retry_url, wait_until="domcontentloaded", timeout=60000)
-                return
+                return page.goto(apex_retry_url, wait_until="domcontentloaded", timeout=60000)
 
         recoverable = (
             "timeout" in first_message
@@ -120,19 +122,18 @@ def navigate_for_audit(page, url: str) -> None:
 
         try:
             page.wait_for_load_state("domcontentloaded", timeout=10000)
-            return
+            return None
         except Exception:
             pass
 
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            return
+            return page.goto(url, wait_until="domcontentloaded", timeout=60000)
         except Exception as second_error:
             second_message = safe_text(str(second_error)).lower()
             if "timeout" in second_message or "ns_error_net_interrupt" in second_message:
                 try:
                     if safe_text(page.content()):
-                        return
+                        return None
                 except Exception:
                     pass
             raise first_error
@@ -295,7 +296,7 @@ def run_camoufox_audit_sync(
         """)
         
         try:
-            navigate_for_audit(page, url)
+            nav_response = navigate_for_audit(page, url)
 
             # Jittered post-navigation wait to look human and let dynamic content settle
             page.wait_for_timeout(random.randint(2000, 4500))
@@ -316,6 +317,32 @@ def run_camoufox_audit_sync(
             
             # Get final URL after redirects
             final_url = page_url
+
+            # Check 0: HTTP status / content-type gate — never spend audit work
+            # on error pages or non-HTML endpoints. The response object comes
+            # from the main-document navigation; recovery paths may have no
+            # response, in which case the later content gates still apply.
+            if nav_response is not None:
+                try:
+                    nav_status = int(getattr(nav_response, "status", 0) or 0)
+                except Exception:
+                    nav_status = 0
+                if nav_status and not 200 <= nav_status < 300:
+                    return {
+                        "success": False,
+                        "errorCode": "PAGE_NOT_FOUND" if nav_status == 404 else "PAGE_HTTP_ERROR",
+                        "error": f"Page returned HTTP {nav_status} during navigation. URL skipped.",
+                    }
+                try:
+                    nav_content_type = safe_text((nav_response.headers or {}).get("content-type") or "").lower()
+                except Exception:
+                    nav_content_type = ""
+                if nav_content_type and "html" not in nav_content_type:
+                    return {
+                        "success": False,
+                        "errorCode": "NON_HTML",
+                        "error": f"Page returned non-HTML content ({nav_content_type}). URL skipped.",
+                    }
 
             # --- Bot-protection and empty-page gate ---
             # Run before any audit work so bad pages consume no further resources.
@@ -362,6 +389,45 @@ def run_camoufox_audit_sync(
                     return {
                         "success": False,
                         "error": f"Page appears empty or a stub ({dom_count} DOM elements, {visible_chars} visible chars). URL skipped.",
+                    }
+            except Exception:
+                pass
+
+            # Check 4: minimum auditable-content gate — word stubs with no real
+            # navigation (e.g. UUID redirect stubs) must not consume a scored
+            # audit slot. Both signals come from the rendered page: visible-text
+            # words (same source as the readability audit) and same-origin links.
+            try:
+                content_metrics = page.evaluate(
+                    """
+                    () => {
+                        const text = (document.body && document.body.innerText) || '';
+                        const words = text.split(/\\s+/).filter((word) => word.trim().length > 0);
+                        const host = window.location.hostname.toLowerCase().replace(/^www\\./, '');
+                        const links = new Set();
+                        document.querySelectorAll('a[href]').forEach((anchor) => {
+                            try {
+                                const href = new URL(anchor.getAttribute('href'), window.location.href);
+                                if (['http:', 'https:'].includes(href.protocol)
+                                    && href.hostname.toLowerCase().replace(/^www\\./, '') === host) {
+                                    links.add(href.href);
+                                }
+                            } catch (_) {}
+                        });
+                        return { words: words.length, links: links.size };
+                    }
+                    """
+                ) or {}
+                analyzable_words = int(content_metrics.get("words", 0) or 0)
+                navigable_links = int(content_metrics.get("links", 0) or 0)
+                if analyzable_words < 30 and navigable_links <= 1:
+                    return {
+                        "success": False,
+                        "errorCode": "NO_AUDITABLE_CONTENT",
+                        "error": (
+                            f"Page has insufficient auditable content "
+                            f"({analyzable_words} analyzable words, {navigable_links} navigable links). URL skipped."
+                        ),
                     }
             except Exception:
                 pass
@@ -525,6 +591,14 @@ def run_camoufox_audit_sync(
                 "numericValue": target_score,
                 "displayValue": f"{target_size_results['small']} of {target_size_results['total']} interactive elements are below 44x44px",
             }
+            if target_size_results["total"] == 0:
+                audits["target-size"].update({
+                    "description": "This audit checks if interactive elements (buttons, links) are large enough for easy clicking. No interactive elements were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No interactive elements found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if target_details_items:
                 audits["target-size"]["details"] = {
@@ -587,6 +661,14 @@ def run_camoufox_audit_sync(
                 "numericValue": link_score,
                 "displayValue": f"{link_name_results['failing']} of {link_name_results['total']} links lack discernible text",
             }
+            if link_name_results["total"] == 0:
+                audits["link-name"].update({
+                    "description": "This audit checks if all links have descriptive text. No links were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No links found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if link_details_items:
                 audits["link-name"]["details"] = {
@@ -648,6 +730,14 @@ def run_camoufox_audit_sync(
                 "numericValue": button_score,
                 "displayValue": f"{button_name_results['failing']} of {button_name_results['total']} buttons lack a discernible accessible name",
             }
+            if button_name_results["total"] == 0:
+                audits["button-name"].update({
+                    "description": "This audit checks if all buttons have descriptive labels. No buttons were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No buttons found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if button_details_items:
                 audits["button-name"]["details"] = {
@@ -702,6 +792,14 @@ def run_camoufox_audit_sync(
                 "numericValue": label_score,
                 "displayValue": f"{label_results['failing']} of {label_results['total']} form controls lack labels",
             }
+            if label_results["total"] == 0:
+                audits["label"].update({
+                    "description": "This audit checks if all form inputs have associated labels. No form controls were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No form controls found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             if label_details_items:
                 audits["label"]["details"] = {
@@ -754,6 +852,14 @@ def run_camoufox_audit_sync(
                 "numericValue": image_alt_score,
                 "displayValue": f"{image_alt_results['failing']} of {image_alt_results['total']} visible images lack text alternatives",
             }
+            if image_alt_results["total"] == 0:
+                audits["image-alt"].update({
+                    "description": "This audit checks whether meaningful images have text alternatives. No visible images were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No images found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             if image_alt_results.get("items"):
                 audits["image-alt"]["details"] = {
                     "type": "table",
@@ -794,6 +900,207 @@ def run_camoufox_audit_sync(
                 "score": 1.0 if is_https else 0.0,
                 "numericValue": 1.0 if is_https else 0.0,
             }
+
+            # --- Trust & Security varying checks (Phase 7.1) ---
+
+            # Mixed content: HTTP subresources on an HTTPS page
+            try:
+                mixed_content_results = page.evaluate("""
+                    () => {
+                        const insecure = [];
+                        const attrs = [['img', 'src'], ['script', 'src'], ['link', 'href'], ['iframe', 'src'], ['source', 'src'], ['video', 'src'], ['audio', 'src']];
+                        for (const [tag, attr] of attrs) {
+                            document.querySelectorAll(`${tag}[${attr}]`).forEach(el => {
+                                const url = el.getAttribute(attr) || '';
+                                if (url.startsWith('http://')) {
+                                    insecure.push({ type: tag, url: url.substring(0, 200) });
+                                }
+                            });
+                        }
+                        return { count: insecure.length, items: insecure.slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"mixed-content-audit failed: {e}")
+                mixed_content_results = {"count": 0, "items": []}
+            mixed_count = mixed_content_results.get("count", 0)
+            if not is_https:
+                audits["mixed-content-audit"] = {
+                    "id": "mixed-content-audit",
+                    "title": "No mixed content (HTTP resources on HTTPS page)",
+                    "description": "The page is not served over HTTPS, so mixed-content evaluation does not apply (see Uses HTTPS).",
+                    "score": None,
+                    "numericValue": None,
+                    "scoreDisplayMode": "notApplicable",
+                }
+            else:
+                audits["mixed-content-audit"] = {
+                    "id": "mixed-content-audit",
+                    "title": "No mixed content (HTTP resources on HTTPS page)",
+                    "description": "Checks whether an HTTPS page loads any subresources over insecure HTTP, which browsers block and attackers can tamper with.",
+                    "score": 1.0 if mixed_count == 0 else 0.0,
+                    "numericValue": float(mixed_count),
+                    "scoreDisplayMode": "binary",
+                    "displayValue": "No mixed-content resources found" if mixed_count == 0 else f"{mixed_count} insecure HTTP resource{'s' if mixed_count != 1 else ''} loaded",
+                    "details": {
+                        "type": "table",
+                        "headings": [
+                            {"key": "type", "itemType": "code", "text": "Element"},
+                            {"key": "url", "itemType": "text", "text": "Insecure URL"},
+                        ],
+                        "items": mixed_content_results.get("items", []),
+                    } if mixed_count else None,
+                }
+
+            # Form action security: plaintext HTTP submission endpoints
+            try:
+                form_security_results = page.evaluate("""
+                    () => {
+                        const insecure = [];
+                        document.querySelectorAll('form[action]').forEach(form => {
+                            const action = (form.getAttribute('action') || '').trim();
+                            if (action.startsWith('http://')) {
+                                let selector = 'form';
+                                if (form.id) selector += '#' + form.id;
+                                else if (typeof form.className === 'string' && form.className.trim()) selector += '.' + form.className.trim().split(/\\s+/)[0];
+                                insecure.push({ selector, action: action.substring(0, 200) });
+                            }
+                        });
+                        return { total: document.querySelectorAll('form').length, count: insecure.length, items: insecure.slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"form-action-security-audit failed: {e}")
+                form_security_results = {"total": 0, "count": 0, "items": []}
+            form_total = form_security_results.get("total", 0)
+            form_insecure = form_security_results.get("count", 0)
+            if form_total == 0:
+                audits["form-action-security-audit"] = {
+                    "id": "form-action-security-audit",
+                    "title": "Forms submit to secure (HTTPS) endpoints",
+                    "description": "Checks whether any form submits user data to a plaintext HTTP endpoint. No forms were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No forms found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                }
+            else:
+                audits["form-action-security-audit"] = {
+                    "id": "form-action-security-audit",
+                    "title": "Forms submit to secure (HTTPS) endpoints",
+                    "description": "Checks whether any form submits user data to a plaintext HTTP endpoint, which would expose everything entered to network eavesdropping.",
+                    "score": 1.0 if form_insecure == 0 else 0.0,
+                    "numericValue": float(form_insecure),
+                    "scoreDisplayMode": "binary",
+                    "displayValue": f"All {form_total} form(s) submit securely" if form_insecure == 0 else f"{form_insecure} of {form_total} form(s) submit to insecure HTTP endpoints",
+                    "details": {
+                        "type": "table",
+                        "headings": [
+                            {"key": "selector", "itemType": "code", "text": "Form"},
+                            {"key": "action", "itemType": "text", "text": "Insecure Action URL"},
+                        ],
+                        "items": form_security_results.get("items", []),
+                    } if form_insecure else None,
+                }
+
+            # Third-party request surface: distinct external origins the page pulls from
+            try:
+                third_party_results = page.evaluate("""
+                    () => {
+                        const baseDomain = (host) => {
+                            const parts = (host || '').replace(/^www\\./, '').split('.');
+                            return parts.length >= 2 ? parts.slice(-2).join('.') : host;
+                        };
+                        const pageDomain = baseDomain(location.hostname);
+                        const origins = new Set();
+                        const attrs = [['img', 'src'], ['script', 'src'], ['link', 'href'], ['iframe', 'src'], ['source', 'src'], ['video', 'src'], ['audio', 'src']];
+                        for (const [tag, attr] of attrs) {
+                            document.querySelectorAll(`${tag}[${attr}]`).forEach(el => {
+                                const url = el.getAttribute(attr) || '';
+                                if (/^https?:\\/\\//i.test(url)) {
+                                    try {
+                                        const host = new URL(url).hostname;
+                                        if (baseDomain(host) !== pageDomain) origins.add(host);
+                                    } catch (e) {}
+                                }
+                            });
+                        }
+                        if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+                            performance.getEntriesByType('resource').forEach(entry => {
+                                try {
+                                    const host = new URL(entry.name).hostname;
+                                    if (host && baseDomain(host) !== pageDomain) origins.add(host);
+                                } catch (e) {}
+                            });
+                        }
+                        return { count: origins.size, origins: [...origins].sort().slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"third-party-surface-audit failed: {e}")
+                third_party_results = {"count": 0, "origins": []}
+            tp_count = third_party_results.get("count", 0)
+            if tp_count <= 5:
+                tp_score = 1.0
+            elif tp_count <= 10:
+                tp_score = 0.75
+            elif tp_count <= 20:
+                tp_score = 0.5
+            else:
+                tp_score = 0.25
+            audits["third-party-surface-audit"] = {
+                "id": "third-party-surface-audit",
+                "title": "Limited third-party request surface",
+                "description": (
+                    f"Counts distinct third-party origins the page loads resources from. "
+                    f"More third parties mean more trackers, more attack surface, and less predictable behavior. Found {tp_count}."
+                ),
+                "score": tp_score,
+                "numericValue": float(tp_count),
+                "scoreDisplayMode": "numeric",
+                "displayValue": f"{tp_count} third-party origin{'s' if tp_count != 1 else ''}",
+                "details": {
+                    "type": "table",
+                    "headings": [{"key": "origin", "itemType": "text", "text": "Third-Party Origin"}],
+                    "items": [{"origin": o} for o in third_party_results.get("origins", [])],
+                } if tp_count else None,
+            }
+
+            # Visible trust markers: privacy / terms / contact links and security messaging
+            try:
+                trust_marker_results = page.evaluate("""
+                    () => {
+                        const textOf = (el) => ((el.textContent || '') + ' ' + (el.getAttribute('href') || '')).toLowerCase();
+                        const links = Array.from(document.querySelectorAll('a'));
+                        const markers = {
+                            privacy: links.some(a => /privacy/.test(textOf(a))),
+                            terms: links.some(a => /terms|conditions|tos/.test(textOf(a))),
+                            contact: links.some(a => /contact|mailto:|tel:/.test(textOf(a))),
+                            securityMessaging: /secure (checkout|payment|connection)|ssl|encrypted/i.test(document.body ? document.body.innerText.slice(0, 50000) : ''),
+                        };
+                        const found = Object.keys(markers).filter(k => markers[k]);
+                        return { found, count: found.length };
+                    }
+                """)
+            except Exception as e:
+                print(f"trust-markers-audit failed: {e}")
+                trust_marker_results = {"found": [], "count": 0}
+            tm_found = trust_marker_results.get("found", [])
+            tm_count = trust_marker_results.get("count", 0)
+            tm_score = tm_count / 4
+            audits["trust-markers-audit"] = {
+                "id": "trust-markers-audit",
+                "title": "Visible trust markers (privacy, terms, contact, security messaging)",
+                "description": (
+                    "Checks for visible trust signals older adults look for before trusting a site: "
+                    f"privacy policy, terms, contact information, and security messaging. Found {tm_count} of 4."
+                ),
+                "score": tm_score,
+                "numericValue": float(tm_count),
+                "scoreDisplayMode": "numeric",
+                "displayValue": f"{tm_count} of 4 trust markers found" + (f" ({', '.join(tm_found)})" if tm_found else ""),
+            }
+
             
             # Text font audit - sync eval with detailed items
             text_font_results = page.evaluate("""
@@ -839,6 +1146,14 @@ def run_camoufox_audit_sync(
                 "score": text_score,
                 "numericValue": text_score,
             }
+            if total_text_elements == 0:
+                audits["text-font-audit"].update({
+                    "description": "This audit checks if text is large enough for readability. No text elements were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No text elements found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                })
             
             # Add details.items if there are failing items
             if text_details_items:
@@ -918,6 +1233,14 @@ def run_camoufox_audit_sync(
                         "items": line_spacing_results.get("items", []),
                     } if line_failing else None,
                 }
+                if line_total == 0:
+                    audits["line-spacing-audit"].update({
+                        "description": "Checks whether body text line-height is at least 1.5x font size for older-adult readability. No text blocks were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No text blocks found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
             
             # --- Mobile & Cross-Platform audits (JS-injected, anti-bot safe) ---
 
@@ -995,8 +1318,13 @@ def run_camoufox_audit_sync(
                 "numericValue": 0.0 if h_overflows else 1.0,
             }
 
-            # 3. Text-Size-Adjust Audit: CSS must not disable mobile text scaling
+            # 3. Text-Size-Adjust Audit: CSS must not disable mobile text scaling.
+            # Measured in an emulated 375px mobile viewport (Phase 7.2): text-size-adjust:none
+            # is often gated behind mobile media queries and invisible at desktop width.
+            _original_viewport_tsa = page.viewport_size or {"width": 1920, "height": 1080}
             try:
+                page.set_viewport_size({"width": 375, "height": 812})
+                page.wait_for_timeout(200)
                 text_adjust_result = page.evaluate("""
                     () => {
                         const elements = [document.documentElement, document.body];
@@ -1014,12 +1342,18 @@ def run_camoufox_audit_sync(
             except Exception as e:
                 print(f"⚠️ text-size-adjust-audit failed: {e}")
                 text_adjust_blocked = False
+            finally:
+                try:
+                    page.set_viewport_size(_original_viewport_tsa)
+                    page.wait_for_timeout(200)
+                except Exception:
+                    pass
 
             audits["text-size-adjust-audit"] = {
                 "id": "text-size-adjust-audit",
                 "title": "Mobile text scaling is not disabled",
                 "description": (
-                    "This audit checks if CSS disables the browser's automatic text size adjustment on mobile. "
+                    "This audit checks if CSS disables the browser's automatic text size adjustment, measured at a 375px emulated mobile viewport. "
                     + ("Text scaling is blocked via CSS — older adults lose automatic text enlargement on mobile." if text_adjust_blocked
                        else "Text scaling is not disabled — browsers can adjust text size for readability.")
                 ),
@@ -1257,6 +1591,14 @@ def run_camoufox_audit_sync(
                         "items": layout_brittle_results.get("items", []),
                     } if brittle_failing else None,
                 }
+                if brittle_total == 0:
+                    audits["layout-brittle-audit"].update({
+                        "description": "This audit checks if containers have fixed heights that may prevent text spacing adjustments (WCAG 1.4.12). No text containers were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No text containers found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
                 
                 # Flesch-Kincaid readability audit
                 readability_results = page.evaluate("""
@@ -1579,6 +1921,14 @@ def run_camoufox_audit_sync(
                         "items": interactive_color_results.get("items", []),
                     } if interactive_failing else None,
                 }
+                if interactive_total == 0:
+                    audits["interactive-color-audit"].update({
+                        "description": "This audit checks if links have a noticeable color difference from surrounding text (Delta E > 10). No links were found on the page, so the check is not applicable.",
+                        "score": None,
+                        "numericValue": None,
+                        "displayValue": "No links found — check not applicable",
+                        "scoreDisplayMode": "notApplicable",
+                    })
                 
                 # DOM size audit
                 dom_size = page.evaluate("() => document.querySelectorAll('*').length")
@@ -1711,10 +2061,15 @@ def run_camoufox_audit_sync(
                     "numericValue": 1.0 if not geolocation_requested else 0.0,
                 }
 
+                # WCAG 1.4.2 / ACT rule 80f0bf: a violation requires media that is
+                # actually playing with sound — autoplay AND unmuted AND not paused
+                # AND (duration > 3s OR looping) AND has an audio track. Muted
+                # autoplay loops cannot make sound; they are collected separately and
+                # routed to 2.2.2 (ss-pause-stop-hide-audit) for review instead.
                 autoplay_results = page.evaluate("""
                     () => {
                         const media = Array.from(document.querySelectorAll('video, audio'));
-                        const autoplay = media.filter(el => el.hasAttribute('autoplay')).map(el => {
+                        const describe = (el) => {
                             let selector = el.tagName.toLowerCase();
                             if (el.id) selector += '#' + el.id;
                             else if (typeof el.className === 'string' && el.className.trim()) selector += '.' + el.className.trim().split(/\\s+/)[0];
@@ -1725,19 +2080,48 @@ def run_camoufox_audit_sync(
                                 hasMuted: Boolean(el.muted),
                                 hasControls: Boolean(el.controls)
                             };
-                        });
-                        return { total: media.length, autoplayCount: autoplay.length, items: autoplay.slice(0, 50) };
+                        };
+                        const hasAudioTrack = (el) => {
+                            if (el.tagName === 'AUDIO') return true;
+                            if (typeof el.mozHasAudio === 'boolean') return el.mozHasAudio;
+                            if (typeof el.webkitAudioDecodedByteCount === 'number') return el.webkitAudioDecodedByteCount > 0;
+                            if (el.audioTracks && typeof el.audioTracks.length === 'number') return el.audioTracks.length > 0;
+                            return true; // audio presence unknown — only consulted for unmuted media
+                        };
+                        const autoplaying = media.filter(el => el.autoplay);
+                        const failing = autoplaying.filter(el =>
+                            !el.muted && !el.paused && (el.duration > 3 || el.loop) && hasAudioTrack(el)
+                        );
+                        const mutedAutoplay = autoplaying.filter(el => el.muted);
+                        return {
+                            total: media.length,
+                            failingCount: failing.length,
+                            mutedCount: mutedAutoplay.length,
+                            items: failing.slice(0, 50).map(describe)
+                        };
                     }
                 """)
-                autoplay_count = autoplay_results.get("autoplayCount", 0)
+                autoplay_count = autoplay_results.get("failingCount", 0)
+                muted_autoplay_count = autoplay_results.get("mutedCount", 0)
+                if autoplay_count > 0:
+                    autoplay_display = f"{autoplay_count} media element{'s' if autoplay_count != 1 else ''} autoplaying with sound"
+                elif muted_autoplay_count > 0:
+                    autoplay_display = f"No audible autoplay media found ({muted_autoplay_count} muted loop(s) reviewed under 2.2.2)"
+                else:
+                    autoplay_display = "No audible autoplay media found"
                 audits["autoplay-audit"] = {
                     "id": "autoplay-audit",
                     "title": "Audio and video content does not autoplay",
-                    "description": "Detects audio or video elements that autoplay without an explicit user action.",
+                    "description": (
+                        "Detects audio or video that autoplays with audible sound (unmuted, actively "
+                        "playing, longer than 3 seconds or looping, with an audio track) per WCAG ACT "
+                        "rule 80f0bf. Muted autoplay loops make no sound, so they are not 1.4.2 "
+                        "violations and are routed to 2.2.2 for pause/stop review instead."
+                    ),
                     "score": 1.0 if autoplay_count == 0 else 0.0,
                     "numericValue": autoplay_count,
                     "scoreDisplayMode": "binary",
-                    "displayValue": "No autoplay media found" if autoplay_count == 0 else f"{autoplay_count} autoplay media elements found",
+                    "displayValue": autoplay_display,
                     "details": {
                         "type": "table",
                         "headings": [
@@ -2453,12 +2837,14 @@ def run_camoufox_audit_sync(
                             const marquees = document.querySelectorAll('marquee');
                             // Tickers always scroll; carousels/sliders only auto-advance when
                             // the author adds an explicit autoplay attribute — check for those signals.
-                            const autoplayCarousels = document.querySelectorAll(
+                            // (data-slick is filtered in JS to keep the selector quotes valid.)
+                            const autoplayCarousels = Array.from(document.querySelectorAll(
                                 '[class*="ticker" i], ' +
                                 '[data-ride="carousel"]:not([data-pause="hover"]), ' +
                                 '[data-autoplay="true"], [data-auto-slide="true"], ' +
-                                '[data-slick*=\'"autoplay":true\']'
-                            );
+                                '[data-slick]'
+                            )).filter(el => !el.hasAttribute('data-slick') ||
+                                (el.getAttribute('data-slick') || '').indexOf('"autoplay":true') !== -1);
                             const movingEls = marquees.length + autoplayCarousels.length;
                             if (movingEls > 0) {
                                 const pauseControls = document.querySelectorAll(
@@ -2469,26 +2855,77 @@ def run_camoufox_audit_sync(
                                     issues.push(`${movingEls} auto-advancing element(s) without pause/stop control`);
                                 }
                             }
-                            return { issueCount: issues.length, issues };
+                            // Muted autoplay loops make no sound (not a 1.4.2 issue), but a muted
+                            // video that loops or runs >3s with no visible controls still moves on
+                            // screen — collect for 2.2.2 manual review of a pause mechanism.
+                            const mutedLoops = Array.from(document.querySelectorAll('video'))
+                                .filter(v => v.autoplay && v.muted && (v.loop || v.duration > 3) && !v.controls)
+                                .map(v => {
+                                    let selector = 'video';
+                                    if (v.id) selector += '#' + v.id;
+                                    else if (typeof v.className === 'string' && v.className.trim()) selector += '.' + v.className.trim().split(/\\s+/)[0];
+                                    return { selector, src: v.currentSrc || v.src || '(inline)' };
+                                });
+                            return { issueCount: issues.length, issues, mutedLoopCount: mutedLoops.length, mutedLoops: mutedLoops.slice(0, 50) };
                         }
                     """)
                     motion_issues = motion_results.get("issueCount", 0)
-                    audits["ss-pause-stop-hide-audit"] = {
-                        "id": "ss-pause-stop-hide-audit",
-                        "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
-                        "description": (
-                            f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
-                            f"Found {motion_issues} issue(s)."
-                        ),
-                        "score": 1.0 if motion_issues == 0 else 0.0,
-                        "numericValue": float(motion_issues),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Issue"}],
-                            "items": [{"description": i} for i in motion_results.get("issues", [])],
-                        } if motion_issues else None,
-                    }
+                    muted_loop_count = motion_results.get("mutedLoopCount", 0)
+                    muted_loop_items = [
+                        {"description": f"Muted auto-playing loop without pause/stop control: {loop.get('selector', 'video')} ({loop.get('src', '')})"}
+                        for loop in motion_results.get("mutedLoops", [])
+                    ]
+                    if motion_issues > 0:
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
+                                f"Found {motion_issues} issue(s)."
+                            ),
+                            "score": 0.0,
+                            "numericValue": float(motion_issues),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": [{"description": i} for i in motion_results.get("issues", [])] + muted_loop_items,
+                            },
+                        }
+                    elif muted_loop_count > 0:
+                        # Only muted loops found — not an auto-fail, but a human should
+                        # confirm a pause/stop mechanism exists (WCAG 2.2.2 needs review).
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                f"Found {muted_loop_count} muted auto-playing loop(s) without visible controls. "
+                                "Muted loops make no sound (not a 1.4.2 violation), but a human should "
+                                "confirm a pause/stop mechanism exists."
+                            ),
+                            "score": None,
+                            "numericValue": float(muted_loop_count),
+                            "scoreDisplayMode": "manual",
+                            "displayValue": f"{muted_loop_count} muted loop(s) without controls — manual review recommended",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": muted_loop_items,
+                            },
+                        }
+                    else:
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                "Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
+                                "Found 0 issue(s)."
+                            ),
+                            "score": 1.0,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "binary",
+                            "details": None,
+                        }
                 except Exception as e:
                     audits["ss-pause-stop-hide-audit"] = {
                         "id": "ss-pause-stop-hide-audit",
@@ -2692,7 +3129,7 @@ def run_camoufox_audit_sync(
                     ln_issues = label_name_results.get("issueCount", 0)
                     audits["ss-label-in-name-audit"] = {
                         "id": "ss-label-in-name-audit",
-                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "title": "Visible label is missing from the accessible name (WCAG 2.5.3)",
                         "description": (
                             f"Checks that aria-label values on interactive elements contain the visible text, "
                             f"so speech users can activate controls by speaking what they see. "
@@ -2713,7 +3150,7 @@ def run_camoufox_audit_sync(
                 except Exception as e:
                     audits["ss-label-in-name-audit"] = {
                         "id": "ss-label-in-name-audit",
-                        "title": "Label in name matches visible text (WCAG 2.5.3)",
+                        "title": "Visible label is missing from the accessible name (WCAG 2.5.3)",
                         "description": f"Check could not run: {e}",
                         "score": None,
                         "numericValue": None,
