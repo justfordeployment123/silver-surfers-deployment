@@ -643,6 +643,8 @@ export async function generateAuditAiSummaryPdf(
           title: String(issue?.title || '').trim(),
           wcagReferences: Array.isArray(issue?.wcagReferences) ? issue.wcagReferences : [],
           wcagCriteria: Array.isArray(issue?.wcagCriteria) ? issue.wcagCriteria : [],
+          // Phase 6.8 / N14: breadth behind this headline, printed alongside it.
+          pagesAffected: typeof issue?.pagesAffected === 'number' ? issue.pagesAffected : undefined,
         }))
         .filter((issue) => issue.title),
         (issue) => [
@@ -955,6 +957,7 @@ export async function generateAuditAiSummaryPdf(
         .text('Highlighted issues from this scan:', pageMarginLeft, doc.y, { width: contentWidth });
       doc.moveDown(0.25);
       doc.font('RegularFont').fontSize(10).fillColor('#475569');
+      const totalPages = Number(options.scorecard?.pageCount || 0);
       issues.forEach((issue, idx) => {
         const wcagLabels = issue.wcagReferences.length
           ? issue.wcagReferences.map((reference) =>
@@ -962,7 +965,12 @@ export async function generateAuditAiSummaryPdf(
           )
           : issue.wcagCriteria.map((criterion) => `WCAG ${criterion}`);
         const suffix = wcagLabels.length ? ` - ${wcagLabels.join('; ')}` : '';
-        doc.text(`${idx + 1}. ${issue.title}${suffix}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
+        // Phase 6.8 / N14: print the breadth behind this headline so a
+        // thinly-backed finding never reads as more prominent than it is.
+        const breadth = typeof issue.pagesAffected === 'number'
+          ? ` (affects ${issue.pagesAffected} of ${totalPages > 0 ? totalPages : issue.pagesAffected} page${issue.pagesAffected === 1 ? '' : 's'})`
+          : '';
+        doc.text(`${idx + 1}. ${issue.title}${suffix}${breadth}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
       });
       doc.moveDown(0.5);
     };

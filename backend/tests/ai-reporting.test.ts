@@ -111,3 +111,100 @@ test('buildFallbackAuditAiReport names the weakest area from evaluationDimension
   assert.doesNotMatch(report.summary, /cognitive load/i);
   assert.doesNotMatch(report.summary, /content readability/i);
 });
+
+// Phase 6.6 / N9 — the same issue must never be named twice in the top-issue
+// sentence, even if the caller supplies duplicate-titled entries.
+test('buildFallbackAuditAiReport collapses duplicate top-issue titles into the singular sentence form', () => {
+  const scorecardWithDuplicateTitles = {
+    ...scorecard,
+    topIssues: [
+      {
+        title: 'Elements must meet minimum color contrast ratio thresholds',
+        score: 40,
+        severity: 'high',
+        auditSourceLabel: 'WCAG AA',
+        wcagCriteria: ['1.4.3'],
+      },
+      {
+        title: 'Elements must meet minimum color contrast ratio thresholds',
+        score: 38,
+        severity: 'high',
+        auditSourceLabel: 'WCAG AA',
+        wcagCriteria: ['1.4.3'],
+      },
+    ],
+  } as any;
+
+  const report = buildFallbackAuditAiReport({
+    url: 'https://example.com',
+    scorecard: scorecardWithDuplicateTitles,
+    remediationRoadmap: [],
+  });
+
+  assert.match(
+    report.summary,
+    /The top issue currently affecting the experience is Elements must meet minimum color contrast ratio thresholds\./,
+  );
+  assert.doesNotMatch(report.summary, / and Elements must meet minimum color contrast ratio thresholds/);
+});
+
+// Phase 6.5 / N8 — never tell a client to "start with quick wins" when the
+// roadmap has none.
+test('buildFallbackAuditAiReport drops the quick-wins sentence when the roadmap has no quick wins', () => {
+  const remediationRoadmapNoQuickWins = [
+    {
+      auditId: 'a',
+      title: 'A',
+      bucketKey: 'medium-effort',
+      bucketLabel: 'Medium Effort',
+      impact: 'high',
+      effort: 'medium',
+      action: 'Fix A.',
+      whyItMatters: 'It matters for older adults.',
+    },
+    {
+      auditId: 'b',
+      title: 'B',
+      bucketKey: 'high-effort',
+      bucketLabel: 'High Effort',
+      impact: 'high',
+      effort: 'high',
+      action: 'Fix B.',
+      whyItMatters: 'It matters for older adults too.',
+    },
+  ] as any;
+
+  const report = buildFallbackAuditAiReport({
+    url: 'https://example.com',
+    scorecard,
+    remediationRoadmap: remediationRoadmapNoQuickWins,
+  });
+
+  assert.match(report.prioritySummary, /0 Quick Wins/);
+  assert.doesNotMatch(report.prioritySummary, /Start with lower-effort fixes/);
+  assert.match(report.prioritySummary, /no quick wins/i);
+});
+
+test('buildFallbackAuditAiReport keeps the quick-wins sentence when the roadmap has quick wins', () => {
+  const remediationRoadmapWithQuickWins = [
+    {
+      auditId: 'a',
+      title: 'A',
+      bucketKey: 'quick-wins',
+      bucketLabel: 'Quick Wins',
+      impact: 'high',
+      effort: 'low',
+      action: 'Fix A.',
+      whyItMatters: 'It matters for older adults.',
+    },
+  ] as any;
+
+  const report = buildFallbackAuditAiReport({
+    url: 'https://example.com',
+    scorecard,
+    remediationRoadmap: remediationRoadmapWithQuickWins,
+  });
+
+  assert.match(report.prioritySummary, /1 Quick Wins/);
+  assert.match(report.prioritySummary, /Start with lower-effort fixes/);
+});

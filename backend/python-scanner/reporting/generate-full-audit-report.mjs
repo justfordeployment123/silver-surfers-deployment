@@ -15,7 +15,7 @@ import {
   buildAuditScorecard,
 } from './src/features/audits/audit-scorecard.ts';
 import { buildWcagMatrix } from './src/features/audits/wcag-matrix.ts';
-import { buildRemediationRoadmap } from './src/features/audits/analysis-details.ts';
+import { buildAggregateRemediationRoadmap } from './src/features/audits/analysis-details.ts';
 import { generateAuditAiReport } from './src/features/audits/ai-reporting.ts';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -278,7 +278,11 @@ async function main() {
       url: safeText(aggregate.url, 'full-audit'),
       fullName,
       scorecard: aggregateScorecard,
-      remediationRoadmap: buildRemediationRoadmap(aggregateScorecard),
+      // Phase 6.5 / N8: union each page's own recommendation objects — the
+      // same ones rendered into that page's "Priority Recommendations"
+      // section — deduplicated by rule id, instead of the aggregate
+      // scorecard's already-capped, cross-page top-issue lists.
+      remediationRoadmap: buildAggregateRemediationRoadmap(scorecards),
     });
 
     await generateAuditAiSummaryPdf(aiReport, {

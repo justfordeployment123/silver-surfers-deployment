@@ -39,6 +39,12 @@ export interface AuditIssueSummary {
     sourceUrl?: string;
     /** Failing-element count captured from the audit's details.items (evidence parity). */
     elementCount?: number;
+    /**
+     * Number of distinct pages this audit failed on. Only set on aggregate
+     * (site-level) topIssues (Phase 6.8 / N14) — a single-page scorecard's
+     * issues always affect exactly one page, so the field is omitted there.
+     */
+    pagesAffected?: number;
 }
 
 export interface AuditPrimaryDimensionScore {
@@ -575,6 +581,87 @@ function dedupeIssues(issues: AuditIssueSummary[]): AuditIssueSummary[] {
     return [...unique.values()];
 }
 
+// Minimum distinct pages an issue must affect to headline ahead of a
+// narrower one when both are otherwise comparable (Phase 6.8 / N14) — a
+// two-mention finding in a 1,132-page report shouldn't outrank something
+// that recurs sitewide just because its single occurrence scored lower.
+const MIN_PAGES_TO_HEADLINE = 2;
+
+/**
+ * Ranks the site-wide top issues by breadth (distinct pages affected) x
+ * severity, not a single page's raw score (Phase 6.8 / N14). Also collapses
+ * the input to one entry per audit id (Phase 6.6 / N9 — the prior
+ * score-only sort could surface the same audit from several pages as
+ * separate "top issues", producing duplicate titles in the summary
+ * sentence) and then to one entry per WCAG criterion (Phase 6.7b / N10 — two
+ * different audits mapped to the same criterion must not both headline).
+ * `issues` is expected to already be deduped by `auditId::sourceUrl`
+ * (i.e. one entry per audit per page), which is what feeds this from
+ * `buildAggregateAuditScorecard`.
+ */
+function buildBreadthRankedTopIssues(issues: AuditIssueSummary[], limit: number): AuditIssueSummary[] {
+    const byAuditId = new Map<string, AuditIssueSummary[]>();
+    for (const issue of issues) {
+        const list = byAuditId.get(issue.auditId) || [];
+        list.push(issue);
+        byAuditId.set(issue.auditId, list);
+    }
+
+    const candidates = [...byAuditId.entries()].map(([auditId, occurrences]) => {
+        const pageUrls = new Set(occurrences.map((occurrence) => occurrence.sourceUrl).filter(Boolean));
+        const pagesAffected = pageUrls.size || occurrences.length;
+        // Worst-scoring occurrence stands in for the audit as a whole.
+        const representative = sortIssues(occurrences)[0];
+        const impact = Math.max(0, 100 - representative.score);
+
+        return {
+            auditId,
+            pagesAffected,
+            breadthRank: pagesAffected * impact,
+            criterion: representative.wcagCriteria?.[0],
+            issue: { ...representative, pagesAffected } as AuditIssueSummary,
+        };
+    });
+
+    candidates.sort((left, right) => {
+        const leftQualifies = left.pagesAffected >= MIN_PAGES_TO_HEADLINE;
+        const rightQualifies = right.pagesAffected >= MIN_PAGES_TO_HEADLINE;
+        if (leftQualifies !== rightQualifies) {
+            return leftQualifies ? -1 : 1;
+        }
+        if (left.breadthRank !== right.breadthRank) {
+            return right.breadthRank - left.breadthRank;
+        }
+        // Equal breadth and impact: fall back to the audit's own dimension
+        // weight (heavier-weighted audits headline first), matching the
+        // pre-6.8 single-page tie-break (sortIssues) so equally-ranked
+        // single-occurrence issues keep a stable, meaningful order.
+        if (left.issue.weight !== right.issue.weight) {
+            return right.issue.weight - left.issue.weight;
+        }
+        return left.auditId.localeCompare(right.auditId);
+    });
+
+    // One headline slot per WCAG criterion — keep the first (highest-ranked)
+    // audit for a criterion already covered by an earlier, better-ranked one.
+    const seenCriteria = new Set<string>();
+    const deduped: AuditIssueSummary[] = [];
+    for (const candidate of candidates) {
+        if (candidate.criterion) {
+            if (seenCriteria.has(candidate.criterion)) {
+                continue;
+            }
+            seenCriteria.add(candidate.criterion);
+        }
+        deduped.push(candidate.issue);
+        if (deduped.length >= limit) {
+            break;
+        }
+    }
+
+    return deduped;
+}
+
 function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionScore[]): {
     dimensions: AuditPrimaryDimensionScore[];
     overallScore: number;
@@ -918,7 +1005,9 @@ export function buildAggregateAuditScorecard(
     );
 
     const allIssues = dedupeIssues([...evaluationDimensionIssues.values()].flat());
-    const topIssues = sortIssues(allIssues).slice(0, 5);
+    // Phase 6.8/6.6/6.7b (N14, N9, N10b): breadth-ranked, one headline per
+    // audit id and per WCAG criterion — see buildBreadthRankedTopIssues.
+    const topIssues = buildBreadthRankedTopIssues(allIssues, 5);
 
     // An audit is notApplicable at aggregate level only if every page said so (intersection)
     const notApplicableSets = scorecards.map((sc) => new Set(sc.notApplicableAuditIds || []));

@@ -215,18 +215,39 @@ function getPrimaryConcern(scorecard: AuditScorecard): string {
   return weakestDimension.label.toLowerCase();
 }
 
+// Phase 6.5 / N8: never tell a client to "start with quick wins" when there
+// aren't any — branch the sequencing sentence on which buckets are actually
+// populated instead of printing it unconditionally.
 function buildPrioritySummaryText(remediationRoadmap: AnalysisRemediationItem[]): string {
   const quickWins = remediationRoadmap.filter((item) => item.bucketKey === 'quick-wins').length;
   const mediumEffort = remediationRoadmap.filter((item) => item.bucketKey === 'medium-effort').length;
   const highEffort = remediationRoadmap.filter((item) => item.bucketKey === 'high-effort').length;
 
-  return `Roadmap balance: ${quickWins} Quick Wins, ${mediumEffort} Medium Effort items, and ${highEffort} High Effort items. Start with lower-effort fixes that remove immediate friction, then schedule the heavier engineering and design work in a planned remediation phase. Complete roadmap balance items are found on the Full Audit Report.`;
+  const sentences = [
+    `Roadmap balance: ${quickWins} Quick Wins, ${mediumEffort} Medium Effort items, and ${highEffort} High Effort items.`,
+  ];
+
+  if (quickWins > 0) {
+    sentences.push(
+      'Start with lower-effort fixes that remove immediate friction, then schedule the heavier engineering and design work in a planned remediation phase.',
+    );
+  } else if (mediumEffort > 0 || highEffort > 0) {
+    sentences.push(
+      'There are no quick wins on this scorecard right now, so sequence directly into the medium- and high-effort work below.',
+    );
+  }
+
+  sentences.push('Complete roadmap balance items are found on the Full Audit Report.');
+  return sentences.join(' ');
 }
 
 export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions): AuditAiReport {
   const { scorecard, remediationRoadmap, isLiteVersion } = options;
   const primaryConcern = getPrimaryConcern(scorecard);
-  const topIssueTitles = (scorecard.topIssues || []).slice(0, 2).map((issue) => issue.title);
+  // Phase 6.6 / N9: dedupe by normalized title before taking the top two, so
+  // the same issue (e.g. surfaced from two different pages) can never be
+  // named twice in one sentence.
+  const topIssueTitles = dedupeStrings((scorecard.topIssues || []).map((issue) => issue.title), 2);
   const headline = scorecard.overallScore >= 80
     ? 'Strong foundation with focused improvements remaining'
     : scorecard.overallScore >= 70
@@ -236,9 +257,11 @@ export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions
   const summary = [
     `This ${isLiteVersion ? 'quick scan' : 'audit'} scored ${toPercent(scorecard.overallScore)} and is currently classified as ${capitalize(scorecard.riskTier)} risk.`,
     `The most significant pressure point is ${primaryConcern}, with ${scorecard.pageCount} page${scorecard.pageCount === 1 ? '' : 's'} included in the current scorecard.`,
-    topIssueTitles.length > 0
+    topIssueTitles.length > 1
       ? `The top issues currently affecting the experience are ${topIssueTitles.join(' and ')}.`
-      : 'The current scorecard does not yet include enough issue detail to name specific findings.',
+      : topIssueTitles.length === 1
+        ? `The top issue currently affecting the experience is ${topIssueTitles[0]}.`
+        : 'The current scorecard does not yet include enough issue detail to name specific findings.',
   ].join(' ');
 
   const businessImpact = scorecard.overallScore >= 80

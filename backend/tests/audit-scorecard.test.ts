@@ -200,6 +200,63 @@ test('buildAggregateAuditScorecard averages page scorecards and keeps worst issu
   assert.ok(motorAccessibility.issueCount >= 1);
 });
 
+// Phase 6.8 / N14 — a finding that recurs across many pages must outrank one
+// backed by a single page, even when the single-page finding scores worse.
+test('buildAggregateAuditScorecard ranks topIssues by pages affected, not raw score alone, and never repeats an audit id', () => {
+  const pageA = buildAuditScorecard(buildReport({ 'color-contrast': 0 }), { pageUrl: 'https://example.com/a' });
+  const pageB = buildAuditScorecard(buildReport({ 'color-contrast': 0 }), { pageUrl: 'https://example.com/b' });
+  const pageC = buildAuditScorecard(buildReport({ 'color-contrast': 0 }), { pageUrl: 'https://example.com/c' });
+  // A single page with a worse (0) score on a different audit — breadth
+  // still wins over a lone occurrence.
+  const pageD = buildAuditScorecard(buildReport({ 'target-size': 0 }), { pageUrl: 'https://example.com/d' });
+
+  const aggregate = buildAggregateAuditScorecard([pageA, pageB, pageC, pageD]);
+
+  assert.equal(aggregate.topIssues[0].auditId, 'color-contrast');
+  assert.equal(aggregate.topIssues[0].pagesAffected, 3);
+
+  const auditIds = aggregate.topIssues.map((issue) => issue.auditId);
+  assert.equal(new Set(auditIds).size, auditIds.length, 'topIssues must not repeat the same audit id from different pages');
+});
+
+// Phase 6.7b / N10 — two different audits mapped to the same WCAG criterion
+// must not both headline as separate "top issues".
+test('buildAggregateAuditScorecard collapses topIssues that share a WCAG criterion to one headline slot', () => {
+  const makeIssue = (overrides: Record<string, unknown>) => ({
+    auditId: 'stub',
+    title: 'Stub issue',
+    description: '',
+    score: 50,
+    weight: 10,
+    severity: 'medium',
+    auditSourceType: 'supporting-signal',
+    auditSourceLabel: 'Supporting Signal',
+    ...overrides,
+  });
+
+  const makePageScorecard = (pageUrl: string, issueOverrides: Record<string, unknown>) => {
+    const issue = makeIssue({ sourceUrl: pageUrl, ...issueOverrides });
+    return {
+      dimensions: [],
+      evaluationDimensions: [
+        { key: 'technicalAccessibility', label: 'Technical Accessibility', score: issue.score, weight: 10, issueCount: 1, topIssues: [issue] },
+      ],
+    } as any;
+  };
+
+  const scorecards = [
+    makePageScorecard('https://example.com/a', { auditId: 'button-name', title: 'Button name issue', score: 30, wcagCriteria: ['2.5.3'] }),
+    makePageScorecard('https://example.com/b', { auditId: 'label-content-name-mismatch', title: 'Label mismatch issue', score: 35, wcagCriteria: ['2.5.3'] }),
+  ];
+
+  const aggregate = buildAggregateAuditScorecard(scorecards);
+  const criteria = aggregate.topIssues.flatMap((issue) => issue.wcagCriteria || []);
+  assert.equal(new Set(criteria).size, criteria.length, 'no WCAG criterion should headline twice');
+  assert.equal(aggregate.topIssues.length, 1);
+  // The worse-scoring (higher-impact) of the two occurrences headlines.
+  assert.equal(aggregate.topIssues[0].auditId, 'button-name');
+});
+
 test('buildAuditScorecard honors auditRefs embedded in the scanner report', () => {
   const scorecard = buildAuditScorecard({
     categories: {

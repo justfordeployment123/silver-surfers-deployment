@@ -21,7 +21,7 @@ import {
 } from '../scanner/scanner-client.ts';
 import { generateAuditAiReport, generateWcagRemediations } from './ai-reporting.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
-import { buildRemediationRoadmap } from './analysis-details.ts';
+import { buildAggregateRemediationRoadmap } from './analysis-details.ts';
 import { buildWcagMatrix, resolveWcagMatrixFilterOptions, type WcagMatrixFilterOptions } from './wcag-matrix.ts';
 import type { WcagMatrix } from './wcag-mapping.ts';
 import { env } from '../../config/env.ts';
@@ -2151,7 +2151,15 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     }
 
     if (record.scoreCard && !batchWorkerReportStorage) {
-      const remediationRoadmap = buildRemediationRoadmap(record.scoreCard);
+      // Phase 6.5 / N8: union each page's own recommendation objects — the
+      // same ones rendered into that page's "Priority Recommendations"
+      // section of the full report — deduplicated by rule id, instead of the
+      // aggregate scorecard's already-capped, cross-page top-issue lists.
+      const pageScorecards = Object.values(reportsByPlatform)
+        .flat()
+        .map((report) => report?.scoreCard)
+        .filter((scoreCard): scoreCard is AuditScorecard => Boolean(scoreCard));
+      const remediationRoadmap = buildAggregateRemediationRoadmap(pageScorecards);
       const aiReport = await generateAuditAiReport({
         url: job.url,
         fullName,

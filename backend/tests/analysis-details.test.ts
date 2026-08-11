@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAnalysisDetail, buildRemediationRoadmap } from '../src/features/audits/analysis-details.ts';
+import { buildAggregateRemediationRoadmap, buildAnalysisDetail, buildRemediationRoadmap } from '../src/features/audits/analysis-details.ts';
 import type { AuditAiReport } from '../src/features/audits/ai-reporting.ts';
 
 const sampleScorecard = {
@@ -236,6 +236,49 @@ test('buildRemediationRoadmap turns stored scorecard issues into prioritized Pha
   assert.equal(roadmap[2].auditId, 'total-blocking-time');
   assert.equal(roadmap[2].bucketKey, 'high-effort');
   assert.equal(roadmap[2].auditSourceType, 'supporting-signal');
+});
+
+// Phase 6.5 / N8 — the exec summary's roadmap must union each page's own
+// recommendation objects deduped by rule id, not by rule id *and* page, so
+// the same failing audit recurring on multiple pages counts once.
+test('buildAggregateRemediationRoadmap unions per-page roadmaps deduped by rule id, keeping the worst occurrence', () => {
+  const secondPageScorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 40,
+        weight: 30,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'color-contrast',
+            title: 'Color contrast is too low',
+            description: 'Text contrast falls below the recommended threshold.',
+            score: 35, // worse than sampleScorecard's 52 for the same audit
+            weight: 9,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['1.4.3'],
+            sourceUrl: 'https://example.com/about',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const roadmap = buildAggregateRemediationRoadmap([sampleScorecard, secondPageScorecard]);
+
+  const colorContrastItems = roadmap.filter((item) => item.auditId === 'color-contrast');
+  assert.equal(colorContrastItems.length, 1, 'color-contrast must appear once across the site, not once per page');
+  assert.equal(colorContrastItems[0].currentScore, 35, 'the worse of the two per-page occurrences represents the audit');
+  assert.equal(colorContrastItems[0].sourceUrl, 'https://example.com/about');
+
+  // sampleScorecard alone yields 3 distinct audits; the second page repeats
+  // one of them (color-contrast) and adds none new, so the union is still 3.
+  assert.equal(roadmap.length, 3);
 });
 
 test('buildAnalysisDetail returns normalized scorecard-backed detail payload for account views', () => {

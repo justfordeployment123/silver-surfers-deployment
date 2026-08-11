@@ -25,6 +25,9 @@ export const auditIssueSchema = new mongoose.Schema({
   wcagPrinciples: { type: [String], enum: ['perceivable', 'operable', 'understandable', 'robust'], default: [] },
   displayValue: { type: mongoose.Schema.Types.Mixed },
   sourceUrl: { type: String },
+  // Phase 6.8 / N14: distinct-page breadth behind an aggregate top issue.
+  // Omitted (undefined) for single-page scorecards' own issues.
+  pagesAffected: { type: Number },
 }, { _id: false });
 
 export const dimensionScoreSchema = new mongoose.Schema({

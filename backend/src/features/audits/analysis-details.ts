@@ -894,6 +894,44 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
         .slice(0, 20);
 }
 
+/**
+ * Builds the executive summary's site-wide roadmap by unioning each page's
+ * own recommendation objects — the same ones `buildRemediationRoadmap`
+ * renders into that page's "Priority Recommendations" section of the full
+ * report — deduplicated by rule id (audit id), not by rule id *and* page
+ * (Phase 6.5 / N8). The previous approach built the exec roadmap from the
+ * aggregate scorecard's already-capped, cross-page top-3-per-dimension
+ * issue lists, whose bucket counts couldn't be reproduced from — and often
+ * contradicted — the full report's actual per-page recommendation sections.
+ */
+export function buildAggregateRemediationRoadmap(pageScorecards: Array<AuditScorecard | undefined>): AnalysisRemediationItem[] {
+    const merged = new Map<string, AnalysisRemediationItem>();
+
+    for (const pageScorecard of pageScorecards) {
+        for (const item of buildRemediationRoadmap(pageScorecard)) {
+            const existing = merged.get(item.auditId);
+            // Keep the worst-scoring occurrence as the representative, so the
+            // displayed evidence reflects the most severe instance sitewide.
+            if (!existing || item.currentScore < existing.currentScore) {
+                merged.set(item.auditId, item);
+            }
+        }
+    }
+
+    return [...merged.values()].sort((left, right) => {
+        if (rankBucket(left.bucketKey) !== rankBucket(right.bucketKey)) {
+            return rankBucket(left.bucketKey) - rankBucket(right.bucketKey);
+        }
+        if (rankImpact(left.impact) !== rankImpact(right.impact)) {
+            return rankImpact(left.impact) - rankImpact(right.impact);
+        }
+        if (rankEffort(left.effort) !== rankEffort(right.effort)) {
+            return rankEffort(left.effort) - rankEffort(right.effort);
+        }
+        return left.currentScore - right.currentScore;
+    });
+}
+
 export function buildRemediationBuckets(items: AnalysisRemediationItem[]): AnalysisRemediationBucket[] {
     return (Object.keys(ROADMAP_BUCKETS) as RemediationBucketKey[])
         .map((bucketKey) => {
