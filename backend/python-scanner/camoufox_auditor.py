@@ -1849,10 +1849,15 @@ def run_camoufox_audit_sync(
                     "numericValue": 1.0 if not geolocation_requested else 0.0,
                 }
 
+                # WCAG 1.4.2 / ACT rule 80f0bf: a violation requires media that is
+                # actually playing with sound — autoplay AND unmuted AND not paused
+                # AND (duration > 3s OR looping) AND has an audio track. Muted
+                # autoplay loops cannot make sound; they are collected separately and
+                # routed to 2.2.2 (ss-pause-stop-hide-audit) for review instead.
                 autoplay_results = page.evaluate("""
                     () => {
                         const media = Array.from(document.querySelectorAll('video, audio'));
-                        const autoplay = media.filter(el => el.hasAttribute('autoplay')).map(el => {
+                        const describe = (el) => {
                             let selector = el.tagName.toLowerCase();
                             if (el.id) selector += '#' + el.id;
                             else if (typeof el.className === 'string' && el.className.trim()) selector += '.' + el.className.trim().split(/\\s+/)[0];
@@ -1863,19 +1868,48 @@ def run_camoufox_audit_sync(
                                 hasMuted: Boolean(el.muted),
                                 hasControls: Boolean(el.controls)
                             };
-                        });
-                        return { total: media.length, autoplayCount: autoplay.length, items: autoplay.slice(0, 50) };
+                        };
+                        const hasAudioTrack = (el) => {
+                            if (el.tagName === 'AUDIO') return true;
+                            if (typeof el.mozHasAudio === 'boolean') return el.mozHasAudio;
+                            if (typeof el.webkitAudioDecodedByteCount === 'number') return el.webkitAudioDecodedByteCount > 0;
+                            if (el.audioTracks && typeof el.audioTracks.length === 'number') return el.audioTracks.length > 0;
+                            return true; // audio presence unknown — only consulted for unmuted media
+                        };
+                        const autoplaying = media.filter(el => el.autoplay);
+                        const failing = autoplaying.filter(el =>
+                            !el.muted && !el.paused && (el.duration > 3 || el.loop) && hasAudioTrack(el)
+                        );
+                        const mutedAutoplay = autoplaying.filter(el => el.muted);
+                        return {
+                            total: media.length,
+                            failingCount: failing.length,
+                            mutedCount: mutedAutoplay.length,
+                            items: failing.slice(0, 50).map(describe)
+                        };
                     }
                 """)
-                autoplay_count = autoplay_results.get("autoplayCount", 0)
+                autoplay_count = autoplay_results.get("failingCount", 0)
+                muted_autoplay_count = autoplay_results.get("mutedCount", 0)
+                if autoplay_count > 0:
+                    autoplay_display = f"{autoplay_count} media element{'s' if autoplay_count != 1 else ''} autoplaying with sound"
+                elif muted_autoplay_count > 0:
+                    autoplay_display = f"No audible autoplay media found ({muted_autoplay_count} muted loop(s) reviewed under 2.2.2)"
+                else:
+                    autoplay_display = "No audible autoplay media found"
                 audits["autoplay-audit"] = {
                     "id": "autoplay-audit",
                     "title": "Audio and video content does not autoplay",
-                    "description": "Detects audio or video elements that autoplay without an explicit user action.",
+                    "description": (
+                        "Detects audio or video that autoplays with audible sound (unmuted, actively "
+                        "playing, longer than 3 seconds or looping, with an audio track) per WCAG ACT "
+                        "rule 80f0bf. Muted autoplay loops make no sound, so they are not 1.4.2 "
+                        "violations and are routed to 2.2.2 for pause/stop review instead."
+                    ),
                     "score": 1.0 if autoplay_count == 0 else 0.0,
                     "numericValue": autoplay_count,
                     "scoreDisplayMode": "binary",
-                    "displayValue": "No autoplay media found" if autoplay_count == 0 else f"{autoplay_count} autoplay media elements found",
+                    "displayValue": autoplay_display,
                     "details": {
                         "type": "table",
                         "headings": [
@@ -2591,12 +2625,14 @@ def run_camoufox_audit_sync(
                             const marquees = document.querySelectorAll('marquee');
                             // Tickers always scroll; carousels/sliders only auto-advance when
                             // the author adds an explicit autoplay attribute — check for those signals.
-                            const autoplayCarousels = document.querySelectorAll(
+                            // (data-slick is filtered in JS to keep the selector quotes valid.)
+                            const autoplayCarousels = Array.from(document.querySelectorAll(
                                 '[class*="ticker" i], ' +
                                 '[data-ride="carousel"]:not([data-pause="hover"]), ' +
                                 '[data-autoplay="true"], [data-auto-slide="true"], ' +
-                                '[data-slick*=\'"autoplay":true\']'
-                            );
+                                '[data-slick]'
+                            )).filter(el => !el.hasAttribute('data-slick') ||
+                                (el.getAttribute('data-slick') || '').indexOf('"autoplay":true') !== -1);
                             const movingEls = marquees.length + autoplayCarousels.length;
                             if (movingEls > 0) {
                                 const pauseControls = document.querySelectorAll(
@@ -2607,26 +2643,77 @@ def run_camoufox_audit_sync(
                                     issues.push(`${movingEls} auto-advancing element(s) without pause/stop control`);
                                 }
                             }
-                            return { issueCount: issues.length, issues };
+                            // Muted autoplay loops make no sound (not a 1.4.2 issue), but a muted
+                            // video that loops or runs >3s with no visible controls still moves on
+                            // screen — collect for 2.2.2 manual review of a pause mechanism.
+                            const mutedLoops = Array.from(document.querySelectorAll('video'))
+                                .filter(v => v.autoplay && v.muted && (v.loop || v.duration > 3) && !v.controls)
+                                .map(v => {
+                                    let selector = 'video';
+                                    if (v.id) selector += '#' + v.id;
+                                    else if (typeof v.className === 'string' && v.className.trim()) selector += '.' + v.className.trim().split(/\\s+/)[0];
+                                    return { selector, src: v.currentSrc || v.src || '(inline)' };
+                                });
+                            return { issueCount: issues.length, issues, mutedLoopCount: mutedLoops.length, mutedLoops: mutedLoops.slice(0, 50) };
                         }
                     """)
                     motion_issues = motion_results.get("issueCount", 0)
-                    audits["ss-pause-stop-hide-audit"] = {
-                        "id": "ss-pause-stop-hide-audit",
-                        "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
-                        "description": (
-                            f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
-                            f"Found {motion_issues} issue(s)."
-                        ),
-                        "score": 1.0 if motion_issues == 0 else 0.0,
-                        "numericValue": float(motion_issues),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Issue"}],
-                            "items": [{"description": i} for i in motion_results.get("issues", [])],
-                        } if motion_issues else None,
-                    }
+                    muted_loop_count = motion_results.get("mutedLoopCount", 0)
+                    muted_loop_items = [
+                        {"description": f"Muted auto-playing loop without pause/stop control: {loop.get('selector', 'video')} ({loop.get('src', '')})"}
+                        for loop in motion_results.get("mutedLoops", [])
+                    ]
+                    if motion_issues > 0:
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                f"Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
+                                f"Found {motion_issues} issue(s)."
+                            ),
+                            "score": 0.0,
+                            "numericValue": float(motion_issues),
+                            "scoreDisplayMode": "binary",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": [{"description": i} for i in motion_results.get("issues", [])] + muted_loop_items,
+                            },
+                        }
+                    elif muted_loop_count > 0:
+                        # Only muted loops found — not an auto-fail, but a human should
+                        # confirm a pause/stop mechanism exists (WCAG 2.2.2 needs review).
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                f"Found {muted_loop_count} muted auto-playing loop(s) without visible controls. "
+                                "Muted loops make no sound (not a 1.4.2 violation), but a human should "
+                                "confirm a pause/stop mechanism exists."
+                            ),
+                            "score": None,
+                            "numericValue": float(muted_loop_count),
+                            "scoreDisplayMode": "manual",
+                            "displayValue": f"{muted_loop_count} muted loop(s) without controls — manual review recommended",
+                            "details": {
+                                "type": "table",
+                                "headings": [{"key": "description", "label": "Issue"}],
+                                "items": muted_loop_items,
+                            },
+                        }
+                    else:
+                        audits["ss-pause-stop-hide-audit"] = {
+                            "id": "ss-pause-stop-hide-audit",
+                            "title": "Pause, stop, hide moving content (WCAG 2.2.2)",
+                            "description": (
+                                "Checks for auto-playing videos and animated/scrolling regions without pause or stop controls. "
+                                "Found 0 issue(s)."
+                            ),
+                            "score": 1.0,
+                            "numericValue": 0.0,
+                            "scoreDisplayMode": "binary",
+                            "details": None,
+                        }
                 except Exception as e:
                     audits["ss-pause-stop-hide-audit"] = {
                         "id": "ss-pause-stop-hide-audit",
