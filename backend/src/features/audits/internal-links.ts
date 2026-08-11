@@ -109,6 +109,12 @@ export function scorePageUrl(url: string, baseOrigin: string): number {
     return -1;
   }
 
+  // Hard block: Shopify Web Pixels Manager fragments and similar bare
+  // infrastructure segments (mirrors _BLOCKED_AUDIT_PATH_RE in scanner_service.py).
+  if (/\/(previewImage|cdn|wpm|next|open|close)(\/|$)/i.test(pathLower)) {
+    return -1;
+  }
+
   // Hard block: transactional / account pages — never audit these.
   if (/\/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup)\b/i.test(pathLower)) {
     return -1;

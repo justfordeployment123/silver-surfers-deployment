@@ -57,9 +57,11 @@ import {
 } from './full-audit.strategy.ts';
 import {
   calculateSeniorFriendlinessScore,
+  crawlOrderForReportIndex,
   generateCombinedPlatformReport,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
+  humanizeAuditFailureReason,
   mergePDFsByPlatform,
   type FullAuditPlatformReport,
   type MissingMergePage,
@@ -690,12 +692,18 @@ async function generatePlatformReports(
   wcagMatrix?: WcagMatrix,
   wcagStandard?: string | null,
   conformanceLevel?: string | null,
+  missingPagesByPlatform?: Partial<Record<FullAuditDevice, MissingMergePage[]>>,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
     if (!reports || reports.length === 0) {
       continue;
     }
+
+    const scanGaps = missingPagesByPlatform?.[device] ?? [];
+    const scanGapOrders = scanGaps
+      .map((gap) => gap.order ?? Number.MAX_SAFE_INTEGER)
+      .sort((a, b) => a - b);
 
     // Pair each generated PDF with its own report entry so a failed generation
     // can never shift the (pdfPath, report) alignment downstream; failed pages
@@ -724,8 +732,8 @@ async function generatePlatformReports(
         } else {
           missingPages.push({
             url: report.url,
-            reason: 'PDF generation did not produce a report file.',
-            order: index,
+            reason: 'a PDF generation error',
+            order: crawlOrderForReportIndex(index, scanGapOrders),
           });
         }
       } catch (error) {
@@ -737,8 +745,8 @@ async function generatePlatformReports(
         });
         missingPages.push({
           url: report.url,
-          reason: `PDF generation failed: ${error instanceof Error ? error.message : String(error)}`,
-          order: index,
+          reason: 'a PDF generation error',
+          order: crawlOrderForReportIndex(index, scanGapOrders),
         });
       }
     }
@@ -751,7 +759,7 @@ async function generatePlatformReports(
           email_address: email,
           outputDir: finalReportFolder,
           reports: successfulPairs.map((pair) => pair.report),
-          missingPages,
+          missingPages: [...scanGaps, ...missingPages],
           planType: planId,
           platformSummary: buildPlatformSummary(reportsByPlatform),
         });
@@ -1698,6 +1706,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     });
     const devicesToAudit = resolveDevicesToAudit(effectivePlanId, job.selectedDevice);
     const reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>> = {};
+    const missingPagesByPlatform: Partial<Record<FullAuditDevice, MissingMergePage[]>> = {};
     const scanTargets: FullAuditTargetResult[] = [];
     const warningSet = new Set<string>();
     let successfulTargetCount = 0;
@@ -2051,6 +2060,18 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
               statusCode: resolvedPageScanResult.statusCode,
             },
           ));
+          const deviceOrder = (reportsByPlatform[device]?.length ?? 0) + (missingPagesByPlatform[device]?.length ?? 0);
+          if (!missingPagesByPlatform[device]) {
+            missingPagesByPlatform[device] = [];
+          }
+          missingPagesByPlatform[device]?.push({
+            url: targetPage.url,
+            reason: humanizeAuditFailureReason({
+              errorCode: resolvedPageScanResult.errorCode,
+              error: resolvedPageScanResult.error,
+            }),
+            order: deviceOrder,
+          });
           addAuditWarning(warningSet, 'One or more page/device targets failed and were omitted from the final report package.');
           continue;
         }
@@ -2109,7 +2130,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
 
     const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel, missingPagesByPlatform);
     } else {
       addAuditWarning(
         warningSet,

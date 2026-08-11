@@ -9,10 +9,13 @@ import PDFDocument from 'pdfkit';
 import { PDFDocument as PDFLib } from 'pdf-lib';
 
 import {
+  buildGapCoverLine,
   buildMergeTocEntries,
+  crawlOrderForReportIndex,
   extractSiteNameFromUrl,
   getReportPageName,
   getScoreStatus,
+  humanizeAuditFailureReason,
   mergePDFsByPlatform,
   orderMergePages,
   renderGapPage,
@@ -86,6 +89,32 @@ test('orderMergePages appends gaps without a usable order instead of dropping th
   assert.deepEqual(ordered.slice(1).map((page) => page.kind), ['gap', 'gap']);
 });
 
+test('orderMergePages keeps crawl order with mixed scan and PDF failures', () => {
+  // Crawl: A(ok), B(scan-failed), C(scanned but PDF-failed), D(ok)
+  const reports = [
+    makeReport('https://example.com/a', 90),
+    makeReport('https://example.com/d', 80),
+  ];
+  const scanGapOrders = [1];
+  const pdfGapOrder = crawlOrderForReportIndex(1, scanGapOrders);
+  assert.equal(pdfGapOrder, 2);
+
+  const ordered = orderMergePages(reports, ['a.pdf', 'd.pdf'], [
+    { url: 'https://example.com/b', reason: 'bot protection', order: 1 },
+    { url: 'https://example.com/c', reason: 'a PDF generation error', order: pdfGapOrder },
+  ]);
+
+  assert.deepEqual(
+    ordered.map((page) => (page.kind === 'report' ? page.report.url : page.url)),
+    [
+      'https://example.com/a',
+      'https://example.com/b',
+      'https://example.com/c',
+      'https://example.com/d',
+    ],
+  );
+});
+
 test('buildMergeTocEntries marks gap pages as N/A and counts one page each', () => {
   const entries = buildMergeTocEntries([
     { kind: 'report', report: makeReport('https://example.com/', 88.4), pdfPath: 'home.pdf', pageCount: 5 },
@@ -96,6 +125,47 @@ test('buildMergeTocEntries marks gap pages as N/A and counts one page each', () 
     { pageName: 'Home Page', score: '88%', actualPageCount: 4 },
     { pageName: 'Pricing Page', score: 'N/A', actualPageCount: 1 },
   ]);
+});
+
+test('humanizeAuditFailureReason maps error codes and messages to honest reasons', () => {
+  assert.equal(humanizeAuditFailureReason({ errorCode: 'PAGE_NOT_FOUND' }), 'page not found (HTTP 404)');
+  assert.equal(humanizeAuditFailureReason({ errorCode: 'NON_HTML' }), 'non-HTML content');
+  assert.equal(humanizeAuditFailureReason({ errorCode: 'NO_AUDITABLE_CONTENT' }), 'insufficient auditable content');
+  assert.equal(
+    humanizeAuditFailureReason({ error: 'Bot-protection wall detected on this page - content not auditable. URL skipped.' }),
+    'bot protection',
+  );
+  assert.equal(
+    humanizeAuditFailureReason({ error: 'Page redirected to a different domain - bot protection suspected. URL skipped.' }),
+    'bot protection',
+  );
+  assert.equal(humanizeAuditFailureReason({ error: 'Navigation timeout after 120000ms' }), 'a scan timeout');
+  assert.equal(humanizeAuditFailureReason({}), 'a scan error');
+});
+
+test('crawlOrderForReportIndex shifts report indices past scan-time gaps', () => {
+  assert.equal(crawlOrderForReportIndex(0, [1]), 0);
+  assert.equal(crawlOrderForReportIndex(1, [1]), 2);
+  assert.equal(crawlOrderForReportIndex(2, [1]), 3);
+  assert.equal(crawlOrderForReportIndex(1, [0, 2]), 3);
+  assert.equal(crawlOrderForReportIndex(0, []), 0);
+});
+
+test('buildGapCoverLine names the shared cause when every gap has the same reason', () => {
+  const botGaps = Array.from({ length: 24 }, () => ({ kind: 'gap' as const, url: 'https://example.com/x', reason: 'bot protection' }));
+  assert.equal(
+    buildGapCoverLine(1, botGaps),
+    '24 of 25 pages could not be audited due to bot protection; results below cover 1 page.',
+  );
+
+  const mixedGaps = [
+    { kind: 'gap' as const, url: 'https://example.com/a', reason: 'bot protection' },
+    { kind: 'gap' as const, url: 'https://example.com/b', reason: 'page not found (HTTP 404)' },
+  ];
+  assert.equal(
+    buildGapCoverLine(2, mixedGaps),
+    '2 of 4 pages could not be audited; see the Table of Contents for details.',
+  );
 });
 
 test('renderGapPage produces a single-page PDF', async (t) => {

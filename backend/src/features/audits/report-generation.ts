@@ -932,6 +932,57 @@ export interface AssembledMergeGapPage {
 export type AssembledMergePage = AssembledMergeReportPage | AssembledMergeGapPage;
 
 /**
+ * Maps a failed scan target to a short human-readable reason, used for gap
+ * pages and the combined-report cover note.
+ */
+export function humanizeAuditFailureReason(options: { errorCode?: string | null; error?: string | null }): string {
+  const { errorCode, error } = options;
+  switch (errorCode) {
+    case 'PAGE_NOT_FOUND':
+      return 'page not found (HTTP 404)';
+    case 'PAGE_HTTP_ERROR':
+      return 'an HTTP error response';
+    case 'NON_HTML':
+      return 'non-HTML content';
+    case 'NO_AUDITABLE_CONTENT':
+      return 'insufficient auditable content';
+    default:
+      break;
+  }
+
+  const message = String(error || '').toLowerCase();
+  if (/(bot|captcha|shieldsquare|radware|verify you are a human|access to this page has been blocked)/.test(message)) {
+    return 'bot protection';
+  }
+  if (/404|not found/.test(message)) {
+    return 'page not found (HTTP 404)';
+  }
+  if (/empty|stub|insufficient auditable content/.test(message)) {
+    return 'insufficient auditable content';
+  }
+  if (/timeout|timed out/.test(message)) {
+    return 'a scan timeout';
+  }
+  return 'a scan error';
+}
+
+/**
+ * Converts an index within the successfully scanned reports array into the
+ * original crawl sequence, given the (ascending) crawl positions of the pages
+ * that failed at scan time. PDF-generation failures use this to keep gap
+ * pages at their truthful position.
+ */
+export function crawlOrderForReportIndex(reportIndex: number, scanGapOrders: number[]): number {
+  let crawlOrder = reportIndex;
+  for (const gapOrder of scanGapOrders) {
+    if (gapOrder <= crawlOrder) {
+      crawlOrder += 1;
+    }
+  }
+  return crawlOrder;
+}
+
+/**
  * Rebuilds the original crawl sequence from the successfully generated pages
  * and the pages that failed. `reports`/`pdfPaths` hold only successful pages
  * in crawl order; `missingPages` entries carry their original crawl index in
@@ -1036,6 +1087,25 @@ export async function renderGapPage(options: {
 }
 
 /**
+ * Builds the cover-page note for unaudited pages. When every gap shares one
+ * cause (e.g. bot protection), the note names it explicitly.
+ */
+export function buildGapCoverLine(auditedCount: number, gapPages: AssembledMergeGapPage[]): string {
+  const totalCount = auditedCount + gapPages.length;
+  const reasonCounts = new Map<string, number>();
+  for (const gap of gapPages) {
+    reasonCounts.set(gap.reason, (reasonCounts.get(gap.reason) ?? 0) + 1);
+  }
+  const [dominantReason, dominantCount] = [...reasonCounts.entries()].sort((a, b) => b[1] - a[1])[0] ?? ['', 0];
+  const pagesWord = totalCount === 1 ? 'page' : 'pages';
+  const auditedWord = auditedCount === 1 ? 'page' : 'pages';
+  if (dominantReason && dominantCount === gapPages.length) {
+    return `${gapPages.length} of ${totalCount} ${pagesWord} could not be audited due to ${dominantReason}; results below cover ${auditedCount} ${auditedWord}.`;
+  }
+  return `${gapPages.length} of ${totalCount} ${pagesWord} could not be audited; see the Table of Contents for details.`;
+}
+
+/**
  * Builds the TOC rows for the assembled body. Gap pages always render with an
  * honest 'N/A' score and occupy exactly one page.
  */
@@ -1125,7 +1195,8 @@ export async function mergePDFsByPlatform(options: {
   }
 
   const reportPages = assembledPages.filter((page): page is AssembledMergeReportPage => page.kind === 'report');
-  const gapPageCount = assembledPages.length - reportPages.length;
+  const gapPages = assembledPages.filter((page): page is AssembledMergeGapPage => page.kind === 'gap');
+  const gapPageCount = gapPages.length;
   if (reportPages.length === 0) {
     throw new Error('No readable individual PDF reports available for merging');
   }
@@ -1276,7 +1347,7 @@ export async function mergePDFsByPlatform(options: {
   if (gapPageCount > 0) {
     coverDoc.fontSize(11).font('RegularFont').fillColor('#B45309')
       .text(
-        `${gapPageCount} page${gapPageCount === 1 ? '' : 's'} could not be audited; see the Table of Contents for details.`,
+        buildGapCoverLine(reportPages.length, gapPages),
         coverMargin + 60,
         coverY + 50,
         { width: coverWidth - 120 },

@@ -244,7 +244,21 @@ async def _perform_audit_impl(request: AuditRequest):
         )
         
         if not result["success"]:
-            raise Exception(result.get("error", "Audit failed"))
+            audit_error = safe_text(result.get("error") or "Audit failed")
+            audit_error_code = safe_text(result.get("errorCode") or "AUDIT_FAILED")
+            print(f"Audit failed ({audit_error_code}): {audit_error}")
+            return AuditResponse(
+                success=False,
+                error=audit_error,
+                errorCode=audit_error_code,
+                isLiteVersion=request.isLiteVersion,
+                version=version,
+                url=safe_text(url),
+                device=safe_text(request.device),
+                strategy="Python-Camoufox",
+                attemptNumber=1,
+                message=safe_text(f"Audit failed: {audit_error}"),
+            )
         
         report = result["report"]
         final_score = result["score"]
@@ -408,7 +422,15 @@ _BLOCKED_AUDIT_PATH_RE = re.compile(
     # WordPress infrastructure endpoints (with optional .php extension)
     r"|/(wp-login|xmlrpc|wp-cron|wp-trackback|wp-signup|wp-activate|wp-mail)(\.php)?(/|$)"
     # WordPress plugin asset generators
-    r"|/wp-content/plugins/",
+    r"|/wp-content/plugins/"
+    # Shopify Web Pixels Manager fragments and similar bare infrastructure
+    # segments — they never hold auditable page content
+    r"|/(previewimage|cdn|wpm|next|open|close)(/|$)"
+    # Bare UUID path segments (machine-generated stub pages)
+    r"|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+    # Long hex runs per segment (hash IDs / content fingerprints,
+    # mirrors scorePageUrl in internal-links.ts)
+    r"|[0-9a-f]{20,}",
     re.I,
 )
 _CATALOGUE_ID_SEGMENT_RE = re.compile(r"^(pcm(?:cat|id)\d{4,}.*|(?:ab)?cat\d{4,}\.c)$", re.I)
@@ -720,7 +742,7 @@ def _scanner_collect_rendered_page_links(page, final_url: str) -> list[str]:
                 const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
                 const expectedHost = normalizeHost(base.hostname);
                 const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
-                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm)(\\/|$)/i;
+                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm|previewImage|next|open|close)(\\/|$)/i;
 
                 const addCandidate = (raw) => {
                     const href = String(raw || '').trim();
@@ -937,7 +959,7 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                                 const NON_HTML = /\\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|zip|exe|woff|woff2|ttf|xml|json|csv|mp4|mp3|webm|ogg|wav|flac|gz)$/i;
                                 const normalizeHost = (hostname) => String(hostname || '').toLowerCase().replace(/^www\\./, '');
                                 const expectedHost = normalizeHost(baseHost);
-                                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm)(\\/|$)/i;
+                                const blockedPath = /\\/(api|_next|static|assets|cdn-cgi|cdn|wpm|previewImage|next|open|close)(\\/|$)/i;
 
                                 const addCandidate = (raw) => {
                                     const href = String(raw || '').trim();

@@ -90,22 +90,24 @@ def _www_to_apex_retry_url(url: str) -> Optional[str]:
     )
 
 
-def navigate_for_audit(page, url: str) -> None:
+def navigate_for_audit(page, url: str):
     """
     Prefer a complete page load, but do not fail a scan just because a site keeps
     late scripts, ads, or analytics requests open. Accessibility checks can run
     once the DOM is available.
+
+    Returns the main-document response when one is available so the caller can
+    gate on the final HTTP status and content type; recovery paths that never
+    completed a navigation return None.
     """
     try:
-        page.goto(url, wait_until="load", timeout=120000)
-        return
+        return page.goto(url, wait_until="load", timeout=120000)
     except Exception as first_error:
         first_message = safe_text(str(first_error)).lower()
         if "ssl_error_bad_cert_domain" in first_message:
             apex_retry_url = _www_to_apex_retry_url(url)
             if apex_retry_url and apex_retry_url != url:
-                page.goto(apex_retry_url, wait_until="domcontentloaded", timeout=60000)
-                return
+                return page.goto(apex_retry_url, wait_until="domcontentloaded", timeout=60000)
 
         recoverable = (
             "timeout" in first_message
@@ -120,19 +122,18 @@ def navigate_for_audit(page, url: str) -> None:
 
         try:
             page.wait_for_load_state("domcontentloaded", timeout=10000)
-            return
+            return None
         except Exception:
             pass
 
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=60000)
-            return
+            return page.goto(url, wait_until="domcontentloaded", timeout=60000)
         except Exception as second_error:
             second_message = safe_text(str(second_error)).lower()
             if "timeout" in second_message or "ns_error_net_interrupt" in second_message:
                 try:
                     if safe_text(page.content()):
-                        return
+                        return None
                 except Exception:
                     pass
             raise first_error
@@ -295,7 +296,7 @@ def run_camoufox_audit_sync(
         """)
         
         try:
-            navigate_for_audit(page, url)
+            nav_response = navigate_for_audit(page, url)
 
             # Jittered post-navigation wait to look human and let dynamic content settle
             page.wait_for_timeout(random.randint(2000, 4500))
@@ -316,6 +317,32 @@ def run_camoufox_audit_sync(
             
             # Get final URL after redirects
             final_url = page_url
+
+            # Check 0: HTTP status / content-type gate — never spend audit work
+            # on error pages or non-HTML endpoints. The response object comes
+            # from the main-document navigation; recovery paths may have no
+            # response, in which case the later content gates still apply.
+            if nav_response is not None:
+                try:
+                    nav_status = int(getattr(nav_response, "status", 0) or 0)
+                except Exception:
+                    nav_status = 0
+                if nav_status and not 200 <= nav_status < 300:
+                    return {
+                        "success": False,
+                        "errorCode": "PAGE_NOT_FOUND" if nav_status == 404 else "PAGE_HTTP_ERROR",
+                        "error": f"Page returned HTTP {nav_status} during navigation. URL skipped.",
+                    }
+                try:
+                    nav_content_type = safe_text((nav_response.headers or {}).get("content-type") or "").lower()
+                except Exception:
+                    nav_content_type = ""
+                if nav_content_type and "html" not in nav_content_type:
+                    return {
+                        "success": False,
+                        "errorCode": "NON_HTML",
+                        "error": f"Page returned non-HTML content ({nav_content_type}). URL skipped.",
+                    }
 
             # --- Bot-protection and empty-page gate ---
             # Run before any audit work so bad pages consume no further resources.
@@ -362,6 +389,45 @@ def run_camoufox_audit_sync(
                     return {
                         "success": False,
                         "error": f"Page appears empty or a stub ({dom_count} DOM elements, {visible_chars} visible chars). URL skipped.",
+                    }
+            except Exception:
+                pass
+
+            # Check 4: minimum auditable-content gate — word stubs with no real
+            # navigation (e.g. UUID redirect stubs) must not consume a scored
+            # audit slot. Both signals come from the rendered page: visible-text
+            # words (same source as the readability audit) and same-origin links.
+            try:
+                content_metrics = page.evaluate(
+                    """
+                    () => {
+                        const text = (document.body && document.body.innerText) || '';
+                        const words = text.split(/\\s+/).filter((word) => word.trim().length > 0);
+                        const host = window.location.hostname.toLowerCase().replace(/^www\\./, '');
+                        const links = new Set();
+                        document.querySelectorAll('a[href]').forEach((anchor) => {
+                            try {
+                                const href = new URL(anchor.getAttribute('href'), window.location.href);
+                                if (['http:', 'https:'].includes(href.protocol)
+                                    && href.hostname.toLowerCase().replace(/^www\\./, '') === host) {
+                                    links.add(href.href);
+                                }
+                            } catch (_) {}
+                        });
+                        return { words: words.length, links: links.size };
+                    }
+                    """
+                ) or {}
+                analyzable_words = int(content_metrics.get("words", 0) or 0)
+                navigable_links = int(content_metrics.get("links", 0) or 0)
+                if analyzable_words < 30 and navigable_links <= 1:
+                    return {
+                        "success": False,
+                        "errorCode": "NO_AUDITABLE_CONTENT",
+                        "error": (
+                            f"Page has insufficient auditable content "
+                            f"({analyzable_words} analyzable words, {navigable_links} navigable links). URL skipped."
+                        ),
                     }
             except Exception:
                 pass

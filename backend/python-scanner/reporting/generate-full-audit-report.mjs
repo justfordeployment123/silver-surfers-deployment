@@ -4,8 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   calculateSeniorFriendlinessScore,
+  crawlOrderForReportIndex,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
+  humanizeAuditFailureReason,
   mergePDFsByPlatform,
 } from './src/features/audits/report-generation.ts';
 import {
@@ -125,12 +127,23 @@ async function main() {
 
   const aggregate = JSON.parse(await fs.readFile(aggregatePath, 'utf8'));
   const reportsByPlatform = {};
+  const missingPagesByPlatform = {};
   const scorecards = [];
   const pdfQueue = [];
 
   // Phase 1: collect scan data and build scorecards (no PDF generation yet)
   for (const [index, target] of (aggregate.targets || []).entries()) {
     if (!target?.success || !target.report) {
+      // Failed targets become honest gap pages at their crawl position so the
+      // combined report discloses what could not be audited (e.g. bot protection).
+      const device = safeText(target?.device, 'desktop');
+      const url = safeText(target?.url, aggregate.url || 'unknown-url');
+      const deviceOrder = (reportsByPlatform[device]?.length ?? 0) + (missingPagesByPlatform[device]?.length ?? 0);
+      (missingPagesByPlatform[device] ||= []).push({
+        url,
+        reason: humanizeAuditFailureReason({ errorCode: target?.errorCode, error: target?.error }),
+        order: deviceOrder,
+      });
       continue;
     }
 
@@ -198,8 +211,10 @@ async function main() {
     // Pages whose PDF generation failed (no outputPdfPath) become explicit gap
     // pages at their original crawl position instead of being silently dropped.
     const deviceQueue = pdfQueue.filter((e) => e.device === device);
+    const scanGaps = missingPagesByPlatform[device] || [];
+    const scanGapOrders = scanGaps.map((gap) => gap.order ?? Number.MAX_SAFE_INTEGER).sort((a, b) => a - b);
     const successfulPairs = [];
-    const missingPages = [];
+    const missingPages = [...scanGaps];
     deviceQueue.forEach((entry, i) => {
       const report = reports[i];
       if (entry.outputPdfPath && report) {
@@ -207,8 +222,8 @@ async function main() {
       } else {
         missingPages.push({
           url: entry.url,
-          reason: 'PDF generation failed for this page.',
-          order: i,
+          reason: 'a PDF generation error',
+          order: crawlOrderForReportIndex(i, scanGapOrders),
         });
       }
     });

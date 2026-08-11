@@ -963,7 +963,7 @@ class ScannerSqsWorker:
                     "scannerTier": scanner_tier,
                     "success": False,
                     "error": error_message,
-                    "errorCode": _classify_scanner_error(error),
+                    "errorCode": getattr(error, "error_code", None) or _classify_scanner_error(error),
                 }
             )
             if receipt_handle:
@@ -1037,7 +1037,10 @@ class ScannerSqsWorker:
             )
 
         if not result.get("success"):
-            raise RuntimeError(result.get("error") or "Audit failed.")
+            audit_error = RuntimeError(result.get("error") or "Audit failed.")
+            if result.get("errorCode"):
+                audit_error.error_code = safe_text(result.get("errorCode"))
+            raise audit_error
 
         final_score = result.get("score")
         if final_score == 0:
@@ -1538,7 +1541,24 @@ class ScannerSqsWorker:
                 )
 
             if not result.get("success"):
-                raise RuntimeError(result.get("error") or "Audit failed.")
+                error_message = safe_text(result.get("error") or "Audit failed.")
+                logger.warning(
+                    "Scanner SQS batch target failed.",
+                    extra={
+                        **job_log_context,
+                        "error": error_message,
+                        "durationMs": round((time.time() - started_at) * 1000),
+                    },
+                )
+                return {
+                    "success": False,
+                    "url": url,
+                    "device": device,
+                    "isLiteVersion": is_lite_version,
+                    "scanModeUsed": scan_mode_used,
+                    "error": error_message,
+                    "errorCode": safe_text(result.get("errorCode")) or _classify_scanner_error(error_message),
+                }
 
             final_score = result.get("score")
             if final_score == 0:
@@ -1577,7 +1597,7 @@ class ScannerSqsWorker:
                 "isLiteVersion": is_lite_version,
                 "scanModeUsed": scan_mode_used,
                 "error": error_message,
-                "errorCode": _classify_scanner_error(error),
+                    "errorCode": getattr(error, "error_code", None) or _classify_scanner_error(error),
             }
 
     def _generate_and_upload_full_audit_reports(
