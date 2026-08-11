@@ -323,3 +323,29 @@ test('buildAuditScorecard captures failing-element counts from audit details', (
   assert.ok(contrastIssue);
   assert.equal(contrastIssue.elementCount, 3);
 });
+
+
+test('buildAuditScorecard wires phase-7 trust checks into trustSecuritySignals', () => {
+  const report = buildReport();
+  report.audits['mixed-content-audit'] = {
+    title: 'mixed-content-audit',
+    description: 'Mixed content found.',
+    score: 0,
+    displayValue: '3 insecure HTTP resources loaded',
+    details: { items: [{ type: 'img', url: 'http://cdn.example.com/a.png' }, { type: 'script', url: 'http://x.example.com/b.js' }, { type: 'img', url: 'http://x.example.com/c.png' }] },
+  };
+  report.audits['trust-markers-audit'] = {
+    title: 'trust-markers-audit',
+    description: 'Some markers found.',
+    score: 0.5,
+    displayValue: '2 of 4 trust markers found',
+  };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+  const trust = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'trustSecuritySignals');
+  assert.ok(trust);
+  assert.ok(trust.score < 100, 'failing trust checks must drag the component below 100');
+  const mixedIssue = trust.topIssues.find((issue) => issue.auditId === 'mixed-content-audit');
+  assert.ok(mixedIssue);
+  assert.equal(mixedIssue.elementCount, 3);
+});

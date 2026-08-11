@@ -900,6 +900,207 @@ def run_camoufox_audit_sync(
                 "score": 1.0 if is_https else 0.0,
                 "numericValue": 1.0 if is_https else 0.0,
             }
+
+            # --- Trust & Security varying checks (Phase 7.1) ---
+
+            # Mixed content: HTTP subresources on an HTTPS page
+            try:
+                mixed_content_results = page.evaluate("""
+                    () => {
+                        const insecure = [];
+                        const attrs = [['img', 'src'], ['script', 'src'], ['link', 'href'], ['iframe', 'src'], ['source', 'src'], ['video', 'src'], ['audio', 'src']];
+                        for (const [tag, attr] of attrs) {
+                            document.querySelectorAll(`${tag}[${attr}]`).forEach(el => {
+                                const url = el.getAttribute(attr) || '';
+                                if (url.startsWith('http://')) {
+                                    insecure.push({ type: tag, url: url.substring(0, 200) });
+                                }
+                            });
+                        }
+                        return { count: insecure.length, items: insecure.slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"mixed-content-audit failed: {e}")
+                mixed_content_results = {"count": 0, "items": []}
+            mixed_count = mixed_content_results.get("count", 0)
+            if not is_https:
+                audits["mixed-content-audit"] = {
+                    "id": "mixed-content-audit",
+                    "title": "No mixed content (HTTP resources on HTTPS page)",
+                    "description": "The page is not served over HTTPS, so mixed-content evaluation does not apply (see Uses HTTPS).",
+                    "score": None,
+                    "numericValue": None,
+                    "scoreDisplayMode": "notApplicable",
+                }
+            else:
+                audits["mixed-content-audit"] = {
+                    "id": "mixed-content-audit",
+                    "title": "No mixed content (HTTP resources on HTTPS page)",
+                    "description": "Checks whether an HTTPS page loads any subresources over insecure HTTP, which browsers block and attackers can tamper with.",
+                    "score": 1.0 if mixed_count == 0 else 0.0,
+                    "numericValue": float(mixed_count),
+                    "scoreDisplayMode": "binary",
+                    "displayValue": "No mixed-content resources found" if mixed_count == 0 else f"{mixed_count} insecure HTTP resource{'s' if mixed_count != 1 else ''} loaded",
+                    "details": {
+                        "type": "table",
+                        "headings": [
+                            {"key": "type", "itemType": "code", "text": "Element"},
+                            {"key": "url", "itemType": "text", "text": "Insecure URL"},
+                        ],
+                        "items": mixed_content_results.get("items", []),
+                    } if mixed_count else None,
+                }
+
+            # Form action security: plaintext HTTP submission endpoints
+            try:
+                form_security_results = page.evaluate("""
+                    () => {
+                        const insecure = [];
+                        document.querySelectorAll('form[action]').forEach(form => {
+                            const action = (form.getAttribute('action') || '').trim();
+                            if (action.startsWith('http://')) {
+                                let selector = 'form';
+                                if (form.id) selector += '#' + form.id;
+                                else if (typeof form.className === 'string' && form.className.trim()) selector += '.' + form.className.trim().split(/\\s+/)[0];
+                                insecure.push({ selector, action: action.substring(0, 200) });
+                            }
+                        });
+                        return { total: document.querySelectorAll('form').length, count: insecure.length, items: insecure.slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"form-action-security-audit failed: {e}")
+                form_security_results = {"total": 0, "count": 0, "items": []}
+            form_total = form_security_results.get("total", 0)
+            form_insecure = form_security_results.get("count", 0)
+            if form_total == 0:
+                audits["form-action-security-audit"] = {
+                    "id": "form-action-security-audit",
+                    "title": "Forms submit to secure (HTTPS) endpoints",
+                    "description": "Checks whether any form submits user data to a plaintext HTTP endpoint. No forms were found on the page, so the check is not applicable.",
+                    "score": None,
+                    "numericValue": None,
+                    "displayValue": "No forms found — check not applicable",
+                    "scoreDisplayMode": "notApplicable",
+                }
+            else:
+                audits["form-action-security-audit"] = {
+                    "id": "form-action-security-audit",
+                    "title": "Forms submit to secure (HTTPS) endpoints",
+                    "description": "Checks whether any form submits user data to a plaintext HTTP endpoint, which would expose everything entered to network eavesdropping.",
+                    "score": 1.0 if form_insecure == 0 else 0.0,
+                    "numericValue": float(form_insecure),
+                    "scoreDisplayMode": "binary",
+                    "displayValue": f"All {form_total} form(s) submit securely" if form_insecure == 0 else f"{form_insecure} of {form_total} form(s) submit to insecure HTTP endpoints",
+                    "details": {
+                        "type": "table",
+                        "headings": [
+                            {"key": "selector", "itemType": "code", "text": "Form"},
+                            {"key": "action", "itemType": "text", "text": "Insecure Action URL"},
+                        ],
+                        "items": form_security_results.get("items", []),
+                    } if form_insecure else None,
+                }
+
+            # Third-party request surface: distinct external origins the page pulls from
+            try:
+                third_party_results = page.evaluate("""
+                    () => {
+                        const baseDomain = (host) => {
+                            const parts = (host || '').replace(/^www\\./, '').split('.');
+                            return parts.length >= 2 ? parts.slice(-2).join('.') : host;
+                        };
+                        const pageDomain = baseDomain(location.hostname);
+                        const origins = new Set();
+                        const attrs = [['img', 'src'], ['script', 'src'], ['link', 'href'], ['iframe', 'src'], ['source', 'src'], ['video', 'src'], ['audio', 'src']];
+                        for (const [tag, attr] of attrs) {
+                            document.querySelectorAll(`${tag}[${attr}]`).forEach(el => {
+                                const url = el.getAttribute(attr) || '';
+                                if (/^https?:\\/\\//i.test(url)) {
+                                    try {
+                                        const host = new URL(url).hostname;
+                                        if (baseDomain(host) !== pageDomain) origins.add(host);
+                                    } catch (e) {}
+                                }
+                            });
+                        }
+                        if (typeof performance !== 'undefined' && performance.getEntriesByType) {
+                            performance.getEntriesByType('resource').forEach(entry => {
+                                try {
+                                    const host = new URL(entry.name).hostname;
+                                    if (host && baseDomain(host) !== pageDomain) origins.add(host);
+                                } catch (e) {}
+                            });
+                        }
+                        return { count: origins.size, origins: [...origins].sort().slice(0, 50) };
+                    }
+                """)
+            except Exception as e:
+                print(f"third-party-surface-audit failed: {e}")
+                third_party_results = {"count": 0, "origins": []}
+            tp_count = third_party_results.get("count", 0)
+            if tp_count <= 5:
+                tp_score = 1.0
+            elif tp_count <= 10:
+                tp_score = 0.75
+            elif tp_count <= 20:
+                tp_score = 0.5
+            else:
+                tp_score = 0.25
+            audits["third-party-surface-audit"] = {
+                "id": "third-party-surface-audit",
+                "title": "Limited third-party request surface",
+                "description": (
+                    f"Counts distinct third-party origins the page loads resources from. "
+                    f"More third parties mean more trackers, more attack surface, and less predictable behavior. Found {tp_count}."
+                ),
+                "score": tp_score,
+                "numericValue": float(tp_count),
+                "scoreDisplayMode": "numeric",
+                "displayValue": f"{tp_count} third-party origin{'s' if tp_count != 1 else ''}",
+                "details": {
+                    "type": "table",
+                    "headings": [{"key": "origin", "itemType": "text", "text": "Third-Party Origin"}],
+                    "items": [{"origin": o} for o in third_party_results.get("origins", [])],
+                } if tp_count else None,
+            }
+
+            # Visible trust markers: privacy / terms / contact links and security messaging
+            try:
+                trust_marker_results = page.evaluate("""
+                    () => {
+                        const textOf = (el) => ((el.textContent || '') + ' ' + (el.getAttribute('href') || '')).toLowerCase();
+                        const links = Array.from(document.querySelectorAll('a'));
+                        const markers = {
+                            privacy: links.some(a => /privacy/.test(textOf(a))),
+                            terms: links.some(a => /terms|conditions|tos/.test(textOf(a))),
+                            contact: links.some(a => /contact|mailto:|tel:/.test(textOf(a))),
+                            securityMessaging: /secure (checkout|payment|connection)|ssl|encrypted/i.test(document.body ? document.body.innerText.slice(0, 50000) : ''),
+                        };
+                        const found = Object.keys(markers).filter(k => markers[k]);
+                        return { found, count: found.length };
+                    }
+                """)
+            except Exception as e:
+                print(f"trust-markers-audit failed: {e}")
+                trust_marker_results = {"found": [], "count": 0}
+            tm_found = trust_marker_results.get("found", [])
+            tm_count = trust_marker_results.get("count", 0)
+            tm_score = tm_count / 4
+            audits["trust-markers-audit"] = {
+                "id": "trust-markers-audit",
+                "title": "Visible trust markers (privacy, terms, contact, security messaging)",
+                "description": (
+                    "Checks for visible trust signals older adults look for before trusting a site: "
+                    f"privacy policy, terms, contact information, and security messaging. Found {tm_count} of 4."
+                ),
+                "score": tm_score,
+                "numericValue": float(tm_count),
+                "scoreDisplayMode": "numeric",
+                "displayValue": f"{tm_count} of 4 trust markers found" + (f" ({', '.join(tm_found)})" if tm_found else ""),
+            }
+
             
             # Text font audit - sync eval with detailed items
             text_font_results = page.evaluate("""
@@ -1117,8 +1318,13 @@ def run_camoufox_audit_sync(
                 "numericValue": 0.0 if h_overflows else 1.0,
             }
 
-            # 3. Text-Size-Adjust Audit: CSS must not disable mobile text scaling
+            # 3. Text-Size-Adjust Audit: CSS must not disable mobile text scaling.
+            # Measured in an emulated 375px mobile viewport (Phase 7.2): text-size-adjust:none
+            # is often gated behind mobile media queries and invisible at desktop width.
+            _original_viewport_tsa = page.viewport_size or {"width": 1920, "height": 1080}
             try:
+                page.set_viewport_size({"width": 375, "height": 812})
+                page.wait_for_timeout(200)
                 text_adjust_result = page.evaluate("""
                     () => {
                         const elements = [document.documentElement, document.body];
@@ -1136,12 +1342,18 @@ def run_camoufox_audit_sync(
             except Exception as e:
                 print(f"⚠️ text-size-adjust-audit failed: {e}")
                 text_adjust_blocked = False
+            finally:
+                try:
+                    page.set_viewport_size(_original_viewport_tsa)
+                    page.wait_for_timeout(200)
+                except Exception:
+                    pass
 
             audits["text-size-adjust-audit"] = {
                 "id": "text-size-adjust-audit",
                 "title": "Mobile text scaling is not disabled",
                 "description": (
-                    "This audit checks if CSS disables the browser's automatic text size adjustment on mobile. "
+                    "This audit checks if CSS disables the browser's automatic text size adjustment, measured at a 375px emulated mobile viewport. "
                     + ("Text scaling is blocked via CSS — older adults lose automatic text enlargement on mobile." if text_adjust_blocked
                        else "Text scaling is not disabled — browsers can adjust text size for readability.")
                 ),
