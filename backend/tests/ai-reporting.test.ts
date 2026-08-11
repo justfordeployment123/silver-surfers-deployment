@@ -77,3 +77,37 @@ test('buildAuditAiReportMarkdown renders a downloadable executive summary file',
   assert.match(markdown, /## Top Recommendations/);
   assert.match(markdown, /https:\/\/example\.com/);
 });
+
+// Phase 6.4 / N7 — the fallback narrative must name one of the full report's
+// eight evaluation-dimension labels, never the four-category primary-
+// dimension rollup (whose names appear nowhere in the full report).
+test('buildFallbackAuditAiReport names the weakest area from evaluationDimensions, not the primary-dimension rollup', () => {
+  const scorecardWithEvaluationDimensions = {
+    overallScore: 62,
+    riskTier: 'high',
+    scoreStatus: 'fail',
+    pageCount: 10,
+    // A primary-rollup name that must never surface in the summary text.
+    dimensions: [
+      { label: 'Cognitive Load', score: 20, issueCount: 5 },
+    ],
+    evaluationDimensions: [
+      { label: 'Trust & Security Signals', score: 35, weight: 3.33, issueCount: 2 },
+      { label: 'Mobile & Cross-Platform Optimization', score: 90, weight: 15.5, issueCount: 0 },
+      // Excluded on every page (weight 0) — must never be picked as weakest
+      // even though its score is 0.
+      { label: 'Content Readability & Plain Language', score: 0, weight: 0, issueCount: 0 },
+    ],
+    topIssues: [],
+  } as any;
+
+  const report = buildFallbackAuditAiReport({
+    url: 'https://example.com',
+    scorecard: scorecardWithEvaluationDimensions,
+    remediationRoadmap: [],
+  });
+
+  assert.match(report.summary, /trust & security signals/i);
+  assert.doesNotMatch(report.summary, /cognitive load/i);
+  assert.doesNotMatch(report.summary, /content readability/i);
+});

@@ -798,7 +798,7 @@ async function generatePlatformReports(
   }
 }
 
-function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>): Array<{ platform: string; score: number | null }> {
+function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>): Array<{ platform: string; score: number | null; pageCount: number }> {
   return Object.entries(reportsByPlatform).map(([deviceKey, reports]) => {
     const scores = (reports || [])
       .map((entry) => entry.score)
@@ -811,6 +811,9 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
     return {
       platform: deviceKey.charAt(0).toUpperCase() + deviceKey.slice(1),
       score: averageScore,
+      // Phase 6.1 / N1: weight for the executive-summary headline so it
+      // reproduces the page-weighted mean of this same table.
+      pageCount: scores.length,
     };
   });
 }
@@ -821,6 +824,10 @@ async function persistAggregateScorecard(
 ): Promise<WcagMatrix | undefined> {
   const platformScorecards: AuditPlatformScore[] = [];
   const allScorecards: AuditScorecard[] = [];
+  // Phase 6.2 / N2, N15: track distinct page URLs separately from the raw
+  // page x device scorecard count, so "Pages audited" never triples the real
+  // page count the way scorecards.length (one entry per device) would.
+  const uniquePageUrls = new Set<string>();
 
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -829,6 +836,11 @@ async function persistAggregateScorecard(
       .filter((scoreCard): scoreCard is AuditScorecard => Boolean(scoreCard));
 
     allScorecards.push(...deviceScorecards);
+    for (const report of reports || []) {
+      if (report.scoreCard && report.url) {
+        uniquePageUrls.add(report.url);
+      }
+    }
 
     if (deviceScorecards.length > 0) {
       const deviceAggregate = buildAggregateAuditScorecard(deviceScorecards, {
@@ -849,7 +861,7 @@ async function persistAggregateScorecard(
   }
 
   const aggregateScorecard = buildAggregateAuditScorecard(allScorecards, {
-    pageCount: allScorecards.length,
+    pageCount: uniquePageUrls.size || allScorecards.length,
     platforms: platformScorecards,
   });
 
@@ -2160,6 +2172,13 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         scorecard: record.scoreCard,
         platformSummary: buildPlatformSummary(reportsByPlatform),
         planType: effectivePlanId,
+        // Phase 6.3 / N6: the same matrix stamped on every page of the
+        // delivered full report is the "matrices the summary claims to
+        // cover" — count its own Fail rows instead of a separately-computed
+        // aggregate that can disagree with what the client can see.
+        wcagFlaggedCriteriaCount: builtWcagMatrix
+          ? builtWcagMatrix.filter((row) => row.status === 'fail').length
+          : undefined,
       }).catch((error) => {
         fullAuditLogger.warn('Failed to generate AI executive summary PDF.', {
           taskId: effectiveTaskId,

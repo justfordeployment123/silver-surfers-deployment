@@ -12,7 +12,7 @@ import { generateSeniorAccessibilityReport as tsGenerateSeniorAccessibilityRepor
 import { generateLiteAccessibilityReport as tsGenerateLiteAccessibilityReport } from './scanner/pdf-generator-lite.js';
 import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
-import type { AuditScorecard } from './audit-scorecard.ts';
+import { classifyRiskTier, classifyScoreStatus, type AuditScorecard } from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
 import { describeWcagStandardLabel } from './wcag-mapping.ts';
 
@@ -37,6 +37,42 @@ export interface FullAuditPlatformReport {
 export interface PlatformSummaryEntry {
   platform: string;
   score: number | null;
+  /**
+   * Number of pages this platform's average is based on. Used to weight the
+   * executive-summary headline so it reproduces the same table it sits above
+   * (Phase 6.1 / N1) instead of drifting from a differently-aggregated score.
+   */
+  pageCount?: number;
+}
+
+/**
+ * Computes the executive-summary headline score as the page-weighted mean of
+ * the platform rows actually rendered in the "Audit Summary" table, so the
+ * big number at the top of the summary is always reproducible from the table
+ * beneath it (Phase 6.1 / N1). Falls back to `fallbackScore` when no platform
+ * rows carry a usable score (e.g. a caller that doesn't pass platformSummary).
+ */
+export function computeAggregatePlatformHeadline(
+  platformSummary: PlatformSummaryEntry[] | undefined,
+  fallbackScore: number,
+): { score: number; simpleMean: number; weightedMean: number } {
+  const scoredRows = (Array.isArray(platformSummary) ? platformSummary : []).filter(
+    (entry): entry is PlatformSummaryEntry & { score: number } =>
+      Boolean(entry) && typeof entry.score === 'number' && Number.isFinite(entry.score),
+  );
+
+  if (scoredRows.length === 0) {
+    const fallback = Math.round(Number(fallbackScore) || 0);
+    return { score: fallback, simpleMean: fallback, weightedMean: fallback };
+  }
+
+  const simpleMean = scoredRows.reduce((sum, row) => sum + row.score, 0) / scoredRows.length;
+  const weightOf = (row: PlatformSummaryEntry): number => (Number(row.pageCount) > 0 ? Number(row.pageCount) : 1);
+  const totalWeight = scoredRows.reduce((sum, row) => sum + weightOf(row), 0);
+  const weightedSum = scoredRows.reduce((sum, row) => sum + row.score * weightOf(row), 0);
+  const weightedMean = totalWeight > 0 ? weightedSum / totalWeight : simpleMean;
+
+  return { score: Math.round(weightedMean), simpleMean, weightedMean };
 }
 
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {
@@ -527,6 +563,12 @@ export async function generateAuditAiSummaryPdf(
     scorecard?: AuditScorecard;
     platformSummary?: PlatformSummaryEntry[];
     planType?: string;
+    /**
+     * Count of WCAG criteria flagged Fail across the same matrices the full
+     * report ships (Phase 6.3 / N6). When omitted, falls back to the
+     * scorecard's own (differently-computed) wcagSummary.criteriaCount.
+     */
+    wcagFlaggedCriteriaCount?: number;
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -581,13 +623,19 @@ export async function generateAuditAiSummaryPdf(
         ].join('|'),
       )
       : [];
-    const normalizedDimensions = Array.isArray(options.scorecard?.dimensions)
-      ? options.scorecard.dimensions
+    // Phase 6.4 / N7: weakest/strongest must name one of the eight evaluation
+    // dimensions the full report actually prints — not the four-category
+    // primary-dimension rollup, which uses names the full report never uses.
+    // Dimensions excluded on every scored page (weight 0) are dropped so an
+    // unevaluated "Excluded" component can never surface as "weakest".
+    const normalizedDimensions = Array.isArray(options.scorecard?.evaluationDimensions)
+      ? options.scorecard.evaluationDimensions
         .map((dimension) => ({
           label: String(dimension?.label || '').trim(),
           score: Number(dimension?.score || 0),
+          weight: Number(dimension?.weight || 0),
         }))
-        .filter((dimension) => dimension.label)
+        .filter((dimension) => dimension.label && dimension.weight > 0)
       : [];
     const normalizedTopIssues = Array.isArray(options.scorecard?.topIssues)
       ? dedupeByKey(options.scorecard.topIssues
@@ -605,6 +653,39 @@ export async function generateAuditAiSummaryPdf(
       )
       : [];
 
+    // Phase 6.1 / N1: the headline score must always be reproducible from the
+    // same platform table rendered below it, so compute it from that table
+    // (page-weighted mean) instead of a separately-aggregated scorecard
+    // number that can drift from what the reader sees. If the weighted and
+    // simple means of the table disagree by more than a rounding point, the
+    // table itself is inconsistent (e.g. wildly uneven per-platform page
+    // counts) — refuse to ship a summary that contradicts its own numbers,
+    // matching the PDF combiner's fail-loudly philosophy.
+    const platformSummaryRows = Array.isArray(options.platformSummary)
+      ? options.platformSummary.filter((entry) => entry && entry.platform)
+      : [];
+    let overallScore: number;
+    let riskTierRaw: string;
+    let scoreStatusRaw: string;
+    if (options.scorecard) {
+      const headline = computeAggregatePlatformHeadline(platformSummaryRows, Number(options.scorecard.overallScore || 0));
+      if (platformSummaryRows.some((row) => typeof row.score === 'number') && Math.abs(headline.weightedMean - headline.simpleMean) > 1) {
+        reject(new Error(
+          `Executive summary headline for ${options.url} would read ${headline.score}%, which diverges from the `
+          + `${headline.simpleMean.toFixed(1)}% mean of its own platform table by more than 1 point. `
+          + 'Refusing to generate a self-contradictory summary.',
+        ));
+        return;
+      }
+      overallScore = headline.score;
+      riskTierRaw = classifyRiskTier(overallScore);
+      scoreStatusRaw = classifyScoreStatus(overallScore).replace(/-/g, ' ');
+    } else {
+      overallScore = 0;
+      riskTierRaw = 'unknown';
+      scoreStatusRaw = 'pending';
+    }
+
     const doc = new PDFDocument({
       margins: { top: 56, bottom: 64, left: 48, right: 48 },
       size: 'A4',
@@ -619,9 +700,6 @@ export async function generateAuditAiSummaryPdf(
     const pageMarginLeft = doc.page.margins.left;
     const pageMarginRight = doc.page.margins.right;
     const contentWidth = doc.page.width - pageMarginLeft - pageMarginRight;
-    const overallScore = Math.round(Number(options.scorecard?.overallScore || 0));
-    const riskTierRaw = String(options.scorecard?.riskTier || 'unknown').toLowerCase();
-    const scoreStatusRaw = String(options.scorecard?.scoreStatus || 'pending').replace(/-/g, ' ');
     const generatedAt = new Date(aiReport.generatedAt);
     const generatedAtLabel = Number.isNaN(generatedAt.getTime())
       ? aiReport.generatedAt
@@ -679,12 +757,25 @@ export async function generateAuditAiSummaryPdf(
       const detailWidth = contentWidth - scoreBoxWidth - 30;
       const weakest = [...normalizedDimensions].sort((a, b) => a.score - b.score)[0];
       const strongest = [...normalizedDimensions].sort((a, b) => b.score - a.score)[0];
+      // Phase 6.2 / N2: pageCount is the honest distinct-URL count (never
+      // multiplied by device count) once the caller builds the scorecard from
+      // buildAggregateAuditScorecard's pageCount option; see full-audit
+      // pipelines. "Pages audited" therefore reads a truthful single number.
+      const pageCount = Number(options.scorecard.pageCount || 0);
       const detailRows: Array<[string, string]> = [
         ['Status', scoreStatusRaw.replace(/\b\w/g, (c) => c.toUpperCase())],
-        ['Pages audited', String(Number(options.scorecard.pageCount || 0))],
+        ['Pages audited', String(pageCount)],
       ];
-      if (options.scorecard.wcagSummary?.criteriaCount) {
-        detailRows.push(['WCAG criteria flagged', String(options.scorecard.wcagSummary.criteriaCount)]);
+      // Phase 6.3 / N6: prefer the count of Fail criteria unioned across the
+      // same matrices the full report ships; only fall back to the
+      // scorecard's own (differently-computed) summary when the caller
+      // didn't supply one. typeof-check (not truthy) so a genuine 0 still
+      // prints instead of silently hiding the row.
+      const flaggedCount = typeof options.wcagFlaggedCriteriaCount === 'number'
+        ? options.wcagFlaggedCriteriaCount
+        : options.scorecard.wcagSummary?.criteriaCount;
+      if (typeof flaggedCount === 'number') {
+        detailRows.push(['WCAG criteria flagged', String(flaggedCount)]);
       }
       if (weakest) {
         detailRows.push(['Weakest area', `${weakest.label} (${Math.round(weakest.score)}%)`]);
@@ -702,13 +793,30 @@ export async function generateAuditAiSummaryPdf(
         rowY += 17;
       });
       doc.restore();
-      doc.y = cardTop + cardHeight + 18;
+      doc.y = cardTop + cardHeight + 6;
+
+      // Phase 6.2/6.3 (N2, N6): spell out the honest page x device math and
+      // the matrix scope in a caption beneath the fixed-width card, where a
+      // full sentence can actually fit legibly.
+      const deviceCount = platformSummaryRows.length;
+      const pageDeviceAuditCount = platformSummaryRows.reduce((sum, row) => sum + (Number(row.pageCount) || 0), 0);
+      if (deviceCount > 0 && pageDeviceAuditCount > 0) {
+        const captionParts = [
+          `Pages audited counts distinct URLs: ${pageCount} page${pageCount === 1 ? '' : 's'} x `
+          + `${deviceCount} device${deviceCount === 1 ? '' : 's'} = ${pageDeviceAuditCount} page-device audits.`,
+        ];
+        if (typeof flaggedCount === 'number') {
+          captionParts.push('WCAG criteria flagged is the union of failing criteria across all pages and devices in this audit.');
+        }
+        doc.font('RegularFont').fontSize(8).fillColor('#94A3B8')
+          .text(captionParts.join(' '), pageMarginLeft, doc.y, { width: contentWidth });
+        doc.y += 6;
+      }
+      doc.y += 12;
     };
 
     const renderAuditSummaryTable = (): void => {
-      const summary = Array.isArray(options.platformSummary)
-        ? options.platformSummary.filter((entry) => entry && entry.platform)
-        : [];
+      const summary = platformSummaryRows;
       if (summary.length === 0) return;
 
       const startY = doc.y;

@@ -367,7 +367,7 @@ function clampAuditScore(value: number | null | undefined): number {
     return Math.max(0, Math.min(1, Number(value)));
 }
 
-function classifyScoreStatus(overallScore: number): AuditScoreStatus {
+export function classifyScoreStatus(overallScore: number): AuditScoreStatus {
     if (overallScore >= 80) {
         return "pass";
     }
@@ -379,7 +379,7 @@ function classifyScoreStatus(overallScore: number): AuditScoreStatus {
     return "fail";
 }
 
-function classifyRiskTier(overallScore: number): AuditRiskTier {
+export function classifyRiskTier(overallScore: number): AuditRiskTier {
     if (overallScore >= 80) {
         return "low";
     }

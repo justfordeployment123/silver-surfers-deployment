@@ -51,10 +51,21 @@ interface AiAuditReportPayload {
   stakeholderNote?: string;
 }
 
+// Phase 6.4 / N7: name weakest/strongest using one of the eight evaluation
+// dimensions the full report actually prints, never the four-category
+// primary-dimension rollup (whose names — "Cognitive Load", "Motor
+// Accessibility", etc. — appear nowhere in the full report). Dimensions
+// excluded on every scored page (weight 0) are dropped so an unevaluated
+// "Excluded" component can never surface as "weakest".
+function evaluatedDimensions(scorecard: AuditScorecard): AuditScorecard['evaluationDimensions'] {
+  return (scorecard.evaluationDimensions || []).filter((dimension) => Number(dimension.weight) > 0);
+}
+
 function describeSiteContext(options: GenerateAuditAiReportOptions): string {
   const { scorecard } = options;
-  const weakest = [...(scorecard.dimensions || [])].sort((a, b) => a.score - b.score)[0];
-  const strongest = [...(scorecard.dimensions || [])].sort((a, b) => b.score - a.score)[0];
+  const dimensions = evaluatedDimensions(scorecard);
+  const weakest = [...dimensions].sort((a, b) => a.score - b.score)[0];
+  const strongest = [...dimensions].sort((a, b) => b.score - a.score)[0];
   const issueTitles = (scorecard.topIssues || []).slice(0, 3).map((i) => i.title).filter(Boolean);
 
   return [
@@ -194,7 +205,7 @@ function dedupeFindingGuidance(values: AuditAiFindingGuidance[]): AuditAiFinding
 }
 
 function getPrimaryConcern(scorecard: AuditScorecard): string {
-  const weakestDimension = [...(scorecard.dimensions || [])]
+  const weakestDimension = [...evaluatedDimensions(scorecard)]
     .sort((left, right) => left.score - right.score)[0];
 
   if (!weakestDimension) {
@@ -394,6 +405,7 @@ async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions
       'You are a senior accessibility analyst writing executive-level audit reports for the SilverSurfers platform, which evaluates websites for older-adult usability (50+ users).',
       'Write for a business stakeholder, not a developer. Tone: confident, specific, plainspoken.',
       'Ground every section in the actual scan data the user provides — reference the site URL, score, weakest dimensions, and named top issues. Do NOT use generic boilerplate.',
+      'When naming a weakest, strongest, or notably weak/strong area, use one of the exact "evaluationDimensions" labels from the scan data (e.g. "Trust & Security Signals") — never the four-category rollup ("dimensions") labels, which do not appear anywhere in the client\'s full report and cannot be looked up there.',
       'Do NOT claim certification, guaranteed compliance, or legal conformance.',
       'Do NOT repeat the same recommendation or finding guidance. If the same issue appears on multiple devices or pages, merge it into one item.',
       'Do NOT include bullet characters or numbering inside array item text; the report renderer adds numbering.',

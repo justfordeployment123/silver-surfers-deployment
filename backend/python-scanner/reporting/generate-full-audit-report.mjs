@@ -64,6 +64,9 @@ function buildPlatformSummary(reportsByPlatform) {
     return {
       platform: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
       score: scores.length > 0 ? Math.round(scores.reduce((sum, score) => sum + score, 0) / scores.length) : null,
+      // Phase 6.1 / N1: weight for the executive-summary headline so it
+      // reproduces the page-weighted mean of this same table.
+      pageCount: scores.length,
     };
   });
 }
@@ -130,6 +133,14 @@ async function main() {
   const missingPagesByPlatform = {};
   const scorecards = [];
   const pdfQueue = [];
+  // Phase 6.2 / N2, N15: distinct page URLs, kept separate from
+  // scorecards.length (one entry per page x device) so "Pages audited" never
+  // triples the real page count.
+  const uniquePageUrls = new Set();
+  // Phase 6.3 / N6: union of Fail criteria across every per-page matrix this
+  // report actually ships, so the exec summary's flagged count always
+  // recomputes from the same matrices the full report prints.
+  const flaggedCriteria = new Set();
 
   // Phase 1: collect scan data and build scorecards (no PDF generation yet)
   for (const [index, target] of (aggregate.targets || []).entries()) {
@@ -157,6 +168,7 @@ async function main() {
       isLiteVersion,
     });
     scorecards.push(scorecard);
+    uniquePageUrls.add(url);
 
     // Build a per-page WCAG matrix from this page's own scorecard so each PDF
     // shows accurate issue counts for that page, not site-wide totals.
@@ -165,6 +177,11 @@ async function main() {
       scorecard.notApplicableAuditIds,
       scorecard.manualReviewAuditIds,
     );
+    for (const row of pageWcagMatrix) {
+      if (row.status === 'fail') {
+        flaggedCriteria.add(row.criterion);
+      }
+    }
 
     const reportEntry = {
       jsonReportPath,
@@ -252,7 +269,9 @@ async function main() {
   let aiReport;
   if (scorecards.length > 0) {
     const aggregateScorecard = buildAggregateAuditScorecard(scorecards, {
-      pageCount: scorecards.length,
+      // Phase 6.2 / N2, N15: honest distinct-URL count, not one entry per
+      // page x device.
+      pageCount: uniquePageUrls.size || scorecards.length,
       platforms: buildPlatformScores(reportsByPlatform),
     });
     aiReport = await generateAuditAiReport({
@@ -268,6 +287,9 @@ async function main() {
       title: 'AI Executive Summary',
       scorecard: aggregateScorecard,
       platformSummary: buildPlatformSummary(reportsByPlatform),
+      // Phase 6.3 / N6: union of Fail criteria across every per-page matrix
+      // this report ships.
+      wcagFlaggedCriteriaCount: flaggedCriteria.size,
     }).catch((error) => {
       console.warn(`AI executive summary PDF generation failed: ${error?.message || error}`);
     });
