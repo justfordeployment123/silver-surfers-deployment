@@ -751,6 +751,16 @@ addOverallScoreDisplay(scoreData) {
             .text(pagesText, this.margin + 60, this.currentY);
         this.currentY += 25;
 
+        // Surface redirects (e.g. a soft-404 that landed on the home page)
+        // instead of letting the report silently describe a different page.
+        const requestedDisplayUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl.replace(/\/+$/, '') : '';
+        const finalDisplayUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl.replace(/\/+$/, '') : '';
+        if (requestedDisplayUrl && finalDisplayUrl && requestedDisplayUrl !== finalDisplayUrl) {
+            this.doc.fontSize(9).font('RegularFont').fillColor('#6B7280')
+                .text(`Note: the requested URL redirected to ${reportData.finalUrl} during the scan.`, this.margin + 60, this.currentY, { width: this.pageWidth - 60 });
+            this.currentY += 25;
+        }
+
         // Package information (simple label, no dev-only notes)
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
             .text(`Package: ${packageText}`, this.margin + 60, this.currentY);
@@ -3257,27 +3267,33 @@ addOverallScoreDisplay(scoreData) {
             console.log(`[PDF] wcagMatrix rows in input file: ${Array.isArray(reportData.wcagMatrix) ? reportData.wcagMatrix.length : 'MISSING — field not present in JSON'}`);
             const clientEmail = options.clientEmail || 'unknown-client';
             const formFactor = options.formFactor || reportData.configSettings?.formFactor || 'desktop';
-            const url = reportData.finalUrl || 'unknown-url';
+            // Name the report after the *requested* URL (unique per crawl target),
+            // not the post-redirect finalUrl: two targets that redirect to the same
+            // page must never resolve to the same filename and overwrite each other.
+            const url = options.url || reportData.requestedUrl || reportData.finalUrl || 'unknown-url';
             reportData.configSettings = {
                 ...(reportData.configSettings || {}),
                 formFactor,
             };
 
             // Create a safe, short, unique filename from URL and device
-            function safeFilename(url, device) {
+            function safeFilename(url, device, finalUrl) {
                 try {
                     const u = new URL(url.startsWith('http') ? url : `https://${url}`);
                     let hostname = u.hostname.replace(/^www\./, '');
                     let pathname = u.pathname.replace(/[^a-zA-Z0-9]/g, '_');
                     if (pathname.length > 40) pathname = pathname.slice(0, 40) + '_';
-                    const hash = String(url.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
+                    // Hash the requested URL together with the post-redirect URL so
+                    // two targets landing on the same final page still get distinct files.
+                    const hashInput = `${url}|${finalUrl || ''}`;
+                    const hash = String(hashInput.split('').reduce((acc, c) => ((acc << 5) - acc + c.charCodeAt(0)) | 0, 0)).replace('-', '').slice(0, 8);
                     return `${hostname}${pathname ? '_' + pathname : ''}_${hash}-${device}.pdf`;
                 } catch (e) {
                     // fallback for invalid URLs
                     return `report_${device}.pdf`;
                 }
             }
-            const fileName = safeFilename(url, formFactor);
+            const fileName = safeFilename(url, formFactor, reportData.finalUrl);
 
             // Use outputDir if provided, otherwise use clientEmail as folder
             let clientFolder;

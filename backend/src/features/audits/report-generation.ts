@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -45,6 +46,12 @@ function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumbe
   const leftMargin = 40;
   const rightMargin = pageWidth - 40;
 
+  // The footer sits below pdfkit's bottom margin, and every text drawn there
+  // makes pdfkit auto-append a blank page. Zero the bottom margin while the
+  // footer is drawn so the document keeps exactly its intended page count.
+  const bottomMargin = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
+
   doc.strokeColor('#666666')
     .lineWidth(0.5)
     .moveTo(leftMargin, footerY - 5)
@@ -59,6 +66,8 @@ function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumbe
 
   doc.fontSize(9).font('RegularFont').fillColor('#666666')
     .text('Website Accessibility Audit Report', rightMargin - 200, footerY, { width: 200, align: 'right' });
+
+  doc.page.margins.bottom = bottomMargin;
 }
 
 function getRoundedScoreValue(score: number | null | undefined): number | null {
@@ -895,6 +904,158 @@ export async function generateAuditAiSummaryPdf(
   });
 }
 
+export interface MissingMergePage {
+  url: string;
+  reason: string;
+  /** Index of the page in the original crawl sequence; used to re-insert the
+   * gap page at its truthful position. Pages without an order are appended. */
+  order?: number;
+}
+
+export type OrderedMergePage =
+  | { kind: 'report'; report: FullAuditPlatformReport; pdfPath: string }
+  | { kind: 'gap'; url: string; reason: string };
+
+export interface AssembledMergeReportPage {
+  kind: 'report';
+  report: FullAuditPlatformReport;
+  pdfPath: string;
+  pageCount: number;
+}
+
+export interface AssembledMergeGapPage {
+  kind: 'gap';
+  url: string;
+  reason: string;
+}
+
+export type AssembledMergePage = AssembledMergeReportPage | AssembledMergeGapPage;
+
+/**
+ * Rebuilds the original crawl sequence from the successfully generated pages
+ * and the pages that failed. `reports`/`pdfPaths` hold only successful pages
+ * in crawl order; `missingPages` entries carry their original crawl index in
+ * `order` and are slotted back into that position. Entries without a usable
+ * order (and any overflow) are appended so no page is ever dropped silently.
+ */
+export function orderMergePages(
+  reports: FullAuditPlatformReport[],
+  pdfPaths: string[],
+  missingPages: MissingMergePage[] = [],
+): OrderedMergePage[] {
+  const totalSlots = reports.length + missingPages.length;
+  const positionedGaps = new Map<number, MissingMergePage>();
+  const unpositionedGaps: MissingMergePage[] = [];
+  for (const missing of missingPages) {
+    const order = missing.order;
+    if (typeof order === 'number'
+      && Number.isInteger(order)
+      && order >= 0
+      && order < totalSlots
+      && !positionedGaps.has(order)) {
+      positionedGaps.set(order, missing);
+    } else {
+      unpositionedGaps.push(missing);
+    }
+  }
+
+  const ordered: OrderedMergePage[] = [];
+  let reportCursor = 0;
+  for (let slot = 0; slot < totalSlots; slot += 1) {
+    const gap = positionedGaps.get(slot);
+    if (gap) {
+      ordered.push({ kind: 'gap', url: gap.url, reason: gap.reason });
+      continue;
+    }
+    if (reportCursor < reports.length) {
+      ordered.push({ kind: 'report', report: reports[reportCursor], pdfPath: pdfPaths[reportCursor] });
+      reportCursor += 1;
+    }
+  }
+  for (; reportCursor < reports.length; reportCursor += 1) {
+    ordered.push({ kind: 'report', report: reports[reportCursor], pdfPath: pdfPaths[reportCursor] });
+  }
+  for (const gap of unpositionedGaps) {
+    ordered.push({ kind: 'gap', url: gap.url, reason: gap.reason });
+  }
+  return ordered;
+}
+
+/** Renders a single honest "could not be audited" page and returns its path. */
+export async function renderGapPage(options: {
+  url: string;
+  reason: string;
+  outputDir: string;
+  device: FullAuditDevice;
+}): Promise<string> {
+  const { url, reason, outputDir, device } = options;
+  const gapPagePath = path.join(
+    outputDir,
+    `gap-${device}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.pdf`,
+  );
+  const gapDoc = new PDFDocument({ margin: 40, size: 'A4' });
+  const gapStream = fsSync.createWriteStream(gapPagePath);
+  gapDoc.pipe(gapStream);
+  gapDoc.registerFont('RegularFont', 'Helvetica');
+  gapDoc.registerFont('BoldFont', 'Helvetica-Bold');
+
+  const gapMargin = 40;
+  const gapWidth = 515;
+
+  gapDoc.rect(0, 0, gapDoc.page.width, 50).fill('#1E3A8A');
+  gapDoc.fontSize(16).font('BoldFont').fillColor('#FFFFFF')
+    .text('Page Could Not Be Audited', gapMargin, 15, { width: gapWidth, align: 'left' });
+
+  let gapY = 140;
+  gapDoc.fontSize(20).font('BoldFont').fillColor('#2C3E50')
+    .text('This page could not be audited', gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 60;
+  gapDoc.fontSize(13).font('BoldFont').fillColor('#2C3E50')
+    .text(getReportPageName(url), gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 30;
+  gapDoc.fontSize(10).font('RegularFont').fillColor('#6B7280')
+    .text(url, gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 50;
+  gapDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
+    .text(`Reason: ${reason}`, gapMargin, gapY, { width: gapWidth, align: 'center' });
+  gapY += 50;
+  gapDoc.fontSize(10).font('RegularFont').fillColor('#6B7280')
+    .text(
+      new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+      gapMargin,
+      gapY,
+      { width: gapWidth, align: 'center' },
+    );
+
+  gapDoc.end();
+  await new Promise<void>((resolve, reject) => {
+    gapStream.on('finish', resolve);
+    gapStream.on('error', reject);
+  });
+  return gapPagePath;
+}
+
+/**
+ * Builds the TOC rows for the assembled body. Gap pages always render with an
+ * honest 'N/A' score and occupy exactly one page.
+ */
+export function buildMergeTocEntries(
+  pages: AssembledMergePage[],
+): Array<{ pageName: string; score: string; actualPageCount: number }> {
+  return pages.map((page) => {
+    if (page.kind === 'gap') {
+      return { pageName: getReportPageName(page.url), score: 'N/A', actualPageCount: 1 };
+    }
+    return {
+      pageName: getReportPageName(page.report.url),
+      score: page.report.score !== null && page.report.score !== undefined
+        ? `${Math.round(page.report.score)}%`
+        : 'N/A',
+      actualPageCount: page.pageCount > 1 ? page.pageCount - 1 : 0,
+    };
+  });
+}
+
 export async function mergePDFsByPlatform(options: {
   pdfPaths: string[];
   device: FullAuditDevice;
@@ -903,10 +1064,70 @@ export async function mergePDFsByPlatform(options: {
   reports: FullAuditPlatformReport[];
   planType: string;
   platformSummary?: PlatformSummaryEntry[];
+  missingPages?: MissingMergePage[];
 }): Promise<string> {
-  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [] } = options;
+  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [], missingPages = [] } = options;
   if (!pdfPaths || pdfPaths.length === 0) {
     throw new Error('No PDF paths provided for merging');
+  }
+
+  // Rebuild the original crawl sequence: `reports`/`pdfPaths` hold only the
+  // successfully generated pages in crawl order, while `missingPages` brings
+  // the failed pages back in at their truthful positions. Every body PDF is
+  // then validated; unreadable files degrade to gap pages, and byte-identical
+  // files abort the merge because they mean two pages resolved to one PDF.
+  const orderedPages = orderMergePages(reports, pdfPaths, missingPages);
+  const assembledPages: AssembledMergePage[] = [];
+  const seenPdfHashes = new Map<string, string>();
+  for (const page of orderedPages) {
+    if (page.kind === 'gap') {
+      assembledPages.push(page);
+      continue;
+    }
+
+    const { report, pdfPath } = page;
+    const pdfExists = pdfPath
+      ? await fs.access(pdfPath).then(() => true).catch(() => false)
+      : false;
+    if (!pdfExists) {
+      assembledPages.push({
+        kind: 'gap',
+        url: report.url,
+        reason: 'The individual report file was missing when the combined PDF was assembled.',
+      });
+      continue;
+    }
+
+    let pdfBytes: Buffer;
+    let pageCount: number;
+    try {
+      pdfBytes = await fs.readFile(pdfPath);
+      pageCount = (await PDFLib.load(pdfBytes)).getPageCount();
+    } catch {
+      assembledPages.push({
+        kind: 'gap',
+        url: report.url,
+        reason: 'The individual report file could not be read when the combined PDF was assembled.',
+      });
+      continue;
+    }
+
+    const pdfHash = createHash('sha256').update(pdfBytes).digest('hex');
+    const duplicateUrl = seenPdfHashes.get(pdfHash);
+    if (duplicateUrl) {
+      throw new Error(
+        `Duplicate individual report detected while assembling the combined ${device} PDF: "${report.url}" is byte-identical to "${duplicateUrl}".`,
+      );
+    }
+    seenPdfHashes.set(pdfHash, report.url);
+
+    assembledPages.push({ kind: 'report', report, pdfPath, pageCount });
+  }
+
+  const reportPages = assembledPages.filter((page): page is AssembledMergeReportPage => page.kind === 'report');
+  const gapPageCount = assembledPages.length - reportPages.length;
+  if (reportPages.length === 0) {
+    throw new Error('No readable individual PDF reports available for merging');
   }
 
   const deviceCapitalized = device.charAt(0).toUpperCase() + device.slice(1);
@@ -924,7 +1145,7 @@ export async function mergePDFsByPlatform(options: {
   const titleMargin = 40;
   const titlePageWidth = 515;
   const titlePageHeight = titleDoc.page.height;
-  const baseUrl = reports[0]?.url || 'website';
+  const baseUrl = reportPages[0]?.report.url || reports[0]?.url || 'website';
   const siteName = extractSiteNameFromUrl(baseUrl);
 
   titleDoc.rect(0, 0, titleDoc.page.width, titlePageHeight).fill('#FFFFFF');
@@ -961,9 +1182,9 @@ export async function mergePDFsByPlatform(options: {
   const logoSize = 120;
   drawReportLogo(titleDoc, { x: logoX, y: logoY, size: logoSize });
 
-  drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reports.map((report) => ({
-    platform: getReportPageName(report.url),
-    score: report.score,
+  drawCoverSummarySection(titleDoc, platformSummary.length > 0 ? platformSummary : reportPages.map((page) => ({
+    platform: getReportPageName(page.report.url),
+    score: page.report.score,
   })), {
     x: titleMargin,
     y: titleY + 190,
@@ -985,8 +1206,8 @@ export async function mergePDFsByPlatform(options: {
 
   const coverMargin = 40;
   const coverWidth = 515;
-  const avgScore = reports.length > 0
-    ? reports.reduce((sum, report) => sum + (report.score || 0), 0) / reports.length
+  const avgScore = reportPages.length > 0
+    ? reportPages.reduce((sum, page) => sum + (page.report.score || 0), 0) / reportPages.length
     : 0;
   const roundedScore = Math.round(avgScore);
   const isPassing = avgScore >= 80;
@@ -1051,9 +1272,18 @@ export async function mergePDFsByPlatform(options: {
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
     .text(`Report prepared for: ${email_address}`, coverMargin + 60, coverY);
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text(`Pages audited: ${reports.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
+    .text(`Pages audited: ${reportPages.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
+  if (gapPageCount > 0) {
+    coverDoc.fontSize(11).font('RegularFont').fillColor('#B45309')
+      .text(
+        `${gapPageCount} page${gapPageCount === 1 ? '' : 's'} could not be audited; see the Table of Contents for details.`,
+        coverMargin + 60,
+        coverY + 50,
+        { width: coverWidth - 120 },
+      );
+  }
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text(`Package: ${packageText}`, coverMargin + 60, coverY + 50, { width: coverWidth - 120 });
+    .text(`Package: ${packageText}`, coverMargin + 60, coverY + (gapPageCount > 0 ? 75 : 50), { width: coverWidth - 120 });
   addFooterToPdfDocument(coverDoc, 2);
   coverDoc.end();
 
@@ -1062,45 +1292,13 @@ export async function mergePDFsByPlatform(options: {
     coverStream.on('error', reject);
   });
 
-  const pageCounts: number[] = [];
-  const validPdfPaths: string[] = [];
-  const validReports: FullAuditPlatformReport[] = [];
-  for (let index = 0; index < pdfPaths.length; index += 1) {
-    const pdfPath = pdfPaths[index];
-    const report = reports[index];
-    if (!report) {
-      continue;
-    }
-
-    try {
-      if (!await fs.access(pdfPath).then(() => true).catch(() => false)) {
-        continue;
-      }
-
-      const pdfBytes = await fs.readFile(pdfPath);
-      const pdfDoc = await PDFLib.load(pdfBytes);
-      const pc = pdfDoc.getPageCount();
-      pageCounts.push(pc);
-      validPdfPaths.push(pdfPath);
-      validReports.push(report);
-    } catch {
-      continue;
-    }
-  }
-
   // ── TOC: two-pass rendering ──────────────────────────────────────────────
   // Collect page names, scores, and per-report page counts independently of
   // the final TOC page numbers. We can't pre-compute how many pages the TOC
   // will occupy without rendering it, so we do two passes: the first render
   // uses placeholder page numbers and gives us the actual TOC page count; the
   // second render uses the corrected numbers.
-  const tocEntryData = validReports.map((report, index) => ({
-    pageName: getReportPageName(report.url),
-    score: report.score !== null && report.score !== undefined
-      ? `${Math.round(report.score)}%`
-      : 'N/A',
-    actualPageCount: pageCounts[index] > 1 ? pageCounts[index] - 1 : 0,
-  }));
+  const tocEntryData = buildMergeTocEntries(assembledPages);
 
   const renderToc = async (
     entries: Array<{ pageName: string; score: string; startPage: number }>,
@@ -1228,17 +1426,48 @@ export async function mergePDFsByPlatform(options: {
   for (const p of allTocPages) mergedPdf.addPage(p);
   await fs.unlink(tocPagePath).catch(() => undefined);
 
-  for (let index = 0; index < validPdfPaths.length; index += 1) {
-    const pdfPath = validPdfPaths[index];
-    const pdfBytes = await fs.readFile(pdfPath);
-    const pdfDoc = await PDFLib.load(pdfBytes);
-    const pageCount = pdfDoc.getPageCount();
-
-    if (pageCount > 1) {
-      const pageIndices = Array.from({ length: pageCount - 1 }, (_value, pageIndex) => pageIndex + 1);
-      const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
-      copiedPages.forEach((page) => mergedPdf.addPage(page));
+  for (const page of assembledPages) {
+    if (page.kind === 'gap') {
+      const gapPagePath = await renderGapPage({
+        url: page.url,
+        reason: page.reason,
+        outputDir,
+        device,
+      });
+      try {
+        const gapBytes = await fs.readFile(gapPagePath);
+        const gapDocLib = await PDFLib.load(gapBytes);
+        const [gapPage] = await mergedPdf.copyPages(gapDocLib, [0]);
+        mergedPdf.addPage(gapPage);
+      } finally {
+        await fs.unlink(gapPagePath).catch(() => undefined);
+      }
+      continue;
     }
+
+    const pdfBytes = await fs.readFile(page.pdfPath);
+    const pdfDoc = await PDFLib.load(pdfBytes);
+
+    if (page.pageCount > 1) {
+      const pageIndices = Array.from({ length: page.pageCount - 1 }, (_value, pageIndex) => pageIndex + 1);
+      const copiedPages = await mergedPdf.copyPages(pdfDoc, pageIndices);
+      copiedPages.forEach((copiedPage) => mergedPdf.addPage(copiedPage));
+    }
+  }
+
+  // Post-conditions: the TOC must describe exactly the assembled body, and the
+  // merged page count must match the TOC's page-number arithmetic.
+  if (tocEntries.length !== reportPages.length + gapPageCount) {
+    throw new Error(
+      `Combined ${device} PDF assembly mismatch: TOC has ${tocEntries.length} entries but the body contains ${reportPages.length} reports and ${gapPageCount} gap pages.`,
+    );
+  }
+  const expectedMergedPageCount = 2 + actualTocPageCount
+    + tocEntryData.reduce((sum, entry) => sum + entry.actualPageCount, 0);
+  if (mergedPdf.getPageCount() !== expectedMergedPageCount) {
+    throw new Error(
+      `Combined ${device} PDF assembly mismatch: expected ${expectedMergedPageCount} pages from the TOC arithmetic but the merged document has ${mergedPdf.getPageCount()}.`,
+    );
   }
 
   const mergedPdfBytes = await mergedPdf.save();

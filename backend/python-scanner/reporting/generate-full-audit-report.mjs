@@ -195,12 +195,23 @@ async function main() {
   for (const [device, reports] of Object.entries(reportsByPlatform)) {
     // Build aligned (pdfPath, report) pairs using the queue's crawl order.
     // This guarantees pdfPaths[i] and reports[i] always describe the same page.
-    // Pages whose PDF generation failed (no outputPdfPath) are excluded from both
-    // arrays together, so no label can be silently assigned to the wrong content.
+    // Pages whose PDF generation failed (no outputPdfPath) become explicit gap
+    // pages at their original crawl position instead of being silently dropped.
     const deviceQueue = pdfQueue.filter((e) => e.device === device);
-    const successfulPairs = deviceQueue
-      .map((entry, i) => ({ pdfPath: entry.outputPdfPath, report: reports[i] }))
-      .filter((pair) => pair.pdfPath && pair.report);
+    const successfulPairs = [];
+    const missingPages = [];
+    deviceQueue.forEach((entry, i) => {
+      const report = reports[i];
+      if (entry.outputPdfPath && report) {
+        successfulPairs.push({ pdfPath: entry.outputPdfPath, report });
+      } else {
+        missingPages.push({
+          url: entry.url,
+          reason: 'PDF generation failed for this page.',
+          order: i,
+        });
+      }
+    });
 
     if (successfulPairs.length === 0) {
       continue;
@@ -212,10 +223,14 @@ async function main() {
       email_address: email,
       outputDir,
       reports: successfulPairs.map((p) => p.report),
+      missingPages,
       planType: planId,
       platformSummary: buildPlatformSummary(reportsByPlatform),
     }).catch((error) => {
-      console.warn(`Combined ${device} PDF merge failed: ${error?.message || error}`);
+      console.error(`Combined ${device} PDF merge failed: ${error?.message || error}`, {
+        reportUrls: successfulPairs.map((p) => p.report.url),
+        missingPageUrls: missingPages.map((p) => p.url),
+      });
     });
   }
 

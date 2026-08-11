@@ -62,6 +62,7 @@ import {
   generateSeniorAccessibilityReport,
   mergePDFsByPlatform,
   type FullAuditPlatformReport,
+  type MissingMergePage,
 } from './report-generation.ts';
 
 const fullAuditLogger = logger.child('feature:audits:full-audit');
@@ -329,6 +330,16 @@ async function auditLinkForDevice(
   }
 
   const reportData = JSON.parse(await fs.readFile(auditResult.reportPath, 'utf8')) as Record<string, unknown>;
+  const requestedPageUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl.replace(/\/+$/, '') : '';
+  const finalPageUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl.replace(/\/+$/, '') : '';
+  if (requestedPageUrl && finalPageUrl && requestedPageUrl !== finalPageUrl) {
+    fullAuditLogger.warn('Page scan redirected to a different final URL.', {
+      url: link,
+      device,
+      requestedUrl: reportData.requestedUrl,
+      finalUrl: reportData.finalUrl,
+    });
+  }
   if (env.fullAuditCacheEnabled) {
     await setCachedFullAuditPageReport({
       websiteUrl,
@@ -686,8 +697,12 @@ async function generatePlatformReports(
       continue;
     }
 
-    const individualPdfPaths: string[] = [];
-    for (const report of reports) {
+    // Pair each generated PDF with its own report entry so a failed generation
+    // can never shift the (pdfPath, report) alignment downstream; failed pages
+    // are recorded as honest gaps instead of being silently dropped.
+    const successfulPairs: Array<{ pdfPath: string; report: FullAuditReportEntry }> = [];
+    const missingPages: MissingMergePage[] = [];
+    for (const [index, report] of reports.entries()) {
       try {
         await new Promise<void>((resolve) => setImmediate(resolve));
         const seniorPdfResult = await generateSeniorAccessibilityReport({
@@ -705,7 +720,13 @@ async function generatePlatformReports(
         });
 
         if (seniorPdfResult?.reportPath) {
-          individualPdfPaths.push(seniorPdfResult.reportPath);
+          successfulPairs.push({ pdfPath: seniorPdfResult.reportPath, report });
+        } else {
+          missingPages.push({
+            url: report.url,
+            reason: 'PDF generation did not produce a report file.',
+            order: index,
+          });
         }
       } catch (error) {
         fullAuditLogger.error('Failed to generate individual PDF.', {
@@ -714,23 +735,31 @@ async function generatePlatformReports(
           isLiteVersion: Boolean(report.isLiteVersion),
           error: error instanceof Error ? error.message : String(error),
         });
+        missingPages.push({
+          url: report.url,
+          reason: `PDF generation failed: ${error instanceof Error ? error.message : String(error)}`,
+          order: index,
+        });
       }
     }
 
-    if (individualPdfPaths.length > 0) {
+    if (successfulPairs.length > 0) {
       try {
         await mergePDFsByPlatform({
-          pdfPaths: individualPdfPaths,
+          pdfPaths: successfulPairs.map((pair) => pair.pdfPath),
           device,
           email_address: email,
           outputDir: finalReportFolder,
-          reports,
+          reports: successfulPairs.map((pair) => pair.report),
+          missingPages,
           planType: planId,
           platformSummary: buildPlatformSummary(reportsByPlatform),
         });
       } catch (mergeError) {
-        fullAuditLogger.warn('Combined PDF merge failed. Falling back to summary PDF.', {
+        fullAuditLogger.error('Combined PDF merge failed. Falling back to summary PDF.', {
           device,
+          reportUrls: successfulPairs.map((pair) => pair.report.url),
+          missingPageUrls: missingPages.map((page) => page.url),
           error: mergeError instanceof Error ? mergeError.message : String(mergeError),
         });
 
@@ -740,7 +769,7 @@ async function generatePlatformReports(
           email_address: email,
           outputDir: finalReportFolder,
           planType: planId,
-          individualPdfPaths,
+          individualPdfPaths: successfulPairs.map((pair) => pair.pdfPath),
           wcagStandard,
           conformanceLevel,
           platformSummary: buildPlatformSummary(reportsByPlatform),
