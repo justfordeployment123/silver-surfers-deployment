@@ -448,3 +448,112 @@ test('image-alt remediation snippet uses a generic placeholder, not a canned exa
   assert.ok(!item.codeSnippet.includes('Doctor and patient'), 'canned healthcare example must not recur across sites');
   assert.ok(item.codeSnippet.includes('Descriptive text that names this product'), 'generic placeholder missing');
 });
+
+// Phase 9.1 standing check — "44×44 wording unchanged": the target-size
+// remediation snippet must keep the exact corrected WCAG 2.5.8 wording
+// shipped in Phase 1 (F10) — a client's own consultant would catch a
+// regression here, and it was wrong before that fix.
+test('target-size remediation snippet keeps the exact corrected 44×44 / WCAG 2.5.8 wording', () => {
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 40,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'target-size',
+            title: 'Touch targets are too small or too close together (WCAG 2.5.8)',
+            description: 'Interactive controls are difficult to hit accurately.',
+            score: 0,
+            weight: 6,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['2.5.8'],
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  const item = roadmap.find((entry) => entry.auditId === 'target-size');
+  assert.ok(item?.codeSnippet);
+  assert.ok(
+    item.codeSnippet.includes('44×44px: SilverSurfers senior-friendly standard.'),
+    'the corrected 44×44 standard line must be present verbatim',
+  );
+  assert.ok(
+    item.codeSnippet.includes('WCAG 2.5.8 (AA) requires 24×24px; 44×44 also satisfies WCAG 2.5.5 (AAA).'),
+    'the corrected WCAG 2.5.8/2.5.5 normative line must be present verbatim',
+  );
+  // The phase-1 bug this guards: "44x44px minimum per WCAG 2.5.8" — wrong,
+  // since 2.5.8 actually requires 24x24px — must never reappear.
+  assert.ok(!item.codeSnippet.includes('minimum per WCAG 2.5.8'), 'the incorrect phase-1 wording must not recur');
+});
+
+// Phase 9.1 standing check — "placeholder sentence count zero": the phase-1
+// copy-paste placeholder ("Review this failing audit and implement a code
+// or content fix that removes the accessibility barrier for older
+// adults.") must never resurface, on audits with a dedicated template or
+// ones that fall through to the generic fallback.
+test('no remediation item ever reproduces the retired phase-1 placeholder sentence', () => {
+  const RETIRED_PLACEHOLDER = 'Review this failing audit and implement a code or content fix that removes the accessibility barrier for older adults.';
+
+  const scorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 40,
+        weight: 30,
+        issueCount: 2,
+        topIssues: [
+          {
+            auditId: 'color-contrast',
+            title: 'Color contrast is too low',
+            description: 'Text contrast falls below the recommended threshold.',
+            score: 0,
+            weight: 9,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['1.4.3'],
+          },
+          {
+            // An audit id with no dedicated REMEDIATION_TEMPLATES entry —
+            // forces the generic fallback path.
+            auditId: 'some-unregistered-audit',
+            title: 'Some unregistered audit finding',
+            description: 'A finding with no dedicated remediation template.',
+            score: 0,
+            weight: 3,
+            severity: 'medium',
+            auditSourceType: 'supporting-signal',
+            auditSourceLabel: 'Supporting Signal',
+            displayValue: '4 elements failing',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as const;
+
+  const roadmap = buildRemediationRoadmap(scorecard);
+  assert.ok(roadmap.length >= 2);
+
+  for (const item of roadmap) {
+    assert.ok(!item.action.includes(RETIRED_PLACEHOLDER), `${item.auditId}'s action reproduces the retired placeholder`);
+    assert.ok(!item.whyItMatters.includes(RETIRED_PLACEHOLDER), `${item.auditId}'s whyItMatters reproduces the retired placeholder`);
+  }
+
+  // The unregistered audit must hit the current, accepted generic
+  // fallback — not silently produce empty guidance.
+  const genericItem = roadmap.find((entry) => entry.auditId === 'some-unregistered-audit');
+  assert.ok(genericItem);
+  assert.match(genericItem.action, /Review the failing elements identified in the evidence section above/);
+});

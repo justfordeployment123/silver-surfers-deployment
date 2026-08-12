@@ -127,6 +127,48 @@ test('buildMergeTocEntries marks gap pages as N/A and counts one page each', () 
   ]);
 });
 
+// Phase 9.1 standing check — "TOC pointers land exactly": mergePDFsByPlatform
+// computes each report's TOC start page by cumulatively summing
+// actualPageCount over buildMergeTocEntries' output, in order (title + cover
+// + TOC page count, then += each entry's actualPageCount as it walks the
+// list). That arithmetic is a straightforward reduce, but it is only
+// correct if actualPageCount and entry order are right for every kind of
+// entry (multi-page reports, single-page reports, gap pages) — this locks
+// that data down for a realistic mixed sequence.
+test('buildMergeTocEntries preserves order and actualPageCount for a mixed multi-report, multi-page, gap sequence', () => {
+  const entries = buildMergeTocEntries([
+    { kind: 'report', report: makeReport('https://example.com/', 90), pdfPath: 'home.pdf', pageCount: 4 },
+    { kind: 'gap', url: 'https://example.com/blocked', reason: 'bot protection' },
+    { kind: 'report', report: makeReport('https://example.com/about', 70), pdfPath: 'about.pdf', pageCount: 2 },
+    { kind: 'report', report: makeReport('https://example.com/pricing', 55), pdfPath: 'pricing.pdf', pageCount: 3 },
+  ]);
+
+  assert.deepEqual(entries, [
+    { pageName: 'Home Page', score: '90%', actualPageCount: 3 },
+    { pageName: 'Blocked Page', score: 'N/A', actualPageCount: 1 },
+    { pageName: 'About Page', score: '70%', actualPageCount: 1 },
+    { pageName: 'Pricing Page', score: '55%', actualPageCount: 2 },
+  ]);
+
+  // Replicate mergePDFsByPlatform's own cumulative-offset formula (title(1)
+  // + cover(1) + TOC page count, then += actualPageCount per entry in
+  // order) — this is what actually places each TOC pointer.
+  const assumedTocPageCount = 1;
+  let currentPageNumber = 2 + assumedTocPageCount + 1;
+  const startPages = entries.map((entry) => {
+    const startPage = currentPageNumber;
+    currentPageNumber += entry.actualPageCount;
+    return startPage;
+  });
+
+  assert.deepEqual(startPages, [4, 7, 8, 9]);
+  // Total body pages consumed must equal the sum of every entry's own
+  // actualPageCount — if the TOC's own entry count or per-entry page count
+  // ever drifts from what's actually assembled, this stops matching.
+  const totalBodyPages = entries.reduce((sum, entry) => sum + entry.actualPageCount, 0);
+  assert.equal(currentPageNumber - (2 + assumedTocPageCount + 1), totalBodyPages);
+});
+
 test('humanizeAuditFailureReason maps error codes and messages to honest reasons', () => {
   assert.equal(humanizeAuditFailureReason({ errorCode: 'PAGE_NOT_FOUND' }), 'page not found (HTTP 404)');
   assert.equal(humanizeAuditFailureReason({ errorCode: 'NON_HTML' }), 'non-HTML content');

@@ -306,6 +306,16 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceLabel: "WCAG AA",
         wcagCriteria: ["1.4.10"],
     },
+    // Phase 9.1 standing check (F11): viewport is wired into WCAG 1.4.10
+    // (Reflow, AA) via wcag-mapping.ts's STATIC_AUDIT_MAPPINGS, which
+    // independently drives issue.wcagCriteria and the WCAG matrix — but had
+    // no entry here, so it silently fell back to the generic "Supporting
+    // Signal" badge on a genuinely WCAG-mapped issue.
+    viewport: {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.10"],
+    },
     "text-spacing-audit": {
         auditSourceType: "wcag-aa",
         auditSourceLabel: "WCAG AA",
@@ -316,21 +326,41 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceLabel: "WCAG AA",
         wcagCriteria: ["1.4.4"],
     },
+    // Phase 9.1 standing check (F11): text-font-audit is already wired into
+    // two real WCAG AA criteria (1.4.4 Resize Text, 1.4.12 Text Spacing) via
+    // wcag-mapping.ts's STATIC_AUDIT_MAPPINGS/CRITERION_AUDIT_MAP, which
+    // independently drives issue.wcagCriteria and the WCAG matrix. It was
+    // previously badged "Aging Heuristic" (a house signal implying no WCAG
+    // claim) while simultaneously producing real WCAG matrix rows — exactly
+    // the badge/mapping mismatch F11 fixed for other audits. Badged to match
+    // the mapping that's already live, same as layout-brittle-audit and
+    // text-spacing-audit (both also mapped to 1.4.12).
     "text-font-audit": {
-        auditSourceType: "aging-heuristic",
-        auditSourceLabel: "Aging Heuristic",
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.4", "1.4.12"],
     },
     "flesch-kincaid-audit": {
         auditSourceType: "aging-heuristic",
         auditSourceLabel: "Aging Heuristic",
     },
+    // Phase 9.1 standing check (F11): interactive-color-audit is wired into
+    // two WCAG criteria at different levels — 1.4.1 Use of Color (A) and
+    // 1.4.11 Non-text Contrast (AA) — via wcag-mapping.ts's
+    // STATIC_AUDIT_MAPPINGS. Badged with the stricter (AA) of the two,
+    // same badge/mapping mismatch as text-font-audit and viewport above.
     "interactive-color-audit": {
-        auditSourceType: "aging-heuristic",
-        auditSourceLabel: "Aging Heuristic",
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.1", "1.4.11"],
     },
+    // Phase 9.1 standing check (F11): heading-order is wired into WCAG 1.3.1
+    // (Info and Relationships, A) and 2.4.6 (Headings and Labels, AA);
+    // badged with the stricter (AA) of the two.
     "heading-order": {
-        auditSourceType: "aging-heuristic",
-        auditSourceLabel: "Aging Heuristic",
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.3.1", "2.4.6"],
     },
     "geolocation-on-start": {
         auditSourceType: "aging-heuristic",
@@ -351,13 +381,124 @@ const AUDIT_METADATA: Record<string, AuditIssueMetadata> = {
         auditSourceLabel: "WCAG A",
         wcagCriteria: ["2.4.1"],
     },
+    // Phase 9.1 standing check (F11): line-spacing-audit is wired into WCAG
+    // 1.4.12 (Text Spacing, AA) via wcag-mapping.ts's STATIC_AUDIT_MAPPINGS,
+    // same badge/mapping mismatch as the others fixed in this pass.
     "line-spacing-audit": {
-        auditSourceType: "aging-heuristic",
-        auditSourceLabel: "Aging Heuristic",
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.12"],
     },
+    // Phase 9.1 standing check (F11): autoplay-audit is wired into WCAG
+    // 1.4.2 (Audio Control, A) and 2.2.2 (Pause, Stop, Hide, A) via
+    // wcag-mapping.ts's STATIC_AUDIT_MAPPINGS, same badge/mapping mismatch
+    // as the others fixed in this pass.
     "autoplay-audit": {
-        auditSourceType: "aging-heuristic",
-        auditSourceLabel: "Aging Heuristic",
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["1.4.2", "2.2.2"],
+    },
+    // Phase 9.1 standing check (F11): the entire "ss-" custom audit family
+    // is wired into real WCAG criteria via wcag-mapping.ts's
+    // STATIC_AUDIT_MAPPINGS/CRITERION_AUDIT_MAP (which independently drives
+    // issue.wcagCriteria and the WCAG matrix rows these audits produce), but
+    // none of them had an entry here — every one silently fell back to the
+    // generic "Supporting Signal" badge despite genuinely mapping to WCAG.
+    // Badge levels below are the strictest of each audit's own criteria.
+    "ss-orientation-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.3.4"],
+    },
+    "ss-input-purpose-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.3.5"],
+    },
+    "ss-use-of-color-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["1.4.1"],
+    },
+    "ss-non-text-contrast-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.11"],
+    },
+    "ss-hover-focus-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["1.4.13"],
+    },
+    "ss-keyboard-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.1.1"],
+    },
+    "ss-no-keyboard-trap-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.1.2"],
+    },
+    "ss-timing-adjustable-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.2.1"],
+    },
+    "ss-pause-stop-hide-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.2.2"],
+    },
+    "ss-focus-order-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.4.3"],
+    },
+    "ss-focus-visible-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["2.4.7"],
+    },
+    "ss-focus-not-obscured-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["2.4.11"],
+    },
+    "ss-label-in-name-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["2.5.3"],
+    },
+    "ss-on-focus-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["3.2.1"],
+    },
+    "ss-on-input-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["3.2.2"],
+    },
+    "ss-consistent-navigation-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["3.2.3"],
+    },
+    "ss-consistent-help-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["3.2.6"],
+    },
+    "ss-error-identification-audit": {
+        auditSourceType: "wcag-a",
+        auditSourceLabel: "WCAG A",
+        wcagCriteria: ["3.3.1"],
+    },
+    "ss-status-messages-audit": {
+        auditSourceType: "wcag-aa",
+        auditSourceLabel: "WCAG AA",
+        wcagCriteria: ["4.1.3"],
     },
 };
 

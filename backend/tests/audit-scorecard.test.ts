@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { buildAggregateAuditScorecard, buildAuditScorecard, buildScoreBreakdown } from '../src/features/audits/audit-scorecard.ts';
+import { WCAG_CRITERIA_REGISTRY } from '../src/features/audits/wcag-mapping.ts';
 
 const FULL_AUDIT_IDS = [
   'color-contrast',
@@ -103,8 +104,12 @@ test('buildAuditScorecard maps failing audits into evaluation dimensions and pri
   assert.equal(visualClarity.issueCount, 2);
   assert.equal(visualClarity.topIssues[0].auditId, 'text-font-audit');
   assert.equal(visualClarity.topIssues[0].sourceUrl, 'https://example.com/page-a');
-  assert.equal(visualClarity.topIssues[0].auditSourceType, 'aging-heuristic');
-  assert.equal(visualClarity.topIssues[0].auditSourceLabel, 'Aging Heuristic');
+  // Phase 9.1 (F11): text-font-audit maps to real WCAG AA criteria
+  // (1.4.4 Resize Text, 1.4.12 Text Spacing) and must be badged accordingly,
+  // not as a no-WCAG-claim "Aging Heuristic" house signal.
+  assert.equal(visualClarity.topIssues[0].auditSourceType, 'wcag-aa');
+  assert.equal(visualClarity.topIssues[0].auditSourceLabel, 'WCAG AA');
+  assert.deepEqual(visualClarity.topIssues[0].wcagCriteria, ['1.4.4', '1.4.12']);
 
   const interactionForms = scorecard.evaluationDimensions.find((dimension) => dimension.key === 'interactionForms');
   assert.ok(interactionForms);
@@ -405,4 +410,93 @@ test('buildAuditScorecard wires phase-7 trust checks into trustSecuritySignals',
   const mixedIssue = trust.topIssues.find((issue) => issue.auditId === 'mixed-content-audit');
   assert.ok(mixedIssue);
   assert.equal(mixedIssue.elementCount, 3);
+});
+
+// Phase 9.1 standing check (F11) — "badges match mapped levels": each
+// issue's auditSourceLabel badge ("WCAG A" / "WCAG AA") is hand-maintained
+// alongside its wcagCriteria list, so the two can drift out of sync if one
+// is edited without the other. Cross-check every WCAG-mapped issue's badge
+// against the strictest registered conformance level among its own
+// criteria (an audit can legitimately span more than one level — e.g.
+// interactive-color-audit covers both 1.4.1 (A) and 1.4.11 (AA) — in which
+// case the badge shows the stricter of the two, not either alone).
+test('every WCAG-mapped issue is badged with the strictest of its own criteria\'s conformance levels', () => {
+  const failingScores = Object.fromEntries(FULL_AUDIT_IDS.map((auditId) => [auditId, 0]));
+  const scorecard = buildAuditScorecard(buildReport(failingScores), { pageUrl: 'https://example.com' });
+
+  const wcagIssues = scorecard.issues.filter((issue) => issue.wcagCriteria && issue.wcagCriteria.length > 0);
+  assert.ok(wcagIssues.length > 0, 'expected at least one WCAG-mapped issue in this fixture');
+
+  const levelRank: Record<string, number> = { A: 1, AA: 2, AAA: 3 };
+  for (const issue of wcagIssues) {
+    const levels = (issue.wcagCriteria ?? []).map((criterion) => {
+      const registered = WCAG_CRITERIA_REGISTRY[criterion];
+      assert.ok(registered, `${criterion} must be a registered WCAG criterion`);
+      return registered.level;
+    });
+    const strictest = levels.reduce((strictestSoFar, level) => (levelRank[level] > levelRank[strictestSoFar] ? level : strictestSoFar));
+    assert.equal(
+      issue.auditSourceLabel,
+      `WCAG ${strictest}`,
+      `${issue.auditId} references [${issue.wcagCriteria?.join(', ')}] (strictest: ${strictest}) but is badged "${issue.auditSourceLabel}"`,
+    );
+  }
+});
+
+// Phase 9.1 (F11) — direct coverage for the "ss-" custom audit family
+// specifically, since FULL_AUDIT_IDS (used by the sweep above) doesn't
+// include any of them. Every ss- audit that maps to a WCAG criterion via
+// wcag-mapping.ts must be badged WCAG, not the generic "Supporting Signal"
+// default it silently fell back to before this fix.
+//
+// Real scanner reports embed their own `categories['senior-friendly'].
+// auditRefs` (built per-scan by scanner_config.py's FULL_AUDIT_REFS, which
+// includes the full ss- family with real weights) — getReportCategoryAuditRefs
+// reads that first, falling back to the TS-side custom-config.js (a sparser
+// list that intentionally omits the ss- family) only when a report carries
+// none. This fixture replicates that real shape so the ss- audits are
+// actually scored, instead of silently skipped the way a bare buildReport()
+// fixture (no embedded categories) would leave them.
+test('ss- custom audits mapped to a WCAG criterion are badged WCAG, not Supporting Signal', () => {
+  const report = buildReport();
+  report.audits['ss-orientation-audit'] = {
+    title: 'ss-orientation-audit',
+    description: 'No automated lock detected — manual device test recommended.',
+    score: null,
+    scoreDisplayMode: 'manual',
+  };
+  report.audits['ss-consistent-navigation-audit'] = {
+    title: 'ss-consistent-navigation-audit',
+    description: 'Navigation differs from other pages.',
+    score: 0,
+  };
+  report.audits['ss-label-in-name-audit'] = {
+    title: 'ss-label-in-name-audit',
+    description: 'Visible label is missing from the accessible name.',
+    score: 0,
+  };
+  report.categories = {
+    'senior-friendly': {
+      auditRefs: [
+        ...FULL_AUDIT_IDS.map((id) => ({ id, weight: 1 })),
+        { id: 'ss-orientation-audit', weight: 1 },
+        { id: 'ss-consistent-navigation-audit', weight: 1 },
+        { id: 'ss-label-in-name-audit', weight: 1 },
+      ],
+    },
+  };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+
+  const consistentNav = scorecard.issues.find((issue) => issue.auditId === 'ss-consistent-navigation-audit');
+  assert.ok(consistentNav);
+  assert.equal(consistentNav.auditSourceType, 'wcag-aa');
+  assert.equal(consistentNav.auditSourceLabel, 'WCAG AA');
+  assert.deepEqual(consistentNav.wcagCriteria, ['3.2.3']);
+
+  const labelInName = scorecard.issues.find((issue) => issue.auditId === 'ss-label-in-name-audit');
+  assert.ok(labelInName);
+  assert.equal(labelInName.auditSourceType, 'wcag-a');
+  assert.equal(labelInName.auditSourceLabel, 'WCAG A');
+  assert.deepEqual(labelInName.wcagCriteria, ['2.5.3']);
 });
