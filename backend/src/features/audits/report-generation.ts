@@ -46,6 +46,19 @@ export interface PlatformSummaryEntry {
 }
 
 /**
+ * Phase 8.3 (F13/N11): per-device page list backing the platform averages
+ * printed in the executive summary. Rendered as an appendix so every
+ * Mobile/Tablet number in the summary is reproducible from the summary
+ * itself, even on deliveries where the combined per-device PDFs are not
+ * attached (email size limits, a merge failure, etc.) — the accepted
+ * workaround when shipping three full combined reports isn't feasible.
+ */
+export interface PlatformPageDetailEntry {
+  platform: string;
+  pages: Array<{ url: string; score: number | null }>;
+}
+
+/**
  * Computes the executive-summary headline score as the page-weighted mean of
  * the platform rows actually rendered in the "Audit Summary" table, so the
  * big number at the top of the summary is always reproducible from the table
@@ -569,6 +582,12 @@ export async function generateAuditAiSummaryPdf(
      * scorecard's own (differently-computed) wcagSummary.criteriaCount.
      */
     wcagFlaggedCriteriaCount?: number;
+    /**
+     * Phase 8.3 (F13/N11): per-device page detail backing the platform
+     * averages table. Rendered as an appendix when more than one platform
+     * is present; omitted (or single-platform) plans print nothing extra.
+     */
+    platformPageDetail?: PlatformPageDetailEntry[];
   },
 ): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -975,6 +994,73 @@ export async function generateAuditAiSummaryPdf(
       doc.moveDown(0.5);
     };
 
+    // Phase 8.3 (F13/N11): per-device page detail appendix. Only printed
+    // when more than one platform is present — a single-device plan's one
+    // combined PDF already backs every number the Audit Summary table
+    // shows, so the appendix would be pure repetition there.
+    const renderPlatformPageDetail = (): void => {
+      const platforms = (Array.isArray(options.platformPageDetail) ? options.platformPageDetail : [])
+        .filter((entry) => entry && entry.platform && Array.isArray(entry.pages) && entry.pages.length > 0);
+      if (platforms.length <= 1) return;
+
+      doc.addPage();
+      doc.font('BoldFont').fontSize(16).fillColor('#0F172A')
+        .text('Appendix: Per-Platform Page Detail', pageMarginLeft, doc.y, { width: contentWidth });
+      doc.moveDown(0.2);
+      doc.font('RegularFont').fontSize(9).fillColor('#64748B')
+        .text(
+          'Every page score behind the platform averages above, broken out per device. This appendix backs '
+          + 'every Mobile/Tablet number in this summary even on a delivery where the combined per-device PDF '
+          + 'is not attached.',
+          pageMarginLeft, doc.y, { width: contentWidth, lineGap: 2 },
+        );
+      doc.moveDown(0.6);
+
+      const rowHeight = 16;
+      const headerHeight = 20;
+      const urlColWidth = contentWidth * 0.78;
+      const scoreColWidth = contentWidth - urlColWidth;
+
+      for (const platformEntry of platforms) {
+        if (doc.y + headerHeight + rowHeight * 2 > doc.page.height - doc.page.margins.bottom) {
+          doc.addPage();
+        }
+
+        doc.font('BoldFont').fontSize(12).fillColor('#1E3A8A')
+          .text(
+            `${platformEntry.platform} — ${platformEntry.pages.length} page${platformEntry.pages.length === 1 ? '' : 's'}`,
+            pageMarginLeft, doc.y, { width: contentWidth },
+          );
+        doc.moveDown(0.15);
+
+        const headerY = doc.y;
+        doc.rect(pageMarginLeft, headerY, contentWidth, headerHeight).fill('#3D5A80');
+        doc.font('BoldFont').fontSize(8).fillColor('#FFFFFF')
+          .text('PAGE URL', pageMarginLeft + 6, headerY + 6, { width: urlColWidth - 12, lineBreak: false });
+        doc.text('SCORE', pageMarginLeft + urlColWidth, headerY + 6, { width: scoreColWidth - 6, align: 'right', lineBreak: false });
+        doc.y = headerY + headerHeight;
+
+        platformEntry.pages.forEach((page, index) => {
+          if (doc.y + rowHeight > doc.page.height - doc.page.margins.bottom) {
+            doc.addPage();
+            doc.y = doc.page.margins.top;
+          }
+
+          const rowY = doc.y;
+          if (index % 2 === 0) {
+            doc.rect(pageMarginLeft, rowY, contentWidth, rowHeight).fill('#F8FAFC');
+          }
+          doc.font('RegularFont').fontSize(8).fillColor('#1F2937')
+            .text(page.url, pageMarginLeft + 6, rowY + 4, { width: urlColWidth - 12, lineBreak: false, ellipsis: true });
+          const scoreText = typeof page.score === 'number' ? `${Math.round(page.score)}%` : 'N/A';
+          doc.text(scoreText, pageMarginLeft + urlColWidth, rowY + 4, { width: scoreColWidth - 6, align: 'right', lineBreak: false });
+          doc.y = rowY + rowHeight;
+        });
+
+        doc.moveDown(0.8);
+      }
+    };
+
     renderHero();
 
     if (normalizedHeadline) {
@@ -1013,6 +1099,8 @@ export async function generateAuditAiSummaryPdf(
     );
 
     renderSectionCard('Stakeholder Note', sectionPalette.stakeholder, normalizedStakeholderNote, null);
+
+    renderPlatformPageDetail();
 
     doc.end();
     writeStream.on('finish', () => resolve(options.outputPath));

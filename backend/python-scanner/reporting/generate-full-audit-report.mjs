@@ -6,6 +6,7 @@ import {
   calculateSeniorFriendlinessScore,
   crawlOrderForReportIndex,
   generateAuditAiSummaryPdf,
+  generateCombinedPlatformReport,
   generateSeniorAccessibilityReport,
   humanizeAuditFailureReason,
   mergePDFsByPlatform,
@@ -71,6 +72,17 @@ function buildPlatformSummary(reportsByPlatform) {
   });
 }
 
+// Phase 8.3 (F13/N11): per-device page list backing the platform averages,
+// rendered as an appendix in the exec summary so every Mobile/Tablet number
+// is reproducible from the summary itself even when the combined per-device
+// PDF isn't attached to a given delivery.
+function buildPlatformPageDetail(reportsByPlatform) {
+  return Object.entries(reportsByPlatform).map(([device, reports]) => ({
+    platform: `${device.charAt(0).toUpperCase()}${device.slice(1)}`,
+    pages: reports.map((report) => ({ url: report.url, score: report.score ?? null })),
+  }));
+}
+
 function buildPlatformScores(reportsByPlatform) {
   return Object.entries(reportsByPlatform).map(([device, reports]) => {
     const scores = reports
@@ -133,6 +145,11 @@ async function main() {
   const missingPagesByPlatform = {};
   const scorecards = [];
   const pdfQueue = [];
+  // Phase 8.2 (F13/N11): merge/fallback failures used to be swallowed by a
+  // bare console.error with no fallback attempt, so a device (typically
+  // mobile/tablet) could silently ship nothing while desktop succeeded.
+  // Collected here and written into the manifest so the caller can see it.
+  const warnings = [];
   // Phase 6.2 / N2, N15: distinct page URLs, kept separate from
   // scorecards.length (one entry per page x device) so "Pages audited" never
   // triples the real page count.
@@ -249,21 +266,49 @@ async function main() {
       continue;
     }
 
-    await mergePDFsByPlatform({
-      pdfPaths: successfulPairs.map((p) => p.pdfPath),
-      device,
-      email_address: email,
-      outputDir,
-      reports: successfulPairs.map((p) => p.report),
-      missingPages,
-      planType: planId,
-      platformSummary: buildPlatformSummary(reportsByPlatform),
-    }).catch((error) => {
-      console.error(`Combined ${device} PDF merge failed: ${error?.message || error}`, {
+    try {
+      await mergePDFsByPlatform({
+        pdfPaths: successfulPairs.map((p) => p.pdfPath),
+        device,
+        email_address: email,
+        outputDir,
+        reports: successfulPairs.map((p) => p.report),
+        missingPages,
+        planType: planId,
+        platformSummary: buildPlatformSummary(reportsByPlatform),
+      });
+    } catch (mergeError) {
+      // Phase 8.2 (F13/N11): a merge failure (e.g. Phase 1's dedup-hash
+      // guard tripping on near-identical mobile/tablet pages) used to mean
+      // that device silently shipped nothing while desktop succeeded, with
+      // only a bare console.error nobody downstream could see. Now: log
+      // loudly with full context, attempt the same honest-fallback summary
+      // PDF the TS pipeline falls back to, and record a warning either way
+      // so the caller (and eventually the client-facing record) can tell
+      // the device came up short instead of silently vanishing.
+      const mergeErrorMessage = mergeError?.message || String(mergeError);
+      console.error(`Combined ${device} PDF merge failed: ${mergeErrorMessage}`, {
         reportUrls: successfulPairs.map((p) => p.report.url),
         missingPageUrls: missingPages.map((p) => p.url),
       });
-    });
+      warnings.push(`Combined ${device} report merge failed (${mergeErrorMessage}); a fallback summary PDF was substituted.`);
+
+      try {
+        await generateCombinedPlatformReport({
+          reports,
+          device,
+          email_address: email,
+          outputDir,
+          planType: planId,
+          individualPdfPaths: successfulPairs.map((p) => p.pdfPath),
+          platformSummary: buildPlatformSummary(reportsByPlatform),
+        });
+      } catch (summaryError) {
+        const summaryErrorMessage = summaryError?.message || String(summaryError);
+        console.error(`Fallback combined ${device} PDF generation also failed: ${summaryErrorMessage}`);
+        warnings.push(`Combined ${device} report could not be generated at all (${summaryErrorMessage}).`);
+      }
+    }
   }
 
   let aiReport;
@@ -294,6 +339,8 @@ async function main() {
       // Phase 6.3 / N6: union of Fail criteria across every per-page matrix
       // this report ships.
       wcagFlaggedCriteriaCount: flaggedCriteria.size,
+      // Phase 8.3 (F13/N11): per-device page detail appendix.
+      platformPageDetail: buildPlatformPageDetail(reportsByPlatform),
     }).catch((error) => {
       console.warn(`AI executive summary PDF generation failed: ${error?.message || error}`);
     });
@@ -311,6 +358,9 @@ async function main() {
     outputDir,
     files,
     ...(aiReport ? { aiReport } : {}),
+    // Phase 8.2 (F13/N11): surfaced so the caller can see a per-device
+    // report fell back or failed instead of it silently vanishing.
+    ...(warnings.length > 0 ? { warnings } : {}),
   }, null, 2), 'utf8');
 }
 

@@ -818,6 +818,21 @@ function buildPlatformSummary(reportsByPlatform: Partial<Record<FullAuditDevice,
   });
 }
 
+/**
+ * Phase 8.3 (F13/N11): per-device page list backing the platform averages,
+ * rendered as an appendix in the exec summary so every Mobile/Tablet number
+ * is reproducible from the summary itself even when the combined per-device
+ * PDF isn't attached to a given delivery.
+ */
+function buildPlatformPageDetail(
+  reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>,
+): Array<{ platform: string; pages: Array<{ url: string; score: number | null }> }> {
+  return Object.entries(reportsByPlatform).map(([deviceKey, reports]) => ({
+    platform: deviceKey.charAt(0).toUpperCase() + deviceKey.slice(1),
+    pages: (reports || []).map((entry) => ({ url: entry.url, score: entry.score ?? null })),
+  }));
+}
+
 async function persistAggregateScorecard(
   record: AnalysisRecordDocument,
   reportsByPlatform: Partial<Record<FullAuditDevice, FullAuditReportEntry[]>>,
@@ -2187,6 +2202,8 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
         wcagFlaggedCriteriaCount: builtWcagMatrix
           ? builtWcagMatrix.filter((row) => row.status === 'fail').length
           : undefined,
+        // Phase 8.3 (F13/N11): per-device page detail appendix.
+        platformPageDetail: buildPlatformPageDetail(reportsByPlatform),
       }).catch((error) => {
         fullAuditLogger.warn('Failed to generate AI executive summary PDF.', {
           taskId: effectiveTaskId,

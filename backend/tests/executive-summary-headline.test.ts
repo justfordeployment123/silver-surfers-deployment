@@ -151,3 +151,88 @@ test('generateAuditAiSummaryPdf rejects instead of shipping a headline that cont
 
   await assert.rejects(fs.access(outputPath));
 });
+
+// Phase 8.3 (F13/N11) — per-platform page-detail appendix.
+
+test('generateAuditAiSummaryPdf appends a per-platform page-detail section when more than one platform is present', async (t) => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'exec-summary-appendix-'));
+  t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
+
+  const singlePlatformPath = path.join(tmpDir, 'single.pdf');
+  await generateAuditAiSummaryPdf(buildAiReportFixture(), {
+    url: 'https://example.com',
+    outputPath: singlePlatformPath,
+    scorecard: buildScorecardFixture({ overallScore: 71 }),
+    platformSummary: [{ platform: 'Desktop', score: 71, pageCount: 2 }],
+  });
+
+  const multiPlatformPath = path.join(tmpDir, 'multi.pdf');
+  await generateAuditAiSummaryPdf(buildAiReportFixture(), {
+    url: 'https://example.com',
+    outputPath: multiPlatformPath,
+    scorecard: buildScorecardFixture({ overallScore: 71 }),
+    platformSummary: [
+      { platform: 'Desktop', score: 71, pageCount: 2 },
+      { platform: 'Mobile', score: 71, pageCount: 2 },
+    ],
+    platformPageDetail: [
+      {
+        platform: 'Desktop',
+        pages: [
+          { url: 'https://example.com/', score: 71 },
+          { url: 'https://example.com/about', score: 71 },
+        ],
+      },
+      {
+        platform: 'Mobile',
+        pages: [
+          { url: 'https://example.com/', score: 71 },
+          { url: 'https://example.com/about', score: 71 },
+        ],
+      },
+    ],
+  });
+
+  const singlePdf = await PDFLib.load(await fs.readFile(singlePlatformPath));
+  const multiPdf = await PDFLib.load(await fs.readFile(multiPlatformPath));
+
+  assert.ok(
+    multiPdf.getPageCount() > singlePdf.getPageCount(),
+    `expected the appendix to add at least one page (single=${singlePdf.getPageCount()}, multi=${multiPdf.getPageCount()})`,
+  );
+});
+
+test('generateAuditAiSummaryPdf skips the appendix when platformPageDetail has one platform or fewer', async (t) => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'exec-summary-no-appendix-'));
+  t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
+
+  const withoutAppendixPath = path.join(tmpDir, 'without.pdf');
+  await generateAuditAiSummaryPdf(buildAiReportFixture(), {
+    url: 'https://example.com',
+    outputPath: withoutAppendixPath,
+    scorecard: buildScorecardFixture({ overallScore: 71 }),
+    platformSummary: [{ platform: 'Desktop', score: 71, pageCount: 2 }],
+  });
+
+  const withOnePlatformPath = path.join(tmpDir, 'one-platform.pdf');
+  await generateAuditAiSummaryPdf(buildAiReportFixture(), {
+    url: 'https://example.com',
+    outputPath: withOnePlatformPath,
+    scorecard: buildScorecardFixture({ overallScore: 71 }),
+    platformSummary: [{ platform: 'Desktop', score: 71, pageCount: 2 }],
+    platformPageDetail: [
+      {
+        platform: 'Desktop',
+        pages: [
+          { url: 'https://example.com/', score: 71 },
+          { url: 'https://example.com/about', score: 71 },
+        ],
+      },
+    ],
+  });
+
+  const withoutPdf = await PDFLib.load(await fs.readFile(withoutAppendixPath));
+  const onePlatformPdf = await PDFLib.load(await fs.readFile(withOnePlatformPath));
+
+  assert.equal(onePlatformPdf.getPageCount(), withoutPdf.getPageCount());
+});
