@@ -12,7 +12,12 @@ import { generateSeniorAccessibilityReport as tsGenerateSeniorAccessibilityRepor
 import { generateLiteAccessibilityReport as tsGenerateLiteAccessibilityReport } from './scanner/pdf-generator-lite.js';
 import type { FullAuditDevice } from './full-audit.helpers.ts';
 import type { AuditAiReport } from './ai-reporting.ts';
-import { classifyRiskTier, classifyScoreStatus, type AuditScorecard } from './audit-scorecard.ts';
+import {
+  classifyRiskTier,
+  classifyScoreStatus,
+  computePlatformWeightedScore,
+  type AuditScorecard,
+} from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
 import { describeWcagStandardLabel } from './wcag-mapping.ts';
 
@@ -85,7 +90,12 @@ export function computeAggregatePlatformHeadline(
   const weightedSum = scoredRows.reduce((sum, row) => sum + row.score * weightOf(row), 0);
   const weightedMean = totalWeight > 0 ? weightedSum / totalWeight : simpleMean;
 
-  return { score: Math.round(weightedMean), simpleMean, weightedMean };
+  // Rounded by the shared scorecard helper so the printed headline and the
+  // stored scoreCard.overallScore / record.score are the identical integer
+  // (Phase 10 / N1 residual) rather than two independent roundings.
+  const score = computePlatformWeightedScore(scoredRows) ?? Math.round(weightedMean);
+
+  return { score, simpleMean, weightedMean };
 }
 
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {

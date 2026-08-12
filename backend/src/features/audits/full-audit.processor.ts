@@ -857,16 +857,22 @@ async function persistAggregateScorecard(
       }
     }
 
-    if (deviceScorecards.length > 0) {
-      const deviceAggregate = buildAggregateAuditScorecard(deviceScorecards, {
-        pageCount: deviceScorecards.length,
-      });
+    // Phase 10 (N1 residual): a platform's score is the mean of that device's
+    // per-page scores — byte-for-byte the same computation buildPlatformSummary
+    // does for the table printed in the executive summary. It used to come from
+    // a separately-aggregated deviceAggregate.overallScore, so scoreCard.platforms
+    // (surfaced in the dashboard) and the summary's own platform table could
+    // disagree about the same device on the same scan.
+    const deviceScores = (reports || [])
+      .map((report) => report.score)
+      .filter((score): score is number => score !== null && score !== undefined);
 
+    if (deviceScores.length > 0) {
       platformScorecards.push({
         key: device,
         label: device.charAt(0).toUpperCase() + device.slice(1),
-        score: deviceAggregate.overallScore,
-        pageCount: deviceScorecards.length,
+        score: Math.round(deviceScores.reduce((sum, score) => sum + score, 0) / deviceScores.length),
+        pageCount: deviceScores.length,
       });
     }
   }

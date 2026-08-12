@@ -500,3 +500,126 @@ test('ss- custom audits mapped to a WCAG criterion are badged WCAG, not Supporti
   assert.equal(labelInName.auditSourceLabel, 'WCAG A');
   assert.deepEqual(labelInName.wcagCriteria, ['2.5.3']);
 });
+
+// ── Phase 10: cross-document consistency guards ──────────────────────────────
+// Each of these locks in a contradiction found by auditing the delivered
+// documents against each other. They are the checks a client could run by
+// hand with a calculator across the full report, the executive summary and
+// the dashboard, so they must never disagree again.
+
+// #1 (N5 residual) — the "Detailed Score Breakdown" table prints its own
+// Final Score; that number IS the report's headline score. The two used to be
+// computed by different renormalisation schemes and drifted up to 4 points
+// apart whenever a dimension was Excluded (the redlobster case).
+test('overall score always equals the printed breakdown table\'s own Final Score, including with an excluded dimension', () => {
+  const cases: Array<{ label: string; notApplicable: string[] }> = [
+    { label: 'all 8 dimensions active', notApplicable: [] },
+    { label: 'contentReadability excluded', notApplicable: ['flesch-kincaid-audit'] },
+  ];
+
+  for (const testCase of cases) {
+    const report = buildReport({ 'link-name': 0, 'heading-order': 0, bypass: 0, 'color-contrast': 0.4 });
+    for (const auditId of testCase.notApplicable) {
+      report.audits[auditId] = { title: auditId, description: 'n/a', score: null, scoreDisplayMode: 'notApplicable' };
+    }
+
+    const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+    const breakdown = buildScoreBreakdown(scorecard.evaluationDimensions);
+    assert.equal(
+      Math.round(scorecard.overallScore),
+      breakdown.finalScore,
+      `${testCase.label}: headline ${Math.round(scorecard.overallScore)}% vs table ${breakdown.finalScore}%`,
+    );
+  }
+});
+
+// #2 (F1 residual) — the aggregate feeds the WCAG matrix stamped on every page
+// of the full report. It must carry every failing audit, not just the top 3
+// per dimension, or the matrix prints "Pass" for criteria the same page's
+// evidence section shows failing.
+test('aggregate keeps every failing audit, even past the per-dimension display cap', () => {
+  // 6 failing audits all inside visualClarityDesign — double the 3-item cap.
+  const failing = {
+    'color-contrast': 0,
+    'text-font-audit': 0,
+    'layout-brittle-audit': 0,
+    'line-spacing-audit': 0,
+    'interactive-color-audit': 0,
+    'cumulative-layout-shift': 0,
+  };
+  const page = buildAuditScorecard(buildReport(failing), { pageUrl: 'https://example.com/' });
+  const aggregate = buildAggregateAuditScorecard([page], { pageCount: 1 });
+
+  assert.equal(page.issues.length, 6);
+  assert.equal(aggregate.issues.length, 6, 'aggregate must not drop issues past the 3-per-dimension display cap');
+
+  const dimension = aggregate.evaluationDimensions.find((entry) => entry.key === 'visualClarityDesign');
+  assert.ok(dimension);
+  assert.equal(dimension.issueCount, 6, 'issueCount is the true total, not the capped topIssues length');
+  assert.equal(dimension.topIssues.length, 3, 'topIssues stays capped for display');
+});
+
+// #3 (N7 residual) — a page that reported a dimension Not Applicable must not
+// be averaged into that dimension as a zero. The executive summary printed 30%
+// where the one applicable page in the full report showed 60%.
+test('aggregate component score averages only the pages that actually evaluated it', () => {
+  const scoredPage = buildAuditScorecard(buildReport({ 'flesch-kincaid-audit': 0.6 }), { pageUrl: 'https://example.com/a' });
+  const notApplicableReport = buildReport();
+  notApplicableReport.audits['flesch-kincaid-audit'] = {
+    title: 'flesch-kincaid-audit', description: 'n/a', score: null, scoreDisplayMode: 'notApplicable',
+  };
+  const naPage = buildAuditScorecard(notApplicableReport, { pageUrl: 'https://example.com/b' });
+
+  const aggregate = buildAggregateAuditScorecard([scoredPage, naPage], { pageCount: 2 });
+  const contentReadability = aggregate.evaluationDimensions.find((entry) => entry.key === 'contentReadability');
+  assert.ok(contentReadability);
+  assert.equal(contentReadability.score, 60, 'the Not Applicable page must not drag the average toward zero');
+});
+
+// #4 (N7 residual) — whether a dimension counts as evaluated must depend on
+// the data, not on which page happened to be iterated last.
+test('aggregate dimension weight is independent of page order', () => {
+  const naReport = buildReport();
+  naReport.audits['flesch-kincaid-audit'] = {
+    title: 'flesch-kincaid-audit', description: 'n/a', score: null, scoreDisplayMode: 'notApplicable',
+  };
+  const naPage = buildAuditScorecard(naReport, { pageUrl: 'https://example.com/a' });
+  const scoredPage = buildAuditScorecard(buildReport({ 'flesch-kincaid-audit': 0.8 }), { pageUrl: 'https://example.com/b' });
+
+  const weightOf = (pages: Parameters<typeof buildAggregateAuditScorecard>[0]) =>
+    buildAggregateAuditScorecard(pages, { pageCount: 2 })
+      .evaluationDimensions.find((entry) => entry.key === 'contentReadability')?.weight;
+
+  assert.equal(weightOf([scoredPage, naPage]), 12.92);
+  assert.equal(weightOf([naPage, scoredPage]), 12.92);
+});
+
+// #5 (N1 residual) — the executive summary headline, scoreCard.overallScore
+// and the dashboard's record.score are one number. They were up to 8 points
+// apart for the same scan.
+test('aggregate overall score is the page-weighted mean of its own platform rows', () => {
+  const pages = [0, 1].map((i) => buildAuditScorecard(buildReport({ 'color-contrast': 0.5 }), { pageUrl: `https://example.com/p${i}` }));
+  const platforms = [
+    { key: 'desktop', label: 'Desktop', score: 71, pageCount: 25 },
+    { key: 'mobile', label: 'Mobile', score: 68, pageCount: 25 },
+    { key: 'tablet', label: 'Tablet', score: 71, pageCount: 25 },
+  ];
+
+  const aggregate = buildAggregateAuditScorecard(pages, { pageCount: 2, platforms });
+  assert.equal(aggregate.overallScore, 70, 'must equal the mean of the platform table it ships with');
+  assert.equal(aggregate.riskTier, 'medium', 'risk band follows the reconciled score (QA: kristychettle HIGH -> MEDIUM)');
+
+  // Weighted by page count, not a plain mean.
+  const uneven = buildAggregateAuditScorecard(pages, {
+    pageCount: 2,
+    platforms: [
+      { key: 'desktop', label: 'Desktop', score: 90, pageCount: 20 },
+      { key: 'mobile', label: 'Mobile', score: 50, pageCount: 1 },
+    ],
+  });
+  assert.equal(uneven.overallScore, 88);
+
+  // With no platform rows it falls back to the single-page breakdown arithmetic.
+  const noPlatforms = buildAggregateAuditScorecard(pages, { pageCount: 2 });
+  assert.equal(noPlatforms.overallScore, buildScoreBreakdown(noPlatforms.evaluationDimensions).finalScore);
+});

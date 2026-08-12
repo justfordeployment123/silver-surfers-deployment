@@ -848,9 +848,27 @@ function buildPrimaryDimensions(evaluationDimensions: AuditEvaluationDimensionSc
         };
     });
 
+    // Phase 10 (N5 residual): the overall score is taken from the *same*
+    // buildScoreBreakdown() the report prints as its "Detailed Score
+    // Breakdown" table, so the headline is literally the table's own
+    // arithmetic and a reader can always reproduce it with a calculator.
+    //
+    // The two used to be computed independently: this function renormalised
+    // within each of the 4 primary categories, while the printed table
+    // renormalised the 8 PRD weights globally. Those agree while all 8
+    // dimensions are active, but diverge as soon as one is Excluded (the
+    // redlobster case) — up to 4 points apart, with the table visibly
+    // failing to add up to the headline above it.
+    //
+    // overallWeightedScore/overallWeight are still computed above because the
+    // per-primary renormalisation they perform is what gives each of the 4
+    // primary dimensions its own displayed score.
+    void overallWeightedScore;
+    void overallWeight;
+
     return {
         dimensions,
-        overallScore: overallWeight > 0 ? roundScore(overallWeightedScore / overallWeight) : 0,
+        overallScore: buildScoreBreakdown(evaluationDimensions).finalScore,
     };
 }
 
@@ -1050,6 +1068,35 @@ export function buildScoreBreakdown(
     return { rows, totalWeight, totalWeighted, finalScore };
 }
 
+/**
+ * Page-weighted mean of the per-device platform averages — the single
+ * canonical "overall score" for a multi-page/multi-device audit (Phase 6.1
+ * / N1: the headline must be reproducible from the platform table printed
+ * beneath it). Exported so the scorecard, the executive-summary PDF and the
+ * dashboard all round the identical number instead of each deriving its own.
+ * Returns null when no platform row carries a usable score.
+ */
+export function computePlatformWeightedScore(
+    platforms: Array<{ score?: number | null; pageCount?: number }> | undefined,
+): number | null {
+    const scored = (platforms || []).filter(
+        (platform): platform is { score: number; pageCount?: number } =>
+            Boolean(platform) && typeof platform.score === "number" && Number.isFinite(platform.score),
+    );
+    if (scored.length === 0) {
+        return null;
+    }
+
+    const weightOf = (platform: { pageCount?: number }): number =>
+        Number(platform.pageCount) > 0 ? Number(platform.pageCount) : 1;
+    const totalWeight = scored.reduce((sum, platform) => sum + weightOf(platform), 0);
+    if (totalWeight <= 0) {
+        return null;
+    }
+
+    return Math.round(scored.reduce((sum, platform) => sum + platform.score * weightOf(platform), 0) / totalWeight);
+}
+
 export function buildAggregateAuditScorecard(
     scorecards: AuditScorecard[],
     options: BuildAggregateAuditScorecardOptions = {},
@@ -1081,7 +1128,12 @@ export function buildAggregateAuditScorecard(
     const primaryDimensionIssues = new Map<AuditPrimaryDimensionKey, AuditIssueSummary[]>();
     const evaluationDimensionScores = new Map<AuditEvaluationDimensionKey, number[]>();
     const evaluationDimensionIssues = new Map<AuditEvaluationDimensionKey, AuditIssueSummary[]>();
-    const evaluationDimensionWeights = new Map<AuditEvaluationDimensionKey, number>();
+    // Phase 10 (N7 residual): a dimension counts as active site-wide if *any*
+    // page actually evaluated it, and its weight is then the PRD constant —
+    // not whatever the last-iterated page happened to report, which made the
+    // aggregate weight depend on page ordering rather than on the data.
+    const evaluationDimensionActive = new Map<AuditEvaluationDimensionKey, boolean>();
+    const evaluationDimensionIssueCounts = new Map<AuditEvaluationDimensionKey, number>();
 
     for (const key of PRIMARY_DIMENSION_ORDER) {
         primaryDimensionScores.set(key, []);
@@ -1091,7 +1143,8 @@ export function buildAggregateAuditScorecard(
     for (const key of EVALUATION_DIMENSION_ORDER) {
         evaluationDimensionScores.set(key, []);
         evaluationDimensionIssues.set(key, []);
-        evaluationDimensionWeights.set(key, 0);
+        evaluationDimensionActive.set(key, false);
+        evaluationDimensionIssueCounts.set(key, 0);
     }
 
     let pageCount = 0;
@@ -1105,11 +1158,23 @@ export function buildAggregateAuditScorecard(
         }
 
         for (const evaluationDimension of scorecard.evaluationDimensions || []) {
-            evaluationDimensionScores.get(evaluationDimension.key)?.push(Number(evaluationDimension.score) || 0);
+            // Phase 10 (N7 residual): only pages that actually evaluated this
+            // dimension contribute to its average. A page that reported it Not
+            // Applicable carries score 0 / weight 0, and averaging that 0 in
+            // dragged the site-wide component below every per-page value the
+            // full report prints (e.g. one scored page at 60% + one N/A page
+            // printed 30% in the executive summary).
+            if ((Number(evaluationDimension.weight) || 0) > 0) {
+                evaluationDimensionScores.get(evaluationDimension.key)?.push(Number(evaluationDimension.score) || 0);
+                evaluationDimensionActive.set(evaluationDimension.key, true);
+            }
             evaluationDimensionIssues
                 .get(evaluationDimension.key)
                 ?.push(...(Array.isArray(evaluationDimension.topIssues) ? evaluationDimension.topIssues : []));
-            evaluationDimensionWeights.set(evaluationDimension.key, Number(evaluationDimension.weight) || 0);
+            evaluationDimensionIssueCounts.set(
+                evaluationDimension.key,
+                (evaluationDimensionIssueCounts.get(evaluationDimension.key) || 0) + (Number(evaluationDimension.issueCount) || 0),
+            );
         }
     }
 
@@ -1121,8 +1186,10 @@ export function buildAggregateAuditScorecard(
             key: evaluationKey,
             label: EVALUATION_DIMENSION_LABELS[evaluationKey],
             score,
-            weight: evaluationDimensionWeights.get(evaluationKey) || 0,
-            issueCount: (evaluationDimensionIssues.get(evaluationKey) || []).length,
+            weight: evaluationDimensionActive.get(evaluationKey) ? EVALUATION_DIMENSION_PRD_WEIGHTS[evaluationKey] : 0,
+            // True total across pages, not the length of the capped per-page
+            // topIssues lists this map collects for display.
+            issueCount: evaluationDimensionIssueCounts.get(evaluationKey) || 0,
             topIssues: dedupeIssues(evaluationDimensionIssues.get(evaluationKey) || []).slice(0, 3),
         };
     });
@@ -1140,12 +1207,32 @@ export function buildAggregateAuditScorecard(
         };
     });
 
-    const overallScore = roundScore(
-        dimensions.reduce((sum, dimension) => sum + dimension.score * dimension.weight, 0) /
-            dimensions.reduce((sum, dimension) => sum + dimension.weight, 0),
-    );
+    // Phase 10 (N1 residual): one canonical overall score for the whole audit.
+    // When platform rows are supplied it is the page-weighted mean of those
+    // rows — the exact number the executive summary prints as its headline and
+    // renders in the table beneath it — so the PDF headline, the stored
+    // record.score shown in the dashboard, and scoreCard.overallScore can no
+    // longer be three different numbers for the same scan (previously up to 8
+    // points apart). With no platform rows (e.g. a per-device aggregate) it
+    // falls back to the breakdown-table arithmetic used for a single page.
+    const overallScore = computePlatformWeightedScore(options.platforms) ?? primaryScores.overallScore;
 
-    const allIssues = dedupeIssues([...evaluationDimensionIssues.values()].flat());
+    // Phase 10 (F1 residual): the site-wide issue set is collected from each
+    // page's COMPLETE `issues` array, not from its evaluationDimensions'
+    // topIssues — those are capped at 3 per dimension for display, so from the
+    // 4th failing audit in any one dimension the rest were silently dropped.
+    // Everything downstream reads this list (the WCAG matrix stamped on every
+    // page of the full report, wcagSummary, and the executive summary's
+    // flagged-criteria count), so the cap made the matrix print "Pass" for
+    // criteria the same page's own evidence section showed failing.
+    // Falls back to the dimension-collected lists for callers that hand us
+    // scorecards without a populated `issues` array.
+    const collectedPageIssues = scorecards.flatMap((scorecard) =>
+        Array.isArray(scorecard.issues) ? scorecard.issues : [],
+    );
+    const allIssues = dedupeIssues(
+        collectedPageIssues.length > 0 ? collectedPageIssues : [...evaluationDimensionIssues.values()].flat(),
+    );
     // Phase 6.8/6.6/6.7b (N14, N9, N10b): breadth-ranked, one headline per
     // audit id and per WCAG criterion — see buildBreadthRankedTopIssues.
     const topIssues = buildBreadthRankedTopIssues(allIssues, 5);
