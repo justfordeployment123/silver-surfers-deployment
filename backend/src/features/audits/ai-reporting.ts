@@ -141,7 +141,12 @@ function sanitizeSentence(value: unknown, fallback: string): string {
 }
 
 function stripListMarker(value: string): string {
-  return value.replace(/^\s*(?:[-*•]\s*)?(?:\d+[.)]\s*)?/, '').trim();
+  // Coerce defensively: dedupeFindingGuidance calls this on roadmap-item
+  // fields (title/explanation/remediation) that aren't guaranteed non-empty
+  // strings by the type system alone (e.g. a remediation template or a
+  // future caller that omits whyItMatters) — a bare .replace() would throw
+  // on undefined/null and take down exec-summary generation for that job.
+  return String(value || '').replace(/^\s*(?:[-*•]\s*)?(?:\d+[.)]\s*)?/, '').trim();
 }
 
 function canonicalizeListText(value: string): string {

@@ -11,6 +11,14 @@ import zlib from 'node:zlib';
 import { promisify } from 'node:util';
 
 import { extractSitemapLocs, extractInternalLinks, scorePageUrl } from '../src/features/audits/internal-links.ts';
+import { env } from '../src/config/env.ts';
+
+// crawlWithCamoufox always calls `${env.scannerServiceUrl}/extract-links` —
+// resolved from SCANNER_SERVICE_URL, which a local .env (docker-compose
+// hostname, e.g. http://scanner:8001) can override to something other than
+// the http://localhost:8001 default. Building the mock key from the live
+// env value keeps this test correct regardless of the machine it runs on.
+const CAMOUFOX_EXTRACT_LINKS_URL = `${env.scannerServiceUrl}/extract-links`;
 
 const gzip = promisify(zlib.gzip);
 
@@ -334,7 +342,7 @@ test('camoufox-first: scanner-rendered nav links are used before sitemap fallbac
     'https://example.com/sitemap/sitemap.xml': { status: 404, body: '' },
     'https://example.com/sitemaps/sitemap.xml': { status: 404, body: '' },
     // Scanner /extract-links endpoint (Camoufox) returns JS-rendered nav pages
-    'http://localhost:8001/extract-links': {
+    [CAMOUFOX_EXTRACT_LINKS_URL]: {
       status: 200,
       body: JSON.stringify({
         success: true,
@@ -389,7 +397,7 @@ test('sitemap+probe: when sitemap has no nav-primary and Camoufox unavailable, H
     'https://example.com/sitemap/sitemap.xml': { status: 404, body: '' },
     'https://example.com/sitemaps/sitemap.xml': { status: 404, body: '' },
     // Scanner /extract-links NOT available (returns 503)
-    'http://localhost:8001/extract-links': { status: 503, body: 'unavailable' },
+    [CAMOUFOX_EXTRACT_LINKS_URL]: { status: 503, body: 'unavailable' },
     // Nav URL probes — /pricing and /enterprise respond; others 404
     'https://example.com/pricing':    { status: 200, body: '', contentType: 'text/html' },
     'https://example.com/enterprise': { status: 200, body: '', contentType: 'text/html' },

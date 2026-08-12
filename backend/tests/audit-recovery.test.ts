@@ -89,6 +89,27 @@ test('recoverAuditRecords requeues stale full audits and quick scans when no act
       find() {
         return buildFindResult([quickRecord]);
       },
+      // Quick-scan recovery claims the record atomically (findOneAndUpdate
+      // with a compare-and-swap filter) instead of fetch-then-save, so a
+      // second recovery sweep can never double-process the same stale
+      // record. Simulate that by applying $set/$inc/$push to the matched
+      // record and returning it, mirroring Mongoose's { new: true }.
+      async findOneAndUpdate(_filter: Record<string, unknown>, update: Record<string, unknown>) {
+        const target = quickRecord as Record<string, unknown>;
+        const set = (update.$set || {}) as Record<string, unknown>;
+        for (const [key, value] of Object.entries(set)) {
+          target[key] = value;
+        }
+        const inc = (update.$inc || {}) as Record<string, number>;
+        for (const [key, value] of Object.entries(inc)) {
+          target[key] = (Number(target[key]) || 0) + value;
+        }
+        const push = (update.$push || {}) as Record<string, unknown>;
+        for (const [key, value] of Object.entries(push)) {
+          target[key] = Array.isArray(target[key]) ? [...(target[key] as unknown[]), value] : [value];
+        }
+        return target;
+      },
     } as any,
     AuditJobModel: {
       async findOne() {
@@ -113,7 +134,10 @@ test('recoverAuditRecords requeues stale full audits and quick scans when no act
     maxAttempts: 3,
   });
 
-  assert.deepEqual(savedRecords.sort(), ['full:task-1', 'quick:quick-1']);
+  // Only the full-audit path still uses fetch-then-save; quick-scan recovery
+  // claims its record via the atomic findOneAndUpdate above and never calls
+  // .save() on the success path.
+  assert.deepEqual(savedRecords.sort(), ['full:task-1']);
   assert.equal(summary.fullAuditsRecovered, 1);
   assert.equal(summary.quickScansRecovered, 1);
   assert.equal(summary.skippedActiveJobs, 0);

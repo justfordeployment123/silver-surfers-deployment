@@ -33,20 +33,24 @@ const scorecard = {
 
 const remediationRoadmap = [
   {
+    auditId: 'color-contrast',
     title: 'Color contrast is too low',
     bucketKey: 'medium-effort',
     bucketLabel: 'Medium Effort',
     impact: 'high',
     effort: 'medium',
     action: 'Increase text contrast in primary reading areas.',
+    whyItMatters: 'Low-contrast text is hard for older adults to read, especially with age-related vision changes.',
   },
   {
+    auditId: 'target-size',
     title: 'Tap targets are too small',
     bucketKey: 'quick-wins',
     bucketLabel: 'Quick Wins',
     impact: 'high',
     effort: 'low',
     action: 'Increase tap target sizes in the main conversion flow.',
+    whyItMatters: 'Small tap targets increase mis-clicks for users with reduced fine motor control.',
   },
 ] as any;
 

@@ -98,7 +98,7 @@ test('readEnv falls back to localhost scanner URL', () => {
   assert.equal(parsed.scannerServiceUrl, 'http://localhost:8123');
   assert.equal(parsed.queueBackend, 'persistent');
   assert.equal(parsed.queueMaxRetries, 1);
-  assert.equal(parsed.openAiModel, 'gpt-4.1-mini');
+  assert.equal(parsed.openAiModel, 'gpt-4o');
   assert.equal(parsed.openAiBaseUrl, 'https://api.openai.com/v1');
   assert.equal(parsed.openAiTimeoutMs, 20_000);
   assert.equal(parsed.auditRecoveryEnabled, false);

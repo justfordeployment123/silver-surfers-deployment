@@ -24,7 +24,13 @@ test('buildStoredReportFilesFromAttachments persists local relative paths and pd
   assert.equal(files[0].contentType, 'application/pdf');
 });
 
-test('buildStoredReportFilesFromAttachments detects markdown executive summaries', () => {
+// Report attachments are PDF-only end to end: collectAttachmentsRecursive
+// (report-delivery.ts) only walks the report folder for .pdf files in the
+// first place, so a .md executive summary never reaches this function today.
+// buildAuditAiReportMarkdown() (ai-reporting.ts) generates markdown content
+// but isn't wired into the delivery pipeline — this test locks in that a
+// non-PDF attachment is filtered out rather than silently mislabeled.
+test('buildStoredReportFilesFromAttachments filters out non-PDF attachments', () => {
   const files = buildStoredReportFilesFromAttachments([
     {
       filename: 'ai-executive-summary.md',
@@ -34,8 +40,7 @@ test('buildStoredReportFilesFromAttachments detects markdown executive summaries
     },
   ]);
 
-  assert.equal(files.length, 1);
-  assert.equal(files[0].contentType, 'text/markdown; charset=utf-8');
+  assert.equal(files.length, 0);
 });
 
 test('mergeStoredReportFilesWithStorage enriches persisted files with storage keys and urls', () => {
