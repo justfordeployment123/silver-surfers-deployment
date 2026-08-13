@@ -45,6 +45,18 @@ export interface AuditIssueSummary {
      * issues always affect exactly one page, so the field is omitted there.
      */
     pagesAffected?: number;
+    /**
+     * Device profile this occurrence was observed under ("desktop" | "mobile" |
+     * "tablet"). Stamped per page scorecard by the full-audit pipelines; absent
+     * for callers that don't scan per device (quick scan, single-report scoring).
+     */
+    sourcePlatform?: string;
+    /**
+     * Distinct device profiles this audit failed under, across the whole site.
+     * Only set on aggregate (site-level) topIssues (Phase 6.7c / N10c) and used
+     * to tag a headline that no desktop scan can corroborate.
+     */
+    sourcePlatforms?: string[];
 }
 
 export interface AuditPrimaryDimensionScore {
@@ -124,6 +136,8 @@ interface LighthouseReportLike {
 interface BuildAuditScorecardOptions {
     isLiteVersion?: boolean;
     pageUrl?: string;
+    /** Device profile this report was captured under ("desktop" | "mobile" | "tablet"). */
+    platform?: string;
 }
 
 interface BuildAggregateAuditScorecardOptions {
@@ -740,7 +754,31 @@ const MIN_PAGES_TO_HEADLINE = 2;
  * (i.e. one entry per audit per page), which is what feeds this from
  * `buildAggregateAuditScorecard`.
  */
-function buildBreadthRankedTopIssues(issues: AuditIssueSummary[], limit: number): AuditIssueSummary[] {
+/**
+ * Distinct device profiles each audit id failed under, derived from the
+ * COMPLETE pre-dedupe issue set (Phase 6.7c / N10c). It must be computed before
+ * `dedupeIssues`, whose `auditId::sourceUrl` key collapses the desktop and
+ * mobile occurrences of the same audit on the same page into one row — reading
+ * platforms after that step would report a cross-platform issue as
+ * single-platform depending purely on sort order.
+ */
+function collectPlatformsByAuditId(issues: AuditIssueSummary[]): Map<string, Set<string>> {
+    const platformsByAuditId = new Map<string, Set<string>>();
+    for (const issue of issues) {
+        const platform = typeof issue?.sourcePlatform === "string" ? issue.sourcePlatform.trim() : "";
+        if (!platform) continue;
+        const platforms = platformsByAuditId.get(issue.auditId) || new Set<string>();
+        platforms.add(platform.toLowerCase());
+        platformsByAuditId.set(issue.auditId, platforms);
+    }
+    return platformsByAuditId;
+}
+
+function buildBreadthRankedTopIssues(
+    issues: AuditIssueSummary[],
+    limit: number,
+    platformsByAuditId?: Map<string, Set<string>>,
+): AuditIssueSummary[] {
     const byAuditId = new Map<string, AuditIssueSummary[]>();
     for (const issue of issues) {
         const list = byAuditId.get(issue.auditId) || [];
@@ -755,12 +793,23 @@ function buildBreadthRankedTopIssues(issues: AuditIssueSummary[], limit: number)
         const representative = sortIssues(occurrences)[0];
         const impact = Math.max(0, 100 - representative.score);
 
+        // Prefer the pre-dedupe attribution when the caller supplies it; fall
+        // back to whatever survives on these occurrences so a caller that
+        // doesn't pass the map still gets correct (if narrower) platforms.
+        const platforms = platformsByAuditId?.get(auditId)
+            || collectPlatformsByAuditId(occurrences).get(auditId);
+        const sourcePlatforms = platforms && platforms.size > 0 ? [...platforms].sort() : undefined;
+
         return {
             auditId,
             pagesAffected,
             breadthRank: pagesAffected * impact,
             criterion: representative.wcagCriteria?.[0],
-            issue: { ...representative, pagesAffected } as AuditIssueSummary,
+            issue: {
+                ...representative,
+                pagesAffected,
+                ...(sourcePlatforms ? { sourcePlatforms } : {}),
+            } as AuditIssueSummary,
         };
     });
 
@@ -950,6 +999,7 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
                 ...(audit?.displayValue ? { displayValue: audit.displayValue } : {}),
                 ...(elementCount > 0 ? { elementCount } : {}),
                 ...(options.pageUrl ? { sourceUrl: options.pageUrl } : {}),
+                ...(options.platform ? { sourcePlatform: options.platform } : {}),
             });
         }
     }
@@ -1230,12 +1280,15 @@ export function buildAggregateAuditScorecard(
     const collectedPageIssues = scorecards.flatMap((scorecard) =>
         Array.isArray(scorecard.issues) ? scorecard.issues : [],
     );
-    const allIssues = dedupeIssues(
-        collectedPageIssues.length > 0 ? collectedPageIssues : [...evaluationDimensionIssues.values()].flat(),
-    );
+    const sourceIssues = collectedPageIssues.length > 0
+        ? collectedPageIssues
+        : [...evaluationDimensionIssues.values()].flat();
+    // Phase 6.7c / N10c: platform attribution comes off the full pre-dedupe set.
+    const platformsByAuditId = collectPlatformsByAuditId(sourceIssues);
+    const allIssues = dedupeIssues(sourceIssues);
     // Phase 6.8/6.6/6.7b (N14, N9, N10b): breadth-ranked, one headline per
     // audit id and per WCAG criterion — see buildBreadthRankedTopIssues.
-    const topIssues = buildBreadthRankedTopIssues(allIssues, 5);
+    const topIssues = buildBreadthRankedTopIssues(allIssues, 5, platformsByAuditId);
 
     // An audit is notApplicable at aggregate level only if every page said so (intersection)
     const notApplicableSets = scorecards.map((sc) => new Set(sc.notApplicableAuditIds || []));

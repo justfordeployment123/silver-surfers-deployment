@@ -623,3 +623,46 @@ test('aggregate overall score is the page-weighted mean of its own platform rows
   const noPlatforms = buildAggregateAuditScorecard(pages, { pageCount: 2 });
   assert.equal(noPlatforms.overallScore, buildScoreBreakdown(noPlatforms.evaluationDimensions).finalScore);
 });
+
+// ── Phase 6.7c / N10c: device attribution on highlighted issues ──
+// QA: "Where the source is mobile or tablet scan data the claims may even be
+// true; the client just cannot verify a single one of them."
+
+test('aggregate top issues record every device an audit failed under', () => {
+  const desktop = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/a', platform: 'desktop',
+  });
+  const mobile = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/a', platform: 'mobile',
+  });
+
+  const aggregate = buildAggregateAuditScorecard([desktop, mobile], { pageCount: 1 });
+  const issue = aggregate.topIssues.find((entry) => entry.auditId === 'color-contrast');
+  assert.ok(issue, 'color-contrast should headline');
+  // The critical case: dedupeIssues keys on auditId::sourceUrl, so these two
+  // occurrences collapse to one row. Attribution must still see both devices,
+  // otherwise a cross-platform issue gets mislabelled as mobile-only.
+  assert.deepEqual(issue.sourcePlatforms, ['desktop', 'mobile']);
+});
+
+test('an issue seen only under mobile is attributed to mobile alone', () => {
+  const desktop = buildAuditScorecard(buildReport(), {
+    pageUrl: 'https://example.com/a', platform: 'desktop',
+  });
+  const mobile = buildAuditScorecard(buildReport({ 'target-size': 0.2 }), {
+    pageUrl: 'https://example.com/a', platform: 'mobile',
+  });
+
+  const aggregate = buildAggregateAuditScorecard([desktop, mobile], { pageCount: 1 });
+  const issue = aggregate.topIssues.find((entry) => entry.auditId === 'target-size');
+  assert.ok(issue, 'target-size should headline');
+  assert.deepEqual(issue.sourcePlatforms, ['mobile']);
+});
+
+test('platform attribution is omitted when the caller does not scan per device', () => {
+  const page = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), { pageUrl: 'https://example.com/a' });
+  const aggregate = buildAggregateAuditScorecard([page], { pageCount: 1 });
+  for (const issue of aggregate.topIssues) {
+    assert.equal(issue.sourcePlatforms, undefined, 'no device data must mean no claim about devices');
+  }
+});

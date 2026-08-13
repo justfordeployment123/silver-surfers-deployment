@@ -363,6 +363,8 @@ async function auditLinkForDevice(
     auditScoreCard = buildAuditScorecard(reportData, {
       pageUrl: link,
       isLiteVersion: auditResult.isLiteVersion,
+      // Phase 6.7c / N10c: device attribution for every issue this page yields.
+      platform: device,
     });
   } catch (error) {
     fullAuditLogger.warn('Failed to build scorecard for page audit.', {

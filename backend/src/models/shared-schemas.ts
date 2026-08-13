@@ -28,6 +28,11 @@ export const auditIssueSchema = new mongoose.Schema({
   // Phase 6.8 / N14: distinct-page breadth behind an aggregate top issue.
   // Omitted (undefined) for single-page scorecards' own issues.
   pagesAffected: { type: Number },
+  // Phase 6.7c / N10c: device attribution. `sourcePlatform` is stamped per page
+  // scorecard; `sourcePlatforms` is the distinct set on an aggregate top issue,
+  // used to tag a headline no desktop scan can corroborate.
+  sourcePlatform: { type: String },
+  sourcePlatforms: { type: [String], default: undefined },
 }, { _id: false });
 
 export const dimensionScoreSchema = new mongoose.Schema({

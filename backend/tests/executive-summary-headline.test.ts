@@ -9,6 +9,7 @@ import { PDFDocument as PDFLib } from 'pdf-lib';
 import {
   computeAggregatePlatformHeadline,
   generateAuditAiSummaryPdf,
+  resolvePlatformScanTag,
   type PlatformSummaryEntry,
 } from '../src/features/audits/report-generation.ts';
 import type { AuditAiReport } from '../src/features/audits/ai-reporting.ts';
@@ -235,4 +236,84 @@ test('generateAuditAiSummaryPdf skips the appendix when platformPageDetail has o
   const onePlatformPdf = await PDFLib.load(await fs.readFile(withOnePlatformPath));
 
   assert.equal(onePlatformPdf.getPageCount(), withoutPdf.getPageCount());
+});
+
+// Phase 6.7c / N10c — device tag on highlighted issues. QA: "Where the source
+// is mobile or tablet scan data the claims may even be true; the client just
+// cannot verify a single one of them."
+
+const ALL_DEVICES = ['Desktop', 'Mobile', 'Tablet'];
+
+test('resolvePlatformScanTag names the scan behind an issue no desktop report can corroborate', () => {
+  assert.equal(resolvePlatformScanTag(['mobile'], ALL_DEVICES), ' (Mobile scan)');
+  assert.equal(resolvePlatformScanTag(['tablet'], ALL_DEVICES), ' (Tablet scan)');
+  assert.equal(resolvePlatformScanTag(['mobile', 'tablet'], ALL_DEVICES), ' (Mobile & Tablet scan)');
+});
+
+test('resolvePlatformScanTag stays silent when the desktop report already backs the issue', () => {
+  assert.equal(resolvePlatformScanTag(['desktop'], ALL_DEVICES), '');
+  assert.equal(resolvePlatformScanTag(['desktop', 'mobile'], ALL_DEVICES), '');
+  assert.equal(resolvePlatformScanTag(['desktop', 'mobile', 'tablet'], ALL_DEVICES), '');
+});
+
+test('resolvePlatformScanTag makes no device claim without device data', () => {
+  assert.equal(resolvePlatformScanTag(undefined, ALL_DEVICES), '');
+  assert.equal(resolvePlatformScanTag([], ALL_DEVICES), '');
+  assert.equal(resolvePlatformScanTag(['  '], ALL_DEVICES), '');
+});
+
+test('resolvePlatformScanTag does not tag a single-device delivery', () => {
+  // The one delivered report is the mobile report, so every issue in it is
+  // already verifiable — tagging them all would be noise, not evidence.
+  assert.equal(resolvePlatformScanTag(['mobile'], ['Mobile']), '');
+  assert.equal(resolvePlatformScanTag(['mobile'], []), '');
+});
+
+test('resolvePlatformScanTag never points at a scan the appendix does not document', () => {
+  // Tablet has no appendix section here, so a "(Tablet scan)" tag would send
+  // the reader looking for backing evidence that was never delivered.
+  assert.equal(resolvePlatformScanTag(['tablet'], ['Desktop', 'Mobile']), '');
+  assert.equal(resolvePlatformScanTag(['mobile', 'tablet'], ['Desktop', 'Mobile']), '');
+  assert.equal(resolvePlatformScanTag(['mobile'], ['Desktop', 'Mobile']), ' (Mobile scan)');
+});
+
+test('generateAuditAiSummaryPdf renders tagged mobile-only issues without failing', async (t) => {
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'exec-summary-n10c-'));
+  t.after(() => fs.rm(tmpDir, { recursive: true, force: true }));
+
+  const outputPath = path.join(tmpDir, 'ai-executive-summary.pdf');
+  const resolved = await generateAuditAiSummaryPdf(buildAiReportFixture(), {
+    url: 'https://example.com',
+    outputPath,
+    scorecard: buildScorecardFixture({
+      topIssues: [
+        {
+          auditId: 'target-size',
+          title: 'Touch targets are too small or too close together',
+          description: 'd',
+          score: 20,
+          weight: 10,
+          severity: 'high',
+          auditSourceType: 'wcag-aa',
+          auditSourceLabel: 'WCAG AA',
+          wcagCriteria: ['2.5.8'],
+          wcagReferences: [],
+          pagesAffected: 3,
+          sourcePlatforms: ['mobile'],
+        },
+      ],
+    }),
+    platformSummary: [
+      { platform: 'Desktop', score: 70, pageCount: 2 },
+      { platform: 'Mobile', score: 70, pageCount: 2 },
+    ],
+    platformPageDetail: [
+      { platform: 'Desktop', pages: [{ url: 'https://example.com/a', score: 70 }, { url: 'https://example.com/b', score: 70 }] },
+      { platform: 'Mobile', pages: [{ url: 'https://example.com/a', score: 70 }, { url: 'https://example.com/b', score: 70 }] },
+    ],
+  });
+
+  assert.equal(resolved, outputPath);
+  const pdf = await PDFLib.load(await fs.readFile(outputPath));
+  assert.ok(pdf.getPageCount() >= 1);
 });

@@ -183,6 +183,8 @@ async function main() {
     const scorecard = buildAuditScorecard(target.report, {
       pageUrl: url,
       isLiteVersion,
+      // Phase 6.7c / N10c: device attribution for every issue this page yields.
+      platform: device,
     });
     scorecards.push(scorecard);
     uniquePageUrls.add(url);

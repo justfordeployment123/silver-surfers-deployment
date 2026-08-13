@@ -98,6 +98,46 @@ export function computeAggregatePlatformHeadline(
   return { score, simpleMean, weightedMean };
 }
 
+/**
+ * Phase 6.7c / N10c — device tag for a highlighted executive-summary issue.
+ *
+ * An issue observed only under non-desktop profiles cannot be located in a
+ * desktop full report ("the client just cannot verify a single one of them"),
+ * so the summary names the scan that produced it. Returns '' — no claim — in
+ * every case where a tag would be noise or unbacked:
+ *
+ *  - single-device delivery: the one delivered report *is* that device's, so
+ *    every issue is already verifiable and tagging them all says nothing;
+ *  - the issue was also seen on desktop, so the desktop report corroborates it;
+ *  - no device attribution at all (quick scan / non-per-device caller);
+ *  - a device the per-platform appendix doesn't document, since the tag exists
+ *    to point the reader at backing evidence that must be locatable there.
+ */
+export function resolvePlatformScanTag(
+  issuePlatforms: string[] | undefined,
+  appendixPlatforms: Array<string | undefined>,
+): string {
+  const platforms = (issuePlatforms || [])
+    .map((platform) => String(platform || '').trim().toLowerCase())
+    .filter(Boolean);
+  if (platforms.length === 0) return '';
+  if (platforms.includes('desktop')) return '';
+
+  const documented = new Set(
+    appendixPlatforms.map((platform) => String(platform || '').trim().toLowerCase()).filter(Boolean),
+  );
+  if (documented.size <= 1) return '';
+  if (!platforms.every((platform) => documented.has(platform))) return '';
+
+  const labels = [...new Set(platforms)]
+    .map((platform) => platform.charAt(0).toUpperCase() + platform.slice(1))
+    .sort();
+  const joined = labels.length > 1
+    ? `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`
+    : labels[0];
+  return ` (${joined} scan)`;
+}
+
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {
   const pageHeight = doc.page.height;
   const footerY = pageHeight - 30;
@@ -674,6 +714,10 @@ export async function generateAuditAiSummaryPdf(
           wcagCriteria: Array.isArray(issue?.wcagCriteria) ? issue.wcagCriteria : [],
           // Phase 6.8 / N14: breadth behind this headline, printed alongside it.
           pagesAffected: typeof issue?.pagesAffected === 'number' ? issue.pagesAffected : undefined,
+          // Phase 6.7c / N10c: devices this issue was actually observed under.
+          sourcePlatforms: Array.isArray(issue?.sourcePlatforms)
+            ? issue.sourcePlatforms.map((platform) => String(platform || '').trim().toLowerCase()).filter(Boolean)
+            : [],
         }))
         .filter((issue) => issue.title),
         (issue) => [
@@ -979,6 +1023,14 @@ export async function generateAuditAiSummaryPdf(
       doc.moveDown(0.6);
     };
 
+    // Phase 8.3 (F13/N11) + 6.7c (N10c): one computation feeds both the
+    // per-platform appendix and the "(Mobile scan)" tags on highlighted
+    // issues, so a tag can never be printed without the appendix that backs
+    // it, nor the appendix omitted while tags still claim it exists.
+    const platformDetailEntries = (Array.isArray(options.platformPageDetail) ? options.platformPageDetail : [])
+      .filter((entry) => entry && entry.platform && Array.isArray(entry.pages) && entry.pages.length > 0);
+    const hasPlatformAppendix = platformDetailEntries.length > 1;
+
     const renderTopIssues = (): void => {
       if (normalizedTopIssues.length === 0) return;
       const issues = normalizedTopIssues.slice(0, 5);
@@ -999,7 +1051,11 @@ export async function generateAuditAiSummaryPdf(
         const breadth = typeof issue.pagesAffected === 'number'
           ? ` (affects ${issue.pagesAffected} of ${totalPages > 0 ? totalPages : issue.pagesAffected} page${issue.pagesAffected === 1 ? '' : 's'})`
           : '';
-        doc.text(`${idx + 1}. ${issue.title}${suffix}${breadth}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
+        const scanTag = resolvePlatformScanTag(
+          issue.sourcePlatforms,
+          platformDetailEntries.map((entry) => entry.platform),
+        );
+        doc.text(`${idx + 1}. ${issue.title}${suffix}${breadth}${scanTag}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
       });
       doc.moveDown(0.5);
     };
@@ -1009,9 +1065,8 @@ export async function generateAuditAiSummaryPdf(
     // combined PDF already backs every number the Audit Summary table
     // shows, so the appendix would be pure repetition there.
     const renderPlatformPageDetail = (): void => {
-      const platforms = (Array.isArray(options.platformPageDetail) ? options.platformPageDetail : [])
-        .filter((entry) => entry && entry.platform && Array.isArray(entry.pages) && entry.pages.length > 0);
-      if (platforms.length <= 1) return;
+      const platforms = platformDetailEntries;
+      if (!hasPlatformAppendix) return;
 
       doc.addPage();
       doc.font('BoldFont').fontSize(16).fillColor('#0F172A')
