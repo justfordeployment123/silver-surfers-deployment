@@ -722,7 +722,7 @@ export default function AnalysisDetail() {
                           <div key={row.criterion} style={dimmed ? { opacity: 0.4 } : undefined}>
                             <button
                               onClick={() => !dimmed && setWcagExpandedRow(isExpanded ? null : row.criterion)}
-                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: dimmed ? 'default' : 'pointer', color: '#fff', transition: 'background .15s' }}
+                              style={{ fontSize: '16px', display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: dimmed ? 'default' : 'pointer', color: '#fff', transition: 'background .15s' }}
                             >
                               <span style={{ fontSize: '16px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)' }}>{row.criterion}</span>
                               <span style={{ fontSize: '16px', color: '#fff' }}>{row.title}</span>
