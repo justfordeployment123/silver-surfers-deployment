@@ -25,7 +25,7 @@ const STYLES = `
 .cm-btn-save:hover { background: var(--t8); }
 .cm-btn-cancel { padding: 8px 16px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; cursor: pointer; font-size: 16px; }
 .cm-btn-cancel:hover { background: rgba(255,255,255,0.16); }
-.cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; font-size: 16px; }
 .cm-btn-create:hover { background: var(--t8); }
 .cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-rerun:hover { background: var(--t4); }
