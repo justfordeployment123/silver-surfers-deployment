@@ -74,6 +74,11 @@ const FAQ = () => {
                     border-top: 1px solid var(--sandd);
                 }
                 .faq-q-btn {
+                    /* button{} inherits font-family but not font-size; without
+                       this the element computes to the ~13.3px UA default and
+                       fails text-font-audit. Children set their own 16px, so
+                       nothing moves visually. */
+                    font-size: 16px;
                     width: 100%;
                     background: none;
                     border: none;
@@ -115,7 +120,7 @@ const FAQ = () => {
                     font-size: 16px;
                     font-weight: 500;
                     color: var(--ink);
-                    line-height: 1.45;
+                    line-height: 1.5;
                 }
                 .faq-chevron {
                     color: var(--t4);
