@@ -42,10 +42,23 @@ const STYLES = `
     border-radius: 20px;
     margin-bottom: 12px;
   }
-  .sub-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sand); font-size: 16px; }
+  /* gap + wrap so a long value (e.g. the billing period) drops to its own
+     line instead of colliding with its label; margin-left:auto keeps it
+     right-aligned on both the shared and the wrapped line. Font sizes stay
+     at the 16px floor the text-font audit requires — the overflow was a
+     layout problem, not a type-scale one. */
+  .sub-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 2px 16px; padding: 10px 0; border-bottom: 1px solid var(--sand); font-size: 16px; }
   .sub-row:last-child { border-bottom: none; }
-  .sub-row-label { color: var(--ink6); }
-  .sub-row-val { font-weight: 600; color: var(--ink); }
+  .sub-row-label { color: var(--ink6); flex: 0 0 auto; }
+  .sub-row-val { font-weight: 600; color: var(--ink); min-width: 0; margin-left: auto; text-align: right; }
+  /* Break the period between the two dates, never inside one. */
+  .sub-nowrap { white-space: nowrap; }
+  /* Inline chip: sentence case with normal tracking reads at its true size,
+     where the global .tag's uppercase + 0.08em tracking made 16px look
+     oversized and pushed it past the card edge. .tag's 12px bottom margin
+     also mis-centred it inside this flex row. */
+  .sub-slots { display: inline-block; font-size: 16px; font-weight: 600; color: var(--t6); background: var(--t05); padding: 4px 10px; border-radius: 999px; white-space: nowrap; flex-shrink: 0; margin: 0; }
+  .sub-team-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
   .sub-status { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 16px; font-weight: 600; }
   .sub-status-active { background: var(--t05); color: var(--t4); }
   .sub-status-trial { background: rgba(59,130,246,0.1); color: #2563eb; }
@@ -286,6 +299,9 @@ const Subscription = () => {
     };
 
     const formatDate = (date) => new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+    // Abbreviated month for the period row, which has to fit two dates in a
+    // narrow card column.
+    const formatDateShort = (date) => new Date(date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
 
     const getStatusColor = (status) => {
         switch (status) {
@@ -463,8 +479,10 @@ const Subscription = () => {
                                         </div>
                                         <div className="sub-row">
                                             <span className="sub-row-label">Period</span>
-                                            <span className="sub-row-val" style={{ fontSize: '16px' }}>
-                                                {formatDate(currentSubscription.currentPeriodStart)} – {formatDate(currentSubscription.currentPeriodEnd)}
+                                            <span className="sub-row-val">
+                                                <span className="sub-nowrap">{formatDateShort(currentSubscription.currentPeriodStart)}</span>
+                                                {' – '}
+                                                <span className="sub-nowrap">{formatDateShort(currentSubscription.currentPeriodEnd)}</span>
                                             </span>
                                         </div>
                                         <div className="sub-row">
@@ -536,15 +554,15 @@ const Subscription = () => {
                                     <div className="sub-card">
                                         <h2 className="h3" style={{ marginBottom: '16px' }}>Team Management</h2>
 
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+                                        <div className="sub-team-head">
                                             <div>
                                                 <div style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)' }}>Team Members</div>
                                                 <div style={{ fontSize: '16px', color: 'var(--ink6)', marginTop: '2px' }}>
                                                     {teamMembers.length} / {currentSubscription.limits.maxUsers === -1 ? "∞" : currentSubscription.limits.maxUsers} members
                                                 </div>
                                             </div>
-                                            <span className="tag">
-                                                {currentSubscription.limits.maxUsers === -1 ? "Unlimited" : currentSubscription.limits.maxUsers - teamMembers.length} slots available
+                                            <span className="sub-slots">
+                                                {currentSubscription.limits.maxUsers === -1 ? "Unlimited" : `${currentSubscription.limits.maxUsers - teamMembers.length} slots available`}
                                             </span>
                                         </div>
 

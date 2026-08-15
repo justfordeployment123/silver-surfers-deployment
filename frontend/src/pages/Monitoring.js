@@ -11,37 +11,47 @@ import {
 import MonitoringJobModal from '../components/MonitoringJobModal';
 
 const STYLES = `
-.mo-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
+/* Theme-aware: this page previously hard-coded a dark backdrop (--t9, a fixed
+   decorative teal that intentionally never flips) plus white text and
+   rgba(255,255,255,*) surfaces, so it stayed dark in light mode while the nav
+   — which does use tokens — flipped correctly. Everything below now reads the
+   --bg/--surface/--ink/--sandd tokens that flip on [data-theme]. */
+.mo-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--bg); color: var(--ink); }
 .mo-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 .mo-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
-.mo-tile { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 18px; }
-.mo-tile-label { font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.75); margin-bottom: 6px; }
-.mo-tile-value { font-size: 26px; font-weight: 800; color: var(--t4); }
-.mo-jobs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.mo-tile { background: var(--surface); border: 1px solid var(--sandd); border-radius: 14px; padding: 18px; }
+.mo-tile-label { font-size: 16px; letter-spacing: 0.02em; color: var(--ink6); margin-bottom: 6px; }
+.mo-tile-value { font-size: 26px; font-weight: 800; color: var(--tlink); }
+.mo-jobs-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
 .mo-job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.mo-job-card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
-.mo-job-card:hover { border-color: rgba(29,158,117,0.4); }
-.mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; }
-.mo-job-domain:hover { text-decoration: underline; color: var(--t4); }
-.mo-job-meta { font-size: 16px; color: rgba(255,255,255,0.75); }
-.mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
-.mo-status-active { background: rgba(29,158,117,0.65); color: #fff; }
-.mo-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
-.mo-status-error { background: rgba(220,38,38,0.65); color: #fff; }
-.mo-job-row { display: flex; align-items: center; justify-content: space-between; }
+.mo-job-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
+.mo-job-card:hover { border-color: var(--t4); }
+.mo-job-domain { font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; overflow-wrap: anywhere; }
+.mo-job-domain:hover { text-decoration: underline; color: var(--tlink); }
+.mo-job-meta { font-size: 16px; color: var(--ink6); }
+.mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; white-space: nowrap; }
+.mo-status-active { background: var(--t6); color: #fff; }
+.mo-status-paused { background: var(--ink6); color: var(--bg); }
+.mo-status-error { background: #B3261E; color: #fff; }
+.mo-job-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .mo-job-score { font-size: 22px; font-weight: 800; }
 .mo-job-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.mo-btn { border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); padding: 6px 10px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; }
-.mo-btn:hover { background: rgba(255,255,255,0.12); }
-.mo-btn-del { border-color: rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); color: #fca5a5; }
-.mo-btn-del:hover { background: rgba(239,68,68,0.15); }
-.mo-empty { text-align: center; padding: 60px 24px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 20px; }
-.mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
-.mo-empty p { color: rgba(255,255,255,0.75); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; }
+.mo-btn { border-radius: 8px; border: 1px solid var(--sandd); background: var(--bg); padding: 6px 10px; font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.mo-btn:hover { background: var(--sand); }
+.mo-btn-del { border-color: var(--coral); background: transparent; color: var(--coral); }
+.mo-btn-del:hover { background: var(--coralbg); color: #A83A22; }
+.mo-empty { text-align: center; padding: 60px 24px; background: var(--surface); border: 1px dashed var(--sandd); border-radius: 20px; }
+.mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: var(--ink); }
+.mo-empty p { color: var(--ink6); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; line-height: 1.6; }
+.mo-head-sub { font-size: 16px; line-height: 1.6; color: var(--ink6); }
+.mo-error { padding: 14px 16px; border-radius: 10px; background: var(--coralbg); border: 1px solid var(--coral); color: #A83A22; font-size: 16px; line-height: 1.6; margin-bottom: 20px; }
+.mo-jobs-title { font-size: 18px; font-weight: 700; color: var(--ink); }
+@media (max-width: 900px) { .mo-tiles { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 520px) { .mo-tiles { grid-template-columns: 1fr; } }
 `;
 
 function scoreColor(score) {
-    if (typeof score !== 'number') return 'rgba(255,255,255,0.4)';
+    if (typeof score !== 'number') return 'var(--ink3)';
     if (score >= 80) return 'var(--t4)';
     if (score >= 60) return '#f59e0b';
     return 'var(--coral)';
@@ -64,7 +74,7 @@ function scheduleLabel(job) {
 
 const Sparkline = ({ scores }) => {
     const valid = scores.filter((s) => typeof s === 'number');
-    if (valid.length < 2) return <div style={{ height: 32, fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', display: 'flex', alignItems: 'center' }}>Not enough runs yet</div>;
+    if (valid.length < 2) return <div style={{ height: 32, fontSize: 16, color: 'var(--ink6)', display: 'flex', alignItems: 'center' }}>Not enough runs yet</div>;
     const w = 140, h = 32, max = 100, min = 0;
     const points = scores.map((s, i) => {
         const x = (i / (scores.length - 1)) * w;
@@ -159,18 +169,18 @@ const Monitoring = () => {
             <div className="mo-pg">
                 <div className="mo-wrap">
                     <header style={{ marginBottom: '28px' }}>
-                        <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>Monitoring</h1>
-                        <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Automatically re-scan your domains on a schedule and get alerted when accessibility regresses.</p>
+                        <h1 className="h1" style={{ color: 'var(--tlink)', marginBottom: '8px' }}>Monitoring</h1>
+                        <p className="mo-head-sub">Automatically re-scan your domains on a schedule and get alerted when accessibility regresses.</p>
                     </header>
 
                     {error && (
-                        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px', marginBottom: '20px' }}>
+                        <div className="mo-error">
                             {error}
                         </div>
                     )}
 
                     {loading ? (
-                        <p style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Loading your monitors…</p>
+                        <p className="mo-head-sub">Loading your monitors…</p>
                     ) : jobs.length === 0 ? (
                         <div className="mo-empty">
                             <h3>No monitors set up yet</h3>
@@ -187,7 +197,7 @@ const Monitoring = () => {
                             </div>
 
                             <div className="mo-jobs-head">
-                                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Your Monitors {limits ? `(${jobs.filter(j=>j.status==='active').length}${limits.maxActiveJobs === Infinity ? '' : ` / ${limits.maxActiveJobs}`} active)` : ''}</h2>
+                                <h2 className="mo-jobs-title">Your Monitors {limits ? `(${jobs.filter(j=>j.status==='active').length}${limits.maxActiveJobs === Infinity ? '' : ` / ${limits.maxActiveJobs}`} active)` : ''}</h2>
                                 <button className="btn btn-d" onClick={openCreate}>+ New Monitor</button>
                             </div>
 

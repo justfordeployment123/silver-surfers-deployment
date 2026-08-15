@@ -7,7 +7,7 @@ const STYLES = `
 .mjm-card { background: var(--surface); border-radius: 24px; max-width: 640px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 32px 80px rgba(0,0,0,0.3); color: var(--ink); }
 .mjm-close-bar { position: sticky; top: 0; background: var(--surface); border-radius: 24px 24px 0 0; border-bottom: 1px solid var(--sandd); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; z-index: 10; }
 .mjm-title { font-size: 18px; font-weight: 700; margin: 0; }
-.mjm-close-btn { width: 36px; height: 36px; background: var(--sandd); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; color: var(--ink6); flex-shrink: 0; }
+.mjm-close-btn { font-size: 16px; width: 36px; height: 36px; background: var(--sandd); border-radius: 50%; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; color: var(--ink6); flex-shrink: 0; }
 .mjm-close-btn:hover { background: var(--t1); }
 .mjm-steps { display: flex; gap: 6px; padding: 0 24px; margin-top: 14px; }
 .mjm-step-dot { flex: 1; height: 4px; border-radius: 2px; background: var(--sandd); }
@@ -19,7 +19,7 @@ const STYLES = `
 .mjm-input:focus { border-color: var(--t4); }
 .mjm-error { font-size: 16px; color: var(--coral); margin-top: -6px; }
 .mjm-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.mjm-opt-card { border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
+.mjm-opt-card { font-size: 16px; line-height: 1.5; border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
 .mjm-opt-card:hover { border-color: var(--t1); }
 .mjm-opt-card.selected { border-color: var(--t4); background: var(--t05, var(--t1)); }
 .mjm-opt-card:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -42,7 +42,35 @@ const STYLES = `
 .mjm-review-v { font-weight: 700; text-align: right; }
 .mjm-footer { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-top: 1px solid var(--sandd); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 24px 24px; }
 .mjm-preview-box { padding: 10px 14px; border-radius: 10px; background: var(--t05, var(--t1)); color: var(--t9); font-size: 16px; font-weight: 600; }
+/* Cron helper. Every text node stays >=16px with line-height >=1.5 so the
+   page keeps scoring 100% on our own text-font and line-spacing audits. */
+.mjm-cron-help { font-size: 16px; line-height: 1.6; color: var(--ink6); margin-top: 8px; }
+.mjm-cron-fields { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.mjm-cron-field { flex: 1 1 96px; border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 10px; background: var(--bg); text-align: center; }
+.mjm-cron-field b { display: block; font-size: 16px; font-weight: 700; color: var(--ink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.mjm-cron-field span { display: block; font-size: 16px; line-height: 1.5; color: var(--ink3); margin-top: 2px; }
+.mjm-cron-examples { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.mjm-cron-ex { font-size: 16px; line-height: 1.5; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-height: 44px; width: 100%; padding: 8px 14px; border: 1px solid var(--sandd); border-radius: 10px; background: var(--bg); cursor: pointer; text-align: left; transition: border-color .15s, background .15s; }
+.mjm-cron-ex:hover { border-color: var(--t4); background: var(--t05, var(--t1)); }
+.mjm-cron-ex code { font-size: 16px; font-weight: 700; color: var(--tlink); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: nowrap; }
+.mjm-cron-ex span { font-size: 16px; line-height: 1.5; color: var(--ink6); }
 `;
+
+// Common schedules, so nobody has to already know cron syntax to use this.
+const CRON_EXAMPLES = [
+  { expr: '0 8 * * 1', label: 'Every Monday at 08:00' },
+  { expr: '0 8 * * *', label: 'Every day at 08:00' },
+  { expr: '30 6 1 * *', label: 'The 1st of each month at 06:30' },
+  { expr: '0 */6 * * *', label: 'Every 6 hours' },
+];
+
+const CRON_FIELDS = [
+  { token: 'min', desc: 'Minute 0–59' },
+  { token: 'hour', desc: 'Hour 0–23' },
+  { token: 'day', desc: 'Day 1–31' },
+  { token: 'month', desc: 'Month 1–12' },
+  { token: 'wday', desc: 'Weekday 0–6' },
+];
 
 const SCHEDULE_CARDS = [
   { key: 'weekly', name: 'Weekly', desc: 'Every Monday 08:00 UTC' },
@@ -250,6 +278,31 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
                     {schedulePreview?.preview && (
                       <div className="mjm-preview-box" style={{ marginTop: 8 }}>{schedulePreview.preview}</div>
                     )}
+                    <p className="mjm-cron-help">
+                      Five values separated by spaces. Use <b>*</b> to mean “every”. Times are UTC.
+                    </p>
+                    <div className="mjm-cron-fields">
+                      {CRON_FIELDS.map((f) => (
+                        <div key={f.token} className="mjm-cron-field">
+                          <b>{f.token}</b>
+                          <span>{f.desc}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mjm-cron-help">Or pick a common schedule:</p>
+                    <div className="mjm-cron-examples">
+                      {CRON_EXAMPLES.map((ex) => (
+                        <button
+                          key={ex.expr}
+                          type="button"
+                          className="mjm-cron-ex"
+                          onClick={() => set({ customCronExpression: ex.expr })}
+                        >
+                          <code>{ex.expr}</code>
+                          <span>{ex.label}</span>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
