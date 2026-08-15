@@ -150,7 +150,10 @@ const SearchBar = ({ isScrolled, onSearchOpenChange }) => {
           border: 1px solid var(--sandd);
         }
 
-        .ss-search-result { color: var(--ink); }
+        /* button{} does not inherit font-size, so this row and its unsized
+           title/desc/meta children all computed to the ~13.3px UA default.
+           Setting it here cascades to them. */
+        .ss-search-result { color: var(--ink); font-size: 16px; line-height: 1.5; }
         .ss-search-result:hover { background: var(--sand); }
         .ss-search-result-title { color: var(--ink); }
         .ss-search-result-desc { color: var(--ink6); }
