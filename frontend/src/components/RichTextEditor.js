@@ -118,6 +118,10 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
               type="button"
               onClick={button.action}
               className={`px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-100 hover:border-gray-400 transition-colors ${button.className}`}
+              /* Tailwind is a dependency but never imported (no @tailwind
+                 directive or config), so text-sm never applies and this button
+                 falls back to the ~13.3px UA default. Set it explicitly. */
+              style={{ fontSize: '16px' }}
               title={button.label}
             >
               {button.icon}
