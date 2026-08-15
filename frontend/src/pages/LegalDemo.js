@@ -54,12 +54,14 @@ const LegalDemo = () => {
                     setShowModal(true);
                   }}
                   className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                  style={{ fontSize: '16px' }}
                 >
                   View & Accept
                 </button>
                 <button
                   onClick={() => setSelectedDocument(doc.type)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  style={{ fontSize: '16px' }}
                 >
                   View Only
                 </button>
