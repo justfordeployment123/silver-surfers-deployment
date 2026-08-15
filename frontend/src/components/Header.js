@@ -159,6 +159,11 @@ const Header = () => {
 
         /* ── Avatar / user menu ────────────────────────── */
         .ss-avatar-btn {
+          /* button{} inherits font-family but not font-size, so without this
+             the element computes to the ~13.3px UA default and fails our own
+             text-font audit. Its visible text lives in .ss-avatar-circle,
+             which sets its own 16px, so this is not a visual change. */
+          font-size: 16px;
           display: flex;
           align-items: center;
           min-height: 44px;
