@@ -102,6 +102,7 @@ const LegalAcceptanceModal = ({
                   <button
                     onClick={onClose}
                     className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                    style={{ fontSize: '16px' }}
                   >
                     Skip
                   </button>
@@ -109,6 +110,7 @@ const LegalAcceptanceModal = ({
                 <button
                   onClick={handleClose}
                   className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  style={{ fontSize: '16px' }}
                 >
                   {required ? 'Cancel' : 'Close'}
                 </button>
