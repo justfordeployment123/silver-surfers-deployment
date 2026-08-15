@@ -101,7 +101,7 @@ const STYLES = `
 }
 @keyframes wss-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .wss-option {
-  /* Explicit size: button{} does not inherit font-size, so this element
+  /* Explicit size: the button reset does not inherit font-size, so this element
      otherwise computes to the ~13.3px UA default. */
   font-size: 16px;
   width: 100%; text-align: left; padding: 12px 16px; border: none; background: none; cursor: pointer;

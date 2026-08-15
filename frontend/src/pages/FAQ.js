@@ -74,7 +74,7 @@ const FAQ = () => {
                     border-top: 1px solid var(--sandd);
                 }
                 .faq-q-btn {
-                    /* button{} inherits font-family but not font-size; without
+                    /* the button reset inherits font-family but not font-size; without
                        this the element computes to the ~13.3px UA default and
                        fails text-font-audit. Children set their own 16px, so
                        nothing moves visually. */
