@@ -12,7 +12,7 @@ const STYLES = `
 .ap-stat-val { font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; }
 .ap-stat-lbl { font-size: 16px; color: var(--ink6); margin-top: 2px; }
 .ap-stat-sub { font-size: 16px; color: var(--ink6); margin-top: 1px; }
-.ap-quick-btn { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
+.ap-quick-btn { font-size: 16px; display: flex; flex-direction: column; align-items: center; padding: 20px 16px; border: 2px solid var(--sandd); border-radius: var(--r); background: var(--surface); cursor: pointer; transition: border-color .15s, background .15s; text-align: center; gap: 8px; }
 .ap-quick-btn:hover { border-color: var(--t4); background: var(--t05); }
 .ap-quick-btn-icon { display: flex; align-items: center; justify-content: center; color: var(--t4); }
 .ap-quick-btn-lbl { font-size: 16px; font-weight: 600; color: var(--ink); }
