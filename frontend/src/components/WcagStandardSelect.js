@@ -101,6 +101,9 @@ const STYLES = `
 }
 @keyframes wss-pop { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
 .wss-option {
+  /* Explicit size: button{} does not inherit font-size, so this element
+     otherwise computes to the ~13.3px UA default. */
+  font-size: 16px;
   width: 100%; text-align: left; padding: 12px 16px; border: none; background: none; cursor: pointer;
   display: block; border-bottom: 1px solid var(--sandd);
 }
@@ -114,7 +117,7 @@ const STYLES = `
   padding: 2px 7px; border-radius: 9999px; background: var(--t6); color: #fff;
 }
 .wss-option-check { margin-left: auto; color: var(--t4); flex-shrink: 0; }
-.wss-option-desc { font-size: 16px; color: var(--ink3); line-height: 1.4; }
+.wss-option-desc { font-size: 16px; color: var(--ink3); line-height: 1.5; }
 .wss-option-count { font-size: 16px; color: var(--ink6); margin-top: 4px; font-weight: 600; }
 
 .wss-chip {
