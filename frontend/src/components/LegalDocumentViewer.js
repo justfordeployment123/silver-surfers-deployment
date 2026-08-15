@@ -73,6 +73,7 @@ const LegalDocumentViewer = ({ type, onAccept, showAcceptButton = true, classNam
         <button
           onClick={loadDocument}
           className="px-4 py-2 min-h-11 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          style={{ fontSize: '16px' }}
         >
           Try Again
         </button>
@@ -123,6 +124,7 @@ const LegalDocumentViewer = ({ type, onAccept, showAcceptButton = true, classNam
                   onClick={handleAccept}
                   disabled={accepting}
                   className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                  style={{ fontSize: '16px' }}
                 >
                   {accepting ? (
                     <div className="flex items-center gap-2">
