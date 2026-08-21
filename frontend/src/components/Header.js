@@ -74,7 +74,14 @@ const Header = () => {
         }
 
         .ss-nav-inner {
-          max-width: 1140px;
+          /* Wider than .wrap (1140px) on purpose: the logged-in nav row
+             (7 links incl. "Subscription", plus search/theme/CTA/avatar,
+             all with 44px WCAG tap targets) measures ~1212px of real
+             content before padding — it literally cannot fit inside
+             1140px on any screen size, logged-in or not. Decoupling the
+             nav's max-width from the page-content max-width fixes that;
+             see the matching 1360px collapse breakpoint below. */
+          max-width: 1360px;
           margin: 0 auto;
           padding: 0 40px;
           width: 100%;
@@ -319,13 +326,16 @@ const Header = () => {
 
         .ss-mobile-search { padding: 0 0 8px; }
 
-        /* ── Desktop hidden at ≤1240px ─────────────────────
-           Was 1024px, but the larger ≥44px tap targets on every nav
-           link/button (WCAG 2.5.8) push the full desktop row past 1024px
-           before it actually has room — it was clipping/overflowing off
-           the right edge around 1024–1145px. Collapsing to the hamburger
-           earlier keeps every item fully visible instead of cramped. ── */
-        @media (max-width: 1240px) {
+        /* ── Desktop hidden at ≤1360px ─────────────────────
+           Was 1024px, then 1240px. First bump only accounted for the
+           logged-OUT row (6 links). Logged-in adds a 7th "Subscription"
+           link, and the ≥44px WCAG tap targets on every item push the
+           real minimum content width to ~1212px + padding — it was still
+           clipping the avatar on ordinary desktop widths (measured
+           overflowing even at 1280–1400px). Matches .ss-nav-inner's
+           1360px max-width above: below that, there just isn't room for
+           the full row, logged in or out, so collapse to the hamburger. */
+        @media (max-width: 1360px) {
           .ss-nav-links        { display: none; }
           .ss-nav-cta          { display: none; }
           .ss-search-desktop   { display: none; }

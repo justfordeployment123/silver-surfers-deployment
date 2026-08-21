@@ -17,6 +17,28 @@ services:
         networks:
             - ssnet
 
+    # ──────────────────────────────────────────────
+    # frontend-next — Next.js 15 replacement (Phase 5 cutover prep).
+    # Additive, not a swap: runs alongside the CRA `frontend` service above
+    # on a separate host port so both can be compared side by side against
+    # the same live backend — same verification approach used throughout
+    # this migration. `docker-compose.production.yml` is untouched; the
+    # actual cutover (retiring the `frontend` service, remapping port 3000
+    # to this one) is a deliberate later step, not part of this file.
+    # ──────────────────────────────────────────────
+    frontend-next:
+        build:
+            context: ./frontend-next
+            dockerfile: Dockerfile
+            args:
+                - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+        container_name: ss-frontend-next
+        restart: unless-stopped
+        ports:
+            - "3001:3000"
+        networks:
+            - ssnet
+
     redis:
         image: redis:7-alpine
         container_name: ss-redis

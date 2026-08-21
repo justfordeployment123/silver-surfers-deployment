@@ -404,18 +404,25 @@ export async function getSubscriptionScans(request: Request, response: Response)
   }
 }
 
+// Standalone Subscription docs count for a user only when the embedded
+// User.subscription is absent/'none' — same fallback rule getUser() below
+// uses. Kept as a constant so the aggregation pipeline and any future
+// single-user lookups can't drift apart.
+const STANDALONE_SUBSCRIPTION_FALLBACK_STATUSES = ['active', 'trialing', 'past_due', 'canceled'];
+
 export async function getUsers(request: Request, response: Response): Promise<void> {
   try {
-    const search = request.query.search;
+    const search = String(request.query.search || '').trim();
     const role = request.query.role;
-    const subscriptionStatus = request.query.subscriptionStatus;
-    const page = Number(request.query.page) || 1;
-    const limit = Number(request.query.limit) || 50;
+    const subscriptionStatus = String(request.query.subscriptionStatus || 'all').toLowerCase();
+    const page = Math.max(1, Number(request.query.page) || 1);
+    const limit = Math.min(Math.max(1, Number(request.query.limit) || 50), 200);
+    const skip = (page - 1) * limit;
 
-    const query: Record<string, unknown> = {};
+    const match: Record<string, unknown> = {};
 
     if (search) {
-      query.$or = [
+      match.$or = [
         { email: { $regex: search, $options: 'i' } },
         { firstName: { $regex: search, $options: 'i' } },
         { lastName: { $regex: search, $options: 'i' } },
@@ -424,18 +431,105 @@ export async function getUsers(request: Request, response: Response): Promise<vo
     }
 
     if (role && role !== 'all') {
-      query.role = role;
+      match.role = role;
     }
 
     const accountStatus = String(request.query.accountStatus || 'all').toLowerCase();
     if (accountStatus !== 'all') {
-      query.accountStatus = accountStatus;
+      match.accountStatus = accountStatus;
     }
 
-    const users = await User.find(query).select('-password -passwordHash').sort({ createdAt: -1 }).lean();
+    // subscriptionStatus needs a computed value (embedded-vs-standalone
+    // subscription, plus a derived active/inactive/none/team_member
+    // category) that isn't a plain indexable field, so it's resolved here
+    // via aggregation instead of a second in-memory pass over every user.
+    // Everything through the $facet below happens inside MongoDB — no
+    // unpaginated collection is ever pulled into Node.
+    const pipeline: Record<string, unknown>[] = [
+      { $match: match },
+      {
+        $lookup: {
+          from: 'subscriptions',
+          let: { userId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$user', '$$userId'] },
+                    { $in: ['$status', STANDALONE_SUBSCRIPTION_FALLBACK_STATUSES] },
+                  ],
+                },
+              },
+            },
+            { $sort: { createdAt: -1 } },
+            { $limit: 1 },
+          ],
+          as: 'standaloneSubscription',
+        },
+      },
+      { $addFields: { standaloneSubscription: { $arrayElemAt: ['$standaloneSubscription', 0] } } },
+      {
+        $addFields: {
+          hasEmbeddedSubscription: {
+            $and: [
+              { $ne: ['$subscription', null] },
+              { $ne: ['$subscription.status', null] },
+              { $ne: ['$subscription.status', 'none'] },
+            ],
+          },
+        },
+      },
+      {
+        $addFields: {
+          effectiveSubStatus: {
+            $cond: ['$hasEmbeddedSubscription', '$subscription.status', '$standaloneSubscription.status'],
+          },
+          effectiveIsTeamMember: {
+            $cond: [
+              '$hasEmbeddedSubscription',
+              { $ifNull: ['$subscription.isTeamMember', false] },
+              { $gt: [{ $size: { $ifNull: ['$standaloneSubscription.teamMembers', []] } }, 0] },
+            ],
+          },
+        },
+      },
+    ];
 
-    const usersWithSubscriptions = await Promise.all(users.map(async (user) => {
-      const userObj = { ...user } as Record<string, unknown>;
+    if (subscriptionStatus !== 'all') {
+      if (subscriptionStatus === 'team_member') {
+        pipeline.push({ $match: { effectiveIsTeamMember: true } });
+      } else if (subscriptionStatus === 'none') {
+        pipeline.push({ $match: { effectiveSubStatus: { $in: [null, undefined] } } });
+      } else if (subscriptionStatus === 'active') {
+        pipeline.push({ $match: { effectiveSubStatus: { $in: ['active', 'trialing'] } } });
+      } else if (subscriptionStatus === 'inactive') {
+        pipeline.push({ $match: { effectiveSubStatus: { $in: ['canceled', 'past_due'] } } });
+      }
+    }
+
+    pipeline.push({
+      $facet: {
+        data: [
+          { $sort: { createdAt: -1 } },
+          { $skip: skip },
+          { $limit: limit },
+          { $project: { password: 0, passwordHash: 0, hasEmbeddedSubscription: 0, effectiveSubStatus: 0, effectiveIsTeamMember: 0 } },
+        ],
+        totalCount: [{ $count: 'count' }],
+      },
+    });
+
+    const [result] = await User.aggregate(pipeline);
+    const rawUsers = (result?.data || []) as Record<string, unknown>[];
+    const total = result?.totalCount?.[0]?.count || 0;
+
+    // Shaping runs only over this page's rows (<= limit), not the full
+    // collection — the N+1-shaped work the old implementation did for
+    // every user in the database now happens for at most `limit` of them.
+    const users = rawUsers.map((user) => {
+      const userObj = { ...user };
+      delete userObj.standaloneSubscription;
 
       if (!userObj.name && (userObj.firstName || userObj.lastName)) {
         userObj.name = [userObj.firstName, userObj.lastName].filter(Boolean).join(' ') || userObj.email;
@@ -443,21 +537,16 @@ export async function getUsers(request: Request, response: Response): Promise<vo
 
       userObj.accountStatus = String(userObj.accountStatus || 'active').toLowerCase();
 
-      if (
-        user.subscription
-        && typeof user.subscription === 'object'
-        && (user.subscription as { status?: string }).status
-        && (user.subscription as { status?: string }).status !== 'none'
-      ) {
-        const embedded = user.subscription as {
-          planId?: string;
-          status?: string;
-          usage?: { scansThisMonth?: number };
-          currentPeriodEnd?: Date;
-          isTeamMember?: boolean;
-          billingCycle?: string;
-        };
+      const embedded = user.subscription as {
+        planId?: string;
+        status?: string;
+        usage?: { scansThisMonth?: number };
+        currentPeriodEnd?: Date;
+        isTeamMember?: boolean;
+        billingCycle?: string;
+      } | undefined;
 
+      if (embedded && embedded.status && embedded.status !== 'none') {
         userObj.subscription = {
           planName: embedded.planId,
           planId: embedded.planId,
@@ -471,10 +560,14 @@ export async function getUsers(request: Request, response: Response): Promise<vo
           billingCycle: embedded.billingCycle || 'yearly',
         };
       } else {
-        const subscription = await Subscription.findOne({
-          user: user._id,
-          status: { $in: ['active', 'trialing', 'past_due', 'canceled'] },
-        }).sort({ createdAt: -1 }).lean();
+        const subscription = user.standaloneSubscription as {
+          planId?: string;
+          status?: string;
+          usage?: { scansThisMonth?: number };
+          currentPeriodEnd?: Date;
+          teamMembers?: unknown[];
+          limits?: { scansPerMonth?: number };
+        } | undefined;
 
         userObj.subscription = subscription ? {
           planName: subscription.planId,
@@ -491,38 +584,15 @@ export async function getUsers(request: Request, response: Response): Promise<vo
       }
 
       return userObj;
-    }));
-
-    let filteredUsers = usersWithSubscriptions;
-    if (subscriptionStatus && subscriptionStatus !== 'all') {
-      filteredUsers = usersWithSubscriptions.filter((user) => {
-        const sub = user.subscription as { status?: string; isTeamMember?: boolean } | null;
-        if (!sub) {
-          return subscriptionStatus === 'none';
-        }
-        if (subscriptionStatus === 'active') {
-          return sub.status === 'active' || sub.status === 'trialing';
-        }
-        if (subscriptionStatus === 'inactive') {
-          return sub.status === 'canceled' || sub.status === 'past_due';
-        }
-        if (subscriptionStatus === 'team_member') {
-          return sub.isTeamMember === true;
-        }
-        return true;
-      });
-    }
-
-    const skip = (page - 1) * limit;
-    const paginatedUsers = filteredUsers.slice(skip, skip + limit);
+    });
 
     response.json({
       success: true,
-      users: paginatedUsers,
-      total: filteredUsers.length,
+      users,
+      total,
       page,
       limit,
-      pages: Math.ceil(filteredUsers.length / limit),
+      pages: Math.ceil(total / limit) || 1,
     });
   } catch (error) {
     console.error('Error fetching users:', error);

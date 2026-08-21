@@ -372,27 +372,55 @@ router.get('/me', asyncHandler(async (request, response) => {
 router.get('/my-analysis', authRequired, asyncHandler(async (request, response) => {
   const AnalysisRecord = await getAnalysisRecordModel();
   const user = request.user;
-  const limit = Number(request.query.limit) || 50;
+  const query = buildOwnedAnalysisQuery(user);
 
-  const items = await AnalysisRecord.find(buildOwnedAnalysisQuery(user))
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+  if (request.query.page === undefined) {
+    const limit = Number(request.query.limit) || 50;
+    const [items, total] = await Promise.all([
+      AnalysisRecord.find(query).sort({ createdAt: -1 }).limit(limit).lean(),
+      AnalysisRecord.countDocuments(query),
+    ]);
+    response.json({ items, total, page: 1, limit, pages: Math.ceil(total / limit) || 1 });
+    return;
+  }
 
-  response.json({ items });
+  const page = Math.max(1, Number(request.query.page) || 1);
+  const limit = Math.min(Math.max(1, Number(request.query.limit) || 20), 100);
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    AnalysisRecord.find(query).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    AnalysisRecord.countDocuments(query),
+  ]);
+
+  response.json({ items, total, page, limit, pages: Math.ceil(total / limit) || 1 });
 }));
 
 router.get('/my-quick-scans', authRequired, asyncHandler(async (request, response) => {
   const QuickScan = await getQuickScanModel();
   const user = request.user;
-  const limit = Number(request.query.limit) || 50;
+  const query = buildOwnedQuickScanQuery(user);
 
-  const items = await QuickScan.find(buildOwnedQuickScanQuery(user))
-    .sort({ scanDate: -1, createdAt: -1 })
-    .limit(limit)
-    .lean();
+  if (request.query.page === undefined) {
+    const limit = Number(request.query.limit) || 50;
+    const [items, total] = await Promise.all([
+      QuickScan.find(query).sort({ scanDate: -1, createdAt: -1 }).limit(limit).lean(),
+      QuickScan.countDocuments(query),
+    ]);
+    response.json({ items, total, page: 1, limit, pages: Math.ceil(total / limit) || 1 });
+    return;
+  }
 
-  response.json({ items });
+  const page = Math.max(1, Number(request.query.page) || 1);
+  const limit = Math.min(Math.max(1, Number(request.query.limit) || 20), 100);
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    QuickScan.find(query).sort({ scanDate: -1, createdAt: -1 }).skip(skip).limit(limit).lean(),
+    QuickScan.countDocuments(query),
+  ]);
+
+  response.json({ items, total, page, limit, pages: Math.ceil(total / limit) || 1 });
 }));
 
 router.post('/my-analysis/:taskId/rerun', authRequired, asyncHandler(async (request, response) => {

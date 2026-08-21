@@ -26,9 +26,26 @@ const router = Router();
 
 router.use(authRequired, adminRequired);
 
-router.get('/blog', asyncHandler(async (_request, response) => {
-  const items = await BlogPost.find().sort({ createdAt: -1 }).lean();
-  response.json({ items });
+// Pagination is opt-in via `page` here too (see content.routes.ts's public
+// /blogs for the same reasoning) — the still-running CRA admin pages call
+// this with no params and expect every post back.
+router.get('/blog', asyncHandler(async (request, response) => {
+  if (request.query.page === undefined) {
+    const items = await BlogPost.find().sort({ createdAt: -1 }).lean();
+    response.json({ items, total: items.length, page: 1, limit: items.length, pages: 1 });
+    return;
+  }
+
+  const page = Math.max(1, Number(request.query.page) || 1);
+  const limit = Math.min(Math.max(1, Number(request.query.limit) || 20), 100);
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    BlogPost.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    BlogPost.countDocuments(),
+  ]);
+
+  response.json({ items, total, page, limit, pages: Math.ceil(total / limit) || 1 });
 }));
 
 router.post('/blog', asyncHandler(async (request, response) => {
@@ -114,9 +131,23 @@ router.delete('/blog/:id', asyncHandler(async (request, response) => {
   response.json({ ok: true });
 }));
 
-router.get('/services', asyncHandler(async (_request, response) => {
-  const items = await Service.find().sort({ createdAt: -1 }).lean();
-  response.json({ items });
+router.get('/services', asyncHandler(async (request, response) => {
+  if (request.query.page === undefined) {
+    const items = await Service.find().sort({ createdAt: -1 }).lean();
+    response.json({ items, total: items.length, page: 1, limit: items.length, pages: 1 });
+    return;
+  }
+
+  const page = Math.max(1, Number(request.query.page) || 1);
+  const limit = Math.min(Math.max(1, Number(request.query.limit) || 20), 100);
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    Service.find().sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+    Service.countDocuments(),
+  ]);
+
+  response.json({ items, total, page, limit, pages: Math.ceil(total / limit) || 1 });
 }));
 
 router.post('/services', asyncHandler(async (request, response) => {
@@ -157,9 +188,23 @@ router.delete('/services/:id', asyncHandler(async (request, response) => {
   response.json({ ok: true });
 }));
 
-router.get('/faqs', asyncHandler(async (_request, response) => {
-  const items = await FAQ.find().sort({ order: 1, createdAt: -1 }).lean();
-  response.json({ items });
+router.get('/faqs', asyncHandler(async (request, response) => {
+  if (request.query.page === undefined) {
+    const items = await FAQ.find().sort({ order: 1, createdAt: -1 }).lean();
+    response.json({ items, total: items.length, page: 1, limit: items.length, pages: 1 });
+    return;
+  }
+
+  const page = Math.max(1, Number(request.query.page) || 1);
+  const limit = Math.min(Math.max(1, Number(request.query.limit) || 20), 100);
+  const skip = (page - 1) * limit;
+
+  const [items, total] = await Promise.all([
+    FAQ.find().sort({ order: 1, createdAt: -1 }).skip(skip).limit(limit).lean(),
+    FAQ.countDocuments(),
+  ]);
+
+  response.json({ items, total, page, limit, pages: Math.ceil(total / limit) || 1 });
 }));
 
 router.post('/faqs', asyncHandler(async (request, response) => {
@@ -208,15 +253,36 @@ router.delete('/faqs/:id', asyncHandler(async (request, response) => {
 }));
 
 router.get('/analysis', asyncHandler(async (request, response) => {
-  const { email, url, status, emailStatus, limit } = request.query ?? {};
+  const { email, url, status, emailStatus, limit, page } = request.query ?? {};
   const query: Record<string, unknown> = {};
   if (email) query.email = String(email);
   if (url) query.url = String(url);
   if (status) query.status = String(status);
   if (emailStatus) query.emailStatus = String(emailStatus);
 
-  const items = await AnalysisRecord.find(query).sort({ createdAt: -1 }).limit(Number(limit) || 100).lean();
-  response.json({ items });
+  if (page === undefined) {
+    // Back-compat: old callers pass only `limit` and expect a plain array,
+    // with no `skip`/`total` — same shape as before, just now also with
+    // the pagination metadata attached for callers that read it.
+    const cappedLimit = Number(limit) || 100;
+    const [items, total] = await Promise.all([
+      AnalysisRecord.find(query).sort({ createdAt: -1 }).limit(cappedLimit).lean(),
+      AnalysisRecord.countDocuments(query),
+    ]);
+    response.json({ items, total, page: 1, limit: cappedLimit, pages: Math.ceil(total / cappedLimit) || 1 });
+    return;
+  }
+
+  const pageNum = Math.max(1, Number(page) || 1);
+  const pageLimit = Math.min(Math.max(1, Number(limit) || 100), 500);
+  const skip = (pageNum - 1) * pageLimit;
+
+  const [items, total] = await Promise.all([
+    AnalysisRecord.find(query).sort({ createdAt: -1 }).skip(skip).limit(pageLimit).lean(),
+    AnalysisRecord.countDocuments(query),
+  ]);
+
+  response.json({ items, total, page: pageNum, limit: pageLimit, pages: Math.ceil(total / pageLimit) || 1 });
 }));
 
 router.get('/analysis/:taskId', asyncHandler(async (request, response) => {
@@ -230,19 +296,47 @@ router.get('/analysis/:taskId', asyncHandler(async (request, response) => {
 }));
 
 router.get('/contact', asyncHandler(async (request, response) => {
-  const { status, q, limit = 200 } = request.query ?? {};
+  const { status, q, limit, page } = request.query ?? {};
   const filter: Record<string, unknown> = {};
   if (status && ['new', 'read', 'closed'].includes(String(status))) {
     filter.status = String(status);
   }
 
-  const items = await ContactMessage.find(filter).sort({ createdAt: -1 }).limit(Number(limit) || 200).lean();
-  const term = String(q || '').trim().toLowerCase();
-  const filtered = term
-    ? items.filter((item) => [item.name, item.email, item.subject, item.message].some((value) => String(value || '').toLowerCase().includes(term)))
-    : items;
+  // Search now runs inside the Mongo query instead of loading up to `limit`
+  // docs and filtering them in Node — the old in-memory filter also meant
+  // a search term could shrink the result set below what was actually
+  // fetched (e.g. matching only 3 of the 200 loaded), with no way to load
+  // "page 2" of real matches. $or/$regex here searches the full collection.
+  const term = String(q || '').trim();
+  if (term) {
+    filter.$or = [
+      { name: { $regex: term, $options: 'i' } },
+      { email: { $regex: term, $options: 'i' } },
+      { subject: { $regex: term, $options: 'i' } },
+      { message: { $regex: term, $options: 'i' } },
+    ];
+  }
 
-  response.json({ items: filtered });
+  if (page === undefined) {
+    const cappedLimit = Number(limit) || 200;
+    const [items, total] = await Promise.all([
+      ContactMessage.find(filter).sort({ createdAt: -1 }).limit(cappedLimit).lean(),
+      ContactMessage.countDocuments(filter),
+    ]);
+    response.json({ items, total, page: 1, limit: cappedLimit, pages: Math.ceil(total / cappedLimit) || 1 });
+    return;
+  }
+
+  const pageNum = Math.max(1, Number(page) || 1);
+  const pageLimit = Math.min(Math.max(1, Number(limit) || 50), 200);
+  const skip = (pageNum - 1) * pageLimit;
+
+  const [items, total] = await Promise.all([
+    ContactMessage.find(filter).sort({ createdAt: -1 }).skip(skip).limit(pageLimit).lean(),
+    ContactMessage.countDocuments(filter),
+  ]);
+
+  response.json({ items, total, page: pageNum, limit: pageLimit, pages: Math.ceil(total / pageLimit) || 1 });
 }));
 
 router.get('/contact/:id', asyncHandler(async (request, response) => {

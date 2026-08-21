@@ -206,14 +206,53 @@ monitoringRouter.get('/jobs', authRequired, asyncHandler(async (request, respons
   const userId = request.user!.id;
   const MonitoringJob = await getMonitoringJobModel();
 
-  const [items, planId] = await Promise.all([
-    MonitoringJob.find({ userId }).sort({ createdAt: -1 }),
-    resolveMonitoringPlanId(userId),
-  ]);
-  const activeCount = items.filter((job) => job.status === 'active').length;
+  // activeCount is a plan-limit number (how many active jobs this user has
+  // against their plan cap), so it's always computed from the full owned
+  // set via countDocuments — never from whatever page of `items` is
+  // returned below, so pagination can't skew plan-limit enforcement.
+  if (request.query.page === undefined) {
+    const [items, planId, activeCount] = await Promise.all([
+      MonitoringJob.find({ userId }).sort({ createdAt: -1 }),
+      resolveMonitoringPlanId(userId),
+      MonitoringJob.countDocuments({ userId, status: 'active' }),
+    ]);
 
-  routesLogger.debug('Listed monitoring jobs.', { userId, count: items.length, planId, activeCount });
-  response.json({ success: true, items, planId, limits: MONITORING_PLAN_LIMITS[planId], activeCount });
+    routesLogger.debug('Listed monitoring jobs.', { userId, count: items.length, planId, activeCount });
+    response.json({
+      success: true,
+      items,
+      total: items.length,
+      page: 1,
+      limit: items.length,
+      pages: 1,
+      planId,
+      limits: MONITORING_PLAN_LIMITS[planId],
+      activeCount,
+    });
+    return;
+  }
+
+  const { page, limit, skip } = parsePagination(request.query as Record<string, unknown>);
+
+  const [items, total, planId, activeCount] = await Promise.all([
+    MonitoringJob.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    MonitoringJob.countDocuments({ userId }),
+    resolveMonitoringPlanId(userId),
+    MonitoringJob.countDocuments({ userId, status: 'active' }),
+  ]);
+
+  routesLogger.debug('Listed monitoring jobs.', { userId, count: items.length, total, page, limit, planId, activeCount });
+  response.json({
+    success: true,
+    items,
+    total,
+    page,
+    limit,
+    pages: Math.ceil(total / limit) || 1,
+    planId,
+    limits: MONITORING_PLAN_LIMITS[planId],
+    activeCount,
+  });
 }));
 
 monitoringRouter.post('/jobs', authRequired, asyncHandler(async (request, response) => {
