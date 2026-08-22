@@ -1,0 +1,796 @@
+/* ── Design Tokens ─────────────────────────────────────────── */
+/* Ported from frontend/src/index.css — keep both in sync until the CRA app
+   is retired. Includes the accessibility-contrast fixes already applied
+   there (see the inline comments below). */
+:root {
+  /* Teal scale */
+  --t9:  #042E22;
+  --t8:  #085041;
+  --t6:  #0F6E56;
+  --t4:  #1D9E75;
+  --t2:  #7ABFAA;
+  --t1:  #E1F5EE;
+  --t05: #F0FAF6;
+
+  /* Ink / neutral */
+  --ink:  #1A1A18;
+  --ink6: #5C5C58;
+  /* ink3 was #ADADAA (2.25:1 on white) — too light to ever pass 4.5:1 AA as
+     text, which it was used for in many places. Darkened to keep it the
+     most muted tier while clearing 4.5:1 against white and --sand. */
+  --ink3: #6E6E6B;
+
+  /* Sand */
+  --sand:  #F7F5F0;
+  --sandd: #EAE8E3;
+
+  /* Semantic */
+  /* Darkened from #C84B2F (4.66:1 on white, 4.05:1 on --coralbg — failed
+     AA on its own tinted background) so error text reliably clears 4.5:1. */
+  --coral:    #A83A22;
+  --coralbg:  #FAECE7;
+  /* Darkened from #B06A10 (4.27:1 on white, 3.72:1 on --amberbg — failed AA). */
+  --amber:    #8F5209;
+  --amberbg:  #FAEEDA;
+  --blue:     #185FA5;
+  --bluebg:   #E6F1FB;
+
+  /* Typography — the base font stacks are still named --ffd/--ff so every
+     ported component's var(--ffd)/var(--ff) reference works unchanged;
+     the actual font family now comes from next/font (see app/layout.js),
+     which defines --font-playfair/--font-dm-sans on <html>. */
+  --ffd: var(--font-playfair), Georgia, serif;
+  --ff:  var(--font-dm-sans), system-ui, sans-serif;
+
+  /* Radius */
+  --r:  8px;
+  --rl: 12px;
+
+  /* Surfaces (page bg / elevated bg) — flip in dark mode */
+  --bg:      #fff;
+  --surface: #fff;
+  --nav-bg:  rgba(255, 255, 255, 0.97);
+
+  /* Teal "accent text" for links/labels on theme-aware surfaces (cards, body
+     copy, form hints) — NOT for the permanently-dark hero/CTA/footer
+     sections, which should keep using --t2 directly. --t4 itself only
+     reaches ~3.4:1 on white, so it can't be used as text; --tlink swaps in
+     the teal shade that actually clears 4.5:1 against the surface color
+     the current theme is using. */
+  --tlink: var(--t6);
+  /* --t3 was referenced in ~15 places (hover states, status badges) but was
+     never defined in the teal scale above — every one of those declarations
+     was silently invalid. Alias it to --tlink so they resolve to a real,
+     theme-appropriate, contrast-passing color instead of doing nothing. */
+  --t3: var(--tlink);
+
+  color-scheme: light;
+}
+
+/* ── Dark theme ────────────────────────────────────────────── */
+/* Note: the teal scale (--t1…--t9) is a fixed decorative palette used
+   both as tinted backgrounds AND as light text sitting on permanently-
+   dark sections (hero, CTA, testimonials) — it intentionally does NOT
+   change with theme, otherwise that text loses contrast against its
+   (also-unchanging) dark backdrop. */
+:root[data-theme='dark'] {
+  --ink:  #F2F1ED;
+  --ink6: #B7B6B0;
+  /* Same 4.5:1 fix as light mode's --ink3, mirrored for the dark surfaces. */
+  --ink3: #8C8B85;
+
+  --sand:  #14211C;
+  --sandd: #253531;
+
+  --bg:      #0B1210;
+  --surface: #101815;
+  --nav-bg:  rgba(11, 18, 16, 0.86);
+
+  --tlink: var(--t2);
+
+  /* Light-mode coral/amber/blue are tuned to pass 4.5:1 on light surfaces;
+     re-lighten them here so they keep passing once --surface/--sand/--bg
+     flip dark. (--coralbg/--amberbg/--bluebg are fixed pastel chips that
+     intentionally don't flip, same as the teal scale.) */
+  --coral: #EF8266;
+  --amber: #E8B34D;
+  --blue:  #6BAEE8;
+
+  color-scheme: dark;
+}
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  font-size: 16px;
+}
+
+body {
+  font-family: var(--ff);
+  color: var(--ink);
+  background: var(--bg);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+ul, ol { list-style: none; }
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+p { line-height: 1.7; }
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--ffd);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+/* ── Focus ─────────────────────────────────────────────────── */
+*:focus-visible {
+  outline: 2px solid var(--t4);
+  outline-offset: 2px;
+}
+
+/* ── Selection ─────────────────────────────────────────────── */
+::selection {
+  background: rgba(29, 158, 117, 0.25);
+  color: var(--ink);
+}
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 10px; }
+::-webkit-scrollbar-track { background: var(--sand); }
+::-webkit-scrollbar-thumb {
+  background: var(--t4);
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--t6); }
+
+/* ── Code ──────────────────────────────────────────────────── */
+code {
+  font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+  background: var(--t05);
+  color: var(--t8);
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  font-size: 0.875em;
+}
+
+pre {
+  background: var(--t9);
+  padding: 1rem;
+  border-radius: var(--r);
+  overflow-x: auto;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+pre code {
+  background: none;
+  color: var(--t1);
+  padding: 0;
+}
+
+/* ── App shell ─────────────────────────────────────────────── */
+/* Ported from frontend/src/App.css. */
+.App {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* ── Layout ────────────────────────────────────────────────── */
+.wrap {
+  max-width: 1140px;
+  margin: 0 auto;
+  padding: 0 40px;
+  width: 100%;
+}
+
+.sec     { padding: 80px 0; }
+.sec-sm  { padding: 56px 0; }
+.sec-sand {
+  background: var(--sand);
+  padding: 80px 0;
+}
+
+/* ── Type scale ────────────────────────────────────────────── */
+.h1 {
+  font-family: var(--ffd);
+  font-size: clamp(32px, 4.5vw, 54px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.h2 {
+  font-family: var(--ffd);
+  font-size: clamp(24px, 3vw, 38px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+}
+
+.h3 {
+  font-family: var(--ffd);
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+}
+
+.lead {
+  font-size: 17px;
+  color: var(--ink6);
+  line-height: 1.7;
+  font-weight: 300;
+}
+
+.sub {
+  font-size: 16px;
+  color: var(--ink6);
+  line-height: 1.65;
+  font-weight: 300;
+}
+
+/* ── Eyebrow ───────────────────────────────────────────────── */
+.eyebrow {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tlink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.eyebrow::before {
+  content: '';
+  width: 22px;
+  height: 1.5px;
+  background: var(--t4);
+  flex-shrink: 0;
+}
+
+/* Eyebrow on dark (t8/t9) backgrounds — t2 (not t4) so the 16px label
+   still clears 4.5:1 against the dark hero/CTA backgrounds. */
+.eyebrow--light {
+  color: var(--t2);
+}
+.eyebrow--light::before {
+  background: var(--t2);
+}
+
+/* ── Grids ─────────────────────────────────────────────────── */
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.g3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.g4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+/* ── Buttons ───────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-family: var(--ff);
+  font-weight: 600;
+  font-size: 16px;
+  padding: 12px 22px;
+  border-radius: var(--r);
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+/* Primary — light bg. Uses t6 (not the brighter t4) so white button text
+   clears 4.5:1 contrast (t4 + white only reaches ~3.4:1). */
+.btn-p {
+  background: var(--t6);
+  color: #fff;
+}
+.btn-p:hover { background: var(--t8); }
+
+/* Primary Dark */
+.btn-d {
+  background: var(--t8);
+  color: #fff;
+}
+.btn-d:hover { background: var(--t9); }
+
+/* Ghost — for use on dark (t8/t9) backgrounds */
+.btn-g {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+.btn-g:hover {
+  background: rgba(255, 255, 255, 0.07);
+  color: #fff;
+}
+
+/* Outline — for use on light backgrounds */
+.btn-o {
+  background: transparent;
+  color: var(--tlink);
+  border: 1.5px solid var(--tlink);
+}
+.btn-o:hover { background: var(--sand); }
+
+.btn-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 32px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--sandd);
+  border-radius: var(--rl);
+  padding: 28px;
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.2s, transform 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 8px 32px rgba(8, 80, 65, 0.09);
+  transform: translateY(-2px);
+}
+
+/* 3px teal accent bar at top of every card */
+.card-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--t4);
+}
+
+.card h3 {
+  font-family: var(--ffd);
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.card p {
+  font-size: 16px;
+  color: var(--ink6);
+  line-height: 1.65;
+}
+
+/* Tag chip */
+.tag {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t6);
+  background: var(--t05);
+  padding: 4px 10px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+/* Card arrow link */
+.card-lnk {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--tlink);
+  margin-top: 16px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.card-lnk::after {
+  content: '→';
+  transition: transform 0.15s;
+}
+.card-lnk:hover::after {
+  transform: translateX(4px);
+}
+
+/* ── Stats block (dark bg) ─────────────────────────────────── */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 52px;
+}
+
+.stat {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 22px 28px;
+  text-align: center;
+  transition: background 0.15s;
+}
+.stat:hover { background: rgba(255, 255, 255, 0.07); }
+
+.stat-n {
+  font-family: var(--ffd);
+  font-size: 36px;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  margin-bottom: 5px;
+}
+
+.stat-l {
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
+}
+
+/* ── Proof / testimonial strip ─────────────────────────────── */
+.proof-strip {
+  background: var(--t8);
+  padding: 52px 0;
+}
+
+.proof-g {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.proof-item { padding: 28px 32px; }
+
+.proof-q {
+  font-family: var(--ffd);
+  font-size: 16px;
+  font-style: italic;
+  color: var(--t1);
+  line-height: 1.6;
+  margin-bottom: 12px;
+}
+
+.proof-a {
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
+}
+
+/* ── Dark CTA section ──────────────────────────────────────── */
+.cta-sec {
+  background: var(--t9);
+  padding: 96px 0;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-sec .h2 { color: #fff; }
+.cta-sec .lead {
+  color: rgba(255,255,255,0.75);
+  margin: 14px auto 0;
+  max-width: 480px;
+}
+.cta-note {
+  font-size: 16px;
+  color: rgba(255,255,255,0.75);
+  margin-top: 18px;
+}
+
+/* ── Page hero (dark) ──────────────────────────────────────── */
+.pg-hero {
+  background: var(--t9);
+  padding: 80px 0 64px;
+}
+.pg-hero .h1 { color: #fff; max-width: 640px; margin: 0 auto 18px; }
+.pg-hero .lead { color: rgba(255,255,255,0.75); max-width: 560px; margin-left: auto; margin-right: auto; }
+
+/* ── Problem bridge ────────────────────────────────────────── */
+.prob-bridge {
+  background: var(--sand);
+  border-bottom: 1px solid var(--sandd);
+  padding: 48px 0;
+}
+.prob-bridge p {
+  font-size: 18px;
+  line-height: 1.7;
+  color: var(--ink6);
+  max-width: 740px;
+}
+.prob-bridge strong { color: var(--ink); font-weight: 600; }
+
+/* ── Step number circle ────────────────────────────────────── */
+.step-num {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--t8);
+  color: #fff;
+  font-family: var(--ffd);
+  font-size: 16px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+/* ── Dimension card (teal tint) ────────────────────────────── */
+.dim-card {
+  background: var(--t05);
+  border: 1px solid var(--t1);
+  border-radius: var(--r);
+  padding: 18px;
+}
+.dim-card h4 { font-size: 16px; font-weight: 600; color: var(--t8); margin-bottom: 5px; }
+.dim-card p  { font-size: 16px; color: var(--ink6); line-height: 1.5; }
+
+/* ── Dark diff/mission block ───────────────────────────────── */
+.diff {
+  background: var(--t9);
+  border-radius: var(--rl);
+  padding: 36px;
+}
+.diff .h3 { color: #fff; margin-bottom: 12px; }
+.diff p   { font-size: 16px; color: rgba(255,255,255,0.75); line-height: 1.65; }
+
+/* ── Vertical card (industry teaser) ───────────────────────── */
+.v-card {
+  background: var(--surface);
+  border: 1px solid var(--sandd);
+  border-radius: var(--rl);
+  padding: 22px;
+  transition: box-shadow 0.2s, transform 0.2s;
+  cursor: pointer;
+}
+.v-card:hover {
+  box-shadow: 0 4px 20px rgba(8, 80, 65, 0.08);
+  transform: translateY(-2px);
+}
+.v-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: var(--t1);
+  color: var(--t6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+.v-card h4 { font-size: 16px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
+.v-card p  { font-size: 16px; color: var(--ink6); line-height: 1.5; margin-bottom: 10px; }
+.v-lnk { font-size: 16px; font-weight: 600; color: var(--tlink); }
+
+/* ── Pricing plan cards ────────────────────────────────────── */
+.plan-g {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-top: 36px;
+}
+
+.plan {
+  border: 1px solid var(--sandd);
+  border-radius: var(--rl);
+  padding: 24px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.plan.feat {
+  border-color: var(--t4);
+  background: var(--t05);
+}
+
+.plan-pop {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--t6);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+
+.plan-nm {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 6px;
+}
+
+.plan-pr {
+  font-family: var(--ffd);
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.plan-pr span {
+  font-size: 16px;
+  font-family: var(--ff);
+  font-weight: 400;
+  color: var(--ink6);
+}
+
+.plan-sub {
+  font-size: 16px;
+  color: var(--ink6);
+  margin-bottom: 18px;
+}
+
+.plan-div {
+  border: none;
+  border-top: 1px solid var(--sandd);
+  margin-bottom: 16px;
+}
+
+.plan-feat {
+  font-size: 16px;
+  color: var(--ink6);
+  line-height: 2.1;
+  flex: 1;
+}
+
+.plan-feat.teal { color: var(--t8); }
+
+.plan-dark {
+  background: var(--t9);
+  border-color: var(--t9);
+}
+.plan-dark .plan-nm  { color: var(--t2); }
+.plan-dark .plan-pr  { color: #fff; }
+.plan-dark .plan-sub { color: rgba(255,255,255,0.75); }
+.plan-dark .plan-div { border-color: rgba(255,255,255,0.1); }
+.plan-dark .plan-feat{ color: rgba(255,255,255,0.75); }
+
+.plan-cta { margin-top: 18px; }
+
+/* ── Forms (shared across pages) ──────────────────────────── */
+.ss-input {
+  width: 100%;
+  border: 1.5px solid var(--sandd);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  font-size: 16px;
+  font-family: var(--ff);
+  color: var(--ink);
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s;
+  outline: none;
+}
+.ss-input:focus { border-color: var(--t4); }
+.ss-input::placeholder { color: var(--ink3); }
+
+.ss-label {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 6px;
+  display: block;
+}
+
+/* ── Alert banners ─────────────────────────────────────────── */
+.alert-error {
+  background: var(--coralbg);
+  border: 1px solid #F5C4B8;
+  border-radius: var(--r);
+  padding: 12px 16px;
+  font-size: 16px;
+  color: #7A2B18;
+  line-height: 1.5;
+}
+
+.alert-success {
+  background: var(--t05);
+  border: 1px solid var(--t1);
+  border-radius: var(--r);
+  padding: 12px 16px;
+  font-size: 16px;
+  color: var(--t8);
+  line-height: 1.5;
+}
+
+/* ── Auth card ─────────────────────────────────────────────── */
+.auth-card {
+  max-width: 440px;
+  margin: 100px auto 60px;
+  background: var(--surface);
+  border: 1px solid var(--sandd);
+  border-radius: var(--rl);
+  padding: 40px;
+  box-shadow: 0 4px 24px rgba(8, 80, 65, 0.07);
+}
+
+/* ── WCAG badge ────────────────────────────────────────────── */
+.wcag-badge {
+  display: inline-block;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  background: var(--t05);
+  color: var(--t8);
+  border: 1px solid var(--t1);
+  border-radius: 4px;
+  padding: 2px 8px;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 1200px) {
+  .wrap { padding: 0 24px; }
+}
+
+@media (max-width: 1024px) {
+  .g3 { grid-template-columns: 1fr 1fr; }
+  .g4 { grid-template-columns: 1fr 1fr; }
+  .plan-g { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 768px) {
+  .g2    { grid-template-columns: 1fr; }
+  .g3    { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr; }
+  .proof-g { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 480px) {
+  .sec { padding: 48px 0; }
+  .sec-sand { padding: 48px 0; }
+  .h1 { font-size: 28px; }
+  .plan-g { grid-template-columns: 1fr; }
+}
