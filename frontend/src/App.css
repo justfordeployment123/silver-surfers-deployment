@@ -76,22 +76,13 @@
   margin-bottom: 14px;
 }
 
-.eyebrow::before {
-  content: '';
-  width: 22px;
-  height: 1.5px;
-  background: var(--t4);
-  flex-shrink: 0;
-}
 
 /* Eyebrow on dark (t8/t9) backgrounds — t2 (not t4) so the 16px label
    still clears 4.5:1 against the dark hero/CTA backgrounds. */
 .eyebrow--light {
   color: var(--t2);
 }
-.eyebrow--light::before {
-  background: var(--t2);
-}
+
 
 /* ── Grids ─────────────────────────────────────────────────── */
 .g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
