@@ -1,3 +1,5 @@
+import dns from 'node:dns/promises';
+
 import { Router } from 'express';
 
 import { logger } from '../../config/logger.ts';
@@ -85,6 +87,49 @@ function isValidUrlDomain(value: unknown): value is string {
 }
 
 /**
+ * `new URL()` only checks that a string is *shaped* like a hostname — it
+ * happily accepts things like "w.e.com" that will never resolve, which used
+ * to sail straight into a recurring monitor that would then fail silently on
+ * every scheduled run with nobody told at creation time. This is the one
+ * point in the monitoring flow where checking that actually matters: it's a
+ * single one-time lookup at job creation/edit, not a cost paid on every
+ * scheduled scan.
+ *
+ * DNS errors that mean "this name doesn't exist" (ENOTFOUND / ENODATA) are
+ * treated as a real rejection. Anything else — a slow or flaky resolver, a
+ * network hiccup on our own box — fails OPEN (treated as resolvable), so a
+ * transient DNS blip can't block a legitimate signup; the scheduled scan
+ * itself will surface a real failure later if the domain truly is
+ * unreachable.
+ */
+async function domainResolves(hostnameOrUrl: string): Promise<boolean> {
+  let hostname: string;
+  try {
+    const candidate = /^https?:\/\//i.test(hostnameOrUrl) ? hostnameOrUrl : `https://${hostnameOrUrl}`;
+    hostname = new URL(candidate).hostname;
+  } catch {
+    return false;
+  }
+
+  const DNS_TIMEOUT_MS = 4000;
+  try {
+    await Promise.race([
+      dns.lookup(hostname),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('dns-timeout')), DNS_TIMEOUT_MS)),
+    ]);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException)?.code;
+    if (code === 'ENOTFOUND' || code === 'ENODATA') return false;
+    routesLogger.warn('DNS check inconclusive for monitoring domain — allowing it through.', {
+      hostname,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return true;
+  }
+}
+
+/**
  * Validates + normalizes the mutable fields of a job (used by both create
  * and update). Returns either a normalized field set or a 400-ready error
  * string — routes decide the response, this stays framework-agnostic.
@@ -108,11 +153,14 @@ type ValidateJobFieldsResult =
   | { ok: true; fields: ValidatedJobFields }
   | { ok: false; error: string };
 
-function validateJobFields(body: Record<string, unknown>, { partial }: { partial: boolean }): ValidateJobFieldsResult {
+async function validateJobFields(body: Record<string, unknown>, { partial }: { partial: boolean }): Promise<ValidateJobFieldsResult> {
   const fields: Record<string, unknown> = {};
 
   if (body.domain !== undefined) {
     if (!isValidUrlDomain(body.domain)) return { ok: false, error: 'domain must be a valid URL or hostname.' };
+    if (!(await domainResolves(body.domain))) {
+      return { ok: false, error: "We couldn't find a website at that domain. Check the spelling and try again." };
+    }
     fields.domain = String(body.domain).trim();
   } else if (!partial) {
     return { ok: false, error: 'domain is required.' };
@@ -257,7 +305,7 @@ monitoringRouter.get('/jobs', authRequired, asyncHandler(async (request, respons
 
 monitoringRouter.post('/jobs', authRequired, asyncHandler(async (request, response) => {
   const userId = request.user!.id;
-  const validation = validateJobFields(request.body ?? {}, { partial: false });
+  const validation = await validateJobFields(request.body ?? {}, { partial: false });
   if (!validation.ok) {
     routesLogger.info('Rejected job creation — invalid fields.', { userId, error: validation.error });
     response.status(400).json({ error: validation.error });
@@ -319,7 +367,7 @@ monitoringRouter.put('/jobs/:id', authRequired, asyncHandler(async (request, res
     return;
   }
 
-  const validation = validateJobFields(request.body ?? {}, { partial: true });
+  const validation = await validateJobFields(request.body ?? {}, { partial: true });
   if (!validation.ok) {
     routesLogger.info('Rejected job update — invalid fields.', { userId, jobId: request.params.id, error: validation.error });
     response.status(400).json({ error: validation.error });
