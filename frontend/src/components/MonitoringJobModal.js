@@ -22,6 +22,14 @@ const STYLES = `
 .mjm-opt-card { font-size: 16px; line-height: 1.5; border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
 .mjm-opt-card:hover { border-color: var(--t1); }
 .mjm-opt-card.selected { border-color: var(--t4); background: var(--t05, var(--t1)); }
+/* .mjm-opt-name/.mjm-opt-desc set no color of their own, so they render with
+   the button's UA default text color, which follows color-scheme (light/dark)
+   and is correct against the card's normal var(--bg). .selected swaps to a
+   FIXED pale background that doesn't follow color-scheme, so in dark mode the
+   still-light UA text became near-invisible on it. Pin both to the fixed teal
+   scale, matching the same fix already used on Checkout.js's co-sub-banner. */
+.mjm-opt-card.selected .mjm-opt-name { color: var(--t9); }
+.mjm-opt-card.selected .mjm-opt-desc { color: var(--t8); }
 .mjm-opt-card:disabled { opacity: 0.45; cursor: not-allowed; }
 .mjm-opt-name { font-size: 16px; font-weight: 700; margin: 0 0 2px 0; }
 .mjm-opt-desc { font-size: 16px; color: var(--ink3); margin: 0; }
