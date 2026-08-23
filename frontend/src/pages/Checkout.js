@@ -209,10 +209,16 @@ const Checkout = () => {
           justify-content: space-between;
           margin-bottom: 12px;
         }
+        /* .co-sub-banner's background is the fixed pale teal (--t05), which by
+           design never flips with theme. --ink/--ink6 DO flip, turning near-
+           white in dark mode, so this heading rendered near-white text on a
+           near-white card. Pin it to the fixed dark end of the same teal
+           scale so it stays readable regardless of theme. */
+        .co-sub-banner-header .h3 { color: var(--t9); }
         .co-sub-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 12px; }
         .co-stat-cell { text-align: center; }
-        .co-stat-num { font-size: 24px; font-weight: 700; font-family: var(--ffd); color: var(--ink); }
-        .co-stat-label { font-size: 16px; color: var(--ink6); margin-top: 2px; }
+        .co-stat-num { font-size: 24px; font-weight: 700; font-family: var(--ffd); color: var(--t9); }
+        .co-stat-label { font-size: 16px; color: var(--t8); margin-top: 2px; }
         .co-use-ok { background: var(--t05); color: var(--t4); border-radius: var(--r); padding: 10px 14px; }
         .co-use-warn { background: rgba(245,158,11,0.08); color: var(--amber); border-radius: var(--r); padding: 10px 14px; }
         .co-use-danger { background: rgba(239,68,68,0.08); color: var(--coral); border-radius: var(--r); padding: 10px 14px; }
