@@ -282,7 +282,11 @@ const Checkout = () => {
           padding: 12px 14px;
           margin-bottom: 20px;
           font-size: 16px;
-          color: var(--t7);
+          /* --t7 was never defined in the teal scale (index.css only has
+             --t9/--t8/--t6/--t4/--t2/--t1/--t05), so this declaration was
+             silently invalid and the text fell back to the inherited color —
+             near-white in dark mode, on this box's fixed pale background. */
+          color: var(--t8);
           display: flex;
           align-items: center;
           gap: 8px;
