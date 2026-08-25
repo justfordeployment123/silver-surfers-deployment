@@ -2,7 +2,12 @@
 // contact method cards, contact info cards, CTA) with the interactive form
 // isolated to components/contact/ContactForm.js.
 import Link from 'next/link';
+import Script from 'next/script';
 import ContactForm from '../../../components/contact/ContactForm';
+
+// GoHighLevel booking widget — the client's calendar (synced to their own
+// Outlook calendar on GHL's backend, so availability shown here is real).
+const GHL_BOOKING_URL = 'https://api.leadconnectorhq.com/widget/bookings/jackie-gross-personal-calendar-qwh_05xzk';
 
 export const metadata = {
   title: 'Contact | SilverSurfers',
@@ -39,7 +44,7 @@ const CONTACT_METHODS = [
     title: 'Schedule Consultation',
     description: 'Book a 30-minute consultation call with our team',
     action: 'Book Now',
-    link: 'https://calendly.com/silversurfers-info/30min',
+    link: '#book-a-call',
   },
 ];
 
@@ -196,6 +201,26 @@ export default function ContactPage() {
           </div>
         </section>
 
+        {/* ── Book a Call ────────────────────────────── */}
+        <section id="book-a-call" className="sec">
+          <div className="wrap">
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <p className="eyebrow">Schedule</p>
+              <h2 className="h2">Book a Consultation</h2>
+              <p className="sub">Pick a time that works for you — no phone tag required.</p>
+            </div>
+            <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+              <iframe
+                src={GHL_BOOKING_URL}
+                style={{ width: '100%', minHeight: '780px', border: 'none', overflow: 'hidden', borderRadius: 'var(--rl)' }}
+                scrolling="no"
+                title="Book a consultation call"
+              />
+            </div>
+          </div>
+        </section>
+        <Script src="https://link.msgsndr.com/js/form_embed.js" strategy="afterInteractive" />
+
         {/* ── Contact Form ──────────────────────────── */}
         <section id="contact-form" className="sec-sand">
           <div className="wrap">
@@ -297,12 +322,7 @@ export default function ContactPage() {
             <div className="btn-row" style={{ justifyContent: 'center' }}>
               <Link href="/" className="btn btn-p">Quick Scan Report</Link>
               <Link href="/services" className="btn btn-g">View Services</Link>
-              <a
-                href="https://calendly.com/silversurfers-info/30min"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-g"
-              >
+              <a href="#book-a-call" className="btn btn-g">
                 Schedule Call
               </a>
             </div>
