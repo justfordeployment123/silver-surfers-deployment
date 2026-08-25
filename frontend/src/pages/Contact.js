@@ -1,7 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { submitContact, getMe } from '../api';
 
+// GoHighLevel booking widget — the client's calendar (synced to their own
+// Outlook calendar on GHL's backend, so availability shown here is real).
+const GHL_BOOKING_URL = 'https://api.leadconnectorhq.com/widget/bookings/jackie-gross-personal-calendar-qwh_05xzk';
+
 const Contact = () => {
+  // The GHL iframe below needs this script to auto-resize itself. Injected
+  // via useEffect (not a static <script> tag in public/index.html) since
+  // it's only needed on this one page, not site-wide.
+  useEffect(() => {
+    const existing = document.querySelector('script[src="https://link.msgsndr.com/js/form_embed.js"]');
+    if (existing) return;
+    const script = document.createElement('script');
+    script.src = 'https://link.msgsndr.com/js/form_embed.js';
+    script.async = true;
+    document.body.appendChild(script);
+  }, []);
+
   const [formData, setFormData] = useState({
     name: '',
     business: '',
@@ -42,7 +58,7 @@ const Contact = () => {
       title: "Schedule Consultation",
       description: "Book a 30-minute consultation call with our team",
       action: "Book Now",
-      link: "https://calendly.com/silversurfers-info/30min"
+      link: "#book-a-call"
     }
   ];
 
@@ -233,6 +249,25 @@ const Contact = () => {
                   </a>
                 </div>
               ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── Book a Call ────────────────────────────── */}
+        <section id="book-a-call" className="sec">
+          <div className="wrap">
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <p className="eyebrow">Schedule</p>
+              <h2 className="h2">Book a Consultation</h2>
+              <p className="sub">Pick a time that works for you — no phone tag required.</p>
+            </div>
+            <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+              <iframe
+                src={GHL_BOOKING_URL}
+                style={{ width: '100%', minHeight: '780px', border: 'none', overflow: 'hidden', borderRadius: 'var(--rl)' }}
+                scrolling="no"
+                title="Book a consultation call"
+              />
             </div>
           </div>
         </section>
@@ -435,12 +470,7 @@ const Contact = () => {
             <div className="btn-row" style={{ justifyContent: 'center' }}>
               <a href="/" className="btn btn-p">Quick Scan Report</a>
               <a href="/services" className="btn btn-g">View Services</a>
-              <a
-                href="https://calendly.com/silversurfers-info/30min"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-g"
-              >
+              <a href="#book-a-call" className="btn btn-g">
                 Schedule Call
               </a>
             </div>

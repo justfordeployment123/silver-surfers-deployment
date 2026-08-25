@@ -253,7 +253,7 @@ const Footer = () => {
                 <li><Link to="/contact"        className="ss-footer-link">Custom</Link></li>
                 <li>
                   <a
-                    href="https://calendly.com/silversurfers-info/30min"
+                    href="https://api.leadconnectorhq.com/widget/bookings/jackie-gross-personal-calendar-qwh_05xzk"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ss-footer-link"
