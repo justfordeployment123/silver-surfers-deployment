@@ -28,6 +28,25 @@ function formatDate(value: Date | string | number | null | undefined): string {
   });
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * Same table-based navy-header/blue-button shell as the audit report email
+ * (buildAuditReportEmailBody in report-delivery.ts) and the monitoring alert
+ * emails (wrapMonitoringEmail) — previously this was a one-off rounded card
+ * with a per-email accent color/gradient (blue-green for positive events,
+ * red for cancellation, dark neutral for team departures), which read as a
+ * different product from the report/monitoring emails. One consistent
+ * header across every SilverSurfers email is what actually reads as
+ * "not spam", not any one email's own color choice.
+ */
 function wrapBillingEmail(options: {
   bannerTitle: string;
   heading: string;
@@ -37,43 +56,95 @@ function wrapBillingEmail(options: {
   actionLabel?: string;
   actionUrl?: string;
   footer: string;
-  accentColor: string;
   subject: string;
 }): BillingEmailContent {
+  const generatedDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
   const bulletList = options.bullets && options.bullets.length > 0
-    ? `<ul style="margin:0 0 20px 0;padding-left:20px;color:#374151;">${options.bullets.map((item) => `<li>${item}</li>`).join('')}</ul>`
+    ? `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #d7dde8;border-collapse:collapse;margin:4px 0 20px 0;">
+        <tr>
+          <td style="padding:16px 20px;font-family:Arial,sans-serif;color:#111827;font-size:14px;line-height:22px;">
+            ${options.bullets.map((item) => `&bull;&nbsp; ${escapeHtml(item)}<br/>`).join('')}
+          </td>
+        </tr>
+      </table>
+    `
     : '';
 
   const action = options.actionLabel && options.actionUrl
     ? `
-      <p style="margin:20px 0;">
-        <a href="${options.actionUrl}" style="background:#2563eb;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:bold">${options.actionLabel}</a>
-      </p>
-      <p style="margin:16px 0;color:#6b7280;font-size:14px;">${options.actionUrl}</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px 0;">
+        <tr>
+          <td>
+            <a href="${escapeHtml(options.actionUrl)}" target="_blank" rel="noopener noreferrer" style="background:#1f5be3;color:#ffffff;display:inline-block;font-family:Arial,sans-serif;font-size:13px;font-weight:bold;line-height:16px;padding:12px 24px;text-align:center;text-decoration:none;">
+              ${escapeHtml(options.actionLabel)}
+            </a>
+          </td>
+        </tr>
+      </table>
     `
     : '';
 
-  const bodyParagraphs = (options.bodyLines || [])
-    .map((line) => `<p style="margin:0 0 16px 0;line-height:1.6;color:#374151;">${line}</p>`)
+  const bodyParagraphsHtml = (options.bodyLines || [])
+    .map((line) => `<div style="font-family:Arial,sans-serif;color:#4b5563;font-size:14px;line-height:20px;padding:0 0 10px 0;">${escapeHtml(line)}</div>`)
     .join('');
 
   const html = `
-    <div style="font-family: Arial,sans-serif;background:#f7f7fb;padding:24px;">
-      <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
-        <div style="padding:20px 24px;border-bottom:1px solid #eef2f7;background:${options.accentColor};color:#fff;">
-          <h1 style="margin:0;font-size:20px;">${options.bannerTitle}</h1>
-        </div>
-        <div style="padding:24px;color:#111827;">
-          <h2 style="margin:0 0 8px 0;font-size:18px;">${options.heading}</h2>
-          <p style="margin:0 0 16px 0;line-height:1.6;color:#374151;">${options.intro}</p>
-          ${bodyParagraphs}
-          ${bulletList}
-          ${action}
-          <p style="margin:0;font-size:12px;color:#9ca3af;">${options.footer}</p>
-        </div>
-        <div style="padding:16px 24px;border-top:1px solid #eef2f7;color:#6b7280;font-size:12px;">SilverSurfers • Accessibility for Everyone</div>
-      </div>
-    </div>`;
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+      <title>${escapeHtml(options.bannerTitle)}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#ffffff;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border-collapse:collapse;margin:0;padding:0;">
+        <tr>
+          <td align="center" style="padding:16px 12px;">
+            <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:640px;max-width:640px;">
+              <tr>
+                <td align="center" style="background:#102447;padding:22px 24px 24px 24px;">
+                  <div style="color:#b9c8df;font-family:Arial,sans-serif;font-size:9px;font-weight:bold;letter-spacing:.7px;line-height:12px;text-transform:uppercase;">Silversurfers AI - The Authority on Silver Digital Readiness</div>
+                  <div style="color:#ffffff;font-family:Arial,sans-serif;font-size:24px;font-weight:bold;line-height:30px;margin-top:5px;">${escapeHtml(options.bannerTitle)}</div>
+                  <div style="color:#dbe5f3;font-family:Arial,sans-serif;font-size:12px;line-height:16px;margin-top:3px;">${escapeHtml(generatedDate)}</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="font-family:Arial,sans-serif;color:#111827;font-size:18px;font-weight:bold;line-height:23px;padding:26px 0 8px 0;">
+                  ${escapeHtml(options.heading)}
+                </td>
+              </tr>
+              <tr>
+                <td style="font-family:Arial,sans-serif;color:#4b5563;font-size:15px;line-height:20px;padding:0 0 14px 0;">
+                  ${escapeHtml(options.intro)}
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  ${bodyParagraphsHtml}
+                  ${bulletList}
+                  ${action}
+                </td>
+              </tr>
+              <tr>
+                <td style="border-top:1px solid #d7dde8;font-family:Arial,sans-serif;color:#4b5563;font-size:13px;line-height:18px;padding:20px 0 20px 0;">
+                  ${escapeHtml(options.footer)}
+                </td>
+              </tr>
+              <tr>
+                <td align="center" style="background:#f5f7fb;font-family:Arial,sans-serif;color:#6b7280;font-size:10px;line-height:15px;padding:16px 20px;">
+                  This email was generated automatically - please don't reply directly.<br />
+                  Questions? Reach our team at hello@silversurfers.ai.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `.trim();
 
   const text = [
     options.subject,
@@ -87,6 +158,9 @@ function wrapBillingEmail(options: {
     ...(options.actionLabel && options.actionUrl ? ['', `${options.actionLabel}: ${options.actionUrl}`] : []),
     '',
     options.footer,
+    '',
+    "This email was generated automatically - please don't reply directly.",
+    'Questions? Reach our team at hello@silversurfers.ai.',
   ]
     .filter((line, index, lines) => !(line === '' && lines[index - 1] === ''))
     .join('\n');
@@ -156,7 +230,6 @@ export function buildTeamInvitationEmailContent(
     actionLabel: 'Accept Invitation',
     actionUrl: invitationLink,
     footer: 'If you do not have an account yet, you can create one after opening the invitation link.',
-    accentColor: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
   });
 }
 
@@ -184,7 +257,6 @@ export function buildSubscriptionCancellationEmailContent(
       : 'Your subscription cancellation has been processed.',
     bodyLines,
     footer: 'You can return at any time by purchasing a new subscription from your dashboard.',
-    accentColor: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
   });
 }
 
@@ -198,7 +270,6 @@ export function buildSubscriptionReinstatementEmailContent(planName: string): Bi
       'Your premium access is live again and all included features are available in your account.',
     ],
     footer: 'Thank you for continuing with SilverSurfers.',
-    accentColor: 'linear-gradient(135deg, #059669 0%, #10b981 100%)',
   });
 }
 
@@ -221,7 +292,6 @@ export function buildSubscriptionWelcomeEmailContent(
     ],
     bullets: planFeatureBullets(planName),
     footer: 'We are glad to have you on board.',
-    accentColor: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
   });
 }
 
@@ -235,7 +305,6 @@ export function buildOneTimePurchaseEmailContent(planName: string): BillingEmail
       'A one-time scan credit has been added to your account and is ready to use.',
     ],
     footer: 'You can launch your scan from the dashboard whenever you are ready.',
-    accentColor: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
   });
 }
 
@@ -250,7 +319,6 @@ export function buildTeamMemberRemovedEmailContent(ownerEmail: string, ownerName
       'You can still create your own subscription if you would like to continue using SilverSurfers.',
     ],
     footer: 'If you believe this was a mistake, please contact the team owner.',
-    accentColor: '#111827',
   });
 }
 
@@ -264,7 +332,6 @@ export function buildTeamMemberLeftNotificationContent(memberEmail: string, memb
       `They no longer have access under your ${planName} subscription.`,
     ],
     footer: 'You can invite another team member at any time from the subscription dashboard.',
-    accentColor: '#111827',
   });
 }
 
@@ -278,7 +345,6 @@ export function buildTeamMemberLeftConfirmationContent(ownerEmail: string, owner
       `Your access under the ${planName} plan has ended.`,
     ],
     footer: 'Thank you for using SilverSurfers.',
-    accentColor: '#111827',
   });
 }
 
@@ -292,7 +358,6 @@ export function buildNewTeamMemberNotificationContent(memberEmail: string, membe
       `They now share access under your ${planName} subscription.`,
     ],
     footer: 'You can manage your team from the subscription dashboard.',
-    accentColor: 'linear-gradient(135deg, #2563eb 0%, #059669 100%)',
   });
 }
 
