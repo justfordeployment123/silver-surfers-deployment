@@ -135,7 +135,12 @@ export default function AdminLogin() {
             </div>
           </div>
 
-          <button onClick={() => router.push('/')} className="al-back">← Back to Main Site</button>
+          <button onClick={() => router.push('/')} className="al-back" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Back to Main Site
+          </button>
         </div>
       </div>
     </>

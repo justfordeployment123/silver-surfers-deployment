@@ -124,7 +124,7 @@ export default function QuickScanSection() {
       if (res?.error) {
         setError(res.error);
       } else {
-        setSuccess(res?.message || '🆓 Your FREE scan has started! We\'ll email you the results shortly - no subscription required!');
+        setSuccess(res?.message || 'Your FREE scan has started! We\'ll email you the results shortly - no subscription required!');
         setScanData({ websiteUrl: '', email: '', firstName: '', lastName: '' });
       }
     } catch (err) {

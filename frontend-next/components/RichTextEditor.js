@@ -78,7 +78,7 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
     { label: 'Numbered List', icon: '1.', action: () => insertFormatting('1. ', '', 'Numbered item') },
     { label: 'Quote', icon: '"', action: () => insertFormatting('> ', '', 'Quote text') },
     { label: 'Code', icon: '{}', action: () => insertFormatting('`', '`', 'code') },
-    { label: 'Link', icon: '🔗', action: () => insertFormatting('[', '](url)', 'link text') },
+    { label: 'Link', icon: 'Link', action: () => insertFormatting('[', '](url)', 'link text') },
   ];
 
   const handleKeyDown = (e) => {
@@ -100,7 +100,7 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
           ))}
         </div>
         <div className="rte-hint">
-          <span>💡 Tip: Use Ctrl+B for bold, Ctrl+I for italic</span>
+          <span>Tip: Use Ctrl+B for bold, Ctrl+I for italic</span>
           <span>Select text and click formatting buttons to apply styles</span>
         </div>
       </div>

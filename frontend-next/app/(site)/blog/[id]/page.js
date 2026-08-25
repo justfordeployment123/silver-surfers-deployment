@@ -46,8 +46,11 @@ export default async function BlogPostPage({ params }) {
         <div className="bp-page" style={{ paddingTop: '160px', paddingBottom: '60px', textAlign: 'center' }}>
           <div style={{ maxWidth: '760px', margin: '0 auto', padding: '0 24px' }}>
             <p style={{ color: 'rgba(255, 255, 255, 0.75)', marginBottom: '20px' }}>{error || 'Post not found.'}</p>
-            <Link href="/blog" style={{ color: 'var(--t4)', textDecoration: 'none', fontSize: '16px' }}>
-              ← Back to Blog
+            <Link href="/blog" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--t4)', textDecoration: 'none', fontSize: '16px' }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              Back to Blog
             </Link>
           </div>
         </div>

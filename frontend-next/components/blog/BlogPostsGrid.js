@@ -78,7 +78,7 @@ export default function BlogPostsGrid({ initialPosts, initialPagination, exclude
               {post.readTime && <span>{post.readTime}</span>}
             </div>
             <Link href={`/blog/${post.slug}`} className="card-lnk">
-              Read More →
+              Read More
             </Link>
           </article>
         ))}

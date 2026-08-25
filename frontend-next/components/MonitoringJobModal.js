@@ -34,7 +34,7 @@ const STYLES = `
 .mjm-check-pill.selected { border-color: var(--t4); background: var(--t1); color: var(--t9); font-weight: 700; }
 .mjm-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .mjm-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 9999px; background: var(--t1); color: var(--t9); font-size: 16px; font-weight: 600; }
-.mjm-chip-x { border: none; background: none; cursor: pointer; color: var(--t9); font-size: 16px; line-height: 1; padding: 0; }
+.mjm-chip-x { display: inline-flex; align-items: center; border: none; background: none; cursor: pointer; color: var(--t9); padding: 0; }
 .mjm-toggle-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; border: 1px solid var(--sandd); border-radius: 10px; background: var(--bg); }
 .mjm-toggle-label { font-size: 16px; font-weight: 600; }
 .mjm-switch { position: relative; width: 40px; height: 22px; border-radius: 9999px; background: var(--sandd); border: none; cursor: pointer; flex-shrink: 0; transition: background .15s; }
@@ -200,7 +200,11 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
         <div className="mjm-card" onClick={(e) => e.stopPropagation()}>
           <div className="mjm-close-bar">
             <h2 className="mjm-title">{isEdit ? 'Edit Monitor' : 'Set Up a Monitor'}</h2>
-            <button className="mjm-close-btn" onClick={onClose} aria-label="Close">✕</button>
+            <button className="mjm-close-btn" onClick={onClose} aria-label="Close">
+              <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
           <div className="mjm-steps">
             {[1, 2, 3, 4, 5].map((n) => (
@@ -341,7 +345,11 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
                       {form.alertEmails.map((email) => (
                         <span key={email} className="mjm-chip">
                           {email}
-                          <button className="mjm-chip-x" onClick={() => removeEmail(email)} aria-label={`Remove ${email}`}>✕</button>
+                          <button className="mjm-chip-x" onClick={() => removeEmail(email)} aria-label={`Remove ${email}`}>
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
                         </span>
                       ))}
                     </div>

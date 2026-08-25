@@ -774,7 +774,10 @@ function AnalysisDetailContent() {
                                 ) : null}
 
                                 <a href={wcagUnderstandingUrl(row.title)} target="_blank" rel="noopener noreferrer" className="ad-wcag-link" onClick={(e) => e.stopPropagation()}>
-                                  WCAG Understanding Doc ↗
+                                  WCAG Understanding Doc
+                                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M7 17L17 7M17 7H8M17 7v9" />
+                                  </svg>
                                 </a>
                               </div>
                             ) : null}

@@ -519,8 +519,11 @@ export default function Checkout() {
             </form>
 
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <button onClick={() => router.push('/subscription')} className="btn btn-o" style={{ fontSize: '16px' }}>
-                ← Back to Subscription
+              <button onClick={() => router.push('/subscription')} className="btn btn-o" style={{ fontSize: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Subscription
               </button>
             </div>
           </div>

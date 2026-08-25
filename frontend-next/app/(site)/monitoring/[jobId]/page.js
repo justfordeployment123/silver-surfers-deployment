@@ -207,7 +207,12 @@ function MonitoringJobDetailContent() {
     if (error && !job) {
         return (
             <div className="mjd-pg"><div className="mjd-wrap">
-                <button className="mjd-back" onClick={() => router.push('/monitoring')}>← Back to Monitoring</button>
+                <button className="mjd-back" onClick={() => router.push('/monitoring')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Monitoring
+                </button>
                 <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px' }}>{error}</div>
             </div></div>
         );
@@ -218,7 +223,12 @@ function MonitoringJobDetailContent() {
             <style>{STYLES}</style>
             <div className="mjd-pg">
                 <div className="mjd-wrap">
-                    <button className="mjd-back" onClick={() => router.push('/monitoring')}>← Back to Monitoring</button>
+                    <button className="mjd-back" onClick={() => router.push('/monitoring')} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                    Back to Monitoring
+                </button>
 
                     <div className="mjd-head">
                         <div>
