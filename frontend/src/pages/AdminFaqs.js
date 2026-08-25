@@ -61,7 +61,7 @@ const AdminFaqs = () => {
           <ul className="apanel-list">
             {items.map(i => (
               <li key={i._id} className="apanel-item">
-                <span className="apanel-item-lbl"><strong>#{i.order}</strong> {i.question} {i.published ? '✅' : '⏸️'}</span>
+                <span className="apanel-item-lbl"><strong>#{i.order}</strong> {i.question} {i.published ? 'Published' : 'Draft'}</span>
                 <button className="apanel-del" onClick={() => { if (window.confirm('Delete this FAQ?')) onDelete(i._id); }}>Delete</button>
               </li>
             ))}

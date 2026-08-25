@@ -63,7 +63,7 @@ const AdminServices = () => {
             {items.map(i => (
               <li key={i._id} className="apanel-item">
                 <span className="apanel-item-lbl">
-                  <strong>{i.name}</strong> <span style={{ color: 'var(--ink6)', fontSize: '16px' }}>({i.slug})</span> — €{(i.priceCents / 100).toFixed(2)} {i.active ? '✅' : '⏸️'}
+                  <strong>{i.name}</strong> <span style={{ color: 'var(--ink6)', fontSize: '16px' }}>({i.slug})</span> — €{(i.priceCents / 100).toFixed(2)} {i.active ? 'Active' : 'Inactive'}
                 </span>
                 <button className="apanel-del" onClick={() => { if (window.confirm('Delete this service?')) onDelete(i._id); }}>Delete</button>
               </li>

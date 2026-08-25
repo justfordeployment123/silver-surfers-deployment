@@ -108,7 +108,7 @@ const SubscriptionSuccess = () => {
             </>
           ) : (
             <>
-              <div style={{ fontSize: '52px', marginBottom: '16px' }}>❌</div>
+              <div style={{ marginBottom: '16px', color: 'var(--coral)', display: 'flex', justifyContent: 'center' }}><svg width="52" height="52" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 9l6 6m0-6l-6 6m9-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>
               <h1 className="h2" style={{ marginBottom: '12px' }}>Subscription Error</h1>
               <p style={{ fontSize: '16px', color: 'var(--ink6)', marginBottom: '28px', lineHeight: '1.6' }}>
                 {error || 'There was an issue confirming your subscription. Please contact support.'}

@@ -27,25 +27,25 @@ const Services = () => {
 
   const getDefaultPlans = () => [
     {
-      id: 'starter', name: 'Starter', icon: '🚀', description: '',
+      id: 'starter', name: 'Starter', description: '',
       yearlyPrice: 144000, monthlyPrice: 14000, currency: 'usd',
       limits: { scansPerMonth: 60, maxUsers: 1, features: ['60 reports per year','Select device per report','up to 25 subpages scanned','1 user account','PDF reports','Actionable recommendations','Priority email support'] },
       popular: false,
     },
     {
-      id: 'pro', name: 'Pro', icon: '⭐', description: '',
+      id: 'pro', name: 'Pro', description: '',
       yearlyPrice: 478800, monthlyPrice: 46000, currency: 'usd',
       limits: { scansPerMonth: 144, maxUsers: 3, features: ['144 reports per year','All devices tested together','up to 25 subpages scanned','3 team users','SilverSurfers Seal','Priority support','Historical tracking','White-label reports','Quarterly consultation'] },
       popular: true,
     },
     {
-      id: 'oneTime', name: 'One-Time', icon: '📊', description: 'Perfect for getting started',
+      id: 'oneTime', name: 'One-Time', description: 'Perfect for getting started',
       price: 39700, monthlyPrice: null, yearlyPrice: null, currency: 'usd', type: 'one-time',
       limits: { scansPerMonth: 1, maxUsers: 1, features: ['One device tested','up to 25 subpages scanned','Detailed PDF report','Actionable recommendations','17-category analysis','Email support'] },
       popular: false, isOneTime: true,
     },
     {
-      id: 'custom', name: 'Custom', icon: '🏆', description: 'Tailored solutions for enterprise-level accessibility needs.',
+      id: 'custom', name: 'Custom', description: 'Tailored solutions for enterprise-level accessibility needs.',
       monthlyPrice: null, yearlyPrice: null, currency: 'usd',
       limits: { scansPerMonth: -1, maxUsers: -1, features: ['SilverSurfers Score','Unlimited scans','SilverSurfers Seal of Approval','Unlimited team users','Advanced analytics','API access','White labeling options','Dedicated support','Custom integrations'] },
       popular: false, contactSales: true,
@@ -111,7 +111,7 @@ const Services = () => {
   };
 
   const freeAudit = {
-    name: 'Quick Scan Report', icon: '🔍', price: 'Always free',
+    name: 'Quick Scan Report', price: 'Always free',
     description: 'Quick Scan version of the SilverSurfers report – a quick snapshot and your SilverSurfers Score.',
     features: ['SilverSurfers Score (0-100)', 'High-level improvement recommendations', 'Email copy of results'],
     cta: 'Get Quick Scan Report', highlight: 'Start here - No cost',

@@ -38,7 +38,7 @@ const PaymentSuccess = () => {
           amount: data.purchaseDetails?.amount,
           date: data.purchaseDetails?.date
         });
-        console.log('✅ Payment confirmed, credits granted:', data.oneTimeScans);
+        console.log('Payment confirmed, credits granted:', data.oneTimeScans);
       }
     } catch (err) {
       console.error('Payment confirmation error:', err);

@@ -63,7 +63,7 @@ const AdminBlog = () => {
           <ul className="apanel-list">
             {items.map(i => (
               <li key={i._id} className="apanel-item">
-                <span className="apanel-item-lbl"><strong>{i.title}</strong> <span style={{ color: 'var(--ink6)', fontSize: '16px' }}>({i.slug})</span> {i.published ? '✅' : '⏸️'}</span>
+                <span className="apanel-item-lbl"><strong>{i.title}</strong> <span style={{ color: 'var(--ink6)', fontSize: '16px' }}>({i.slug})</span> {i.published ? 'Published' : 'Draft'}</span>
                 <button className="apanel-del" onClick={() => { if (window.confirm('Delete this post?')) onDelete(i._id); }}>Delete</button>
               </li>
             ))}

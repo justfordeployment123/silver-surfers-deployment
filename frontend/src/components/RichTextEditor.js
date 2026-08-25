@@ -88,7 +88,7 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
     },
     {
       label: 'Link',
-      icon: '🔗',
+      icon: 'Link',
       action: () => insertFormatting('[', '](url)', 'link text'),
       className: 'text-sm bg-gray-200 hover:bg-gray-300 text-gray-800'
     }
@@ -129,7 +129,7 @@ const RichTextEditor = ({ value, onChange, placeholder = "Write your content her
           ))}
         </div>
         <div className="mt-2 text-xs text-gray-500">
-          <span className="mr-4">💡 Tip: Use Ctrl+B for bold, Ctrl+I for italic</span>
+          <span className="mr-4">Tip: Use Ctrl+B for bold, Ctrl+I for italic</span>
           <span>Select text and click formatting buttons to apply styles</span>
         </div>
       </div>

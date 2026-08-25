@@ -121,7 +121,7 @@ const MainScreen = () => {
       if (res?.error) {
         setError(res.error);
       } else {
-        setSuccess(res?.message || '🆓 Your FREE scan has started! We\'ll email you the results shortly - no subscription required!');
+        setSuccess(res?.message || 'Your FREE scan has started! We\'ll email you the results shortly - no subscription required!');
         setScanData({ websiteUrl: '', email: '', firstName: '', lastName: '' });
       }
     } catch (err) {
@@ -478,7 +478,7 @@ const MainScreen = () => {
             <div className="stats" style={{ maxWidth: 660 }}>
               <div className="stat"><div className="stat-n">500+</div><div className="stat-l">Websites Audited</div></div>
               <div className="stat"><div className="stat-n">85%</div><div className="stat-l">Improved Accessibility</div></div>
-              <div className="stat"><div className="stat-n">$12T +</div><div className="stat-l">50+ buying power</div></div>
+              <div className="stat"><div className="stat-n">$12T+</div><div className="stat-l">50+ buying power</div></div>
             </div>
           </div>
         </section>
