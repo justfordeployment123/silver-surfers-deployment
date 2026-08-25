@@ -1,13 +1,15 @@
 /* ── Design Tokens ─────────────────────────────────────────── */
 :root {
-  /* Teal scale */
-  --t9:  #042E22;
-  --t8:  #085041;
-  --t6:  #0F6E56;
-  --t4:  #1D9E75;
-  --t2:  #7ABFAA;
-  --t1:  #E1F5EE;
-  --t05: #F0FAF6;
+  /* Teal scale — recentered on the SilverSurfers.ai brand green (#32987E,
+     Brand Kit v2.0 sec. 9), keeping each step's original lightness so the
+     accessibility contrast already tuned into this scale carries over. */
+  --t9:  #0C261F;
+  --t8:  #164237;
+  --t6:  #1F5E4E;
+  --t4:  #2E8D75;
+  --t2:  #6BCEB5;
+  --t1:  #E1F5F0;
+  --t05: #F0FAF7;
 
   /* Ink / neutral */
   --ink:  #1A1A18;
@@ -18,8 +20,10 @@
   --ink3: #6E6E6B;
 
   /* Sand */
-  --sand:  #F7F5F0;
-  --sandd: #EAE8E3;
+  /* Brand Kit v2.0 sec. 9 "Light Gray" (#F4F7F9), sandd kept at the same
+     darkening step below sand as before. */
+  --sand:  #F4F7F9;
+  --sandd: #E7EAEC;
 
   /* Semantic */
   /* Darkened from #C84B2F (4.66:1 on white, 4.05:1 on --coralbg — failed
@@ -29,12 +33,19 @@
   /* Darkened from #B06A10 (4.27:1 on white, 3.72:1 on --amberbg — failed AA). */
   --amber:    #8F5209;
   --amberbg:  #FAEEDA;
-  --blue:     #185FA5;
-  --bluebg:   #E6F1FB;
+  /* Brand Kit v2.0 sec. 9 blue is #0196BD, but that hue only reaches
+     3.48:1 on white — below the 4.5:1 the rest of this file holds every
+     text color to (same reasoning as the coral/amber darkening below).
+     Darkened at the same hue/saturation to 4.61:1; the unmodified brand
+     value is used as-is in dark mode below, where it already clears 5.5:1. */
+  --blue:     #017FA1;
+  --bluebg:   #E2F9FF;
 
   /* Typography */
-  --ffd: 'Playfair Display', Georgia, serif;
-  --ff:  'DM Sans', system-ui, sans-serif;
+  /* Brand Kit v2.0 sec. 10: Poppins for both heading and body on web,
+     falling back to Helvetica/Arial/sans-serif. */
+  --ffd: 'Poppins', Helvetica, Arial, sans-serif;
+  --ff:  'Poppins', Helvetica, Arial, sans-serif;
 
   /* Radius */
   --r:  8px;
@@ -48,7 +59,7 @@
   /* Teal "accent text" for links/labels on theme-aware surfaces (cards, body
      copy, form hints) — NOT for the permanently-dark hero/CTA/footer
      sections, which should keep using --t2 directly. --t4 itself only
-     reaches ~3.4:1 on white, so it can't be used as text; --tlink swaps in
+     reaches ~4.05:1 on white, so it can't be used as text; --tlink swaps in
      the teal shade that actually clears 4.5:1 against the surface color
      the current theme is using. */
   --tlink: var(--t6);
@@ -73,8 +84,8 @@
   /* Same 4.5:1 fix as light mode's --ink3, mirrored for the dark surfaces. */
   --ink3: #8C8B85;
 
-  --sand:  #14211C;
-  --sandd: #253531;
+  --sand:  #0D2821;
+  --sandd: #164438;
 
   --bg:      #0B1210;
   --surface: #101815;
@@ -88,7 +99,9 @@
      intentionally don't flip, same as the teal scale.) */
   --coral: #EF8266;
   --amber: #E8B34D;
-  --blue:  #6BAEE8;
+  /* Brand blue at its native value already clears 5.5:1 on this dark bg,
+     so dark mode gets the exact, unmodified brand hex. */
+  --blue:  #0196BD;
 
   color-scheme: dark;
 }
