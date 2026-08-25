@@ -7,7 +7,7 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
         
         // Validate rect bounds to prevent Sharp errors
         if (rect.left < 0 || rect.top < 0 || rect.width <= 0 || rect.height <= 0) {
-            console.warn(`⚠️  Invalid rect bounds: ${JSON.stringify(rect)}`);
+            console.warn(` Invalid rect bounds: ${JSON.stringify(rect)}`);
             return false;
         }
         
@@ -29,7 +29,7 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
         
         // Validate region data
         if (!region || !region.channels || region.channels.length === 0) {
-            console.warn(`⚠️  Invalid region data for rect at (${rect.left}, ${rect.top})`);
+            console.warn(` Invalid region data for rect at (${rect.left}, ${rect.top})`);
             return false;
         }
         
@@ -38,13 +38,13 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
     } catch (error) {
         // More specific error handling
         if (error.message.includes('timeout')) {
-            console.warn(`⚠️  Image analysis timeout for region at (${rect.left}, ${rect.top}) - treating as visually distinct`);
+            console.warn(` Image analysis timeout for region at (${rect.left}, ${rect.top}) - treating as visually distinct`);
             return true; // Assume visually distinct on timeout to avoid false negatives
         } else if (error.message.includes('extract')) {
-            console.warn(`⚠️  Sharp extract error for region at (${rect.left}, ${rect.top}): ${error.message}`);
+            console.warn(` Sharp extract error for region at (${rect.left}, ${rect.top}): ${error.message}`);
             return false;
         } else {
-            console.warn(`⚠️  Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
+            console.warn(` Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
             return false;
         }
     }
@@ -103,7 +103,7 @@ async function enhanceAndHighlight(imageBuffer, outputImagePath, boundingBoxes, 
             .toFile(outputImagePath);
 
     } catch (error) {
-        console.error('❌ Error enhancing image:', error.message);
+        console.error('Error enhancing image:', error.message);
         throw error;
     }
 }
@@ -117,7 +117,7 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
         throw new Error("outputImagePath is required for processInteractiveColorAudit.");
     }
     
-    console.log(`🔄 Reading report: ${jsonReportPath}`);
+    console.log(`Reading report: ${jsonReportPath}`);
     // 2. Use async file read instead of sync
     const lighthouseReport = JSON.parse(await fs.readFile(jsonReportPath, 'utf8'));
 
@@ -128,7 +128,7 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
     }
     const screenshotBuffer = Buffer.from(screenshotData.split(',').pop(), 'base64');
 
-    console.log(`🔎 Extracting data for audit: "${AUDIT_ID}"`);
+    console.log(`Extracting data for audit: "${AUDIT_ID}"`);
     const allBoxes = extractBoxData(lighthouseReport, AUDIT_ID);
 
     const finalBoxes = [];
@@ -139,7 +139,7 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
     const boxesToProcess = allBoxes.slice(0, maxBoxesToProcess);
     
     if (allBoxes.length > maxBoxesToProcess) {
-        console.log(`⚠️  Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
+        console.log(` Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
     }
     
     // Add overall timeout for the entire box processing
@@ -157,7 +157,7 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
                     visuallyEmptyBoxes.push(box);
                 }
             } catch (error) {
-                console.warn(`⚠️  Skipping box due to processing error: ${error.message}`);
+                console.warn(` Skipping box due to processing error: ${error.message}`);
                 visuallyEmptyBoxes.push(box);
             }
         }
@@ -166,21 +166,21 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
     try {
         await Promise.race([processBoxes(), processingTimeoutPromise]);
     } catch (error) {
-        console.warn(`⚠️  Box processing timed out, using processed results so far: ${error.message}`);
+        console.warn(` Box processing timed out, using processed results so far: ${error.message}`);
         // Continue with whatever boxes were processed before timeout
     }
 
     if (visuallyEmptyBoxes.length > 0) {
-        console.log('\n🗑️ Skipped Visually Empty Links:');
+        console.log('\nSkipped Visually Empty Links:');
         console.table(visuallyEmptyBoxes.map(box => ({ Text: box.textSnippet })));
     }
 
     if (finalBoxes.length === 0) {
-        console.log(`\n✅ No issues found for '${AUDIT_ID}'. No image will be generated.`);
+        console.log(`\nNo issues found for '${AUDIT_ID}'. No image will be generated.`);
         return null; // 3. Return null if no image is created
     }
 
-    console.log('\n📦 Legend for Highlighted Color Issues:');
+    console.log('\nLegend for Highlighted Color Issues:');
     const tableData = finalBoxes.map((box, index) => ({
         'Box #': index + 1,
         'Link Text': box.textSnippet,
@@ -188,10 +188,10 @@ export async function processInteractiveColorAudit(jsonReportPath, outputImagePa
     }));
     console.table(tableData);
 
-    console.log(`\n🎨 Drawing ${finalBoxes.length} boxes in orange...`);
+    console.log(`\nDrawing ${finalBoxes.length} boxes in orange...`);
     await enhanceAndHighlight(screenshotBuffer, outputImagePath, finalBoxes, { boxColor: 'orange' });
 
-    console.log(`\n✅ Success! Image saved to: ${outputImagePath}`);
+    console.log(`\nSuccess! Image saved to: ${outputImagePath}`);
     
     // 4. Return the path to confirm success and provide the file location to the server
     return outputImagePath;

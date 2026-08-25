@@ -38,7 +38,7 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
         }
     } catch (error) {
         // Handle any errors gracefully - return false instead of crashing
-        console.warn(`⚠️  Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
+        console.warn(` Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
         return false;
     }
 }
@@ -90,7 +90,7 @@ async function enhanceAndHighlight(imageBuffer, outputImagePath, boundingBoxes, 
             .toFile(outputImagePath);
 
     } catch (error) {
-        console.error('❌ Error enhancing image:', error.message);
+        console.error('Error enhancing image:', error.message);
         throw error;
     }
 }
@@ -105,7 +105,7 @@ export async function processColorContrastAudit(jsonReportPath, outputImagePath)
         throw new Error("outputImagePath is required for processColorContrastAudit.");
     }
     
-    console.log(`🔄 Reading report: ${jsonReportPath}`);
+    console.log(`Reading report: ${jsonReportPath}`);
     // 2. Use async file read instead of sync
     const lighthouseReport = JSON.parse(await fs.readFile(jsonReportPath, 'utf8'));
 
@@ -116,7 +116,7 @@ export async function processColorContrastAudit(jsonReportPath, outputImagePath)
     }
     const screenshotBuffer = Buffer.from(screenshotData.split(',').pop(), 'base64');
 
-    console.log(`🔎 Extracting data for audit: "${AUDIT_ID}"`);
+    console.log(`Extracting data for audit: "${AUDIT_ID}"`);
     const allBoxes = extractBoxData(lighthouseReport, AUDIT_ID);
 
     const finalBoxes = [];
@@ -126,7 +126,7 @@ export async function processColorContrastAudit(jsonReportPath, outputImagePath)
     const boxesToProcess = allBoxes.slice(0, maxBoxesToProcess);
     
     if (allBoxes.length > maxBoxesToProcess) {
-        console.log(`⚠️  Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
+        console.log(` Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
     }
     
     for (const box of boxesToProcess) {
@@ -135,16 +135,16 @@ export async function processColorContrastAudit(jsonReportPath, outputImagePath)
                 finalBoxes.push(box);
             }
         } catch (error) {
-            console.warn(`⚠️  Skipping box due to processing error: ${error.message}`);
+            console.warn(` Skipping box due to processing error: ${error.message}`);
         }
     }
 
     if (finalBoxes.length === 0) {
-        console.log(`\n✅ No color contrast issues found. No image will be generated.`);
+        console.log(`\nNo color contrast issues found. No image will be generated.`);
         return null; // 3. Return null if no image is created
     }
 
-    console.log('\n📦 Legend for Highlighted Contrast Issues:');
+    console.log('\nLegend for Highlighted Contrast Issues:');
     const tableData = finalBoxes.map((box, index) => ({
         'Box #': index + 1,
         'Element': box.nodeLabel || box.selector,
@@ -152,10 +152,10 @@ export async function processColorContrastAudit(jsonReportPath, outputImagePath)
     }));
     console.table(tableData);
 
-    console.log(`\n🎨 Drawing ${finalBoxes.length} boxes in yellow...`);
+    console.log(`\nDrawing ${finalBoxes.length} boxes in yellow...`);
     await enhanceAndHighlight(screenshotBuffer, outputImagePath, finalBoxes, { boxColor: 'yellow' });
 
-    console.log(`\n✅ Success! Image saved to: ${outputImagePath}`);
+    console.log(`\nSuccess! Image saved to: ${outputImagePath}`);
 
     // 4. Return the path to confirm success and provide the file location to the server
     return outputImagePath;

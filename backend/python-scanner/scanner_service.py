@@ -281,9 +281,9 @@ async def _perform_audit_impl(request: AuditRequest):
         with open(report_path, "w", encoding="utf-8") as f:
             json.dump(report, f, indent=2)
         
-        print(f"✅ {version} audit completed successfully")
-        print(f"📊 Score: {final_score}%")
-        print(f"📄 Report saved to: {report_path}")
+        print(f"{version} audit completed successfully")
+        print(f"Score: {final_score}%")
+        print(f"Report saved to: {report_path}")
         
         # Sanitize report data to prevent UnicodeEncodeError during JSON serialization
         sanitized_report = sanitize_report_data(report)
@@ -308,7 +308,7 @@ async def _perform_audit_impl(request: AuditRequest):
         # exceptions can contain invalid surrogate code points.
         raw_error_msg = str(e)
         error_msg = safe_text(raw_error_msg)
-        print(f"❌ Audit failed: {error_msg}")
+        print(f"Audit failed: {error_msg}")
         return AuditResponse(
             success=False,
             error=error_msg,

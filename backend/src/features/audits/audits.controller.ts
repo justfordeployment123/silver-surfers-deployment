@@ -558,7 +558,7 @@ export async function quickAudit(request: Request, response: Response): Promise<
     });
 
     response.status(202).json({
-      message: '🆓 FREE Quick audit request has been queued. You will receive results via email shortly!',
+      message: 'FREE Quick audit request has been queued. You will receive results via email shortly!',
       taskId: job.taskId,
       jobId: job._id,
     });

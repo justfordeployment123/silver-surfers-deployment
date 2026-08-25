@@ -811,9 +811,18 @@ function buildAuditReportEmailBodyLegacy(options: {
             justify-content: space-between;
         `,
         fileIcon: `
-            font-size: 24px;
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: #ffffff;
+            background: #3b82f6;
+            padding: 4px 8px;
+            border-radius: 4px;
             margin-right: 14px;
+            margin-top: 2px;
             flex-shrink: 0;
+            white-space: nowrap;
         `,
         fileName: `
             font-size: 14px;
@@ -904,7 +913,7 @@ function buildAuditReportEmailBodyLegacy(options: {
                 : path.basename(file.filename);
 
             const ext = path.extname(file.filename).toLowerCase();
-            const fileIcon = ext === ".pdf" ? "📄" : ext === ".xlsx" || ext === ".csv" ? "📊" : ext === ".zip" ? "🗜️" : "📁";
+            const fileIcon = ext === ".pdf" ? "PDF" : ext === ".xlsx" ? "XLSX" : ext === ".csv" ? "CSV" : ext === ".zip" ? "ZIP" : "FILE";
 
             return `
                 <div style="${styles.fileCard}">
@@ -945,7 +954,7 @@ function buildAuditReportEmailBodyLegacy(options: {
     const errorBoxHtml = hasErrors
         ? `
             <div style="${styles.errorBox}">
-                <p style="${styles.errorTitle}">⚠️ Some files could not be uploaded</p>
+                <p style="${styles.errorTitle}">Some files could not be uploaded</p>
                 ${options.storageErrors!.map((e) => `<p style="${styles.errorItem}">• ${e}</p>`).join("")}
                 <p style="${styles.errorSupport}">
                     Please contact our support team if you need assistance with these files.
@@ -958,7 +967,7 @@ function buildAuditReportEmailBodyLegacy(options: {
     const filesSectionHtml = hasFiles
         ? `
             <hr style="${styles.divider}" />
-            <p style="${styles.sectionTitle}">📁 Your Report Files</p>
+            <p style="${styles.sectionTitle}">Your Report Files</p>
             ${fileCardsHtml}
             ${storageNoticeHtml}
         `
@@ -979,7 +988,7 @@ function buildAuditReportEmailBodyLegacy(options: {
                 <!-- Header -->
                 <div style="${styles.header}">
                     <div style="${styles.headerBadge}">
-                        ${options.isQuickScan ? "⚡ Quick Scan" : "🔍 Audit Report"}
+                        ${options.isQuickScan ? "Quick Scan" : "Audit Report"}
                     </div>
                     <h1 style="${styles.headerTitle}">Your Report Is Ready</h1>
                     <p style="${styles.headerSubtitle}">

@@ -23,7 +23,7 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
         const VISIBILITY_THRESHOLD = 5;
         return region.channels.some(c => c.stdev > VISIBILITY_THRESHOLD);
     } catch (error) {
-        console.warn(`⚠️  Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
+        console.warn(` Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
         return false;
     }
 }
@@ -110,7 +110,7 @@ async function enhanceAndHighlightMultiple(imagePathOrBuffer, outputImagePath, b
         const svgOverlay = `<svg width="${newWidth}" height="${newHeight}">${svgElements}</svg>`;
         await processedImage.composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }]).png({ quality: 95, adaptiveFiltering: true }).toFile(outputImagePath);
     } catch (error) {
-        console.error('❌ Error enhancing image:', error.message); throw error;
+        console.error('Error enhancing image:', error.message); throw error;
     }
 }
 
@@ -123,13 +123,13 @@ export async function processTextFontAudit(jsonReportPath, outputImagePath) {
         throw new Error("outputImagePath is required for processTextFontAudit.");
     }
     
-    console.log(`🔄 Reading report: ${jsonReportPath}`);
+    console.log(`Reading report: ${jsonReportPath}`);
     let lighthouseReport;
     try {
         // 2. Use async file read instead of sync
         lighthouseReport = JSON.parse(await fs.readFile(jsonReportPath, 'utf8'));
     } catch (error) {
-        console.error('❌ Error parsing JSON report:', error.message);
+        console.error('Error parsing JSON report:', error.message);
         return null;
     }
 
@@ -142,7 +142,7 @@ export async function processTextFontAudit(jsonReportPath, outputImagePath) {
     // 3. Work with the screenshot in memory instead of creating a temp file
     const screenshotBuffer = Buffer.from(screenshotData.split(',').pop(), 'base64');
 
-    console.log(`🔎 Extracting data for audit: "${AUDIT_ID}"`);
+    console.log(`Extracting data for audit: "${AUDIT_ID}"`);
     const allBoxes = extractBoxData(lighthouseReport, AUDIT_ID);
     
     const { kept: nonContainerBoxes, removed: containerBoxes } = filterContainingBoxes(allBoxes);
@@ -155,7 +155,7 @@ export async function processTextFontAudit(jsonReportPath, outputImagePath) {
     const boxesToProcess = nonContainerBoxes.slice(0, maxBoxesToProcess);
     
     if (nonContainerBoxes.length > maxBoxesToProcess) {
-        console.log(`⚠️  Limiting processing to ${maxBoxesToProcess} boxes out of ${nonContainerBoxes.length} to prevent timeout`);
+        console.log(` Limiting processing to ${maxBoxesToProcess} boxes out of ${nonContainerBoxes.length} to prevent timeout`);
     }
     
     for (const box of boxesToProcess) {
@@ -168,31 +168,31 @@ export async function processTextFontAudit(jsonReportPath, outputImagePath) {
     }
 
     if (containerBoxes.length > 0) {
-        console.log('\n🗑️ Skipped Container Boxes:');
+        console.log('\nSkipped Container Boxes:');
         console.table(containerBoxes.map(box => ({ Text: (box.textSnippet || '').replace(/\s+/g, ' ').trim() })));
     }
     if (visuallyEmptyBoxes.length > 0) {
-        console.log('\n🗑️ Skipped Visually Empty Boxes:');
+        console.log('\nSkipped Visually Empty Boxes:');
         console.table(visuallyEmptyBoxes.map(box => ({ Text: (box.textSnippet || '').replace(/\s+/g, ' ').trim() })));
     }
 
     if (finalBoxes.length === 0) {
-        console.log('\nℹ️ No elements left to highlight. No image will be generated.');
+        console.log('\nNo elements left to highlight. No image will be generated.');
         return null; // 5. Return null if no image is created
     }
 
-    console.log('\n📦 Legend for Highlighted Boxes:');
+    console.log('\nLegend for Highlighted Boxes:');
     const tableData = finalBoxes.map((box, index) => ({
         'Box #': index + 1,
         'Text Snippet': (box.textSnippet || '').replace(/\s+/g, ' ').trim(),
     }));
     console.table(tableData);
 
-    console.log(`\n🎨 Drawing ${finalBoxes.length} final boxes on screenshot...`);
+    console.log(`\nDrawing ${finalBoxes.length} final boxes on screenshot...`);
     await enhanceAndHighlightMultiple(screenshotBuffer, outputImagePath, finalBoxes);
 
     // No need to delete a temp file anymore.
-    console.log(`\n✅ Success! Image saved to: ${outputImagePath}`);
+    console.log(`\nSuccess! Image saved to: ${outputImagePath}`);
     
     // 6. Return the path to confirm success and provide the file location
     return outputImagePath;

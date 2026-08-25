@@ -2222,15 +2222,7 @@ addOverallScoreDisplay(scoreData) {
     drawCategoryCards(categories) {
         const cardWidth = (this.pageWidth - 15) / 2; // 2 columns with gap
         const cardGap = 15;
-        const categoryIcons = {
-            'Security for Older Adults': '🔒',
-            'Technical Accessibility': '⚙️',
-            'Performance for Older Adults': '⚡',
-            'Cognitive Accessibility': '🧠',
-            'Vision Accessibility': '👁️',
-            'Motor Accessibility': '👆'
-        };
-        
+
         const categoryNames = Object.keys(categories);
         let cardIndex = 0;
         

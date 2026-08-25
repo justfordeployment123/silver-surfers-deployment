@@ -35,41 +35,41 @@ export async function createAllHighlightedImages(jsonFilePath, outputFolder) {
         try {
             imagePaths['layout-brittle-audit'] = await processLayoutBrittleAudit(jsonFilePath, brittlePath);
         } catch (error) {
-            console.warn(`⚠️  Layout brittle audit failed: ${error.message}`);
+            console.warn(` Layout brittle audit failed: ${error.message}`);
         }
         
         try {
             imagePaths['interactive-color-audit'] = await processInteractiveColorAudit(jsonFilePath, interactivePath);
         } catch (error) {
-            console.warn(`⚠️  Interactive color audit failed: ${error.message}`);
+            console.warn(` Interactive color audit failed: ${error.message}`);
         }
         
         try {
             imagePaths['color-contrast'] = await processColorContrastAudit(jsonFilePath, contrastPath);
         } catch (error) {
-            console.warn(`⚠️  Color contrast audit failed: ${error.message}`);
+            console.warn(` Color contrast audit failed: ${error.message}`);
         }
         
         try {
             imagePaths['target-size'] = await processTargetSizeAudit(jsonFilePath, targetPath);
         } catch (error) {
-            console.warn(`⚠️  Target size audit failed: ${error.message}`);
+            console.warn(` Target size audit failed: ${error.message}`);
         }
         
         try {
             imagePaths['text-font-audit'] = await processTextFontAudit(jsonFilePath, fontPath);
         } catch (error) {
-            console.warn(`⚠️  Text font audit failed: ${error.message}`);
+            console.warn(` Text font audit failed: ${error.message}`);
         }
         
-        console.log('✅ Image generation process completed (some may have failed gracefully).');
+        console.log('Image generation process completed (some may have failed gracefully).');
         return imagePaths;
     };
 
     try {
         return await Promise.race([processPromise(), timeoutPromise]);
     } catch (error) {
-        console.error(`❌ Image generation failed: ${error.message}`);
+        console.error(`Image generation failed: ${error.message}`);
         // Return partial results if some images were created
         return imagePaths;
     }

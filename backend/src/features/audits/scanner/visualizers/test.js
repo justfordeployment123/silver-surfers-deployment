@@ -27,7 +27,7 @@ async function testCreateAllImages() {
         
         Object.entries(imagePaths).forEach(([auditId, imagePath]) => {
             const exists = fs.existsSync(imagePath);
-            const status = exists ? '✅ EXISTS' : '❌ MISSING';
+            const status = exists ? 'EXISTS' : 'MISSING';
             console.log(`  ${auditId}: ${imagePath} ${status}`);
         });
         
@@ -45,15 +45,15 @@ async function testCreateAllImages() {
         
         expectedAudits.forEach(auditId => {
             if (imagePaths[auditId] && fs.existsSync(imagePaths[auditId])) {
-                console.log(`✅ ${auditId}: SUCCESS`);
+                console.log(`${auditId}: SUCCESS`);
             } else {
-                console.log(`❌ ${auditId}: FAILED`);
+                console.log(`${auditId}: FAILED`);
                 allSuccessful = false;
             }
         });
         
         if (allSuccessful) {
-            console.log('\n🎉 ALL IMAGES GENERATED SUCCESSFULLY!');
+            console.log('\nALL IMAGES GENERATED SUCCESSFULLY!');
             
             // Show folder contents
             console.log('\n=== Output Folder Contents ===');
@@ -61,7 +61,7 @@ async function testCreateAllImages() {
             files.forEach(file => {
                 const filePath = path.join(outputFolder, file);
                 const stats = fs.statSync(filePath);
-                console.log(`  📁 ${file} (${(stats.size / 1024).toFixed(2)} KB)`);
+                console.log(`  ${file} (${(stats.size / 1024).toFixed(2)} KB)`);
             });
             
             console.log('\n=== Return Value for Server Use ===');
@@ -69,11 +69,11 @@ async function testCreateAllImages() {
             console.log(JSON.stringify(imagePaths, null, 2));
             
         } else {
-            console.log('\n⚠️ Some images failed to generate. Check the individual processors.');
+            console.log('\nSome images failed to generate. Check the individual processors.');
         }
         
     } catch (error) {
-        console.error('\n❌ ERROR during image generation:');
+        console.error('\nERROR during image generation:');
         console.error('Message:', error.message);
         console.error('Stack:', error.stack);
     }

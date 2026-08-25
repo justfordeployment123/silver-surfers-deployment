@@ -34,18 +34,18 @@ function fmt(n: number, unit = 'ms'): string {
 }
 
 function scoreLabel(score: number): string {
-  if (score < 0)  return '🚫 blocked';
-  if (score >= 70) return '🟢 nav-primary';
-  if (score >= 45) return '🔵 nav-secondary';
-  if (score >= 20) return '⚪ content';
-  return '🔴 low-quality';
+  if (score < 0)  return 'blocked';
+  if (score >= 70) return 'nav-primary';
+  if (score >= 45) return 'nav-secondary';
+  if (score >= 20) return 'content';
+  return 'low-quality';
 }
 
 const bucketIcon: Record<string, string> = {
-  homepage:  '🏠',
-  primary:   '⭐',
-  secondary: '🔹',
-  other:     '▫️ ',
+  homepage:  '',
+  primary:   '',
+  secondary: '',
+  other:     '',
 };
 
 // ── run ───────────────────────────────────────────────────────────────────────
@@ -61,12 +61,12 @@ try {
 // ── Header ────────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(70)}`);
-console.log(`  🔍  Link Extraction Test`);
+console.log(`   Link Extraction Test`);
 console.log(`  URL      : ${targetUrl}`);
 console.log(`  maxLinks : ${maxLinks}`);
-console.log(`  Scanner  : ${scannerAvailable ? '🟢 online  (Camoufox available)' : '🔴 offline (Camoufox disabled — run scanner first)'}`);
+console.log(`  Scanner  : ${scannerAvailable ? 'online  (Camoufox available)' : 'offline (Camoufox disabled — run scanner first)'}`);
 if (!scannerAvailable) {
-  console.log(`\n  ⚠️  To enable Camoufox (best for bot-protected sites like Best Buy):`);
+  console.log(`\n   To enable Camoufox (best for bot-protected sites like Best Buy):`);
   console.log(`      cd backend\\python-scanner`);
   console.log(`      ..\\.venv\\Scripts\\activate`);
   console.log(`      python -m uvicorn scanner_service:app --host 0.0.0.0 --port 8001`);
@@ -89,14 +89,14 @@ const origin = new URL(targetUrl).origin;
 
 // Describe what the winning strategy means in plain terms.
 const strategyNote: Record<string, string> = {
-  'sitemap':             '✅ sitemap parsed',
-  'sitemap+cheerio':     '✅ sitemap + HTML crawl',
-  'sitemap+camoufox':    '✅ sitemap + Camoufox (JS nav discovered)',
-  'sitemap+probe':       '✅ sitemap + nav URL probing (HEAD requests)',
-  'cheerio':             '✅ HTML crawl (no browser)',
-  'camoufox':            '✅ Camoufox Firefox (anti-bot)',
-  'puppeteer':           '⚠️  Puppeteer Chromium (last resort)',
-  'homepage-only':       '🚫 all strategies blocked — homepage only',
+  'sitemap':             'sitemap parsed',
+  'sitemap+cheerio':     'sitemap + HTML crawl',
+  'sitemap+camoufox':    'sitemap + Camoufox (JS nav discovered)',
+  'sitemap+probe':       'sitemap + nav URL probing (HEAD requests)',
+  'cheerio':             'HTML crawl (no browser)',
+  'camoufox':            'Camoufox Firefox (anti-bot)',
+  'puppeteer':           ' Puppeteer Chromium (last resort)',
+  'homepage-only':       'all strategies blocked — homepage only',
 };
 
 // Show which strategies were skipped.
@@ -115,10 +115,10 @@ if (tried.length > 0) {
 console.log(`Time     : ${fmt(elapsed)}`);
 console.log(`Links    : ${result.links.length}  (max requested: ${maxLinks})`);
 if (!result.success) {
-  console.log(`\n⚠️  Extraction failed: ${result.details ?? result.error ?? 'unknown error'}\n`);
+  console.log(`\n Extraction failed: ${result.details ?? result.error ?? 'unknown error'}\n`);
 }
 if (result.links.length === 1 && result.links[0] === new URL(targetUrl).origin) {
-  console.log(`\n  ℹ️  Only the homepage was found.`);
+  console.log(`\n  Only the homepage was found.`);
   if (scannerAvailable) {
     console.log(`  This site uses enterprise-grade bot protection (e.g., Akamai) that blocks`);
     console.log(`  all automated browsers including Camoufox.  The audit will run on the`);

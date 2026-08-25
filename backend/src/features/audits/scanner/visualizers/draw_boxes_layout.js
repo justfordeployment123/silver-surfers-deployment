@@ -68,7 +68,7 @@ async function enhanceAndHighlightMultiple(imagePathOrBuffer, outputImagePath, b
         const svgOverlay = `<svg width="${newWidth}" height="${newHeight}">${svgElements}</svg>`;
         await processedImage.composite([{ input: Buffer.from(svgOverlay), top: 0, left: 0 }]).png({ quality: 95, adaptiveFiltering: true }).toFile(outputImagePath);
     } catch (error) {
-        console.error('❌ Error enhancing image:', error.message);
+        console.error('Error enhancing image:', error.message);
         throw error;
     }
 }
@@ -82,13 +82,13 @@ export async function processLayoutBrittleAudit(jsonReportPath, outputImagePath)
         throw new Error("outputImagePath is required for processLayoutBrittleAudit.");
     }
 
-    console.log(`🔄 Reading report: ${jsonReportPath}`);
+    console.log(`Reading report: ${jsonReportPath}`);
     let lighthouseReport;
     try {
         const reportContent = await fsPromises.readFile(jsonReportPath, 'utf8');
         lighthouseReport = JSON.parse(reportContent);
     } catch (error) {
-        console.error('❌ Error parsing JSON report:', error.message);
+        console.error('Error parsing JSON report:', error.message);
         return null; // Return null on failure
     }
 
@@ -101,27 +101,27 @@ export async function processLayoutBrittleAudit(jsonReportPath, outputImagePath)
     // 2. Work with the screenshot in memory (more efficient) instead of creating a temp file.
     const screenshotBuffer = Buffer.from(screenshotData.split(',').pop(), 'base64');
 
-    console.log(`🔎 Extracting data for audit: "${AUDIT_ID}"`);
+    console.log(`Extracting data for audit: "${AUDIT_ID}"`);
     const finalBoxes = extractBoxData(lighthouseReport, AUDIT_ID);
 
     if (finalBoxes.length === 0) {
-        console.log('✅ No elements with fixed heights found for this audit.');
+        console.log('No elements with fixed heights found for this audit.');
         return null; // Return null to signal no image was created
     }
 
-    console.log('\n📦 Legend for Highlighted Layout Boxes:');
+    console.log('\nLegend for Highlighted Layout Boxes:');
     const tableData = finalBoxes.map((box, index) => ({
         'Box #': index + 1,
         'Text Snippet': (box.textSnippet || '').replace(/\s+/g, ' ').trim(),
     }));
     console.table(tableData);
 
-    console.log(`\n🎨 Drawing ${finalBoxes.length} boxes on screenshot...`);
+    console.log(`\nDrawing ${finalBoxes.length} boxes on screenshot...`);
     // 3. Pass the buffer directly to the drawing function instead of a temp file path.
     await enhanceAndHighlightMultiple(screenshotBuffer, outputImagePath, finalBoxes);
 
     // No need to delete a temp file anymore.
-    console.log(`\n✅ Success! Image saved to: ${outputImagePath}`);
+    console.log(`\nSuccess! Image saved to: ${outputImagePath}`);
     
     // 4. Return the path to confirm success and provide the file location to the server.
     return outputImagePath;

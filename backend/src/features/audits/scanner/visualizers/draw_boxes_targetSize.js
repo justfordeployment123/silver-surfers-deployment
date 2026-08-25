@@ -39,7 +39,7 @@ async function isVisuallyDistinct(imagePathOrBuffer, rect) {
         }
     } catch (error) {
         // Handle any errors gracefully - return false instead of crashing
-        console.warn(`⚠️  Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
+        console.warn(` Could not analyze region for box at (${rect.left}, ${rect.top}): ${error.message}`);
         return false;
     }
 }
@@ -111,7 +111,7 @@ async function enhanceAndHighlight(imageBuffer, outputImagePath, boundingBoxes, 
             .toFile(outputImagePath);
 
     } catch (error) {
-        console.error('❌ Error enhancing image:', error.message); throw error;
+        console.error('Error enhancing image:', error.message); throw error;
     }
 }
 
@@ -124,7 +124,7 @@ export async function processTargetSizeAudit(jsonReportPath, outputImagePath) {
         throw new Error("outputImagePath is required.");
     }
 
-    console.log(`🔄 Reading report: ${jsonReportPath}`);
+    console.log(`Reading report: ${jsonReportPath}`);
     const reportContent = await fsPromises.readFile(jsonReportPath, 'utf8');
     const lighthouseReport = JSON.parse(reportContent);
 
@@ -135,7 +135,7 @@ export async function processTargetSizeAudit(jsonReportPath, outputImagePath) {
     }
     const screenshotBuffer = Buffer.from(screenshotData.split(',').pop(), 'base64');
 
-    console.log(`🔎 Extracting data for audit: "${AUDIT_ID}"`);
+    console.log(`Extracting data for audit: "${AUDIT_ID}"`);
     const allBoxes = extractBoxData(lighthouseReport, AUDIT_ID);
 
     // Filter out any elements that aren't actually visible in the screenshot
@@ -146,7 +146,7 @@ export async function processTargetSizeAudit(jsonReportPath, outputImagePath) {
     const boxesToProcess = allBoxes.slice(0, maxBoxesToProcess);
     
     if (allBoxes.length > maxBoxesToProcess) {
-        console.log(`⚠️  Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
+        console.log(` Limiting processing to ${maxBoxesToProcess} boxes out of ${allBoxes.length} to prevent timeout`);
     }
     
     for (const box of boxesToProcess) {
@@ -155,16 +155,16 @@ export async function processTargetSizeAudit(jsonReportPath, outputImagePath) {
                 finalBoxes.push(box);
             }
         } catch (error) {
-            console.warn(`⚠️  Skipping box due to processing error: ${error.message}`);
+            console.warn(` Skipping box due to processing error: ${error.message}`);
         }
     }
 
     if (finalBoxes.length === 0) {
-        console.log(`\n✅ No target size issues found. No image will be generated.`);
+        console.log(`\nNo target size issues found. No image will be generated.`);
         return null; // Return null to signal no image was created
     }
 
-    console.log('\n📦 Legend for Highlighted Target Size Issues:');
+    console.log('\nLegend for Highlighted Target Size Issues:');
     const tableData = finalBoxes.map((box, index) => ({
         'Box #': index + 1,
         'Element': box.nodeLabel || box.selector,
@@ -172,10 +172,10 @@ export async function processTargetSizeAudit(jsonReportPath, outputImagePath) {
     }));
     console.table(tableData);
 
-    console.log(`\n🎨 Drawing ${finalBoxes.length} boxes in purple...`);
+    console.log(`\nDrawing ${finalBoxes.length} boxes in purple...`);
     await enhanceAndHighlight(screenshotBuffer, outputImagePath, finalBoxes, { boxColor: 'purple' });
 
-    console.log(`\n✅ Success! Image saved to: ${outputImagePath}`);
+    console.log(`\nSuccess! Image saved to: ${outputImagePath}`);
     
     // Return the path to confirm success and provide the file location
     return outputImagePath;

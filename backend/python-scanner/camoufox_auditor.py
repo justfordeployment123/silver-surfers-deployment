@@ -573,7 +573,7 @@ def run_camoufox_audit_sync(
                 failing_count = color_contrast_results.get("failing", 0) if color_contrast_results else 0
                 total_count = color_contrast_results.get("total", 0) if color_contrast_results else 0
             except Exception as e:
-                print(f"⚠️ Color contrast calculation failed: {e}")
+                print(f"Color contrast calculation failed: {e}")
                 contrast_score = 1.0
                 failing_count = 0
                 total_count = 0
@@ -1297,7 +1297,7 @@ def run_camoufox_audit_sync(
                 zoom_blocked = user_scalable_result.get("blocked", False)
                 zoom_content = user_scalable_result.get("content", "")
             except Exception as e:
-                print(f"⚠️ user-scalable-audit failed: {e}")
+                print(f"user-scalable-audit failed: {e}")
                 zoom_blocked = False
                 zoom_content = ""
 
@@ -1332,7 +1332,7 @@ def run_camoufox_audit_sync(
                 scroll_width = h_scroll_result.get("scrollWidth", 0)
                 inner_width = h_scroll_result.get("innerWidth", 0)
             except Exception as e:
-                print(f"⚠️ horizontal-scroll-audit failed: {e}")
+                print(f"horizontal-scroll-audit failed: {e}")
                 h_overflows = False
                 scroll_width = 0
                 inner_width = 375
@@ -1378,7 +1378,7 @@ def run_camoufox_audit_sync(
                 """)
                 text_adjust_blocked = text_adjust_result.get("blocked", False)
             except Exception as e:
-                print(f"⚠️ text-size-adjust-audit failed: {e}")
+                print(f"text-size-adjust-audit failed: {e}")
                 text_adjust_blocked = False
             finally:
                 try:
@@ -1439,7 +1439,7 @@ def run_camoufox_audit_sync(
                 spacing_overflow_count = text_spacing_result.get("overflowCount", 0)
                 spacing_items = text_spacing_result.get("items", [])
             except Exception as e:
-                print(f"⚠️ text-spacing-audit failed: {e}")
+                print(f"text-spacing-audit failed: {e}")
                 spacing_overflow_count = 0
                 spacing_items = []
 
@@ -1519,7 +1519,7 @@ def run_camoufox_audit_sync(
                 cls_score = cls_data.get("score", 1.0)
                 cls_value = cls_data.get("cls", 0)
             except Exception as e:
-                print(f"⚠️ CLS calculation failed: {e}")
+                print(f"CLS calculation failed: {e}")
                 cls_score = 1.0
                 cls_value = 0
             
@@ -1831,7 +1831,7 @@ def run_camoufox_audit_sync(
                     tbt_score = tbt_data.get("score", 1.0)
                     tbt_value = tbt_data.get("tbt", 0)
                 except Exception as e:
-                    print(f"⚠️ TBT calculation failed: {e}")
+                    print(f"TBT calculation failed: {e}")
                     tbt_score = 1.0
                     tbt_value = 0
                 
