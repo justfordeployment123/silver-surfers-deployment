@@ -18,6 +18,26 @@ const Contact = () => {
     document.body.appendChild(script);
   }, []);
 
+  // Deep-linking straight to #book-a-call (e.g. a shared link) doesn't work
+  // out of the box: this is a client-rendered SPA, so the browser tries to
+  // scroll to the section before React has actually put it in the DOM, and
+  // the scroll silently does nothing. Retrying on mount (once the section
+  // exists) fixes that.
+  useEffect(() => {
+    if (window.location.hash === '#book-a-call') {
+      document.getElementById('book-a-call')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
+  // index.html sets <base href="/" />, which makes any plain href="#hash"
+  // resolve against "/" instead of the current page — so clicking this from
+  // /contact was sending people to the homepage instead of scrolling down.
+  // Scrolling manually sidesteps that entirely.
+  const scrollToBooking = (e) => {
+    e.preventDefault();
+    document.getElementById('book-a-call')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
   const [formData, setFormData] = useState({
     name: '',
     business: '',
@@ -240,6 +260,7 @@ const Contact = () => {
                     href={method.link}
                     target={method.target || '_self'}
                     rel={method.target === '_blank' ? 'noopener noreferrer' : undefined}
+                    onClick={method.link === '#book-a-call' ? scrollToBooking : undefined}
                     className="contact-method-lnk"
                   >
                     {method.action}
@@ -470,7 +491,7 @@ const Contact = () => {
             <div className="btn-row" style={{ justifyContent: 'center' }}>
               <a href="/" className="btn btn-p">Quick Scan Report</a>
               <a href="/services" className="btn btn-g">View Services</a>
-              <a href="#book-a-call" className="btn btn-g">
+              <a href="#book-a-call" onClick={scrollToBooking} className="btn btn-g">
                 Schedule Call
               </a>
             </div>
