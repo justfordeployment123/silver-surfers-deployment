@@ -382,7 +382,7 @@ const Header = () => {
 
           {/* Logo */}
           <Link href="/" className="ss-logo" onClick={closeMobileMenu}>
-            <img src="/Logo.png" alt="" className="ss-logo-mark" />
+            <img src="/logo.svg" alt="" className="ss-logo-mark" />
             SilverSurfers<span>.ai</span>
           </Link>
 
