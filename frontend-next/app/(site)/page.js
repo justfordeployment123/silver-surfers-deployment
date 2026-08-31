@@ -22,7 +22,7 @@ import FinalCtaButtons from '../../components/home/FinalCtaButtons';
 
 export const metadata = {
   title: 'SilverSurfers | Accessibility for Older Adults',
-  description: 'Reach 124 million older adults with $8.3 trillion in buying power. Unlock your SilverSurfers Score today with a free accessibility scan.',
+  description: 'Reach 124 million older adults with over $12 trillion in buying power. Unlock your SilverSurfers Score today with a free accessibility scan.',
 };
 
 export default function Home() {
@@ -164,7 +164,7 @@ export default function Home() {
 
             <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 560, marginBottom: 40 }}>
               <strong style={{ color: 'rgba(255,255,255,0.85)', fontWeight: 500 }}>
-                Reach 124 million older adults with $8.3 trillion in buying power.
+                Reach 124 million older adults with over $12 trillion in buying power.
               </strong>{' '}
               Unlock your SilverSurfers Score today.
             </p>
@@ -183,7 +183,7 @@ export default function Home() {
             <div className="stats" style={{ maxWidth: 660 }}>
               <div className="stat"><div className="stat-n">500+</div><div className="stat-l">Websites Audited</div></div>
               <div className="stat"><div className="stat-n">85%</div><div className="stat-l">Improved Accessibility</div></div>
-              <div className="stat"><div className="stat-n">$8.3T</div><div className="stat-l">50+ buying power</div></div>
+              <div className="stat"><div className="stat-n">$12T+</div><div className="stat-l">50+ buying power</div></div>
             </div>
           </div>
         </section>

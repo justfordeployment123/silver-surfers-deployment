@@ -1,22 +1,14 @@
-import { Playfair_Display, DM_Sans } from "next/font/google";
+import { Poppins } from "next/font/google";
 import "./globals.css";
 
 // Self-hosted via next/font — replaces the render-blocking Google Fonts
 // <link> tags from the CRA app's public/index.html. Variable names match
 // what globals.css's --ffd/--ff tokens expect (see app/globals.css).
-const playfairDisplay = Playfair_Display({
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
+const poppins = Poppins({
+  weight: ["400", "500", "600", "700"],
   subsets: ["latin"],
   display: "swap",
-  variable: "--font-playfair",
-});
-
-const dmSans = DM_Sans({
-  weight: ["300", "400", "500", "600"],
-  subsets: ["latin"],
-  display: "swap",
-  variable: "--font-dm-sans",
+  variable: "--font-poppins",
 });
 
 export const metadata = {
@@ -25,16 +17,13 @@ export const metadata = {
     "SilverSurfers - Making websites senior-friendly. Get your seal of approval for elderly-accessible web design.",
   manifest: "/manifest.json",
   icons: {
-    // Ported from public/index.html, fixing a live bug there: it pointed
-    // apple-touch-icon at "logo.jpeg", a file that doesn't exist in
-    // public/ (only logo.jpg does) - silent 404 on iOS home-screen add.
-    icon: "/Logo.png",
+    icon: "/logo.svg",
     apple: "/logo.jpg",
   },
 };
 
 export const viewport = {
-  themeColor: "#000000",
+  themeColor: "#017FA1",
   width: "device-width",
   initialScale: 1,
 };
@@ -56,7 +45,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={`${playfairDisplay.variable} ${dmSans.variable}`}
+      className={poppins.variable}
       // The inline theme-init script below sets data-theme on this element
       // client-side, before hydration, on purpose (that's how it avoids a
       // flash of the wrong theme) — this intentionally differs from the
