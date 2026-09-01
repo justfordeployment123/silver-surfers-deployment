@@ -9,6 +9,7 @@ import teamRouter from './billing/team.routes.ts';
 import contactRouter from './contact/contact.routes.ts';
 import contentRouter from './content/content.routes.ts';
 import healthRouter from './health/health.routes.ts';
+import leadsRouter from './leads/leads.routes.ts';
 import legalRouter from './legal/legal.routes.ts';
 import { monitoringAdminRouter, monitoringRouter } from './monitoring/monitoring.routes.ts';
 import recordsRouter from './records/records.routes.ts';
@@ -23,6 +24,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', subscriptionRouter);
   app.use('/', teamRouter);
   app.use('/', contactRouter);
+  app.use('/', leadsRouter);
   app.use('/', contentRouter);
   app.use('/', legalRouter);
   app.use('/', recordsRouter);
