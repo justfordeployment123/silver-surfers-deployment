@@ -3,16 +3,15 @@
    is retired. Includes the accessibility-contrast fixes already applied
    there (see the inline comments below). */
 :root {
-  /* Teal scale — recentered on the SilverSurfers.ai brand green (#32987E,
-     Brand Kit v2.0 sec. 9), keeping each step's original lightness so the
-     accessibility contrast already tuned into this scale carries over. */
-  --t9:  #0C261F;
-  --t8:  #164237;
-  --t6:  #1F5E4E;
-  --t4:  #2E8D75;
-  --t2:  #6BCEB5;
-  --t1:  #E1F5F0;
-  --t05: #F0FAF7;
+  /* Solid logo-matched brand scale: deep ocean navy, surf teal, and aqua.
+     Kept as flat colors so the UI feels brand-led instead of gradient-heavy. */
+  --t9:  #102F45;
+  --t8:  #16445A;
+  --t6:  #087D79;
+  --t4:  #0AA88F;
+  --t2:  #54D6DC;
+  --t1:  #DDF8FA;
+  --t05: #F0FCFC;
 
   /* Ink / neutral */
   --ink:  #1A1A18;
