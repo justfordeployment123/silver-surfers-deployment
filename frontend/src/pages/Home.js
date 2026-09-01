@@ -205,14 +205,6 @@ const MainScreen = () => {
           position: relative;
           overflow: hidden;
         }
-        .home-glow {
-          position: absolute;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.18) 0%, transparent 70%);
-          pointer-events: none;
-        }
-        .home-glow-1 { width: 680px; height: 680px; top: -200px; right: -100px; }
-        .home-glow-2 { width: 420px; height: 420px; bottom: -120px; left: -80px; }
 
         /* ── Scan form card ────────────────────────────── */
         .home-form-card {
@@ -312,9 +304,6 @@ const MainScreen = () => {
             HERO
         ════════════════════════════════════════════════ */}
         <section className="home-hero">
-          <div className="home-glow home-glow-1" />
-          <div className="home-glow home-glow-2" />
-
           <div className="hero-globe-slot">
             <Suspense fallback={null}>
               <HeroGlobe />
@@ -328,7 +317,7 @@ const MainScreen = () => {
             {/* Headline */}
             <h1 className="h1" style={{ color: '#fff', maxWidth: 680, marginBottom: 18 }}>
               Are You Delivering{' '}
-              <em style={{ fontStyle: 'italic', color: 'var(--t1)' }}>
+              <em style={{ fontStyle: 'italic', color: 'var(--t2)' }}>
                 Older Adult Friendly Digital Experiences?
               </em>
             </h1>
@@ -655,16 +644,9 @@ const MainScreen = () => {
             FINAL CTA
         ════════════════════════════════════════════════ */}
         <section className="cta-sec">
-          {/* subtle glow */}
-          <div style={{
-            position: 'absolute', width: 600, height: 600, borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%)',
-            top: '-150px', left: '50%', transform: 'translateX(-50%)',
-            pointerEvents: 'none',
-          }} />
           <div className="wrap" style={{ position: 'relative', zIndex: 1 }}>
             <h2 className="h2" style={{ color: '#fff', marginBottom: 14 }}>
-              Ready to welcome <em style={{ fontStyle: 'italic', color: 'var(--t1)' }}>all generations?</em>
+              Ready to welcome <em style={{ fontStyle: 'italic', color: 'var(--t2)' }}>all generations?</em>
             </h2>
             <p className="lead" style={{ color: 'rgba(255, 255, 255, 0.75)', maxWidth: 560, margin: '0 auto' }}>
               Start your journey to creating an inclusive and delightful digital experience for everyone.
