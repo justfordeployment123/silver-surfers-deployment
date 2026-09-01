@@ -434,6 +434,11 @@ export const submitContact = async (payload) => {
   try { const res = await api.post('/contact', payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
 
+// Public: lead-magnet resource request (see backend/src/features/leads/leads.routes.ts)
+export const submitResourceRequest = async (payload) => {
+  try { const res = await api.post('/leads', payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+
 // User: list my analysis records (auth)
 export const listMyAnalysis = async (params = {}) => {
   try { const res = await api.get('/auth/my-analysis', { params }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }

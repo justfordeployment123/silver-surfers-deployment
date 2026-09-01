@@ -7,14 +7,15 @@
 // since ResourcesGrid.js needs to pre-select a resource when a card's
 // "Get This Resource" button is clicked.
 //
-// Phase B only (todo.md): validation + local success/error UI. Nothing here
-// calls a backend yet — there is no /api/leads endpoint until Phase C, and
-// nothing wired to it until Phase D. handleSubmit below is intentionally a
-// stub that's isolated to one spot, so swapping in the real API call later
-// is a small, contained change.
+// Phase D (todo.md): wired to the real POST /leads endpoint via
+// submitResourceRequest (lib/apiClient.js). GoHighLevel sync itself is
+// still a stub server-side (see backend/src/features/leads/ghl-sync.service.ts)
+// until Phase F, but the submission, validation, and storage here are real.
 'use client';
 
 import { useState } from 'react';
+
+import { submitResourceRequest } from '../../lib/apiClient';
 
 export default function ResourceRequestForm({ resources, selectedSlug, onSelectedSlugChange, lockedResource }) {
   const [formData, setFormData] = useState({
@@ -62,13 +63,25 @@ export default function ResourceRequestForm({ resources, selectedSlug, onSelecte
     setIsSubmitting(true);
     setSubmitStatus(null);
     try {
-      // Phase D wires this up to POST /api/leads via lib/apiClient.js
-      // (see todo.md Phase C/D) once the backend endpoint exists. For now,
-      // this is a deliberate stub: no network call, just the success path,
-      // so the form's UX can be built and tested end to end already.
-      await new Promise((resolve) => setTimeout(resolve, 400));
-      setSubmitStatus({ type: 'success', message: `Thanks! We'll email your copy of "${activeResource.title}" shortly.` });
-      setFormData({ firstName: '', lastName: '', email: '', company: '', marketingConsent: false });
+      const payload = {
+        firstName: formData.firstName.trim(),
+        lastName: formData.lastName.trim(),
+        email: formData.email.trim(),
+        company: formData.company.trim(),
+        // Sent as the resource's slug + its own tag, not the display title —
+        // matches what backend/src/models/lead.model.ts stores and what
+        // Phase F2's GHL sync will apply as the contact's tag.
+        requestedResource: activeResource.slug,
+        tag: activeResource.tag,
+        marketingConsent: formData.marketingConsent,
+      };
+      const res = await submitResourceRequest(payload);
+      if (res?.error) {
+        setSubmitStatus({ type: 'error', message: res.error });
+      } else {
+        setSubmitStatus({ type: 'success', message: `Thanks! We'll email your copy of "${activeResource.title}" shortly.` });
+        setFormData({ firstName: '', lastName: '', email: '', company: '', marketingConsent: false });
+      }
     } catch (err) {
       setSubmitStatus({ type: 'error', message: 'Something went wrong. Please try again in a moment.' });
     } finally {
