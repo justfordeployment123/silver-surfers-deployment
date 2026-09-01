@@ -280,6 +280,7 @@ const Footer = () => {
             <div>
               <p className="ss-footer-col-heading">Resources</p>
               <ul className="ss-footer-links">
+                <li><Link href="/resources"            className="ss-footer-link">Free Guides &amp; Checklists</Link></li>
                 <li><Link href="/accessibility-guides" className="ss-footer-link">Accessibility Guides</Link></li>
                 <li><Link href="/blog"                 className="ss-footer-link">Case Studies</Link></li>
                 <li><Link href="/contact"              className="ss-footer-link">Support</Link></li>
