@@ -51,7 +51,7 @@ const PaymentSuccess = () => {
   if (loading) {
     return (
       <>
-        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; } .ps-spinner { width: 48px; height: 48px; border: 3px solid rgba(29,158,117,0.2); border-top-color: var(--t4); border-radius: 50%; animation: psSpin 0.8s linear infinite; } @keyframes psSpin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; } .ps-spinner { width: 48px; height: 48px; border: 3px solid rgba(10,168,143,0.2); border-top-color: var(--t4); border-radius: 50%; animation: psSpin 0.8s linear infinite; } @keyframes psSpin { to { transform: rotate(360deg); } }`}</style>
         <div className="ps-bg">
           <div className="auth-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
             <div className="ps-spinner" style={{ margin: '0 auto 20px' }} />
@@ -90,7 +90,7 @@ const PaymentSuccess = () => {
     <>
       <style>{`
         .ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
-        .ps-card { background: var(--surface); border-radius: var(--rl); padding: 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 600px; }
+        .ps-card { background: var(--surface); border-radius: var(--rl); padding: 44px; box-shadow: 0 8px 40px rgba(16,47,69,0.15); width: 100%; max-width: 600px; }
         .ps-detail-row { background: var(--surface); border-radius: var(--r); padding: 16px; text-align: center; }
         .ps-detail-num { font-size: 28px; font-weight: 700; color: var(--t4); font-family: var(--ffd); }
         .ps-detail-label { font-size: 16px; color: var(--ink6); margin-bottom: 4px; }

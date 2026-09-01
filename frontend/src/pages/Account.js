@@ -17,7 +17,7 @@ const STYLES = `
 .ac-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
 .ac-wrap { max-width: 1024px; margin: 0 auto; padding: 0 24px; }
 .sp { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; color: #fff; }
-.sp-cmp { background: rgba(29,158,117,0.65); }
+.sp-cmp { background: rgba(10,168,143,0.65); }
 .sp-cww { background: rgba(217,119,6,0.65); }
 .sp-fail { background: rgba(220,38,38,0.65); }
 .sp-proc { background: rgba(37,99,235,0.65); }
@@ -38,7 +38,7 @@ const STYLES = `
 .ac-ref { padding: 8px 16px; border-radius: 8px; background: var(--t6); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; border: none; white-space: nowrap; }
 .ac-ref:hover { background: var(--t8); }
 .ac-card { padding: 16px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
-.ac-card:hover { border-color: rgba(29,158,117,0.4); }
+.ac-card:hover { border-color: rgba(10,168,143,0.4); }
 .ac-btn-rescan { border-radius: 8px; background: var(--t6); padding: 6px 12px; font-size: 16px; font-weight: 700; color: #fff; border: none; cursor: pointer; transition: background .15s; }
 .ac-btn-rescan:hover { background: var(--t8); }
 .ac-btn-rescan:disabled { opacity: 0.6; cursor: not-allowed; }

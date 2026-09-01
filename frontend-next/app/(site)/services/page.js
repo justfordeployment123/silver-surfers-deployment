@@ -32,7 +32,7 @@ export default function ServicesPage() {
         }
         .svc-glow {
           position: absolute; border-radius: 50%; pointer-events: none;
-          background: radial-gradient(circle, rgba(29,158,117,0.16) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.16) 0%, transparent 70%);
         }
         .svc-glow-1 { width: 640px; height: 640px; top: -180px; right: -80px; }
         .svc-glow-2 { width: 380px; height: 380px; bottom: -100px; left: -60px; }
@@ -102,7 +102,7 @@ export default function ServicesPage() {
           transition: box-shadow 0.2s, transform 0.2s;
         }
         .svc-plan:hover {
-          box-shadow: 0 8px 32px rgba(8,80,65,0.1);
+          box-shadow: 0 8px 32px rgba(16,47,69,0.1);
           transform: translateY(-3px);
         }
         .svc-plan-bar {
@@ -186,7 +186,7 @@ export default function ServicesPage() {
           transition: box-shadow 0.2s, transform 0.2s;
         }
         .choose-card:hover {
-          box-shadow: 0 8px 32px rgba(8,80,65,0.09);
+          box-shadow: 0 8px 32px rgba(16,47,69,0.09);
           transform: translateY(-2px);
         }
         .choose-card-bar {

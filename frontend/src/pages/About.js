@@ -45,7 +45,7 @@ const About = () => {
           width: 560px;
           height: 560px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .about-glow-2 {
@@ -55,7 +55,7 @@ const About = () => {
           width: 360px;
           height: 360px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .about-approach-row {

@@ -220,7 +220,7 @@ const Header = () => {
           background: var(--surface);
           border: 1px solid var(--sandd);
           border-radius: var(--rl);
-          box-shadow: 0 8px 32px rgba(8,80,65,0.09);
+          box-shadow: 0 8px 32px rgba(16,47,69,0.09);
           z-index: 100;
           overflow: hidden;
         }
@@ -295,7 +295,7 @@ const Header = () => {
           left: 0; right: 0;
           background: var(--surface);
           border-bottom: 1px solid var(--sandd);
-          box-shadow: 0 8px 24px rgba(8,80,65,0.08);
+          box-shadow: 0 8px 24px rgba(16,47,69,0.08);
           overflow: hidden;
           max-height: 0;
           transition: max-height 0.3s ease;

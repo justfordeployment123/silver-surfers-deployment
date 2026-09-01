@@ -33,7 +33,7 @@ export default async function FaqPage() {
           width: 480px;
           height: 480px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .faq-glow-2 {
@@ -43,7 +43,7 @@ export default async function FaqPage() {
           width: 300px;
           height: 300px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .faq-list {

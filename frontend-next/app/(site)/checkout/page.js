@@ -198,7 +198,7 @@ export default function Checkout() {
           background: var(--surface);
           border-radius: var(--rl);
           padding: 36px;
-          box-shadow: 0 8px 40px rgba(4,46,34,0.15);
+          box-shadow: 0 8px 40px rgba(16,47,69,0.15);
         }
         .co-sub-banner {
           background: var(--t05);

@@ -17,7 +17,7 @@ const STYLES = `
 .ap-sub { font-size: 16px; color: var(--ink6); }
 .ap-lbl { font-size: 16px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
 .ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
-.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(10,168,143,0.1); }
 .ap-sel { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; }
 .ap-sel:focus { border-color: var(--t4); }
 .ap-btn-p { background: var(--t6); color: #fff; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; transition: background .15s; }
@@ -45,7 +45,7 @@ const STYLES = `
 .pill-a { background: #fef3c7; color: #92400e; }
 .pill-gr { background: #f3f4f6; color: #374151; }
 .pill-o { background: #ffedd5; color: #9a3412; }
-.ap-modal-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
+.ap-modal-overlay { position: fixed; inset: 0; background: rgba(16,47,69,0.45); z-index: 50; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; }
 .ap-modal { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 600px; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
 .ap-modal-sm { background: var(--surface); border-radius: var(--rl); width: 100%; max-width: 440px; display: flex; flex-direction: column; box-shadow: 0 24px 64px rgba(0,0,0,0.18); }
 .ap-modal-hdr { padding: 20px 24px; border-bottom: 1px solid var(--sandd); display: flex; align-items: flex-start; justify-content: space-between; flex-shrink: 0; }

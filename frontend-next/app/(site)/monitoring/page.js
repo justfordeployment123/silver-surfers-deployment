@@ -24,12 +24,12 @@ const STYLES = `
 .mo-jobs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .mo-job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .mo-job-card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
-.mo-job-card:hover { border-color: rgba(29,158,117,0.4); }
+.mo-job-card:hover { border-color: rgba(10,168,143,0.4); }
 .mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; }
 .mo-job-domain:hover { text-decoration: underline; color: var(--t4); }
 .mo-job-meta { font-size: 16px; color: rgba(255,255,255,0.75); }
 .mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
-.mo-status-active { background: rgba(29,158,117,0.65); color: #fff; }
+.mo-status-active { background: rgba(10,168,143,0.65); color: #fff; }
 .mo-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
 .mo-status-error { background: rgba(220,38,38,0.65); color: #fff; }
 .mo-job-row { display: flex; align-items: center; justify-content: space-between; }

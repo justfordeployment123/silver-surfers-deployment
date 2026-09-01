@@ -60,7 +60,7 @@ export default function SubscriptionSuccess() {
   if (loading) {
     return (
       <>
-        <style>{`.ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; } .ss-spin { width: 40px; height: 40px; border: 3px solid rgba(29,158,117,0.2); border-top-color: var(--t4); border-radius: 50%; animation: ssSpin 0.8s linear infinite; margin: 0 auto 16px; } @keyframes ssSpin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`.ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; } .ss-spin { width: 40px; height: 40px; border: 3px solid rgba(10,168,143,0.2); border-top-color: var(--t4); border-radius: 50%; animation: ssSpin 0.8s linear infinite; margin: 0 auto 16px; } @keyframes ssSpin { to { transform: rotate(360deg); } }`}</style>
         <div className="ss-bg" style={{ flexDirection: 'column', gap: '12px' }}>
           <div className="ss-spin" />
           <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '16px' }}>Confirming your subscription…</p>
@@ -73,7 +73,7 @@ export default function SubscriptionSuccess() {
     <>
       <style>{`
         .ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; }
-        .ss-card { background: var(--surface); border-radius: var(--rl); padding: 52px 44px; box-shadow: 0 8px 40px rgba(4,46,34,0.15); width: 100%; max-width: 560px; text-align: center; }
+        .ss-card { background: var(--surface); border-radius: var(--rl); padding: 52px 44px; box-shadow: 0 8px 40px rgba(16,47,69,0.15); width: 100%; max-width: 560px; text-align: center; }
         .ss-check-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 32px; }
       `}</style>
       <div className="ss-bg">

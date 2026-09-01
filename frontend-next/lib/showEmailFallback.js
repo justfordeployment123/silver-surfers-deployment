@@ -4,7 +4,7 @@
 // (components/home/QuickScanSection.js and components/home/FinalCtaButtons.js).
 export default function showEmailFallback(email) {
   const fallback = document.createElement('div');
-  fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(8,80,65,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
+  fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(16,47,69,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
   fallback.innerHTML = `
     <div style="display:flex;align-items:flex-start;gap:12px">
       <div style="flex:1">

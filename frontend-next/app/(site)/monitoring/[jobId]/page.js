@@ -29,7 +29,7 @@ const STYLES = `
 .mjd-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
 .mjd-meta { font-size: 16px; color: rgba(255,255,255,0.75); margin-top: 6px; }
 .mjd-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; margin-left: 10px; vertical-align: middle; }
-.mjd-status-active { background: rgba(29,158,117,0.65); color: #fff; }
+.mjd-status-active { background: rgba(10,168,143,0.65); color: #fff; }
 .mjd-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
 .mjd-status-error { background: rgba(220,38,38,0.65); color: #fff; }
 .mjd-section { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
@@ -46,7 +46,7 @@ const STYLES = `
 .mjd-link { color: var(--t4); cursor: pointer; text-decoration: none; }
 .mjd-link:hover { text-decoration: underline; }
 .mjd-run-status { display: inline-flex; padding: 2px 8px; border-radius: 9999px; font-size: 16px; font-weight: 700; }
-.mjd-run-complete { background: rgba(29,158,117,0.65); color: #fff; }
+.mjd-run-complete { background: rgba(10,168,143,0.65); color: #fff; }
 .mjd-run-failed { background: rgba(220,38,38,0.65); color: #fff; }
 .mjd-run-pending, .mjd-run-running { background: rgba(37,99,235,0.65); color: #fff; }
 .mjd-empty { color: rgba(255,255,255,0.75); font-size: 16px; padding: 12px 0; }

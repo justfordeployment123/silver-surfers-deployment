@@ -46,7 +46,7 @@ export default function Home() {
           transition: box-shadow 0.4s;
         }
         .home-form-card.highlighted {
-          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(29,158,117,0.2);
+          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(10,168,143,0.2);
         }
 
         /* ── Form inputs on dark bg ────────────────────── */
@@ -68,7 +68,7 @@ export default function Home() {
         .home-input::placeholder { color: #6E6E6B; }
         .home-input:focus {
           border-color: var(--t4);
-          box-shadow: 0 0 0 3px rgba(29,158,117,0.15);
+          box-shadow: 0 0 0 3px rgba(10,168,143,0.15);
         }
 
         /* ── How it works (sand section) ──────────────── */
@@ -83,7 +83,7 @@ export default function Home() {
           text-align: center;
         }
         .home-step-card:hover {
-          box-shadow: 0 8px 32px rgba(8,80,65,0.09);
+          box-shadow: 0 8px 32px rgba(16,47,69,0.09);
           transform: translateY(-2px);
         }
         .home-step-card-bar {

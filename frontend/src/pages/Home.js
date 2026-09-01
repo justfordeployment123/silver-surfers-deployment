@@ -11,7 +11,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(4,46,34,0.6)',
+      background: 'rgba(16,47,69,0.6)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 9000, padding: 16,
     }}>
@@ -21,7 +21,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         padding: 32,
         maxWidth: 520,
         width: '100%',
-        boxShadow: '0 16px 48px rgba(8,80,65,0.18)',
+        boxShadow: '0 16px 48px rgba(16,47,69,0.18)',
       }}>
         <h3 style={{ fontFamily: 'var(--ffd)', fontSize: 22, color: 'var(--ink)', marginBottom: 20 }}>
           Senior-Friendly Score Results
@@ -87,7 +87,7 @@ const MainScreen = () => {
 
   const showEmailFallback = (email) => {
     const fallback = document.createElement('div');
-    fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(8,80,65,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
+    fallback.style.cssText = 'position:fixed;top:16px;right:16px;background:var(--surface);border:1px solid var(--sandd);border-radius:var(--rl);padding:16px;box-shadow:0 8px 32px rgba(16,47,69,0.12);z-index:9999;max-width:320px;font-family:var(--ff)';
     fallback.innerHTML = `
       <div style="display:flex;align-items:flex-start;gap:12px">
         <div style="flex:1">
@@ -175,7 +175,7 @@ const MainScreen = () => {
           padding: '10px 8px',
           borderRadius: 'var(--r)',
           border: active ? '2px solid var(--t4)' : '2px solid rgba(255,255,255,0.2)',
-          background: active ? 'rgba(29,158,117,0.25)' : 'rgba(255,255,255,0.06)',
+          background: active ? 'rgba(10,168,143,0.25)' : 'rgba(255,255,255,0.06)',
           color: disabled ? 'rgba(255,255,255,0.35)' : '#fff',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,
@@ -215,7 +215,7 @@ const MainScreen = () => {
           transition: box-shadow 0.4s;
         }
         .home-form-card.highlighted {
-          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(29,158,117,0.2);
+          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(10,168,143,0.2);
         }
 
         /* ── Form inputs on dark bg ────────────────────── */
@@ -237,7 +237,7 @@ const MainScreen = () => {
         .home-input::placeholder { color: #6E6E6B; }
         .home-input:focus {
           border-color: var(--t4);
-          box-shadow: 0 0 0 3px rgba(29,158,117,0.15);
+          box-shadow: 0 0 0 3px rgba(10,168,143,0.15);
         }
 
         /* ── How it works (sand section) ──────────────── */
@@ -252,7 +252,7 @@ const MainScreen = () => {
           text-align: center;
         }
         .home-step-card:hover {
-          box-shadow: 0 8px 32px rgba(8,80,65,0.09);
+          box-shadow: 0 8px 32px rgba(16,47,69,0.09);
           transform: translateY(-2px);
         }
         .home-step-card-bar {

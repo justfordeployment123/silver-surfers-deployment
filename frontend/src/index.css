@@ -168,7 +168,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Selection ─────────────────────────────────────────────── */
 ::selection {
-  background: rgba(29, 158, 117, 0.25);
+  background: rgba(10,168,143, 0.25);
   color: var(--ink);
 }
 

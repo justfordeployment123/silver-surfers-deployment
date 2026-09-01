@@ -45,7 +45,7 @@ const ScanResultsModal = ({ result, onClose, isVisible }) => {
   };
 
   const getScoreGradientColors = (score) => {
-    if (score >= 80) return { start: '#1D9E75', end: '#0f7a5a' };
+    if (score >= 80) return { start: '#0AA88F', end: '#087D79' };
     if (score >= 60) return { start: '#f59e0b', end: '#d97706' };
     return { start: '#ef4444', end: '#dc2626' };
   };

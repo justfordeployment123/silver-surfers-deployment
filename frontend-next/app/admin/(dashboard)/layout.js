@@ -40,7 +40,7 @@ const STYLES = `
 .adl-user-role { font-size: 16px; color: rgba(255,255,255,0.75); }
 .adl-menu-btn { padding: 6px; border-radius: 8px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); cursor: pointer; flex-shrink: 0; }
 .adl-menu-btn:hover { background: rgba(255,255,255,0.14); color: #fff; }
-.adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(8,80,65,0.12); overflow: hidden; z-index: 50; }
+.adl-dropdown { position: absolute; bottom: calc(100% + 4px); right: 12px; width: 200px; background: var(--surface); border: 1px solid var(--sandd); border-radius: var(--rl); box-shadow: 0 8px 32px rgba(16,47,69,0.12); overflow: hidden; z-index: 50; }
 .adl-dd-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 12px 16px; font-family: var(--ff); font-size: 16px; font-weight: 500; color: var(--ink6); background: none; border: none; cursor: pointer; text-align: left; transition: background .15s, color .15s; }
 .adl-dd-btn:hover { background: var(--t05); color: var(--t6); }
 .adl-dd-btn-danger:hover { background: var(--coralbg); color: var(--coral); }
@@ -49,7 +49,7 @@ const STYLES = `
 .adl-hamburger { width: 40px; height: 40px; border-radius: 8px; background: var(--surface); border: 1px solid var(--sandd); color: var(--ink6); display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .adl-hamburger:hover { background: var(--sand); }
 .adl-content { flex: 1; max-width: 1280px; margin: 0 auto; width: 100%; padding: 32px 40px; }
-.adl-overlay { position: fixed; inset: 0; background: rgba(4,46,34,0.45); z-index: 29; }
+.adl-overlay { position: fixed; inset: 0; background: rgba(16,47,69,0.45); z-index: 29; }
 .adl-mobile-sidebar { position: fixed; top: 0; bottom: 0; left: 0; width: 240px; background: var(--t9); display: flex; flex-direction: column; z-index: 40; box-shadow: 4px 0 24px rgba(0,0,0,0.2); }
 .adl-loading { min-height: 100vh; background: var(--sand); display: flex; align-items: center; justify-content: center; }
 .adl-spinner { width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--t1); border-top-color: var(--t4); animation: adl-spin .7s linear infinite; }

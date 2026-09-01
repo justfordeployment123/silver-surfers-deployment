@@ -10,9 +10,9 @@ const STYLES = `
 .ap-sub { font-size: 16px; color: var(--ink6); }
 .ap-lbl { font-size: 16px; font-weight: 500; color: var(--ink6); margin-bottom: 6px; display: block; }
 .ap-inp { border: 1px solid var(--sandd); border-radius: 8px; padding: 8px 12px; font-size: 16px; color: var(--ink); background: var(--surface); outline: none; width: 100%; box-sizing: border-box; }
-.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-inp:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(10,168,143,0.1); }
 .ap-textarea { border: 1px solid var(--sandd); border-radius: 8px; padding: 10px 12px; font-size: 16px; font-family: monospace; color: var(--ink); background: var(--surface); outline: none; width: 100%; resize: vertical; box-sizing: border-box; }
-.ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(29,158,117,0.1); }
+.ap-textarea:focus { border-color: var(--t4); box-shadow: 0 0 0 2px rgba(10,168,143,0.1); }
 .ap-btn-p { background: var(--t6); color: #fff; padding: 10px 24px; border-radius: 8px; border: none; cursor: pointer; font-size: 16px; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; transition: background .15s; }
 .ap-btn-p:hover:not(:disabled) { background: var(--t8); }
 .ap-btn-p:disabled { opacity: 0.6; cursor: not-allowed; }

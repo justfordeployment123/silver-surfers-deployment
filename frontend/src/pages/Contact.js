@@ -131,7 +131,7 @@ const Contact = () => {
           width: 500px;
           height: 500px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .contact-glow-2 {
@@ -141,7 +141,7 @@ const Contact = () => {
           width: 320px;
           height: 320px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .contact-method-icon {
@@ -197,7 +197,7 @@ const Contact = () => {
           border-radius: var(--rl);
           padding: 44px;
           border: 1px solid var(--sandd);
-          box-shadow: 0 4px 28px rgba(4,46,34,0.07);
+          box-shadow: 0 4px 28px rgba(16,47,69,0.07);
         }
         .contact-form-grid {
           display: grid;

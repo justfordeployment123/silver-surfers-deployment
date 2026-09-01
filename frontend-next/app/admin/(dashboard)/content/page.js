@@ -39,32 +39,32 @@ const STYLES = `
 .cm-btn-cancel:hover { background: rgba(255,255,255,0.16); }
 .cm-btn-create { padding: 8px 16px; border-radius: 12px; background: var(--t6); color: #fff; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-create:hover { background: var(--t8); }
-.cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-rerun { padding: 6px 12px; border-radius: 8px; background: rgba(10,168,143,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-rerun:hover { background: var(--t4); }
-.cm-btn-refresh { padding: 8px 16px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
+.cm-btn-refresh { padding: 8px 16px; border-radius: 8px; background: rgba(10,168,143,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-refresh:hover { background: var(--t4); }
 .cm-btn-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fff; cursor: pointer; }
 .cm-btn-icon:hover { background: rgba(255,255,255,0.16); }
 .cm-btn-del-icon { padding: 8px; border-radius: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); color: #fca5a5; cursor: pointer; }
 .cm-btn-del-icon:hover { background: rgba(239,68,68,0.2); }
 .cm-pill { display: inline-block; padding: 2px 8px; border-radius: 9999px; font-size: 16px; font-weight: 700; border: 1px solid; }
-.cm-pill-pub { background: rgba(29,158,117,0.35); border-color: rgba(29,158,117,0.45); color: var(--t3); }
+.cm-pill-pub { background: rgba(10,168,143,0.35); border-color: rgba(10,168,143,0.45); color: var(--t3); }
 .cm-pill-draft { background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
 .cm-pill-feat { background: rgba(217,119,6,0.45); border-color: rgba(245,158,11,0.4); color: #fcd34d; }
 .cm-pill-gray { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.1); color: rgba(255,255,255,0.75); }
-.cm-status-completed { background: rgba(29,158,117,0.45); }
+.cm-status-completed { background: rgba(10,168,143,0.45); }
 .cm-status-failed { background: rgba(239,68,68,0.5); }
 .cm-status-processing { background: rgba(56,189,248,0.35); }
 .cm-status-default { background: rgba(255,255,255,0.15); }
 .cm-card { border-radius: 24px; padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; box-shadow: 0 4px 20px rgba(0,0,0,0.12); }
-.cm-card:hover { border-color: rgba(29,158,117,0.35); }
+.cm-card:hover { border-color: rgba(10,168,143,0.35); }
 .cm-form-card { border-radius: 24px; padding: 20px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); border: 1px solid rgba(255,255,255,0.1); }
 .cm-queue { border-radius: 12px; background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05)); padding: 16px; border: 1px solid rgba(255,255,255,0.1); max-height: 36rem; overflow-y: auto; }
 .cm-queue-row { padding: 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
-.cm-queue-row:hover { border-color: rgba(29,158,117,0.4); }
+.cm-queue-row:hover { border-color: rgba(10,168,143,0.4); }
 .cm-contact-row { padding: 16px; border-radius: 8px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
-.cm-contact-row:hover { border-color: rgba(29,158,117,0.4); }
-.cm-btn-mark-read { padding: 6px 12px; border-radius: 8px; background: rgba(29,158,117,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
+.cm-contact-row:hover { border-color: rgba(10,168,143,0.4); }
+.cm-btn-mark-read { padding: 6px 12px; border-radius: 8px; background: rgba(10,168,143,0.5); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-mark-read:hover { background: var(--t4); }
 .cm-btn-close-msg { padding: 6px 12px; border-radius: 8px; background: rgba(56,189,248,0.35); color: #fff; font-size: 16px; font-weight: 700; border: none; cursor: pointer; }
 .cm-btn-close-msg:hover { background: rgba(56,189,248,0.55); }

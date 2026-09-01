@@ -17,7 +17,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
   return (
     <div style={{
       position: 'fixed', inset: 0,
-      background: 'rgba(4,46,34,0.6)',
+      background: 'rgba(16,47,69,0.6)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       zIndex: 9000, padding: 16,
     }}>
@@ -27,7 +27,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         padding: 32,
         maxWidth: 520,
         width: '100%',
-        boxShadow: '0 16px 48px rgba(8,80,65,0.18)',
+        boxShadow: '0 16px 48px rgba(16,47,69,0.18)',
       }}>
         <h3 style={{ fontFamily: 'var(--ffd)', fontSize: 22, color: 'var(--ink)', marginBottom: 20 }}>
           Senior-Friendly Score Results
@@ -186,7 +186,7 @@ export default function QuickScanSection() {
           padding: '10px 8px',
           borderRadius: 'var(--r)',
           border: active ? '2px solid var(--t4)' : '2px solid rgba(255,255,255,0.2)',
-          background: active ? 'rgba(29,158,117,0.25)' : 'rgba(255,255,255,0.06)',
+          background: active ? 'rgba(10,168,143,0.25)' : 'rgba(255,255,255,0.06)',
           color: disabled ? 'rgba(255,255,255,0.35)' : '#fff',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,

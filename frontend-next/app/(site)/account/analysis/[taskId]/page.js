@@ -31,7 +31,7 @@ const STYLES = `
 .ad-back { display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 16px; color: rgba(255,255,255,0.75); cursor: pointer; margin-bottom: 16px; }
 .ad-back:hover { background: rgba(255,255,255,0.1); }
 .sb { display: inline-flex; align-items: center; border-radius: 9999px; border: 1px solid; padding: 3px 10px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.sb-green { background: rgba(29,158,117,0.2); color: var(--t3); border-color: rgba(29,158,117,0.3); }
+.sb-green { background: rgba(10,168,143,0.2); color: var(--t3); border-color: rgba(10,168,143,0.3); }
 .sb-yellow { background: rgba(245,158,11,0.15); color: #fcd34d; border-color: rgba(245,158,11,0.3); }
 .sb-red { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
 .sb-blue { background: rgba(56,189,248,0.15); color: #bae6fd; border-color: rgba(56,189,248,0.3); }
@@ -55,7 +55,7 @@ const STYLES = `
 .wcag-filter-btn-active { border-color: var(--t1); background: var(--t05); color: var(--t4); }
 .wcag-filter-btn-inactive { border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.75); }
 .wcag-filter-btn-inactive:hover { background: rgba(255,255,255,0.1); }
-.wcag-stat-pass { border-radius: 16px; border: 1px solid rgba(29,158,117,0.25); background: rgba(29,158,117,0.12); padding: 20px; }
+.wcag-stat-pass { border-radius: 16px; border: 1px solid rgba(10,168,143,0.25); background: rgba(10,168,143,0.12); padding: 20px; }
 .wcag-stat-fail { border-radius: 16px; border: 1px solid rgba(239,68,68,0.25); background: rgba(239,68,68,0.1); padding: 20px; }
 .wcag-stat-review { border-radius: 16px; border: 1px solid rgba(245,158,11,0.25); background: rgba(245,158,11,0.1); padding: 20px; }
 .wcag-stat-na { border-radius: 16px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 20px; }
@@ -631,7 +631,7 @@ function AnalysisDetailContent() {
                       <div className="wcag-stat-pass">
                         <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--t3)' }}>Passed</p>
                         <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: 'var(--t4)' }}>{wcagSummary.passed ?? 0}</p>
-                        <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(29,158,117,0.7)' }}>criteria</p>
+                        <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(10,168,143,0.7)' }}>criteria</p>
                       </div>
                       <div className="wcag-stat-fail">
                         <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fca5a5' }}>Failed</p>

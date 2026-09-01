@@ -44,13 +44,13 @@ const Blog = () => {
         .blog-glow-1 {
           position: absolute; top: -100px; right: -60px;
           width: 480px; height: 480px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .blog-glow-2 {
           position: absolute; bottom: -80px; left: -40px;
           width: 300px; height: 300px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(29,158,117,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .blog-feat-card {
@@ -58,7 +58,7 @@ const Blog = () => {
           border-radius: var(--rl);
           padding: 36px;
           border: 1px solid var(--sandd);
-          box-shadow: 0 4px 20px rgba(4,46,34,0.07);
+          box-shadow: 0 4px 20px rgba(16,47,69,0.07);
           max-width: 820px;
           margin: 0 auto;
         }

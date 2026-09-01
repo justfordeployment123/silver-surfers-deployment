@@ -101,7 +101,7 @@ export default function BlogPost() {
           background: var(--surface);
           border-radius: var(--rl);
           padding: 48px;
-          box-shadow: 0 4px 28px rgba(4,46,34,0.12);
+          box-shadow: 0 4px 28px rgba(16,47,69,0.12);
         }
         .bp-footer { padding: 0 0 56px; }
         .bp-footer-inner { border-top: 1px solid rgba(255,255,255,0.08); padding-top: 24px; }

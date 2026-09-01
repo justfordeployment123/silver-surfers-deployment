@@ -24,7 +24,7 @@ const STYLES = `
 .qsd-back { display: inline-flex; align-items: center; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.05); padding: 6px 12px; font-size: 16px; color: rgba(255,255,255,0.75); cursor: pointer; margin-bottom: 16px; transition: background .15s; }
 .qsd-back:hover { background: rgba(255,255,255,0.1); }
 .sb { display: inline-flex; align-items: center; border-radius: 9999px; border: 1px solid; padding: 3px 10px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; }
-.sb-green { background: rgba(29,158,117,0.2); color: var(--t3); border-color: rgba(29,158,117,0.3); }
+.sb-green { background: rgba(10,168,143,0.2); color: var(--t3); border-color: rgba(10,168,143,0.3); }
 .sb-yellow { background: rgba(245,158,11,0.15); color: #fcd34d; border-color: rgba(245,158,11,0.3); }
 .sb-red { background: rgba(239,68,68,0.15); color: #fca5a5; border-color: rgba(239,68,68,0.3); }
 .sb-blue { background: rgba(56,189,248,0.15); color: #bae6fd; border-color: rgba(56,189,248,0.3); }
