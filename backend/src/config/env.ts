@@ -185,6 +185,11 @@ export interface AppEnv {
     tempReportTtlMs: number;
     reportDirectoryTtlMs: number;
     quickScanReportTtlMs: number;
+    ghlPrivateIntegrationToken?: string;
+    ghlLocationId?: string;
+    ghlApiBaseUrl: string;
+    ghlApiVersion: string;
+    ghlTimeoutMs: number;
 }
 
 export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
@@ -297,6 +302,11 @@ export function readEnv(source: NodeJS.ProcessEnv = process.env): AppEnv {
         tempReportTtlMs: parseNumber(source.TEMP_REPORT_TTL_MS, 6 * 60 * 60 * 1000),
         reportDirectoryTtlMs: parseNumber(source.REPORT_DIRECTORY_TTL_MS, 24 * 60 * 60 * 1000),
         quickScanReportTtlMs: parseNumber(source.QUICK_SCAN_REPORT_TTL_MS, 30 * 60 * 1000),
+        ghlPrivateIntegrationToken: source.GHL_PRIVATE_INTEGRATION_TOKEN?.trim() || undefined,
+        ghlLocationId: source.GHL_LOCATION_ID?.trim() || undefined,
+        ghlApiBaseUrl: source.GHL_API_BASE_URL?.trim() || "https://services.leadconnectorhq.com",
+        ghlApiVersion: source.GHL_API_VERSION?.trim() || "2021-07-28",
+        ghlTimeoutMs: parseBoundedNumber(source.GHL_TIMEOUT_MS, 15_000, 1_000, 60_000),
     };
 }
 
