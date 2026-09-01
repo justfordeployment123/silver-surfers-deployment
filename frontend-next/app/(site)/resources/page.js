@@ -1,10 +1,11 @@
 // Lead-magnet resource library. Server Component shell, same shape as
 // app/(site)/services/page.js and app/(site)/contact/page.js (dark .pg-hero
-// + a .g3 grid of .card elements). Phase A only (todo.md): the card grid
-// and page structure. The request form (Phase B) isn't built yet — each
-// card's button anchors to #request-form, a placeholder section at the
-// bottom that Phase B replaces with the real <ResourceRequestForm />.
+// + a .g3 grid of .card elements). The interactive part (card grid + the
+// form, and the state connecting "which card was clicked" to "which
+// resource the form pre-selects") is one client island, ResourcesGrid.js —
+// same server-shell-plus-client-island split used by Contact/Services.
 import resources from '../../../data/resources';
+import ResourcesGrid from '../../../components/resources/ResourcesGrid';
 
 export const metadata = {
   title: 'Resources | SilverSurfers',
@@ -27,14 +28,48 @@ export default function ResourcesPage() {
           margin-bottom: 16px;
           flex-shrink: 0;
         }
-        .rsc-placeholder {
+        .rsc-form-wrap {
+          max-width: 640px;
+          margin: 0 auto;
           background: var(--surface);
-          border: 1px dashed var(--sandd);
           border-radius: var(--rl);
-          padding: 48px 24px;
-          text-align: center;
-          color: var(--ink6);
+          padding: 44px;
+          border: 1px solid var(--sandd);
+          box-shadow: 0 4px 28px rgba(4,46,34,0.07);
+        }
+        .rsc-form-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 20px;
+          margin-bottom: 16px;
+        }
+        .rsc-form-field { margin-bottom: 16px; }
+        .rsc-consent-row {
+          display: flex;
+          align-items: flex-start;
+          gap: 10px;
+          margin-bottom: 24px;
           font-size: 16px;
+          color: var(--ink6);
+          line-height: 1.5;
+          cursor: pointer;
+        }
+        .rsc-consent-row input { margin-top: 3px; flex-shrink: 0; }
+        .rsc-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid rgba(255,255,255,0.3);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: rscSpin 0.7s linear infinite;
+          display: inline-block;
+          vertical-align: middle;
+          margin-right: 8px;
+        }
+        @keyframes rscSpin { to { transform: rotate(360deg); } }
+        @media (max-width: 600px) {
+          .rsc-form-grid { grid-template-columns: 1fr; }
+          .rsc-form-wrap { padding: 24px 20px; }
         }
       `}</style>
 
@@ -50,42 +85,8 @@ export default function ResourcesPage() {
           </div>
         </div>
 
-        {/* ── Resource Grid ──────────────────────────── */}
-        <section className="sec">
-          <div className="wrap">
-            <div className="g3">
-              {resources.map((resource) => (
-                <div className="card" key={resource.slug}>
-                  <div className="card-bar" />
-                  <div className="rsc-card-icon">
-                    <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" aria-hidden="true">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
-                    </svg>
-                  </div>
-                  <h3 className="h3" style={{ marginBottom: '8px' }}>{resource.title}</h3>
-                  <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65', marginBottom: '20px' }}>
-                    {resource.description}
-                  </p>
-                  <a href="#request-form" className="btn btn-p">Get This Resource</a>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* ── Request form (Phase B builds the real thing here) ────── */}
-        <section id="request-form" className="sec-sand">
-          <div className="wrap">
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-              <p className="eyebrow">Request</p>
-              <h2 className="h2">Get Your Free Resource</h2>
-              <p className="sub">Tell us which one you want and we&rsquo;ll send it your way.</p>
-            </div>
-            <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-              <div className="rsc-placeholder">Request form coming soon.</div>
-            </div>
-          </div>
-        </section>
+        {/* ── Resource Grid + Request Form ───────────── */}
+        <ResourcesGrid resources={resources} />
       </div>
     </>
   );
