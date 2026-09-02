@@ -195,11 +195,14 @@ export default function QuickScanSection() {
           flexDirection: 'column',
           alignItems: 'center',
           fontFamily: 'var(--ff)',
+          width: '100%',
+          minWidth: 0,
+          boxSizing: 'border-box',
         }}
       >
         <DeviceIcon device={device} />
         <div style={{ fontSize: 16, fontWeight: 600, marginTop: 4 }}>{label}</div>
-        <div style={{ fontSize: 16, marginTop: 2, color: disabled ? 'rgba(255,255,255,0.35)' : active ? 'var(--t1)' : 'rgba(255,255,255,0.75)' }}>
+        <div style={{ fontSize: 16, marginTop: 2, textAlign: 'center', overflowWrap: 'break-word', color: disabled ? 'rgba(255,255,255,0.35)' : active ? 'var(--t1)' : 'rgba(255,255,255,0.75)' }}>
           {locked ? (hasSubscriptionQuickScanAccess ? 'Unlocked' : 'Subscription') : 'FREE'}
         </div>
       </button>
@@ -273,7 +276,7 @@ export default function QuickScanSection() {
             }}>
               Select Device Type
             </label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
               <DeviceBtn device="desktop" label="Desktop" locked={false} />
               <DeviceBtn device="tablet"  label="Tablet"  locked={true}  />
               <DeviceBtn device="mobile"  label="Mobile"  locked={true}  />
