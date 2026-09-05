@@ -290,7 +290,7 @@ function QuickScanDetailContent() {
                             <Section>
                                 <div style={{ marginBottom: '20px' }}>
                                     <h2 style={{ fontSize: '22px', fontWeight: 700, color: '#fff' }}>Primary Score Categories</h2>
-                                    <p style={{ marginTop: '4px', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>The weighted Silver Score categories generated for this quick scan.</p>
+                                    <p style={{ marginTop: '4px', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>The weighted SilverSurfers Score categories generated for this quick scan.</p>
                                 </div>
                                 {dimensions.length === 0 ? (
                                     <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>This quick scan does not have a scorecard breakdown yet.</p>

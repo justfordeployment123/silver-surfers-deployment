@@ -136,6 +136,13 @@ function calculateLiteScore(report) {
     return { finalScore: scorecard.overallScore };
 }
 
+function normalizeCanonicalScore(value) {
+    const score = Number(value);
+    if (!Number.isFinite(score)) return null;
+    if (score <= 1) return Math.round(score * 100);
+    return Math.max(0, Math.min(100, Math.round(score)));
+}
+
 class LiteAccessibilityPDFGenerator {
     constructor() {
         this.doc = new PDFDocument({
@@ -571,6 +578,10 @@ class LiteAccessibilityPDFGenerator {
             if (options.wcagStandard) reportData.wcagStandard = options.wcagStandard;
             if (options.conformanceLevel) reportData.conformanceLevel = options.conformanceLevel;
             const scoreData = calculateLiteScore(reportData);
+            const canonicalScore = normalizeCanonicalScore(options.canonicalScore);
+            if (canonicalScore !== null) {
+                scoreData.finalScore = canonicalScore;
+            }
 
             const stream = fs.createWriteStream(outputFile);
             this.doc.pipe(stream);

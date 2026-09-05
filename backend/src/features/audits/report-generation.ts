@@ -475,7 +475,7 @@ export function getReportPageName(url: string): string {
 export async function generateLiteAccessibilityReport(
   inputFile: string,
   outputDirectory: string,
-  options?: { wcagStandard?: string | null; conformanceLevel?: string | null },
+  options?: { wcagStandard?: string | null; conformanceLevel?: string | null; canonicalScore?: number | null },
 ): Promise<LitePdfResult> {
   return tsGenerateLiteAccessibilityReport(inputFile, outputDirectory, options);
 }

@@ -30,7 +30,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         boxShadow: '0 16px 48px rgba(16,47,69,0.18)',
       }}>
         <h3 style={{ fontFamily: 'var(--ffd)', fontSize: 22, color: 'var(--ink)', marginBottom: 20 }}>
-          Senior-Friendly Score Results
+          SilverSurfers Score Results
         </h3>
 
         <div style={{ marginBottom: 20 }}>
@@ -219,49 +219,66 @@ export default function QuickScanSection() {
 
         <form ref={formRef} onSubmit={handleScanSubmit} noValidate>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-            <input
-              className="home-input"
-              type="text"
-              name="websiteUrl"
-              placeholder="Enter your website"
-              value={scanData.websiteUrl}
-              onChange={handleInputChange}
-              inputMode="url"
-              autoComplete="url"
-              required
-            />
-            <input
-              className="home-input"
-              type="email"
-              name="email"
-              placeholder="Work email address"
-              value={scanData.email}
-              onChange={handleInputChange}
-              required
-            />
+            <div>
+              <label className="sr-only" htmlFor="quick-scan-website-url">Website URL</label>
+              <input
+                id="quick-scan-website-url"
+                className="home-input"
+                type="url"
+                name="websiteUrl"
+                placeholder="Enter your website"
+                value={scanData.websiteUrl}
+                onChange={handleInputChange}
+                inputMode="url"
+                autoComplete="url"
+                required
+              />
+            </div>
+            <div>
+              <label className="sr-only" htmlFor="quick-scan-email">Work email address</label>
+              <input
+                id="quick-scan-email"
+                className="home-input"
+                type="email"
+                name="email"
+                placeholder="Work email address"
+                value={scanData.email}
+                onChange={handleInputChange}
+                autoComplete="email"
+                required
+              />
+            </div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
-            <input
-              className="home-input"
-              type="text"
-              name="firstName"
-              placeholder="First Name"
-              value={scanData.firstName}
-              onChange={handleInputChange}
-              autoComplete="given-name"
-              required
-            />
-            <input
-              className="home-input"
-              type="text"
-              name="lastName"
-              placeholder="Last Name"
-              value={scanData.lastName}
-              onChange={handleInputChange}
-              autoComplete="family-name"
-              required
-            />
+            <div>
+              <label className="sr-only" htmlFor="quick-scan-first-name">First name</label>
+              <input
+                id="quick-scan-first-name"
+                className="home-input"
+                type="text"
+                name="firstName"
+                placeholder="First Name"
+                value={scanData.firstName}
+                onChange={handleInputChange}
+                autoComplete="given-name"
+                required
+              />
+            </div>
+            <div>
+              <label className="sr-only" htmlFor="quick-scan-last-name">Last name</label>
+              <input
+                id="quick-scan-last-name"
+                className="home-input"
+                type="text"
+                name="lastName"
+                placeholder="Last Name"
+                value={scanData.lastName}
+                onChange={handleInputChange}
+                autoComplete="family-name"
+                required
+              />
+            </div>
           </div>
 
           {/* Device selector */}

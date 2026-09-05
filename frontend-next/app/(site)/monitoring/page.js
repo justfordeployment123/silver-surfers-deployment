@@ -178,7 +178,7 @@ function MonitoringContent() {
                     ) : jobs.length === 0 ? (
                         <div className="mo-empty">
                             <h3>No monitors set up yet</h3>
-                            <p>Monitoring runs a scheduled scan against a domain — weekly, monthly, or on your own custom cron — and alerts you by email if the Silver Score™ drops or new issues appear.</p>
+                            <p>Monitoring runs a scheduled scan against a domain — weekly, monthly, or on your own custom cron — and alerts you by email if the SilverSurfers Score drops or new issues appear.</p>
                             <button className="btn btn-d" onClick={openCreate}>Set Up Your First Monitor</button>
                         </div>
                     ) : (

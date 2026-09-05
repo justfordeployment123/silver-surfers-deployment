@@ -6,5 +6,5 @@ export interface LiteAccessibilityReportResult {
 export function generateLiteAccessibilityReport(
   inputFile: string,
   outputDirectory: string,
-  options?: { wcagStandard?: string | null; conformanceLevel?: string | null },
+  options?: { wcagStandard?: string | null; conformanceLevel?: string | null; canonicalScore?: number | null },
 ): Promise<LiteAccessibilityReportResult>;

@@ -1077,6 +1077,7 @@ class ScannerSqsWorker:
                 report,
                 url,
                 device,
+                final_score,
             )
             report_storage = generated_report_package.get("reportStorage")
 
@@ -1729,6 +1730,7 @@ class ScannerSqsWorker:
         report: Dict[str, Any],
         url: str,
         device: str,
+        score: Any = None,
     ) -> Dict[str, Any]:
         report_metadata = payload.get("reportGeneration") if isinstance(payload.get("reportGeneration"), dict) else {}
         email = safe_text(report_metadata.get("email") or payload.get("email") or "unknown-client")
@@ -1760,6 +1762,8 @@ class ScannerSqsWorker:
                 "--device",
                 device,
             ]
+            if score is not None:
+                command.extend(["--score", safe_text(score)])
 
             logger.info(
                 "Generating quick-scan report PDF in scanner worker.",
