@@ -254,7 +254,7 @@ const Checkout = () => {
           transition: border-color 0.15s;
         }
         .co-credit-opt.selected { border-color: var(--t4); background: var(--t05); }
-        .co-device-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 20px; }
+        .co-device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
         .co-device-btn {
           display: flex;
           flex-direction: column;
@@ -269,6 +269,9 @@ const Checkout = () => {
           transition: border-color 0.15s, color 0.15s, background 0.15s;
           font-size: 16px;
           font-weight: 500;
+          width: 100%;
+          min-width: 0;
+          box-sizing: border-box;
         }
         .co-device-btn.active {
           border-color: var(--t4);
