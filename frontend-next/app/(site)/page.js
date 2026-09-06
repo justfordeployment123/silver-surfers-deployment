@@ -101,6 +101,18 @@ export default function Home() {
           margin: 0 auto 18px;
         }
         .home-step-icon svg { color: var(--t6); }
+        .home-card-heading {
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1.35;
+          margin-bottom: 12px;
+        }
+        .home-step-heading {
+          font-size: 22px;
+          font-weight: 700;
+          line-height: 1.35;
+          margin-bottom: 10px;
+        }
 
         /* ── Hero globe — anchored independently of the text
            column's height, not grid-centered against it ─── */
@@ -246,7 +258,7 @@ export default function Home() {
                   <div className="card-bar" />
                   <div className="tag">{tag}</div>
                   <div className="v-icon" style={{ marginBottom: 14 }}>{icon}</div>
-                  <h3>{title}</h3>
+                  <h2 className="home-card-heading">{title}</h2>
                   <p>{body}</p>
                 </div>
               ))}
@@ -277,7 +289,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                   </svg>
                 </div>
-                <h3 style={{ marginBottom: 10 }}>Quick Scan</h3>
+                <h2 className="home-step-heading">Quick Scan</h2>
                 <p>Enter your URL to get an instant <strong style={{ color: 'var(--ink)', fontWeight: 600 }}>SilverSurfers Score</strong> and see how accessible and inclusive your website really is.</p>
                 <Link href="/services" className="btn btn-o" style={{ marginTop: 20 }}>
                   Get Full Audit Here
@@ -293,7 +305,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                   </svg>
                 </div>
-                <h3 style={{ marginBottom: 10 }}>Get Improvements</h3>
+                <h2 className="home-step-heading">Get Improvements</h2>
                 <p>Receive expert guidance that goes beyond industry standards, offering improvements in visual design, navigation, and user experience to enhance accessibility and create more delightful digital experiences for older adults.</p>
               </div>
 
@@ -306,7 +318,7 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </div>
-                <h3 style={{ marginBottom: 10 }}>Earn Your Seal</h3>
+                <h2 className="home-step-heading">Earn Your Seal</h2>
                 <p>Once you meet SilverSurfers standards, earn the SilverSurfers Seal of Approval to proudly display on your website.</p>
               </div>
             </div>

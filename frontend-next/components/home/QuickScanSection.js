@@ -29,9 +29,9 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         width: '100%',
         boxShadow: '0 16px 48px rgba(16,47,69,0.18)',
       }}>
-        <h3 style={{ fontFamily: 'var(--ffd)', fontSize: 22, color: 'var(--ink)', marginBottom: 20 }}>
+        <h2 style={{ fontFamily: 'var(--ffd)', fontSize: 22, color: 'var(--ink)', marginBottom: 20 }}>
           SilverSurfers Score Results
-        </h3>
+        </h2>
 
         <div style={{ marginBottom: 20 }}>
           <div style={{
@@ -44,9 +44,9 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         </div>
 
         <div style={{ marginBottom: 24 }}>
-          <h4 style={{ fontFamily: 'var(--ffd)', fontSize: 16, color: 'var(--ink)', marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--ffd)', fontSize: 16, fontWeight: 700, color: 'var(--ink)', marginBottom: 10 }}>
             Recommendations:
-          </h4>
+          </div>
           <ul style={{ paddingLeft: 18, color: 'var(--ink6)', fontSize: 16, lineHeight: 1.8 }}>
             {result.recommendations.map((rec, i) => (
               <li key={i} style={{ listStyle: 'disc', marginBottom: 4 }}>{rec}</li>
