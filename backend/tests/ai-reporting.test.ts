@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { buildAuditAiReportMarkdown, buildFallbackAuditAiReport } from '../src/features/audits/ai-reporting.ts';
+import { buildAuditAiReportMarkdown, buildFallbackAuditAiReport, buildPromptPayload } from '../src/features/audits/ai-reporting.ts';
 
 const scorecard = {
   overallScore: 68,
@@ -53,6 +53,39 @@ const remediationRoadmap = [
     whyItMatters: 'Small tap targets increase mis-clicks for users with reduced fine motor control.',
   },
 ] as any;
+
+// P3-07 — perFindingGuidance was asked to be "specific" but the prompt
+// payload never included each finding's real evidence, so the model had
+// nothing true to be specific about and invented plausible-sounding
+// statistics instead (a fabricated trust-marker stat on one site, a
+// "46 of 46" that contradicted the real 7-28 of 23-48 per-page range on
+// another). This confirms the real evidence now reaches the payload the
+// model actually receives.
+test('buildPromptPayload includes each roadmap item\'s real evidence so the model has something true to quote', () => {
+  const roadmapWithEvidence = [
+    {
+      ...remediationRoadmap[0],
+      displayValue: '9 UI component(s) below 3:1 contrast ratio',
+    },
+    {
+      ...remediationRoadmap[1],
+      // No displayValue — some findings genuinely have no scanner-captured
+      // evidence string; the payload must not fabricate one.
+    },
+  ];
+
+  const payload = JSON.parse(buildPromptPayload({
+    url: 'https://example.com',
+    scorecard,
+    remediationRoadmap: roadmapWithEvidence as any,
+  }));
+
+  const withEvidence = payload.roadmap.find((item: any) => item.auditId === 'color-contrast');
+  assert.equal(withEvidence.evidence, '9 UI component(s) below 3:1 contrast ratio');
+
+  const withoutEvidence = payload.roadmap.find((item: any) => item.auditId === 'target-size');
+  assert.equal('evidence' in withoutEvidence, false, 'must not fabricate an evidence field when the scanner captured none');
+});
 
 test('buildFallbackAuditAiReport creates a business-friendly local narrative', () => {
   const report = buildFallbackAuditAiReport({

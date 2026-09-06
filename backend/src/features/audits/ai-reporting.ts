@@ -305,7 +305,7 @@ export function buildFallbackAuditAiReport(options: GenerateAuditAiReportOptions
   };
 }
 
-function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
+export function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
   const compactPayload = {
     url: options.url,
     audience: 'Older adults, especially 50+ users',
@@ -341,6 +341,14 @@ function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
       })),
       wcagSummary: options.scorecard.wcagSummary,
     },
+    // P3-07: evidence (the scanner's own displayValue, e.g. "9 UI
+    // component(s) below 3:1 contrast ratio") was missing from this payload
+    // entirely — the model was asked for "specific" per-finding guidance
+    // with no real numbers to be specific *about*, so it filled the gap by
+    // inventing plausible-sounding statistics (a fabricated trust-marker
+    // stat on one site, a "46 of 46" that contradicted the real 7-28 of
+    // 23-48 per-page range on another). Including the real evidence string
+    // gives it something true to quote instead.
     roadmap: options.remediationRoadmap.slice(0, MAX_AI_FINDING_GUIDANCE).map((item) => ({
       auditId: item.auditId,
       title: item.title,
@@ -352,6 +360,7 @@ function buildPromptPayload(options: GenerateAuditAiReportOptions): string {
       wcagCriteria: item.wcagCriteria || [],
       action: item.action,
       whyItMatters: item.whyItMatters,
+      ...(item.displayValue ? { evidence: item.displayValue } : {}),
     })),
   };
 
@@ -438,6 +447,7 @@ async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions
       'Do NOT claim certification, guaranteed compliance, or legal conformance.',
       'Do NOT repeat the same recommendation or finding guidance. If the same issue appears on multiple devices or pages, merge it into one item.',
       'Do NOT include bullet characters or numbering inside array item text; the report renderer adds numbering.',
+      'Do NOT invent specific numbers, counts, or statistics ("46 of 46 elements", "a 3:1 contrast ratio") anywhere in this report unless that exact figure appears in the JSON data below. Each roadmap item\'s "evidence" field, when present, is the only source of truth for that finding\'s specifics — quote or closely paraphrase it. If a roadmap item has no "evidence" field, write its explanation and remediation in general terms with no invented numbers at all.',
       '',
       'Return ONLY a single valid JSON object with EXACTLY these keys (no extras, no comments):',
       '  - "headline": one bold, specific sentence (max 14 words) capturing the overall state of THIS site.',
