@@ -6,7 +6,7 @@ import PDFDocument from 'pdfkit';
 import { buildAuditScorecard, buildScoreBreakdown } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
 import { describeWcagStandardLabel, getWcagReference } from '../wcag-mapping.ts';
-import { AUTOMATED_COVERAGE_SCORE_NOTE, DISCLAIMER_FULL_BODY, DISCLAIMER_FULL_TITLE, DISCLAIMER_SHORT } from '../report-disclaimers.ts';
+import { AUTOMATED_COVERAGE_SCORE_NOTE } from '../report-disclaimers.ts';
 import customConfig from './custom-config.js';
 
 // Helper to get __dirname in ES Modules
@@ -720,15 +720,7 @@ addOverallScoreDisplay(scoreData) {
             .text('Minimum recommended score: 80%', contentX, warningY + 20,
                 { width: contentWidth, align: 'center' });
 
-        this.currentY = contentStartY + contentHeight + 15;
-
-        // Docs/Report-Disclaimer-and-Limitations.pdf (section A/D) — short
-        // disclaimer directly under the score, in small grey text, on every
-        // report. The full version lives on its own page at the end (see
-        // addDisclaimerPage).
-        this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
-            .text(DISCLAIMER_SHORT, this.margin, this.currentY, { width: this.pageWidth, align: 'center', lineGap: 1 });
-        this.currentY += this.doc.heightOfString(DISCLAIMER_SHORT, { width: this.pageWidth, lineGap: 1 }) + 20;
+        this.currentY = contentStartY + contentHeight + 30;
 
         // Report prepared for (left-aligned)
         const clientEmail = this.options?.clientEmail || reportData.clientEmail || 'client@email.com';
@@ -1821,25 +1813,6 @@ addOverallScoreDisplay(scoreData) {
             });
             this.currentY += itemHeight + 10;
         });
-    }
-
-    // Docs/Report-Disclaimer-and-Limitations.pdf (section B/D) — full
-    // disclaimer text, its own page, as the last section of every full
-    // report. (This generator has no Table-of-Contents mechanism at all
-    // today, so this page isn't TOC-listed the way the source document
-    // asks — that would require building TOC infrastructure from scratch,
-    // out of scope here; the page itself is the concrete, load-bearing
-    // requirement.)
-    addDisclaimerPage() {
-        this.addPage();
-
-        this.doc.fontSize(20).font('BoldFont').fillColor('#2C5F9C')
-            .text(DISCLAIMER_FULL_TITLE, this.margin, this.currentY);
-        this.currentY += 30;
-
-        this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
-            .text(DISCLAIMER_FULL_BODY, this.margin, this.currentY, { width: this.pageWidth, lineGap: 3, align: 'left' });
-        this.currentY += this.doc.heightOfString(DISCLAIMER_FULL_BODY, { width: this.pageWidth, lineGap: 3 }) + 20;
     }
 
     addAppendix(reportData) {
@@ -3354,7 +3327,6 @@ addOverallScoreDisplay(scoreData) {
             this.addAboutPage(reportData, scoreData);
             this.addNextStepsPage();
             this.addAppendix(reportData);
-            this.addDisclaimerPage();
 
             const audits = reportData.audits || {};
             

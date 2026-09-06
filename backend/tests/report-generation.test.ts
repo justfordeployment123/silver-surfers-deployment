@@ -278,7 +278,7 @@ test('mergePDFsByPlatform assembles reports and gap pages into a consistent PDF'
     planType: 'pro',
   });
 
-  // title(1) + cover(1) + toc(1) + home body(3-1) + gap(1) + about body(2-1)
+  // title(1) + cover(1) + toc(1) + home body(3-1) + gap(1) + about body(2-1) + disclaimer(1)
   const merged = await PDFLib.load(await fs.readFile(outputPath));
-  assert.equal(merged.getPageCount(), 7);
+  assert.equal(merged.getPageCount(), 8);
 });
