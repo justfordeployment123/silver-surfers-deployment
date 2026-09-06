@@ -37,7 +37,12 @@ export interface AuditIssueSummary {
     wcagPrinciples?: WcagPourPrinciple[];
     displayValue?: string;
     sourceUrl?: string;
-    /** Failing-element count captured from the audit's details.items (evidence parity). */
+    /**
+     * True failing-element count for this audit (P3-02: parsed from the
+     * audit's own displayValue when available, since details.items is
+     * capped at 50 for evidence-table performance and its raw .length would
+     * silently flatten any larger real count to 50).
+     */
     elementCount?: number;
     /**
      * Number of distinct pages this audit failed on. Only set on aggregate
@@ -564,6 +569,36 @@ function classifyIssueSeverity(score: number): AuditRiskTier {
     return "high";
 }
 
+/**
+ * P3-02 — several audits cap `details.items` to 50 entries for evidence-table
+ * performance (see camoufox_auditor.py's `.slice(0, 50)` calls), but the
+ * audit's own `displayValue` always states the true, uncapped failing count
+ * as a leading integer (e.g. "306 of 459 interactive element(s) have
+ * keyboard access issues"). `numericValue` is not a safe substitute here —
+ * for Lighthouse-convention audits (link-name, button-name, target-size,
+ * etc.) it holds the fractional *score*, not a count, while the platform's
+ * own ss-* audits use it as the true count; the two conventions collide.
+ * `displayValue`'s leading number is the one place every affected audit
+ * agrees, and it's already what the evidence table (pdf-generator.js's
+ * drawCategoryTables) shows to a human reader — this keeps the matrix's
+ * count consistent with that same number instead of silently flattening it
+ * to 50 (or, once summed across a criterion's several mapped audits in
+ * wcag-matrix.ts, to a multiple of 50).
+ */
+export function parseLeadingCount(displayValue: string | undefined | null): number | undefined {
+    if (!displayValue) {
+        return undefined;
+    }
+
+    const match = /^(\d+)\b/.exec(displayValue.trim());
+    if (!match) {
+        return undefined;
+    }
+
+    const parsed = Number(match[1]);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function getCategoryAuditRefs(categoryId: string): CategoryAuditRef[] {
     const source = categoryId === LITE_CATEGORY_ID ? customConfigLite : customConfig;
     // @ts-ignore
@@ -971,7 +1006,14 @@ export function buildAuditScorecard(report: LighthouseReportLike, options: Build
 
         if (score < 0.999) {
             const detailItems = audit?.details?.items;
-            const elementCount = Array.isArray(detailItems) ? detailItems.length : 0;
+            const cappedItemCount = Array.isArray(detailItems) ? detailItems.length : 0;
+            const trueCount = parseLeadingCount(audit?.displayValue);
+            // Math.max is a safety net, not the primary mechanism: the parsed
+            // count should always be >= the capped items shown (items are a
+            // subset of what's being counted), so this only matters if some
+            // audit's displayValue format doesn't follow the "N of M"/"N ..."
+            // convention every checked audit currently does.
+            const elementCount = trueCount !== undefined ? Math.max(trueCount, cappedItemCount) : cappedItemCount;
             const wcagReferences = resolveWcagReferencesForAudit(auditRef.id, audit);
             const wcagCriteria = wcagReferences.map((reference) => reference.criterion);
             const wcagPrinciples = [...new Set(wcagReferences.map((reference) => reference.principle))];

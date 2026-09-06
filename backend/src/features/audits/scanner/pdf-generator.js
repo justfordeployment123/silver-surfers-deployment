@@ -3,7 +3,7 @@ import { promises as fsPromises } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
-import { buildAuditScorecard, buildScoreBreakdown } from '../audit-scorecard.ts';
+import { buildAuditScorecard, buildScoreBreakdown, parseLeadingCount } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
 import { describeWcagStandardLabel, getWcagReference } from '../wcag-mapping.ts';
 import { AUTOMATED_COVERAGE_SCORE_NOTE } from '../report-disclaimers.ts';
@@ -1043,7 +1043,12 @@ addOverallScoreDisplay(scoreData) {
         Object.keys(IMPORTANT_AUDITS).forEach(id => {
             const audit = audits[id];
             if (!audit || typeof audit.score !== 'number') return;
-            const count = Array.isArray(audit.details?.items) ? audit.details.items.length : null;
+            // P3-02: details.items is capped at 50 in the scanner; prefer the
+            // true count from displayValue's leading number so this summary
+            // sentence never quietly flattens a real 306-issue audit to 50.
+            const cappedCount = Array.isArray(audit.details?.items) ? audit.details.items.length : null;
+            const trueCount = parseLeadingCount(audit.displayValue);
+            const count = trueCount !== undefined ? Math.max(trueCount, cappedCount ?? 0) : cappedCount;
             if (audit.score < 0.7) {
                 weakAudits.push({ id, label: IMPORTANT_AUDITS[id], count });
             } else if (audit.score >= 0.9) {
@@ -1887,6 +1892,16 @@ addOverallScoreDisplay(scoreData) {
                 this.doc.fontSize(12).font('BoldFont').fillColor('#2C5F9C')
                     .text(info.title, this.margin, this.currentY);
                 this.currentY += headingHeight;
+
+                // P3-02: items is capped at 50 for this table's own performance;
+                // when the true count (from displayValue) is higher, say so
+                // instead of letting the table look like the complete list.
+                const trueCount = parseLeadingCount(audit.data.displayValue);
+                if (typeof trueCount === 'number' && trueCount > items.length) {
+                    this.doc.fontSize(9).font('RegularFont').fillColor('#6B7280')
+                        .text(`Showing first ${items.length} of ${trueCount} affected elements.`, this.margin, this.currentY);
+                    this.currentY += 16;
+                }
             }
 
             // Add the table for this audit - let it handle pagination naturally

@@ -386,6 +386,34 @@ test('buildAuditScorecard captures failing-element counts from audit details', (
   assert.equal(contrastIssue.elementCount, 3);
 });
 
+// P3-02 — details.items is capped at 50 in the scanner for evidence-table
+// performance (see camoufox_auditor.py's .slice(0, 50)), but the true count
+// still appears as a leading integer in displayValue. Without this,
+// elementCount would silently flatten to 50 (items.length) even though the
+// real page had 306 failures — exactly the phase-3 "matrix says 50,
+// evidence says 306 of 459" contradiction.
+test('buildAuditScorecard reads the true failing count from displayValue, not the capped items array', () => {
+  const report = buildReport({ 'color-contrast': 0 });
+  report.audits['color-contrast'].displayValue = '306 of 459 interactive element(s) have keyboard access issues';
+  report.audits['color-contrast'].details = { items: Array.from({ length: 50 }, (_, i) => ({ node: `el-${i}` })) };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+  const contrastIssue = scorecard.issues.find((issue) => issue.auditId === 'color-contrast');
+  assert.ok(contrastIssue);
+  assert.equal(contrastIssue.elementCount, 306, 'must use the true count from displayValue, not items.length (50)');
+});
+
+test('buildAuditScorecard falls back to items.length when displayValue has no parseable leading count', () => {
+  const report = buildReport({ 'color-contrast': 0 });
+  report.audits['color-contrast'].displayValue = 'Some elements have insufficient contrast';
+  report.audits['color-contrast'].details = { items: [{ node: 'a' }, { node: 'b' }] };
+
+  const scorecard = buildAuditScorecard(report, { pageUrl: 'https://example.com' });
+  const contrastIssue = scorecard.issues.find((issue) => issue.auditId === 'color-contrast');
+  assert.ok(contrastIssue);
+  assert.equal(contrastIssue.elementCount, 2);
+});
+
 
 test('buildAuditScorecard wires phase-7 trust checks into trustSecuritySignals', () => {
   const report = buildReport();

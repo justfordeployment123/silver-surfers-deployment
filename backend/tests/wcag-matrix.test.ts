@@ -51,6 +51,23 @@ test('issueCount falls back to failing-check count when audits carry no element 
   assert.equal(row.issueCount, 1);
 });
 
+// P3-02 — the matrix's own summing logic was never the bug (it correctly
+// adds up whatever elementCount each mapped issue carries); the bug was
+// upstream in audit-scorecard.ts feeding it capped-at-50 counts. This
+// documents that once the real per-audit counts flow in (fixed separately,
+// see audit-scorecard.test.ts), summing three real >50 counts for a single
+// criterion produces the true total, not a suspicious multiple of 50 (e.g.
+// 150) from three audits each silently capped.
+test('issue count sums real per-audit counts without an additional cap at the matrix level', () => {
+  const matrix = buildWcagMatrix([
+    makeIssue({ auditId: 'label', elementCount: 187, wcagCriteria: ['1.3.1'] }),
+    makeIssue({ auditId: 'heading-order', elementCount: 92, wcagCriteria: ['1.3.1'] }),
+  ]);
+
+  const row = matrix.find((entry) => entry.criterion === '1.3.1');
+  assert.equal(row.issueCount, 279, 'must sum the real counts (187 + 92), not cap at 50 or 150');
+});
+
 test('element counts sum across pages for the same criterion', () => {
   const matrix = buildWcagMatrix([
     makeIssue({ auditId: 'image-alt', score: 0, wcagCriteria: ['1.1.1'], elementCount: 7, sourceUrl: 'https://example.com/a' }),
