@@ -20,6 +20,7 @@ import {
 } from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
 import { describeWcagStandardLabel } from './wcag-mapping.ts';
+import { DISCLAIMER_FULL_BODY, DISCLAIMER_FULL_TITLE, DISCLAIMER_SHORT } from './report-disclaimers.ts';
 
 export interface LitePdfResult {
   reportPath: string;
@@ -887,6 +888,14 @@ export async function generateAuditAiSummaryPdf(
           .text(captionParts.join(' '), pageMarginLeft, doc.y, { width: contentWidth });
         doc.y += 6;
       }
+
+      // Docs/Report-Disclaimer-and-Limitations.pdf (section A) — short
+      // disclaimer directly under the score, same placement intent as the
+      // full/lite PDFs' cover pages.
+      doc.font('RegularFont').fontSize(8).fillColor('#94A3B8')
+        .text(DISCLAIMER_SHORT, pageMarginLeft, doc.y, { width: contentWidth });
+      doc.y += doc.heightOfString(DISCLAIMER_SHORT, { width: contentWidth }) + 6;
+
       doc.y += 12;
     };
 
@@ -1236,6 +1245,36 @@ export function humanizeAuditFailureReason(options: { errorCode?: string | null;
 }
 
 /**
+ * P3-01 — a crawled URL that redirects to a meaningfully different page
+ * (a different pathname) must not be reported under its original,
+ * no-longer-accurate label; the audited content actually belongs to the
+ * destination. Protocol (http/https) and www-prefix differences are
+ * ignored on purpose — those are routine canonicalization on a page's own
+ * URL (e.g. the homepage upgrading to https://www.), not a redirect to a
+ * different page, and flagging them would turn nearly every homepage scan
+ * into a false-positive gap. Query strings and hash fragments are also
+ * ignored for the same reason: same page, not a different one.
+ */
+export function isMeaningfulRedirect(requestedUrl: string, finalUrl: string): boolean {
+  if (!requestedUrl || !finalUrl) return false;
+
+  const normalizedPath = (value: string): string => {
+    try {
+      return new URL(value).pathname.replace(/\/+$/, '') || '/';
+    } catch {
+      return value.replace(/\/+$/, '');
+    }
+  };
+
+  return normalizedPath(requestedUrl) !== normalizedPath(finalUrl);
+}
+
+/** The gap-page reason text for a page routed away by isMeaningfulRedirect. */
+export function describeRedirectGapReason(finalUrl: string): string {
+  return `redirects to ${finalUrl}; not separately audited`;
+}
+
+/**
  * Converts an index within the successfully scanned reports array into the
  * original crawl sequence, given the (ascending) crawl positions of the pages
  * that failed at scan time. PDF-generation failures use this to keep gap
@@ -1353,6 +1392,62 @@ export async function renderGapPage(options: {
     gapStream.on('error', reject);
   });
   return gapPagePath;
+}
+
+/**
+ * Docs/Report-Disclaimer-and-Limitations.pdf (section B/D) — the full
+ * disclaimer text, its own page, as the last section of the combined
+ * report, with a real footer + page number like every other section (and,
+ * unlike the per-page generator this text used to live in, this one
+ * actually gets a Table of Contents entry — see mergePDFsByPlatform).
+ */
+async function renderDisclaimerPage(outputDir: string, device: FullAuditDevice, pageNumber: number): Promise<string> {
+  const disclaimerPagePath = path.join(outputDir, `disclaimer-${device}-${Date.now()}.pdf`);
+  const disclaimerDoc = new PDFDocument({ margin: 40, size: 'A4' });
+  const disclaimerStream = fsSync.createWriteStream(disclaimerPagePath);
+  disclaimerDoc.pipe(disclaimerStream);
+  disclaimerDoc.registerFont('RegularFont', 'Helvetica');
+  disclaimerDoc.registerFont('BoldFont', 'Helvetica-Bold');
+
+  const disclaimerMargin = 40;
+  const disclaimerWidth = 515;
+
+  // #2C3E50 matches this same document's "Table of Contents" heading and
+  // title-page text (not pdf-generator.js's separate #2C5F9C section-heading
+  // blue) — this page lives in the title/cover/TOC document, so it follows
+  // that document's own palette.
+  disclaimerDoc.fontSize(20).font('BoldFont').fillColor('#2C3E50')
+    .text(DISCLAIMER_FULL_TITLE, disclaimerMargin, 40, { width: disclaimerWidth, align: 'center' });
+
+  const underlineY = 68;
+  disclaimerDoc.save();
+  disclaimerDoc.lineWidth(2).strokeColor('#2C3E50')
+    .moveTo(disclaimerDoc.page.width / 2 - 18, underlineY).lineTo(disclaimerDoc.page.width / 2 + 18, underlineY).stroke();
+  disclaimerDoc.restore();
+
+  // Same neutral card treatment as the WCAG matrix summary stat cards in
+  // pdf-generator.js (#F8FAFC fill, #E5E7EB border) — this page reads as a
+  // formal section, not a stray paragraph on an otherwise blank page.
+  const boxX = disclaimerMargin;
+  const boxY = 92;
+  const textPadding = 20;
+  const textWidth = disclaimerWidth - textPadding * 2;
+  const bodyLineGap = 3;
+  const bodyHeight = disclaimerDoc.heightOfString(DISCLAIMER_FULL_BODY, { width: textWidth, lineGap: bodyLineGap });
+  const boxHeight = bodyHeight + textPadding * 2;
+
+  disclaimerDoc.roundedRect(boxX, boxY, disclaimerWidth, boxHeight, 8).fill('#F8FAFC');
+  disclaimerDoc.roundedRect(boxX, boxY, disclaimerWidth, boxHeight, 8).strokeColor('#E5E7EB').lineWidth(1).stroke();
+  disclaimerDoc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
+    .text(DISCLAIMER_FULL_BODY, boxX + textPadding, boxY + textPadding, { width: textWidth, lineGap: bodyLineGap, align: 'left' });
+
+  addFooterToPdfDocument(disclaimerDoc, pageNumber);
+  disclaimerDoc.end();
+  await new Promise<void>((resolve, reject) => {
+    disclaimerStream.on('finish', resolve);
+    disclaimerStream.on('error', reject);
+  });
+  return disclaimerPagePath;
 }
 
 /**
@@ -1608,7 +1703,16 @@ export async function mergePDFsByPlatform(options: {
   coverDoc.fontSize(10).font('RegularFont').fillColor('#000000')
     .text('Minimum recommended score: 80%', contentX, contentStartY + 160, { width: contentWidth, align: 'center' });
 
-  const coverY = contentStartY + contentHeight + 30;
+  // Docs/Report-Disclaimer-and-Limitations.pdf (section A/D) — short
+  // disclaimer directly under the score, on the one page of the combined
+  // report that actually shows the sitewide score. The full version is a
+  // dedicated page at the end of this same document (see below).
+  const disclaimerY = contentStartY + contentHeight + 15;
+  coverDoc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+    .text(DISCLAIMER_SHORT, coverMargin, disclaimerY, { width: coverWidth, align: 'center', lineGap: 1 });
+  const disclaimerHeight = coverDoc.heightOfString(DISCLAIMER_SHORT, { width: coverWidth, lineGap: 1 });
+
+  const coverY = disclaimerY + disclaimerHeight + 20;
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
     .text(`Report prepared for: ${email_address}`, coverMargin + 60, coverY);
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
@@ -1638,7 +1742,15 @@ export async function mergePDFsByPlatform(options: {
   // will occupy without rendering it, so we do two passes: the first render
   // uses placeholder page numbers and gives us the actual TOC page count; the
   // second render uses the corrected numbers.
-  const tocEntryData = buildMergeTocEntries(assembledPages);
+  // The disclaimer page (rendered below, once its real startPage is known)
+  // always occupies exactly one page — confirmed by measuring
+  // DISCLAIMER_FULL_BODY's rendered height, which fits comfortably inside
+  // one A4 page at this font size/width — so it can be folded into the TOC
+  // arithmetic here without a placeholder-then-remeasure pass of its own.
+  const tocEntryData = [
+    ...buildMergeTocEntries(assembledPages),
+    { pageName: DISCLAIMER_FULL_TITLE, score: 'N/A', actualPageCount: 1 },
+  ];
 
   const renderToc = async (
     entries: Array<{ pageName: string; score: string; startPage: number }>,
@@ -1795,11 +1907,28 @@ export async function mergePDFsByPlatform(options: {
     }
   }
 
+  // Docs/Report-Disclaimer-and-Limitations.pdf (section B/D) — the full
+  // disclaimer as the last section of the document, listed in the Table of
+  // Contents (its entry is already the last row of tocEntries/tocEntryData
+  // above). Rendered last so its footer shows the real page number the TOC
+  // just computed for it.
+  const disclaimerStartPage = tocEntries[tocEntries.length - 1].startPage;
+  const disclaimerPagePath = await renderDisclaimerPage(outputDir, device, disclaimerStartPage);
+  try {
+    const disclaimerBytes = await fs.readFile(disclaimerPagePath);
+    const disclaimerDocLib = await PDFLib.load(disclaimerBytes);
+    const disclaimerPageIndices = Array.from({ length: disclaimerDocLib.getPageCount() }, (_, i) => i);
+    const disclaimerPages = await mergedPdf.copyPages(disclaimerDocLib, disclaimerPageIndices);
+    for (const p of disclaimerPages) mergedPdf.addPage(p);
+  } finally {
+    await fs.unlink(disclaimerPagePath).catch(() => undefined);
+  }
+
   // Post-conditions: the TOC must describe exactly the assembled body, and the
   // merged page count must match the TOC's page-number arithmetic.
-  if (tocEntries.length !== reportPages.length + gapPageCount) {
+  if (tocEntries.length !== reportPages.length + gapPageCount + 1) {
     throw new Error(
-      `Combined ${device} PDF assembly mismatch: TOC has ${tocEntries.length} entries but the body contains ${reportPages.length} reports and ${gapPageCount} gap pages.`,
+      `Combined ${device} PDF assembly mismatch: TOC has ${tocEntries.length} entries but the body contains ${reportPages.length} reports, ${gapPageCount} gap pages, and the disclaimer page.`,
     );
   }
   const expectedMergedPageCount = 2 + actualTocPageCount

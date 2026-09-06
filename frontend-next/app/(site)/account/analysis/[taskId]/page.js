@@ -789,7 +789,7 @@ function AnalysisDetailContent() {
 
                   <div style={{ marginTop: '20px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '16px' }}>
                     <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>
-                      Criteria marked Needs Review require manual review and cannot be fully assessed by automated scanning. This report does not constitute a legal conformance certification.
+                      Automated results cover the criteria that can be machine-tested. Criteria marked Needs Review require manual review by a qualified accessibility specialist and are not included in automated pass/fail counts. This report does not constitute a legal conformance certification.
                     </p>
                   </div>
                 </Box>

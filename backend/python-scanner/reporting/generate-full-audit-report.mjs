@@ -5,10 +5,12 @@ import { fileURLToPath } from 'node:url';
 import {
   calculateSeniorFriendlinessScore,
   crawlOrderForReportIndex,
+  describeRedirectGapReason,
   generateAuditAiSummaryPdf,
   generateCombinedPlatformReport,
   generateSeniorAccessibilityReport,
   humanizeAuditFailureReason,
+  isMeaningfulRedirect,
   mergePDFsByPlatform,
 } from './src/features/audits/report-generation.ts';
 import {
@@ -177,6 +179,24 @@ async function main() {
 
     const device = safeText(target.device, 'desktop');
     const url = safeText(target.url, aggregate.url || 'unknown-url');
+
+    // P3-01 — a redirect to a meaningfully different page means the audited
+    // content actually belongs to the destination, not this planned URL.
+    // Route it the same way any other page that couldn't be separately
+    // audited is routed, instead of reporting the destination's content
+    // under this URL's now-inaccurate label.
+    const requestedPageUrl = safeText(target.report?.requestedUrl, url);
+    const finalPageUrl = safeText(target.report?.finalUrl, url);
+    if (isMeaningfulRedirect(requestedPageUrl, finalPageUrl)) {
+      const deviceOrder = (reportsByPlatform[device]?.length ?? 0) + (missingPagesByPlatform[device]?.length ?? 0);
+      (missingPagesByPlatform[device] ||= []).push({
+        url,
+        reason: describeRedirectGapReason(finalPageUrl),
+        order: deviceOrder,
+      });
+      continue;
+    }
+
     const isLiteVersion = Boolean(target.isLiteVersion);
     const jsonReportPath = await writeJsonReport(target.report, outputDir, index, device);
     const scoreData = await calculateSeniorFriendlinessScore(target.report, { isLiteVersion });

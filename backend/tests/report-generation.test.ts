@@ -12,10 +12,12 @@ import {
   buildGapCoverLine,
   buildMergeTocEntries,
   crawlOrderForReportIndex,
+  describeRedirectGapReason,
   extractSiteNameFromUrl,
   getReportPageName,
   getScoreStatus,
   humanizeAuditFailureReason,
+  isMeaningfulRedirect,
   mergePDFsByPlatform,
   orderMergePages,
   renderGapPage,
@@ -185,6 +187,34 @@ test('humanizeAuditFailureReason maps error codes and messages to honest reasons
   assert.equal(humanizeAuditFailureReason({}), 'a scan error');
 });
 
+// P3-01 — a redirect to a genuinely different page (different pathname)
+// must be flagged; routine protocol/www canonicalization of the SAME page
+// must not be, or nearly every homepage scan would become a false-positive
+// gap (browsers commonly upgrade http:// to https:// and add www. on the
+// very first request).
+test('isMeaningfulRedirect flags a redirect to a different pathname', () => {
+  assert.equal(isMeaningfulRedirect('https://example.com/products/waves', 'https://example.com/'), true);
+  assert.equal(isMeaningfulRedirect('https://example.com/products/bwt-accessories', 'https://example.com/products/bwt-besthead-flex'), true);
+});
+
+test('isMeaningfulRedirect ignores protocol/www/query/hash-only differences on the same page', () => {
+  assert.equal(isMeaningfulRedirect('http://example.com/', 'https://www.example.com/'), false);
+  assert.equal(isMeaningfulRedirect('https://example.com/about', 'https://example.com/about/'), false);
+  assert.equal(isMeaningfulRedirect('https://example.com/products?ref=ad', 'https://example.com/products'), false);
+});
+
+test('isMeaningfulRedirect treats a missing requested or final URL as not a redirect', () => {
+  assert.equal(isMeaningfulRedirect('', 'https://example.com/'), false);
+  assert.equal(isMeaningfulRedirect('https://example.com/', ''), false);
+});
+
+test('describeRedirectGapReason names the real destination', () => {
+  assert.equal(
+    describeRedirectGapReason('https://example.com/'),
+    'redirects to https://example.com/; not separately audited',
+  );
+});
+
 test('crawlOrderForReportIndex shifts report indices past scan-time gaps', () => {
   assert.equal(crawlOrderForReportIndex(0, [1]), 0);
   assert.equal(crawlOrderForReportIndex(1, [1]), 2);
@@ -278,7 +308,7 @@ test('mergePDFsByPlatform assembles reports and gap pages into a consistent PDF'
     planType: 'pro',
   });
 
-  // title(1) + cover(1) + toc(1) + home body(3-1) + gap(1) + about body(2-1)
+  // title(1) + cover(1) + toc(1) + home body(3-1) + gap(1) + about body(2-1) + disclaimer(1)
   const merged = await PDFLib.load(await fs.readFile(outputPath));
-  assert.equal(merged.getPageCount(), 7);
+  assert.equal(merged.getPageCount(), 8);
 });

@@ -4,6 +4,7 @@ import type { AuditScorecard } from './audit-scorecard.ts';
 import type { AnalysisRemediationItem } from './analysis-details.ts';
 import type { WcagMatrixRow } from './wcag-mapping.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
+import { appendStakeholderDisclaimer } from './report-disclaimers.ts';
 
 const aiReportingLogger = logger.child('feature:audits:ai-reporting');
 const MAX_AI_FINDING_GUIDANCE = 20;
@@ -505,20 +506,25 @@ async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions
 export async function generateAuditAiReport(options: GenerateAuditAiReportOptions): Promise<AuditAiReport> {
   const fallback = buildFallbackAuditAiReport(options);
 
-  if (!env.anthropicApiKey) {
-    return fallback;
+  let report = fallback;
+  if (env.anthropicApiKey) {
+    try {
+      report = await requestAnthropicAuditReport(options, fallback);
+    } catch (error) {
+      aiReportingLogger.warn('Claude audit summary generation failed. Falling back to local narrative.', {
+        url: options.url,
+        model: env.anthropicModel,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      report = fallback;
+    }
   }
 
-  try {
-    return await requestAnthropicAuditReport(options, fallback);
-  } catch (error) {
-    aiReportingLogger.warn('Claude audit summary generation failed. Falling back to local narrative.', {
-      url: options.url,
-      model: env.anthropicModel,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return fallback;
-  }
+  // Docs/Report-Disclaimer-and-Limitations.pdf (section C) — every AI
+  // executive summary's Stakeholder Note gets this sentence appended,
+  // regardless of whether the note came from Claude or the local fallback,
+  // since both paths converge here.
+  return { ...report, stakeholderNote: appendStakeholderDisclaimer(report.stakeholderNote) };
 }
 
 export async function generateWcagRemediations(

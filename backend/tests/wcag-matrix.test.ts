@@ -99,14 +99,21 @@ test('1.3.4 and 3.2.3 default to Needs Review when their audits are flagged for 
   assert.equal(consistentNav.manualReviewRequired, true);
 });
 
-// The same two criteria must still fail honestly when the scanner *does*
-// positively detect a real violation (e.g. an actual orientation lock) —
-// manual-review defaulting must not mask a genuine, confirmed failure.
-test('1.3.4 still fails when a real violation is reported (not silently downgraded to Needs Review)', () => {
+// Superseded by Docs/WCAG-Manual-Review-Criteria.pdf: 1.3.4 is classified
+// List 2 ("the bot can only suspect") there, so even a positively-detected
+// violation must surface as Needs Review with evidence attached — never a
+// bare Fail — so a human always gives the final verdict. This intentionally
+// reverses the old phase-2 "positive control" expectation (a confirmed
+// violation used to fail outright); the new document's blanket rule for
+// this whole class of heuristic-only checks takes precedence.
+test('1.3.4 surfaces a detected violation as Needs Review with evidence, never a bare Fail', () => {
   const matrix = buildWcagMatrix([
     makeIssue({ auditId: 'ss-orientation-audit', score: 0, wcagCriteria: ['1.3.4'], elementCount: 1 }),
   ]);
 
   const orientation = matrix.find((row) => row.criterion === '1.3.4');
-  assert.equal(orientation.status, 'fail');
+  assert.equal(orientation.status, 'needs-review');
+  assert.equal(orientation.manualReviewRequired, true);
+  assert.equal(orientation.issueCount, 1, 'evidence (element count) must still be attached, not dropped');
+  assert.match(orientation.manualReviewReason, /final verdict requires manual review/);
 });

@@ -6,6 +6,7 @@ import PDFDocument from 'pdfkit';
 import { buildAuditScorecard, buildScoreBreakdown } from '../audit-scorecard.ts';
 import { buildRemediationRoadmap } from '../analysis-details.ts';
 import { describeWcagStandardLabel, getWcagReference } from '../wcag-mapping.ts';
+import { AUTOMATED_COVERAGE_SCORE_NOTE } from '../report-disclaimers.ts';
 import customConfig from './custom-config.js';
 
 // Helper to get __dirname in ES Modules
@@ -716,9 +717,9 @@ addOverallScoreDisplay(scoreData) {
         
         // Minimum recommended score text - centered
         this.doc.fontSize(10).font('RegularFont').fillColor('#000000')
-            .text('Minimum recommended score: 80%', contentX, warningY + 20, 
+            .text('Minimum recommended score: 80%', contentX, warningY + 20,
                 { width: contentWidth, align: 'center' });
-        
+
         this.currentY = contentStartY + contentHeight + 30;
 
         // Report prepared for (left-aligned)
@@ -3077,7 +3078,7 @@ addOverallScoreDisplay(scoreData) {
             .text(`${standardLabel} Coverage Matrix`, this.margin, this.currentY);
         this.currentY += 28;
 
-        const explanation = `This matrix shows the automated coverage of all success criteria evaluated against ${standardLabel}. Criteria marked Needs Review cannot be fully assessed by automated scanning and require manual review by a qualified accessibility specialist.`;
+        const explanation = `This matrix shows the automated coverage of all success criteria evaluated against ${standardLabel}. ${AUTOMATED_COVERAGE_SCORE_NOTE}`;
         this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50')
             .text(explanation, this.margin, this.currentY, { width: this.pageWidth, lineGap: 2 });
         this.currentY += this.doc.heightOfString(explanation, { width: this.pageWidth, lineGap: 2 }) + 16;

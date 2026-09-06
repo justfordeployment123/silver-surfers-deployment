@@ -182,31 +182,49 @@ export const CRITERION_AUDIT_MAP: Record<string, string[]> = {
     "4.1.3": ["ss-status-messages-audit"],
 };
 
-// Criteria that cannot be fully assessed by automated scanning.
-// These are always marked "needs-review" regardless of scan results.
-export const MANUAL_ONLY_CRITERIA: Record<string, string> = {
-    "1.2.1": "Transcript and media alternative quality must be reviewed by a human.",
-    "1.2.2": "Caption accuracy and completeness cannot be verified by automated scanning.",
-    "1.2.3": "Audio description or media alternative quality requires human review.",
-    "1.2.4": "Live caption accuracy requires manual verification during live broadcasts.",
-    "1.2.5": "Audio description quality and completeness requires human review.",
-    "1.3.2": "Meaningful reading order depends on layout context and requires human judgment.",
-    "1.3.3": "Sensory characteristic instructions (color, shape, position) require content review.",
-    "1.4.5": "Whether images contain meaningful text that should be real text requires human judgment.",
-    "2.3.1": "Flash rate detection requires specialized video analysis tools beyond automated scanning.",
-    "2.1.4": "Single-character keyboard shortcuts are implemented in JavaScript and cannot be reliably detected or verified for remapping/disabling options through automated DOM inspection.",
-    "2.4.5": "Presence of multiple navigation paths requires site-level manual review.",
-    "2.5.1": "Pointer gesture alternatives require manual interaction testing.",
-    "2.5.2": "Pointer cancellation compliance depends on interaction and business logic review.",
-    "2.5.4": "Motion actuation alternatives require device-based manual testing.",
-    "2.5.7": "Dragging movement alternatives require manual interaction testing.",
-    "3.1.2": "Language of specific page parts requires content-level human review.",
-    "3.2.4": "Consistent identification across pages requires cross-page human review.",
-    "3.3.3": "Error suggestion quality depends on business context and requires human review.",
-    "3.3.4": "Error prevention for legal, financial, and data submissions requires full workflow testing.",
-    "3.3.7": "Redundant entry detection requires complete user journey testing.",
-    "3.3.8": "Accessible authentication quality requires testing of the full login flow.",
-};
+// Docs/WCAG-Manual-Review-Criteria.pdf classifies every WCAG 2.1/2.2 A/AA
+// criterion into three lists so reports never show a bot verdict the bot
+// didn't really earn:
+//   List 1 (18 criteria) — not tracked here; anything not in List 2 or List 3
+//     below is bot-reliable and keeps today's Pass/Fail/Not-applicable logic.
+//   List 2 (17 criteria) — the bot can only ever *suspect* an issue; a human
+//     always gives the final verdict, whether or not the scanner found
+//     anything. Never a bare Fail, never a bare Pass.
+//   List 3 (21 criteria) — the bot cannot meaningfully test these at all.
+//     Always "Needs Review", regardless of any audit result.
+// The exact wording below is copy-paste text specified in that document
+// (Section 6) — used verbatim so every report says the same honest thing
+// about what the scanner can and can't confirm, rather than ad hoc per-
+// criterion phrasing that drifts over time.
+export const NEEDS_REVIEW_ALWAYS_TEXT =
+    "Needs Review - cannot be assessed by automated scanning; requires manual review by a qualified accessibility specialist.";
+export const NEEDS_REVIEW_DETECTED_TEXT =
+    "Detected by automated scanning; final verdict requires manual review by a qualified accessibility specialist.";
+export const NEEDS_REVIEW_CLEAN_TEXT =
+    "No issues detected by automated scanning. This check cannot be fully assessed automatically; manual review is recommended.";
+
+// List 2 — bot can only suspect (17 criteria).
+export const BOT_SUSPECT_CRITERIA = new Set<string>([
+    "1.3.4", "1.4.1", "1.4.2", "1.4.5", "1.4.13",
+    "2.1.1", "2.1.4", "2.2.1", "2.2.2", "2.3.1",
+    "2.4.1", "2.4.7", "2.4.11",
+    "3.2.1", "3.2.2", "3.3.1", "3.3.2",
+]);
+
+// List 3 — human only, always Needs Review (21 criteria). Kept as a
+// Record<string, string> (value = the shared canonical text) rather than a
+// bare Set so existing `MANUAL_ONLY_CRITERIA[criterion]` truthy-check call
+// sites keep working unchanged.
+export const MANUAL_ONLY_CRITERIA: Record<string, string> = Object.fromEntries(
+    [
+        "1.2.1", "1.2.2", "1.2.3", "1.2.4", "1.2.5",
+        "1.3.2", "1.3.3",
+        "2.1.2", "2.4.3", "2.4.5",
+        "2.5.1", "2.5.2", "2.5.4", "2.5.7",
+        "3.2.3", "3.2.4", "3.2.6",
+        "3.3.3", "3.3.4", "3.3.7", "3.3.8",
+    ].map((criterion) => [criterion, NEEDS_REVIEW_ALWAYS_TEXT]),
+);
 
 const STATIC_AUDIT_MAPPINGS: Record<string, string[]> = {
     "color-contrast": ["1.4.3"],
