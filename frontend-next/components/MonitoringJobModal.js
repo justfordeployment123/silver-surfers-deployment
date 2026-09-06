@@ -224,7 +224,7 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
                   value={form.domain}
                   onChange={(e) => set({ domain: e.target.value })}
                 />
-                <p className="mjm-hint">We&apos;ll run a scheduled scan against this domain and track its Silver Score™ over time.</p>
+                <p className="mjm-hint">We&apos;ll run a scheduled scan against this domain and track its SilverSurfers Score over time.</p>
               </div>
             )}
 

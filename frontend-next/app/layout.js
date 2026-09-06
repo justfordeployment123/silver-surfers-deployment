@@ -26,6 +26,8 @@ export const viewport = {
   themeColor: "#017FA1",
   width: "device-width",
   initialScale: 1,
+  minimumScale: 1,
+  userScalable: true,
 };
 
 // Runs before hydration to set data-theme from the user's saved preference

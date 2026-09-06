@@ -64,6 +64,7 @@ async function main() {
   const reportPath = readArg('report');
   const outputDir = readArg('output-dir');
   const manifestPath = readArg('manifest');
+  const scoreArg = readArg('score');
 
   if (!reportPath || !outputDir || !manifestPath) {
     throw new Error('--report, --output-dir, and --manifest are required.');
@@ -71,7 +72,10 @@ async function main() {
 
   await fs.mkdir(outputDir, { recursive: true });
   const { generateLiteAccessibilityReport } = await loadReportGenerator();
-  await generateLiteAccessibilityReport(reportPath, outputDir);
+  const score = Number.parseFloat(scoreArg);
+  await generateLiteAccessibilityReport(reportPath, outputDir, {
+    canonicalScore: Number.isFinite(score) ? score : undefined,
+  });
 
   const files = await listPdfFiles(outputDir);
   await fs.writeFile(manifestPath, JSON.stringify({

@@ -393,40 +393,94 @@ def run_camoufox_audit_sync(
             except Exception:
                 pass
 
-            # Check 4: minimum auditable-content gate — word stubs with no real
-            # navigation (e.g. UUID redirect stubs) must not consume a scored
-            # audit slot. Both signals come from the rendered page: visible-text
-            # words (same source as the readability audit) and same-origin links.
+            # Check 4: minimum auditable-content gate. Keep empty redirect
+            # stubs from consuming a scored audit slot, but do not reject valid
+            # app/form pages just because they have little prose or sparse
+            # same-origin navigation. Accessibility audits can still evaluate
+            # headings, form fields, buttons, images, and landmarks.
             try:
-                content_metrics = page.evaluate(
-                    """
-                    () => {
-                        const text = (document.body && document.body.innerText) || '';
-                        const words = text.split(/\\s+/).filter((word) => word.trim().length > 0);
-                        const host = window.location.hostname.toLowerCase().replace(/^www\\./, '');
-                        const links = new Set();
-                        document.querySelectorAll('a[href]').forEach((anchor) => {
-                            try {
-                                const href = new URL(anchor.getAttribute('href'), window.location.href);
-                                if (['http:', 'https:'].includes(href.protocol)
-                                    && href.hostname.toLowerCase().replace(/^www\\./, '') === host) {
-                                    links.add(href.href);
-                                }
-                            } catch (_) {}
-                        });
-                        return { words: words.length, links: links.size };
-                    }
-                    """
-                ) or {}
+                content_metrics = {}
+                for attempt in range(3):
+                    content_metrics = page.evaluate(
+                        """
+                        () => {
+                            const text = (document.body && document.body.innerText) || '';
+                            const words = text.split(/\\s+/).filter((word) => word.trim().length > 0);
+                            const host = window.location.hostname.toLowerCase().replace(/^www\\./, '');
+                            const isVisible = (element) => {
+                                const style = window.getComputedStyle(element);
+                                const rect = element.getBoundingClientRect();
+                                return style
+                                    && style.visibility !== 'hidden'
+                                    && style.display !== 'none'
+                                    && rect.width > 0
+                                    && rect.height > 0;
+                            };
+                            const links = new Set();
+                            document.querySelectorAll('a[href]').forEach((anchor) => {
+                                try {
+                                    const href = new URL(anchor.getAttribute('href'), window.location.href);
+                                    if (['http:', 'https:'].includes(href.protocol)
+                                        && href.hostname.toLowerCase().replace(/^www\\./, '') === host
+                                        && isVisible(anchor)) {
+                                        links.add(href.href);
+                                    }
+                                } catch (_) {}
+                            });
+                            const visibleCount = (selector) =>
+                                Array.from(document.querySelectorAll(selector)).filter(isVisible).length;
+                            return {
+                                words: words.length,
+                                bodyChars: text.trim().length,
+                                links: links.size,
+                                headings: visibleCount('h1,h2,h3,h4,h5,h6'),
+                                controls: visibleCount('button,input,select,textarea,[role="button"],[role="link"],[tabindex]:not([tabindex="-1"])'),
+                                media: visibleCount('img,svg,video,canvas,picture'),
+                                landmarks: visibleCount('main,nav,header,footer,aside,section,[role="main"],[role="navigation"],[role="banner"],[role="contentinfo"],[role="region"]'),
+                                titleLength: (document.title || '').trim().length,
+                            };
+                        }
+                        """
+                    ) or {}
+
+                    structural_signals = sum(
+                        int(content_metrics.get(key, 0) or 0)
+                        for key in ("headings", "controls", "media", "landmarks")
+                    )
+                    if (
+                        int(content_metrics.get("bodyChars", 0) or 0) >= 80
+                        or int(content_metrics.get("words", 0) or 0) >= 5
+                        or int(content_metrics.get("links", 0) or 0) > 0
+                        or structural_signals > 0
+                        or int(content_metrics.get("titleLength", 0) or 0) > 0
+                    ):
+                        break
+
+                    if attempt < 2:
+                        page.wait_for_timeout(1500)
+
                 analyzable_words = int(content_metrics.get("words", 0) or 0)
+                visible_chars = int(content_metrics.get("bodyChars", 0) or 0)
                 navigable_links = int(content_metrics.get("links", 0) or 0)
-                if analyzable_words < 30 and navigable_links <= 1:
+                title_length = int(content_metrics.get("titleLength", 0) or 0)
+                structural_signals = sum(
+                    int(content_metrics.get(key, 0) or 0)
+                    for key in ("headings", "controls", "media", "landmarks")
+                )
+                if (
+                    analyzable_words < 5
+                    and visible_chars < 80
+                    and navigable_links == 0
+                    and structural_signals == 0
+                    and title_length == 0
+                ):
                     return {
                         "success": False,
                         "errorCode": "NO_AUDITABLE_CONTENT",
                         "error": (
                             f"Page has insufficient auditable content "
-                            f"({analyzable_words} analyzable words, {navigable_links} navigable links). URL skipped."
+                            f"({analyzable_words} analyzable words, {visible_chars} visible chars, "
+                            f"{navigable_links} navigable links, {structural_signals} structural elements). URL skipped."
                         ),
                     }
             except Exception:

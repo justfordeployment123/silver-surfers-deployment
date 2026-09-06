@@ -251,7 +251,7 @@ function MonitoringJobDetailContent() {
                     )}
 
                     <div className="mjd-section">
-                        <h2>Silver Score™ Trend</h2>
+                        <h2>SilverSurfers Score Trend</h2>
                         <ScoreTrendChart runs={chronologicalRuns} onPointClick={goToReport} />
                     </div>
 

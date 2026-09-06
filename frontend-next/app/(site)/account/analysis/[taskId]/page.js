@@ -328,7 +328,7 @@ function AnalysisDetailContent() {
           {!loading && !error && item ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
               <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: '16px' }}>
-                <StatCard label="Silver Score" value={item.score != null ? `${Math.round(item.score)}%` : 'Pending'} help={item.scoreStatus ? item.scoreStatus.replace(/-/g, ' ') : 'Awaiting results'} />
+                <StatCard label="SilverSurfers Score" value={item.score != null ? `${Math.round(item.score)}%` : 'Pending'} help={item.scoreStatus ? item.scoreStatus.replace(/-/g, ' ') : 'Awaiting results'} />
                 <StatCard label="Risk Tier" value={item.riskTier ? item.riskTier.toUpperCase() : 'Pending'} help="Current litigation-oriented risk classification" />
                 <StatCard label="Successful Page/Device Targets" value={`${item.successfulTargetCount || 0}/${item.plannedTargetCount || item.pageCount || 0}`} help="Each page scanned on desktop, mobile, and tablet counts as its own target" />
                 <StatCard label="Reports" value={String(item.attachmentCount || 0)} help={item.reportDirectory ? 'Report package generated' : 'No report package yet'} />
@@ -473,7 +473,7 @@ function AnalysisDetailContent() {
               <Box>
                 <div style={{ marginBottom: '20px' }}>
                   <h2 style={sectionTitle()}>Primary Score Categories</h2>
-                  <p style={sectionSub()}>The four weighted Silver Score categories generated from the eight evaluation dimensions.</p>
+                  <p style={sectionSub()}>The four weighted SilverSurfers Score categories generated from the eight evaluation dimensions.</p>
                 </div>
                 {dimensions.length === 0 ? (
                   <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>This analysis does not have a scorecard yet.</p>
