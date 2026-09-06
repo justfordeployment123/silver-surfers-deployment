@@ -494,6 +494,7 @@ export async function generateSeniorAccessibilityReport(options: {
   inputFile: string;
   url: string;
   email_address: string;
+  clientName?: string;
   device: FullAuditDevice;
   imagePaths: Record<string, never>;
   outputDir: string;
@@ -1469,6 +1470,16 @@ export function buildGapCoverLine(auditedCount: number, gapPages: AssembledMerge
   return `${gapPages.length} of ${totalCount} ${pagesWord} could not be audited; see the Table of Contents for details.`;
 }
 
+// P3-08 — every report cover printed the requesting account's raw email
+// address on the "Report prepared for" / "Generated for" line with zero
+// name-fallback logic, in every delivery (not just internal test runs).
+// Prefers a display name when one is on file, falling back to the email
+// exactly as before when it isn't or is blank/whitespace-only.
+export function resolveClientDisplayName(clientName: string | undefined, emailAddress: string): string {
+  const trimmedName = clientName?.trim();
+  return trimmedName || emailAddress;
+}
+
 /**
  * Builds the TOC rows for the assembled body. Gap pages always render with an
  * honest 'N/A' score and occupy exactly one page.
@@ -1494,13 +1505,14 @@ export async function mergePDFsByPlatform(options: {
   pdfPaths: string[];
   device: FullAuditDevice;
   email_address: string;
+  clientName?: string;
   outputDir: string;
   reports: FullAuditPlatformReport[];
   planType: string;
   platformSummary?: PlatformSummaryEntry[];
   missingPages?: MissingMergePage[];
 }): Promise<string> {
-  const { pdfPaths, device, email_address, outputDir, reports, planType, platformSummary = [], missingPages = [] } = options;
+  const { pdfPaths, device, email_address, clientName, outputDir, reports, planType, platformSummary = [], missingPages = [] } = options;
   if (!pdfPaths || pdfPaths.length === 0) {
     throw new Error('No PDF paths provided for merging');
   }
@@ -1714,7 +1726,7 @@ export async function mergePDFsByPlatform(options: {
 
   const coverY = disclaimerY + disclaimerHeight + 20;
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-    .text(`Report prepared for: ${email_address}`, coverMargin + 60, coverY);
+    .text(`Report prepared for: ${resolveClientDisplayName(clientName, email_address)}`, coverMargin + 60, coverY);
   coverDoc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
     .text(`Pages audited: ${reportPages.length}`, coverMargin + 60, coverY + 25, { width: coverWidth - 120 });
   if (gapPageCount > 0) {
@@ -1948,6 +1960,7 @@ export async function generateCombinedPlatformReport(options: {
   reports: FullAuditPlatformReport[];
   device: FullAuditDevice;
   email_address: string;
+  clientName?: string;
   outputDir: string;
   planType: string;
   individualPdfPaths: string[];
@@ -1955,7 +1968,7 @@ export async function generateCombinedPlatformReport(options: {
   wcagStandard?: string | null;
   conformanceLevel?: string | null;
 }): Promise<string> {
-  const { reports, device, email_address, outputDir, planType, platformSummary = [], wcagStandard, conformanceLevel } = options;
+  const { reports, device, email_address, clientName, outputDir, planType, platformSummary = [], wcagStandard, conformanceLevel } = options;
   if (!reports || reports.length === 0) {
     throw new Error('No reports provided for combined PDF generation');
   }
@@ -1984,7 +1997,7 @@ export async function generateCombinedPlatformReport(options: {
   currentY += 60;
 
   doc.fontSize(14).font('RegularFont').fillColor('#7F8C8D')
-    .text(`Generated for: ${email_address}`, margin, currentY, { width: pageWidth, align: 'center' });
+    .text(`Generated for: ${resolveClientDisplayName(clientName, email_address)}`, margin, currentY, { width: pageWidth, align: 'center' });
   currentY += 30;
 
   doc.fontSize(12).font('RegularFont').fillColor('#7F8C8D')

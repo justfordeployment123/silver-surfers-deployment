@@ -135,6 +135,10 @@ async function main() {
   const email = readArg('email', 'unknown-client');
   const planId = readArg('plan-id', 'pro');
   const fullName = readArg('full-name', 'Valued Customer');
+  // P3-08: prefer the account's real name on the report cover over its raw
+  // email; the "Valued Customer" placeholder means no name was on file, so
+  // treat it the same as "no name" rather than printing it on the cover.
+  const clientName = fullName && fullName !== 'Valued Customer' ? fullName : undefined;
 
   if (!aggregatePath || !outputDir || !manifestPath) {
     throw new Error('--aggregate, --output-dir, and --manifest are required.');
@@ -249,6 +253,7 @@ async function main() {
       inputFile: jsonReportPath,
       url,
       email_address: email,
+      clientName,
       device,
       imagePaths: {},
       outputDir,
@@ -293,6 +298,7 @@ async function main() {
         pdfPaths: successfulPairs.map((p) => p.pdfPath),
         device,
         email_address: email,
+        clientName,
         outputDir,
         reports: successfulPairs.map((p) => p.report),
         missingPages,
@@ -320,6 +326,7 @@ async function main() {
           reports,
           device,
           email_address: email,
+          clientName,
           outputDir,
           planType: planId,
           individualPdfPaths: successfulPairs.map((p) => p.pdfPath),

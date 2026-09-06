@@ -4,6 +4,7 @@ export interface GenerateSeniorAccessibilityReportOptions {
   imagePaths?: Record<string, never>;
   url: string;
   email_address: string;
+  clientName?: string;
   outputDir?: string;
   device?: string;
   formFactor?: string;

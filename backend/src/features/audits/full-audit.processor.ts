@@ -716,6 +716,7 @@ async function generatePlatformReports(
   wcagStandard?: string | null,
   conformanceLevel?: string | null,
   missingPagesByPlatform?: Partial<Record<FullAuditDevice, MissingMergePage[]>>,
+  clientName?: string,
 ): Promise<void> {
   for (const [deviceKey, reports] of Object.entries(reportsByPlatform)) {
     const device = deviceKey as FullAuditDevice;
@@ -740,6 +741,7 @@ async function generatePlatformReports(
           inputFile: report.jsonReportPath,
           url: report.url,
           email_address: email,
+          clientName,
           device,
           imagePaths: report.imagePaths,
           outputDir: finalReportFolder,
@@ -780,6 +782,7 @@ async function generatePlatformReports(
           pdfPaths: successfulPairs.map((pair) => pair.pdfPath),
           device,
           email_address: email,
+          clientName,
           outputDir: finalReportFolder,
           reports: successfulPairs.map((pair) => pair.report),
           missingPages: [...scanGaps, ...missingPages],
@@ -798,6 +801,7 @@ async function generatePlatformReports(
           reports,
           device,
           email_address: email,
+          clientName,
           outputDir: finalReportFolder,
           planType: planId,
           individualPdfPaths: successfulPairs.map((pair) => pair.pdfPath),
@@ -2195,8 +2199,12 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
     }
 
     const builtWcagMatrix = await persistAggregateScorecard(record, reportsByPlatform);
+    // P3-08: prefer the account's real name on file over a placeholder or
+    // the raw email; falls back to undefined (which the PDF layer then
+    // renders as the email) when no name is on file at all.
+    const clientNameForReports = [job.firstName, job.lastName].filter(Boolean).join(' ') || undefined;
     if (!batchWorkerReportStorage) {
-      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel, missingPagesByPlatform);
+      await generatePlatformReports(reportsByPlatform, job.email, effectivePlanId, finalReportFolder, builtWcagMatrix ?? undefined, record.wcagStandard, record.conformanceLevel, missingPagesByPlatform, clientNameForReports);
     } else {
       addAuditWarning(
         warningSet,

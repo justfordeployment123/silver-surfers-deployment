@@ -734,10 +734,15 @@ addOverallScoreDisplay(scoreData) {
 
         this.currentY = contentStartY + contentHeight + 30;
 
-        // Report prepared for (left-aligned)
+        // Report prepared for (left-aligned). P3-08: prefer the account's
+        // name over its raw email when one is on file — a display name
+        // reads better on a client-facing cover, and this is now consulted
+        // in every delivery (not just internal test runs, which is what
+        // originally surfaced this as printing a personal email address).
         const clientEmail = this.options?.clientEmail || reportData.clientEmail || 'client@email.com';
+        const clientName = String(this.options?.clientName || reportData.clientName || '').trim();
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
-            .text(`Report prepared for: ${clientEmail}`, this.margin + 60, this.currentY);
+            .text(`Report prepared for: ${clientName || clientEmail}`, this.margin + 60, this.currentY);
         this.currentY += 25;
 
         // Pages audited (left-aligned) - show actual page URL if available
@@ -3411,6 +3416,7 @@ export async function generateSeniorAccessibilityReport(options = {}) {
         imagePaths = {},
         url,
         email_address,
+        clientName, // P3-08: display name preferred over the raw email on the cover
         outputDir // <-- new option
     } = options;
 
@@ -3430,8 +3436,8 @@ export async function generateSeniorAccessibilityReport(options = {}) {
     }
     const baseUrl = getBaseUrl(url);
 
-    const generator = new ElderlyAccessibilityPDFGenerator({ imagePaths, clientEmail: email_address });
-    const result = await generator.generateReport(inputFile, outputFile, { ...options, outputDir, clientEmail: email_address, baseUrl, planType: options.planType });
+    const generator = new ElderlyAccessibilityPDFGenerator({ imagePaths, clientEmail: email_address, clientName });
+    const result = await generator.generateReport(inputFile, outputFile, { ...options, outputDir, clientEmail: email_address, clientName, baseUrl, planType: options.planType });
 
     // Directory logic remains the same
     function sanitize(str) {

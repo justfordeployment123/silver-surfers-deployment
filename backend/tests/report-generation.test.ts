@@ -21,6 +21,7 @@ import {
   mergePDFsByPlatform,
   orderMergePages,
   renderGapPage,
+  resolveClientDisplayName,
   type FullAuditPlatformReport,
 } from '../src/features/audits/report-generation.ts';
 
@@ -62,6 +63,20 @@ async function makeFixturePdf(filePath: string, label: string, pageCount: number
     stream.on('error', reject);
   });
 }
+
+// P3-08 — every report cover printed the requesting account's raw email
+// address with zero name-fallback logic, in every delivery. Both
+// mergePDFsByPlatform's combined-report cover and
+// generateCombinedPlatformReport's fallback-summary cover render this via
+// resolveClientDisplayName; test it directly rather than through PDF byte
+// content, since pdfkit's default content-stream compression makes the
+// rendered text unsearchable in the merged output's raw bytes.
+test('resolveClientDisplayName prefers a real display name and falls back to the email otherwise', () => {
+  assert.equal(resolveClientDisplayName('Jane Doe', 'jane.doe@example.com'), 'Jane Doe');
+  assert.equal(resolveClientDisplayName(undefined, 'jane.doe@example.com'), 'jane.doe@example.com');
+  assert.equal(resolveClientDisplayName('', 'jane.doe@example.com'), 'jane.doe@example.com');
+  assert.equal(resolveClientDisplayName('   ', 'jane.doe@example.com'), 'jane.doe@example.com');
+});
 
 test('orderMergePages re-inserts a failed middle page without label drift', () => {
   const reports = [

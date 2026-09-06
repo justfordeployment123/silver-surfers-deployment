@@ -86,3 +86,58 @@ test('addAppendix surfaces a "manual" audit\'s real evidence instead of dropping
     'the audit needs an AUDIT_INFO title to appear as a section heading at all',
   );
 });
+
+// P3-08 — every report cover printed the requesting account's raw email
+// address with zero name-fallback logic, even in production (not just
+// internal test runs, which is what originally surfaced this). Confirms the
+// per-page cover now prefers a display name when one is on file, and still
+// falls back to the email exactly as before when it isn't.
+async function renderIntroPageText(options: { clientEmail: string; clientName?: string }): Promise<string[]> {
+  const generator = new ElderlyAccessibilityPDFGenerator({ imagePaths: {}, ...options });
+  const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), 'pdf-intro-'));
+  const outPath = path.join(tmpDir, 'intro.pdf');
+  const stream = fs.createWriteStream(outPath);
+  generator.doc.pipe(stream);
+  generator.doc.registerFont('RegularFont', 'Helvetica');
+  generator.doc.registerFont('BoldFont', 'Helvetica-Bold');
+
+  const renderedStrings: string[] = [];
+  const originalText = generator.doc.text.bind(generator.doc);
+  generator.doc.text = ((str: unknown, ...rest: unknown[]) => {
+    renderedStrings.push(String(str));
+    return originalText(str as string, ...(rest as []));
+  }) as typeof generator.doc.text;
+
+  generator.addIntroPage({ finalUrl: 'https://example.com/' }, { finalScore: 82 }, 'pro');
+  generator.doc.end();
+
+  await new Promise<void>((resolve, reject) => {
+    stream.on('finish', () => resolve());
+    stream.on('error', reject);
+  });
+  await fs.promises.rm(tmpDir, { recursive: true, force: true });
+
+  return renderedStrings;
+}
+
+test('addIntroPage shows the account\'s display name instead of its raw email when one is on file', async () => {
+  const rendered = await renderIntroPageText({ clientEmail: 'jane.doe@example.com', clientName: 'Jane Doe' });
+
+  assert.ok(
+    rendered.some((s) => s === 'Report prepared for: Jane Doe'),
+    'must render the display name, not the raw email, when a name is on file',
+  );
+  assert.ok(
+    !rendered.some((s) => s.includes('jane.doe@example.com')),
+    'must not print the raw email address when a display name is available',
+  );
+});
+
+test('addIntroPage falls back to the raw email when no display name is on file', async () => {
+  const rendered = await renderIntroPageText({ clientEmail: 'jane.doe@example.com' });
+
+  assert.ok(
+    rendered.some((s) => s === 'Report prepared for: jane.doe@example.com'),
+    'must fall back to the email exactly as before when no name is on file',
+  );
+});
