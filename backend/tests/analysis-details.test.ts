@@ -281,6 +281,83 @@ test('buildAggregateRemediationRoadmap unions per-page roadmaps deduped by rule 
   assert.equal(roadmap.length, 3);
 });
 
+// P3-03 — chateausureau.com failed WCAG 2.5.8 (touch targets) on all 16
+// pages, and the exec summary ranked it the #2 issue site-wide, but the
+// full report contained zero touch-target recommendation blocks. Root
+// cause: buildAggregateRemediationRoadmap unioned each page's own
+// buildRemediationRoadmap() output, which is capped to the top 20 items
+// for that one page's display — so a "medium-effort" item like target-size
+// could rank outside the top 20 on every single page (behind enough
+// "quick-wins" items) and never survive to be unioned into the site-wide
+// roadmap, despite failing everywhere. This reproduces that exact setup.
+test('buildAggregateRemediationRoadmap surfaces a criterion that fails on every page even when it ranks outside every page\'s own top-20 cap', () => {
+  const makeFillerIssue = (index: number) => ({
+    auditId: `filler-audit-${index}`,
+    title: `Filler issue ${index}`,
+    description: 'A minor, unrelated issue used only to push target-size past the per-page display cap.',
+    score: 95,
+    weight: 1,
+    severity: 'low',
+    auditSourceType: 'supporting-signal',
+    auditSourceLabel: 'Supporting Signal',
+  });
+
+  const targetSizeIssue = {
+    auditId: 'target-size',
+    title: 'Tap targets are too small',
+    description: 'Interactive controls are difficult to hit accurately.',
+    score: 40,
+    weight: 6,
+    severity: 'high',
+    auditSourceType: 'wcag-aa',
+    auditSourceLabel: 'WCAG AA',
+    wcagCriteria: ['2.5.8'],
+    sourceUrl: 'https://chateausureau.example.com/page',
+  };
+
+  // 20 low-effort ("quick-wins", rank 0) filler issues always sort before
+  // target-size's fixed "medium-effort" (rank 1) template, regardless of
+  // score — exactly enough to push it past position 20.
+  const overloadedPageScorecard = {
+    dimensions: [
+      {
+        key: 'visualClarity',
+        label: 'Visual Clarity',
+        score: 90,
+        weight: 30,
+        issueCount: 20,
+        topIssues: Array.from({ length: 20 }, (_, i) => makeFillerIssue(i)),
+      },
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 61,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [targetSizeIssue],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  // Fixture sanity check: confirm this page's own capped roadmap really
+  // does lose target-size, so the test is actually exercising the bug.
+  const perPageRoadmap = buildRemediationRoadmap(overloadedPageScorecard);
+  assert.equal(perPageRoadmap.length, 20);
+  assert.ok(
+    !perPageRoadmap.some((item) => item.auditId === 'target-size'),
+    'fixture setup check: target-size must be capped out of a single page\'s own roadmap for this test to mean anything',
+  );
+
+  // The site-wide aggregate, built across every page, must still surface it.
+  const aggregateRoadmap = buildAggregateRemediationRoadmap([overloadedPageScorecard, overloadedPageScorecard]);
+  const targetSizeInAggregate = aggregateRoadmap.find((item) => item.auditId === 'target-size');
+  assert.ok(
+    targetSizeInAggregate,
+    'a criterion failing on every page must appear in the site-wide roadmap even if it never makes any single page\'s top 20',
+  );
+});
+
 test('buildAnalysisDetail returns normalized scorecard-backed detail payload for account views', () => {
   const detail = buildAnalysisDetail({
     _id: 'rec-1',

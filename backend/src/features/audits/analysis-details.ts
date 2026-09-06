@@ -822,7 +822,19 @@ function buildEvaluationDimensionLookup(
     return lookup;
 }
 
-export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): AnalysisRemediationItem[] {
+/**
+ * P3-03 — collects and ranks every deduped recommendation for a page's own
+ * scorecard, with no cap. Split out of buildRemediationRoadmap so
+ * buildAggregateRemediationRoadmap (below) can union every page's *full*
+ * ranked list across a site, not each page's already-capped top 20 — a
+ * criterion failing on every page of a site should never be able to lose
+ * to a display cap on every single page and vanish from the aggregate
+ * entirely, which is exactly what happened to chateausureau.com's
+ * touch-target (WCAG 2.5.8) recommendation: it failed on all 16 pages but
+ * ranked outside every individual page's top 20, so it never survived to
+ * be unioned into the site-wide roadmap.
+ */
+function collectRankedRemediationItems(scorecard: AuditScorecard | undefined): AnalysisRemediationItem[] {
     const scoreDimensions = scorecard?.dimensions || [];
     if (!scoreDimensions.length) {
         return [];
@@ -875,23 +887,29 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
         }
     }
 
-    return [...items.values()]
-        .sort((left, right) => {
-            if (rankBucket(left.bucketKey) !== rankBucket(right.bucketKey)) {
-                return rankBucket(left.bucketKey) - rankBucket(right.bucketKey);
-            }
+    return [...items.values()].sort((left, right) => {
+        if (rankBucket(left.bucketKey) !== rankBucket(right.bucketKey)) {
+            return rankBucket(left.bucketKey) - rankBucket(right.bucketKey);
+        }
 
-            if (rankImpact(left.impact) !== rankImpact(right.impact)) {
-                return rankImpact(left.impact) - rankImpact(right.impact);
-            }
+        if (rankImpact(left.impact) !== rankImpact(right.impact)) {
+            return rankImpact(left.impact) - rankImpact(right.impact);
+        }
 
-            if (rankEffort(left.effort) !== rankEffort(right.effort)) {
-                return rankEffort(left.effort) - rankEffort(right.effort);
-            }
+        if (rankEffort(left.effort) !== rankEffort(right.effort)) {
+            return rankEffort(left.effort) - rankEffort(right.effort);
+        }
 
-            return left.currentScore - right.currentScore;
-        })
-        .slice(0, 20);
+        return left.currentScore - right.currentScore;
+    });
+}
+
+/** A single page's own "Priority Recommendations" section — capped to the
+ * top 20 so one page's report doesn't turn into an unreadable wall of
+ * blocks. This cap is fine for that one purpose; see collectRankedRemediationItems
+ * for why it must not be applied before site-wide aggregation. */
+export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): AnalysisRemediationItem[] {
+    return collectRankedRemediationItems(scorecard).slice(0, 20);
 }
 
 /**
@@ -903,12 +921,19 @@ export function buildRemediationRoadmap(scorecard: AuditScorecard | undefined): 
  * aggregate scorecard's already-capped, cross-page top-3-per-dimension
  * issue lists, whose bucket counts couldn't be reproduced from — and often
  * contradicted — the full report's actual per-page recommendation sections.
+ *
+ * P3-03: unions collectRankedRemediationItems (uncapped), not
+ * buildRemediationRoadmap (capped to 20 for a single page's own display).
+ * Unioning the capped version meant a criterion could rank outside the top
+ * 20 on every page of a site and never reach this aggregate at all, even
+ * while failing site-wide — the exact bug behind chateausureau.com's
+ * missing touch-target (WCAG 2.5.8) recommendation.
  */
 export function buildAggregateRemediationRoadmap(pageScorecards: Array<AuditScorecard | undefined>): AnalysisRemediationItem[] {
     const merged = new Map<string, AnalysisRemediationItem>();
 
     for (const pageScorecard of pageScorecards) {
-        for (const item of buildRemediationRoadmap(pageScorecard)) {
+        for (const item of collectRankedRemediationItems(pageScorecard)) {
             const existing = merged.get(item.auditId);
             // Keep the worst-scoring occurrence as the representative, so the
             // displayed evidence reflects the most severe instance sitewide.
