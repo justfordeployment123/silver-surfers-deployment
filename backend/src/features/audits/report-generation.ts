@@ -20,6 +20,7 @@ import {
 } from './audit-scorecard.ts';
 import type { WcagMatrix } from './wcag-matrix.ts';
 import { describeWcagStandardLabel } from './wcag-mapping.ts';
+import { DISCLAIMER_SHORT } from './report-disclaimers.ts';
 
 export interface LitePdfResult {
   reportPath: string;
@@ -887,6 +888,14 @@ export async function generateAuditAiSummaryPdf(
           .text(captionParts.join(' '), pageMarginLeft, doc.y, { width: contentWidth });
         doc.y += 6;
       }
+
+      // Docs/Report-Disclaimer-and-Limitations.pdf (section A) — short
+      // disclaimer directly under the score, same placement intent as the
+      // full/lite PDFs' cover pages.
+      doc.font('RegularFont').fontSize(8).fillColor('#94A3B8')
+        .text(DISCLAIMER_SHORT, pageMarginLeft, doc.y, { width: contentWidth });
+      doc.y += doc.heightOfString(DISCLAIMER_SHORT, { width: contentWidth }) + 6;
+
       doc.y += 12;
     };
 

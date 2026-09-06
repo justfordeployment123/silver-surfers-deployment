@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import PDFDocument from 'pdfkit';
 import { buildAuditScorecard } from '../audit-scorecard.ts';
 import { describeWcagStandardLabel } from '../wcag-mapping.ts';
+import { DISCLAIMER_SHORT } from '../report-disclaimers.ts';
 
 // Helper to get __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -198,7 +199,13 @@ class LiteAccessibilityPDFGenerator {
     this.doc.fontSize(14).font('BoldFont').fillColor('#2C3E50')
         .text('SilverSurfers Score (Lite)', this.margin, this.currentY,
             { width: this.pageWidth, align: 'center' });
-    this.currentY += 30;
+    this.currentY += 25;
+
+    // Docs/Report-Disclaimer-and-Limitations.pdf (section A) — short
+    // disclaimer under the score, every report (including this lite one).
+    this.doc.fontSize(8).font('RegularFont').fillColor('#6B7280')
+        .text(DISCLAIMER_SHORT, this.margin, this.currentY, { width: this.pageWidth, align: 'center', lineGap: 1 });
+    this.currentY += this.doc.heightOfString(DISCLAIMER_SHORT, { width: this.pageWidth, lineGap: 1 }) + 20;
 }
 
     addLiteResults(reportData) {

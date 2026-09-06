@@ -1,7 +1,10 @@
 import type { AuditIssueSummary } from "./audit-scorecard.ts";
 import {
+    BOT_SUSPECT_CRITERIA,
     CRITERION_AUDIT_MAP,
     MANUAL_ONLY_CRITERIA,
+    NEEDS_REVIEW_CLEAN_TEXT,
+    NEEDS_REVIEW_DETECTED_TEXT,
     WCAG_CRITERIA_REGISTRY,
     type WcagEvidenceSource,
     type WcagMatrix,
@@ -9,13 +12,6 @@ import {
     type WcagMatrixSummary,
     type WcagPourPrinciple,
 } from "./wcag-mapping.ts";
-
-// Criteria where our scanner can detect violations via DOM inspection but cannot confirm a pass.
-// When no violation is found, status becomes "needs-review" rather than "pass".
-const PARTIAL_COVERAGE_CRITERIA: Record<string, string> = {
-    "2.1.1": "DOM inspection detects elements removed from the tab order, but confirming that ALL functionality is operable by keyboard requires manual navigation testing.",
-    "2.1.2": "Dialog close-button detection covers the most common trap pattern, but complex custom focus-management widgets may still trap keyboard users and require manual verification.",
-};
 
 // 2.2.7.2 — optional scoping to a single WCAG version/level (from a job's
 // wcagStandard/conformanceLevel selection) instead of always building the
@@ -172,7 +168,7 @@ export function buildWcagMatrix(
             };
         }
 
-        // Manual-only criteria
+        // List 3 — human only, always Needs Review regardless of any audit result.
         if (MANUAL_ONLY_CRITERIA[criterion]) {
             return {
                 criterion,
@@ -186,6 +182,69 @@ export function buildWcagMatrix(
                 remediationGuidance: "",
                 manualReviewRequired: true,
                 manualReviewReason: MANUAL_ONLY_CRITERIA[criterion],
+            };
+        }
+
+        // List 2 — the bot can only ever suspect an issue here; a human always
+        // gives the final verdict. Checked BEFORE the fail/pass logic below so
+        // these criteria can never print a bare Fail or a bare Pass, only
+        // Needs Review — worded differently depending on whether the scanner
+        // actually found something to point at.
+        if (BOT_SUSPECT_CRITERIA.has(criterion)) {
+            const suspectMappedAuditIds = CRITERION_AUDIT_MAP[criterion] || [];
+            const allNotApplicable =
+                suspectMappedAuditIds.length > 0 &&
+                notApplicableSet.size > 0 &&
+                suspectMappedAuditIds.every((id) => notApplicableSet.has(id));
+
+            if (allNotApplicable) {
+                return {
+                    criterion,
+                    title: def.title,
+                    level: def.level,
+                    principle: def.principle,
+                    status: "not-applicable",
+                    evidenceSource: resolveEvidenceSource(suspectMappedAuditIds),
+                    affectedElements: [],
+                    issueCount: 0,
+                    remediationGuidance: "",
+                    manualReviewRequired: false,
+                };
+            }
+
+            const matchingIssues = failedCriteriaMap.get(criterion);
+            const flaggedManual = suspectMappedAuditIds.some((id) => manualReviewSet.has(id));
+
+            if (matchingIssues || flaggedManual) {
+                const elementCount = (matchingIssues || []).reduce((sum, issue) => sum + (issue.elementCount ?? 0), 0);
+                const auditIds = matchingIssues ? matchingIssues.map((i) => i.auditId) : suspectMappedAuditIds;
+                return {
+                    criterion,
+                    title: def.title,
+                    level: def.level,
+                    principle: def.principle,
+                    status: "needs-review",
+                    evidenceSource: resolveEvidenceSource(auditIds),
+                    affectedElements: matchingIssues ? collectAffectedElements(matchingIssues) : [],
+                    issueCount: matchingIssues ? (elementCount > 0 ? elementCount : matchingIssues.length) : 0,
+                    remediationGuidance: "",
+                    manualReviewRequired: true,
+                    manualReviewReason: NEEDS_REVIEW_DETECTED_TEXT,
+                };
+            }
+
+            return {
+                criterion,
+                title: def.title,
+                level: def.level,
+                principle: def.principle,
+                status: "needs-review",
+                evidenceSource: suspectMappedAuditIds.length > 0 ? resolveEvidenceSource(suspectMappedAuditIds) : "none",
+                affectedElements: [],
+                issueCount: 0,
+                remediationGuidance: "",
+                manualReviewRequired: true,
+                manualReviewReason: NEEDS_REVIEW_CLEAN_TEXT,
             };
         }
 
@@ -213,9 +272,7 @@ export function buildWcagMatrix(
             };
         }
 
-        // Pass or not-applicable depending on whether any audits cover this criterion.
-        // Partial-coverage criteria: scanner can flag violations but cannot confirm a clean pass —
-        // return needs-review so the client knows manual verification is still required.
+        // List 1 — pass or not-applicable depending on whether any audits cover this criterion.
         const mappedAuditIds = CRITERION_AUDIT_MAP[criterion] || [];
         if (mappedAuditIds.length > 0) {
             // If every mapped audit explicitly returned notApplicable, the criterion doesn't apply
@@ -252,21 +309,6 @@ export function buildWcagMatrix(
                 };
             }
 
-            if (PARTIAL_COVERAGE_CRITERIA[criterion]) {
-                return {
-                    criterion,
-                    title: def.title,
-                    level: def.level,
-                    principle: def.principle,
-                    status: "needs-review",
-                    evidenceSource: resolveEvidenceSource(mappedAuditIds),
-                    affectedElements: [],
-                    issueCount: 0,
-                    remediationGuidance: "",
-                    manualReviewRequired: true,
-                    manualReviewReason: PARTIAL_COVERAGE_CRITERIA[criterion],
-                };
-            }
             return {
                 criterion,
                 title: def.title,
