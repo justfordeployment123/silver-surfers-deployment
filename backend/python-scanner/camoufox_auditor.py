@@ -2890,6 +2890,18 @@ def run_camoufox_audit_sync(
                     }
 
                 # ── 2.7 No Keyboard Trap (WCAG 2.1.2) ──────────────────────────
+                # P3-04: checking for a recognizable close-button CSS pattern does
+                # not confirm an actual keyboard trap (real escape mechanisms —
+                # Escape-key handlers, click-outside-to-close, unrecognized ARIA
+                # patterns — don't match these selectors either) and does not rule
+                # one out. Per Docs/WCAG-Manual-Review-Criteria.pdf, 2.1.2 is a
+                # List 3 (human-only) criterion: this check can suspect a trap and
+                # point at the element, but never confirms Pass or Fail, so both
+                # branches report scoreDisplayMode "manual" (excluded from the
+                # Silver Score, same as ss-orientation-audit's own "nothing found"
+                # branch) instead of a binary fail — and, when it does find a
+                # suspect dialog, it now names the actual element instead of just
+                # a count sentence, so a human reviewer has something to check.
                 try:
                     trap_results = page.evaluate("""
                         () => {
@@ -2899,10 +2911,11 @@ def run_camoufox_audit_sync(
                                 const ti = el.getAttribute('tabindex');
                                 return ti === null || parseInt(ti, 10) >= 0;
                             });
-                            // Detect modal/dialog elements without proper close mechanism.
-                            // Check all visible dialogs, not only those with aria-modal="true".
+                            // Detect modal/dialog elements without a recognizable close
+                            // control. Check all visible dialogs, not only those with
+                            // aria-modal="true".
                             const dialogs = document.querySelectorAll('[role="dialog"], [role="alertdialog"], dialog');
-                            let trapCount = 0;
+                            const suspects = [];
                             dialogs.forEach(dlg => {
                                 const st = window.getComputedStyle(dlg);
                                 const isVisible = st.display !== 'none' && st.visibility !== 'hidden' && st.opacity !== '0';
@@ -2915,29 +2928,59 @@ def run_camoufox_audit_sync(
                                     'button[aria-label*="cancel" i], [data-dismiss], .close, .modal-close, ' +
                                     '[data-bs-dismiss], button[class*="close"]'
                                 );
-                                if (!hasClose) trapCount++;
+                                if (hasClose) return;
+                                let selector = dlg.tagName.toLowerCase();
+                                if (dlg.id) selector += '#' + dlg.id;
+                                else if (typeof dlg.className === 'string' && dlg.className.trim()) {
+                                    selector += '.' + dlg.className.trim().split(/\\s+/)[0];
+                                }
+                                suspects.push({ selector, role: dlg.getAttribute('role') || 'dialog' });
                             });
-                            return { trapCount, dialogCount: dialogs.length, focusableCount: focusable.length };
+                            return { suspects, dialogCount: dialogs.length, focusableCount: focusable.length };
                         }
                     """)
-                    trap_count = trap_results.get("trapCount", 0)
-                    audits["ss-no-keyboard-trap-audit"] = {
-                        "id": "ss-no-keyboard-trap-audit",
-                        "title": "No keyboard trap (WCAG 2.1.2)",
-                        "description": (
-                            f"Checks dialogs and modal regions for missing close controls that could trap "
-                            f"keyboard users. Found {trap_results.get('dialogCount', 0)} dialog(s), "
-                            f"{trap_count} potential trap(s)."
-                        ),
-                        "score": 1.0 if trap_count == 0 else 0.0,
-                        "numericValue": float(trap_count),
-                        "scoreDisplayMode": "binary",
-                        "details": {
-                            "type": "table",
-                            "headings": [{"key": "description", "label": "Issue"}],
-                            "items": [{"description": f"{trap_count} dialog(s) with aria-modal=true but no visible close button"}] if trap_count else [],
-                        } if trap_count else None,
-                    }
+                    suspects = trap_results.get("suspects", [])
+                    trap_count = len(suspects)
+                    dialog_count = trap_results.get("dialogCount", 0)
+                    if trap_count > 0:
+                        audits["ss-no-keyboard-trap-audit"] = {
+                            "id": "ss-no-keyboard-trap-audit",
+                            "title": "No keyboard trap (WCAG 2.1.2)",
+                            "description": (
+                                f"Found {dialog_count} dialog(s); {trap_count} did not expose a recognizable "
+                                f"close control. This does not confirm an actual keyboard trap - only a real "
+                                f"forward and reverse Tab pass can - so it requires manual verification."
+                            ),
+                            "score": None,
+                            "numericValue": trap_count,
+                            "scoreDisplayMode": "manual",
+                            "displayValue": (
+                                f"{trap_count} of {dialog_count} dialog(s) lack a recognizable close control "
+                                f"- manual keyboard test recommended"
+                            ),
+                            "details": {
+                                "type": "table",
+                                "headings": [
+                                    {"key": "selector", "itemType": "code", "text": "Element"},
+                                    {"key": "role", "itemType": "text", "text": "Role"},
+                                ],
+                                "items": suspects,
+                            },
+                        }
+                    else:
+                        audits["ss-no-keyboard-trap-audit"] = {
+                            "id": "ss-no-keyboard-trap-audit",
+                            "title": "No keyboard trap (WCAG 2.1.2)",
+                            "description": (
+                                "No dialogs lacking a recognizable close control were detected. Full "
+                                "verification requires a manual forward and reverse Tab pass, since this "
+                                "check cannot confirm keyboard escapability on its own."
+                            ),
+                            "score": None,
+                            "numericValue": 0,
+                            "scoreDisplayMode": "manual",
+                            "displayValue": "No suspect dialogs detected - manual keyboard test recommended",
+                        }
                 except Exception as e:
                     audits["ss-no-keyboard-trap-audit"] = {
                         "id": "ss-no-keyboard-trap-audit",

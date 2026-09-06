@@ -121,6 +121,17 @@ const AUDIT_INFO = {
         why: 'Age-related motor changes require larger, well-spaced interactive elements. Small targets lead to frustration and prevent task completion.',
         recommendation: 'Ensure all buttons, links, and other interactive elements meet the 44×44px SilverSurfers standard (WCAG 2.5.8 AA requires 24×24px; 44×44 also satisfies WCAG 2.5.5 AAA). Provide ample spacing between targets to prevent accidental taps.',
     },
+    // P3-04: without an AUDIT_INFO entry this audit was invisible in both the
+    // per-category evidence table and the Appendix, regardless of what
+    // evidence the scanner captured for it — added so the dialog-selector
+    // evidence added in camoufox_auditor.py actually reaches the client.
+    'ss-no-keyboard-trap-audit': {
+        title: 'No Keyboard Trap (WCAG 2.1.2)',
+        category: 'Motor Accessibility',
+        importance: 'Keyboard and switch-device users who get stuck inside a dialog or menu with no way out are completely blocked from the rest of the page.',
+        why: 'This automated check can only flag dialogs without a recognizable close button — it cannot actually tab through the page, so it can never confirm a real trap on its own.',
+        recommendation: 'Manually tab forward and backward (Shift+Tab) through each flagged element to confirm whether focus can actually leave it; add a visible, keyboard-operable close control (and Escape-key support) to any dialog that traps focus.',
+    },
     'layout-brittle-audit': {
         title: 'Text Spacing Flexibility for Readability',
         category: 'Motor Accessibility',
@@ -304,6 +315,7 @@ const AUDIT_PRD_DIMENSION_MAP = {
     bypass: 'navigationArchitecture',
     'flesch-kincaid-audit': 'contentReadability',
     'target-size': 'interactionForms',
+    'ss-no-keyboard-trap-audit': 'interactionForms',
     'button-name': 'technicalAccessibility',
     label: 'interactionForms',
     'is-on-https': 'trustSecuritySignals',
@@ -1836,11 +1848,17 @@ addOverallScoreDisplay(scoreData) {
         const audits = reportData.audits || {};
         const supportedAudits = Object.keys(audits).filter(id => AUDIT_INFO[id]);
 
-        // Collect all audits that have details.items (technical specifications)
+        // Collect all audits that have details.items (technical specifications).
+        // P3-04: a "manual" (needs-review) audit that still names a specific
+        // suspect element — e.g. ss-no-keyboard-trap-audit's dialog selectors —
+        // must not be dropped here just because it has no numeric score; that
+        // evidence is exactly what a human reviewer needs to actually check it,
+        // the same way every other audit's evidence table is shown.
         const auditsWithDetails = [];
         supportedAudits.forEach(auditId => {
             const auditData = audits[auditId];
-            if (auditData && auditData.score !== null && auditData.details && 
+            const hasScoreOrIsManual = auditData?.score !== null || auditData?.scoreDisplayMode === 'manual';
+            if (auditData && hasScoreOrIsManual && auditData.details &&
                 Array.isArray(auditData.details.items) && auditData.details.items.length > 0) {
                 auditsWithDetails.push({ id: auditId, data: auditData });
             }
@@ -2618,6 +2636,16 @@ addOverallScoreDisplay(scoreData) {
                     extractors: [
                         item => String(item.metric || 'N/A').trim(),
                         item => String(item.value || 'N/A').trim()
+                    ]
+                };
+            case 'ss-no-keyboard-trap-audit':
+                return {
+                    headers: ['Element', 'Role', 'Why It Needs Review'],
+                    widths: [190, 100, 225], // Total: 515
+                    extractors: [
+                        item => String(item.selector || 'N/A').trim(),
+                        item => String(item.role || 'dialog').trim(),
+                        item => 'No recognizable close control found - confirm with a manual Tab/Shift+Tab pass whether focus can actually leave this element'
                     ]
                 };
             default:
