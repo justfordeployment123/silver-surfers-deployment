@@ -706,12 +706,27 @@ def run_camoufox_audit_sync(
             # Viewport meta tag
             viewport_meta = soup.find("meta", attrs={"name": "viewport"})
             has_viewport = viewport_meta is not None
+            viewport_content = viewport_meta.get("content", "") if viewport_meta else ""
             audits["viewport"] = {
                 "id": "viewport",
                 "title": "Has a `<meta name=\"viewport\">` tag with `width` or `initial-scale`",
                 "description": "This audit checks if the page has a proper viewport meta tag for mobile devices. A viewport tag ensures the page displays correctly on tablets and phones.",
                 "score": 1.0 if has_viewport else 0.0,
                 "numericValue": 1.0 if has_viewport else 0.0,
+                "displayValue": f"Viewport meta found: {viewport_content}" if has_viewport else "No viewport meta tag found",
+                "details": {
+                    "type": "table",
+                    "headings": [
+                        {"key": "name", "itemType": "text", "text": "Meta"},
+                        {"key": "content", "itemType": "text", "text": "Content"},
+                    ],
+                    "items": [
+                        {
+                            "name": "viewport",
+                            "content": viewport_content or "Not found",
+                        }
+                    ],
+                },
             }
             
             # Link names - sync eval with details
@@ -962,26 +977,80 @@ def run_camoufox_audit_sync(
                     "items": [{"node": item.get("node", {})} for item in image_alt_results.get("items", [])]
                 }
             
-            # Heading order - sync eval
-            heading_order_valid = page.evaluate("""
+            # Heading order - sync eval. Only visible headings are evaluated;
+            # hidden modals/templates should not fail the visible page outline.
+            heading_order_results = page.evaluate("""
                 () => {
-                    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+                    const isVisible = (el) => {
+                        const style = window.getComputedStyle(el);
+                        const rect = el.getBoundingClientRect();
+                        return style.display !== 'none'
+                            && style.visibility !== 'hidden'
+                            && style.opacity !== '0'
+                            && rect.width > 0
+                            && rect.height > 0
+                            && !el.closest('[hidden], [aria-hidden="true"]');
+                    };
+                    const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+                        .filter(isVisible)
+                        .map((heading) => ({
+                            level: parseInt(heading.tagName[1]),
+                            text: (heading.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 160),
+                            selector: heading.tagName.toLowerCase()
+                                + (heading.id ? '#' + heading.id : '')
+                                + (() => {
+                                    const cls = typeof heading.className === 'string'
+                                        ? heading.className
+                                        : (heading.className?.baseVal || '');
+                                    return cls ? '.' + cls.trim().split(/\\s+/).slice(0, 2).join('.') : '';
+                                })(),
+                        }));
                     let lastLevel = 0;
+                    let previous = null;
                     for (const heading of headings) {
-                        const level = parseInt(heading.tagName[1]);
-                        if (level > lastLevel + 1) return false;
-                        lastLevel = level;
+                        if (heading.level > lastLevel + 1) {
+                            return { valid: false, headings, failure: { previous, current: heading } };
+                        }
+                        lastLevel = heading.level;
+                        previous = heading;
                     }
-                    return true;
+                    return { valid: true, headings, failure: null };
                 }
             """)
+            heading_order_valid = bool(heading_order_results.get("valid"))
+            heading_items = [
+                {
+                    "level": f"H{item.get('level')}",
+                    "text": item.get("text") or "(empty heading)",
+                    "selector": item.get("selector") or "",
+                }
+                for item in heading_order_results.get("headings", [])
+            ]
+            heading_failure = heading_order_results.get("failure")
             audits["heading-order"] = {
                 "id": "heading-order",
                 "title": "Heading elements appear in a sequentially-descending order",
                 "description": "This audit checks if headings follow a logical order (H1, then H2, then H3, etc.). Proper heading structure helps screen readers and improves content organization.",
                 "score": 1.0 if heading_order_valid else 0.0,
                 "numericValue": 1.0 if heading_order_valid else 0.0,
+                "displayValue": "Visible headings follow sequential order" if heading_order_valid else "Visible heading order skips a level",
+                "details": {
+                    "type": "table",
+                    "headings": [
+                        {"key": "level", "itemType": "text", "text": "Level"},
+                        {"key": "text", "itemType": "text", "text": "Heading Text"},
+                        {"key": "selector", "itemType": "code", "text": "Location"},
+                    ],
+                    "items": heading_items,
+                },
             }
+            if heading_failure:
+                current_heading = heading_failure.get("current") or {}
+                previous_heading = heading_failure.get("previous") or {}
+                audits["heading-order"]["debugFailure"] = {
+                    "previous": previous_heading,
+                    "current": current_heading,
+                }
             
             # HTTPS check
             is_https = urlparse(final_url).scheme == "https"
