@@ -1245,6 +1245,36 @@ export function humanizeAuditFailureReason(options: { errorCode?: string | null;
 }
 
 /**
+ * P3-01 — a crawled URL that redirects to a meaningfully different page
+ * (a different pathname) must not be reported under its original,
+ * no-longer-accurate label; the audited content actually belongs to the
+ * destination. Protocol (http/https) and www-prefix differences are
+ * ignored on purpose — those are routine canonicalization on a page's own
+ * URL (e.g. the homepage upgrading to https://www.), not a redirect to a
+ * different page, and flagging them would turn nearly every homepage scan
+ * into a false-positive gap. Query strings and hash fragments are also
+ * ignored for the same reason: same page, not a different one.
+ */
+export function isMeaningfulRedirect(requestedUrl: string, finalUrl: string): boolean {
+  if (!requestedUrl || !finalUrl) return false;
+
+  const normalizedPath = (value: string): string => {
+    try {
+      return new URL(value).pathname.replace(/\/+$/, '') || '/';
+    } catch {
+      return value.replace(/\/+$/, '');
+    }
+  };
+
+  return normalizedPath(requestedUrl) !== normalizedPath(finalUrl);
+}
+
+/** The gap-page reason text for a page routed away by isMeaningfulRedirect. */
+export function describeRedirectGapReason(finalUrl: string): string {
+  return `redirects to ${finalUrl}; not separately audited`;
+}
+
+/**
  * Converts an index within the successfully scanned reports array into the
  * original crawl sequence, given the (ascending) crawl positions of the pages
  * that failed at scan time. PDF-generation failures use this to keep gap

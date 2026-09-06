@@ -58,16 +58,31 @@ import {
 import {
   calculateSeniorFriendlinessScore,
   crawlOrderForReportIndex,
+  describeRedirectGapReason,
   generateCombinedPlatformReport,
   generateAuditAiSummaryPdf,
   generateSeniorAccessibilityReport,
   humanizeAuditFailureReason,
+  isMeaningfulRedirect,
   mergePDFsByPlatform,
   type FullAuditPlatformReport,
   type MissingMergePage,
 } from './report-generation.ts';
 
 const fullAuditLogger = logger.child('feature:audits:full-audit');
+
+/**
+ * P3-01 — thrown by auditLinkForDevice when a page redirected to a
+ * meaningfully different destination, so callers can route it to their own
+ * gap/missing-page tracking with an accurate reason instead of treating it
+ * as a generic scan failure.
+ */
+class RedirectGapError extends Error {
+  constructor(public readonly finalUrl: string) {
+    super(describeRedirectGapReason(finalUrl));
+    this.name = 'RedirectGapError';
+  }
+}
 
 interface FullAuditJobPayload {
   email: string;
@@ -332,15 +347,21 @@ async function auditLinkForDevice(
   }
 
   const reportData = JSON.parse(await fs.readFile(auditResult.reportPath, 'utf8')) as Record<string, unknown>;
-  const requestedPageUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl.replace(/\/+$/, '') : '';
-  const finalPageUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl.replace(/\/+$/, '') : '';
-  if (requestedPageUrl && finalPageUrl && requestedPageUrl !== finalPageUrl) {
-    fullAuditLogger.warn('Page scan redirected to a different final URL.', {
+  const requestedPageUrl = typeof reportData.requestedUrl === 'string' ? reportData.requestedUrl : '';
+  const finalPageUrl = typeof reportData.finalUrl === 'string' ? reportData.finalUrl : '';
+  // P3-01 — a redirect to a meaningfully different page (not just a
+  // protocol/www upgrade of the same page) means the audited content
+  // belongs to the destination, not the URL the client thinks was audited.
+  // Route it to the caller's gap-page handling instead of silently
+  // reporting the destination's content under the original label.
+  if (isMeaningfulRedirect(requestedPageUrl, finalPageUrl)) {
+    fullAuditLogger.warn('Page scan redirected to a different page; reporting as not separately audited.', {
       url: link,
       device,
-      requestedUrl: reportData.requestedUrl,
-      finalUrl: reportData.finalUrl,
+      requestedUrl: requestedPageUrl,
+      finalUrl: finalPageUrl,
     });
+    throw new RedirectGapError(finalPageUrl);
   }
   if (env.fullAuditCacheEnabled) {
     await setCachedFullAuditPageReport({
@@ -1277,12 +1298,17 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
       const tempReportPath = path.join(finalReportFolder, `scanner-result-${device}-${Date.now()}-${index}.json`);
       await fs.writeFile(tempReportPath, JSON.stringify(target.report, null, 2), 'utf8');
 
+      let redirectGapReason: string | null = null;
       const reportEntry = await auditLinkForDevice(websiteUrl, url, device, finalReportFolder, {
         success: true,
         reportPath: tempReportPath,
         isLiteVersion: Boolean(target.isLiteVersion),
         scanModeUsed,
       }).catch((error) => {
+        if (error instanceof RedirectGapError) {
+          redirectGapReason = error.message;
+          return null;
+        }
         fullAuditLogger.warn('Failed to build score metadata from scanner result target.', {
           taskId: effectiveTaskId,
           scannerJobId,
@@ -1300,7 +1326,7 @@ export async function completeFullAuditFromScannerResult(payload: ScannerSqsResu
           device,
           scanModeUsed,
           status: 'failed',
-          failureReason: 'Scanner target succeeded but backend could not build score metadata.',
+          failureReason: redirectGapReason || 'Scanner target succeeded but backend could not build score metadata.',
         });
         continue;
       }
@@ -2072,7 +2098,12 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           );
         }
 
+        let redirectGapReason: string | null = null;
         const reportEntry = await auditLinkForDevice(job.url, targetPage.url, device, finalReportFolder, resolvedPageScanResult).catch((error) => {
+          if (error instanceof RedirectGapError) {
+            redirectGapReason = error.message;
+            return null;
+          }
           fullAuditLogger.error('Unexpected error while persisting page audit.', {
             url: targetPage.url,
             device,
@@ -2089,7 +2120,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
             targetPage,
             device,
             resolvedPageScanResult.scanModeUsed,
-            resolvedPageScanResult.error || 'Page scan did not produce a usable report.',
+            redirectGapReason || resolvedPageScanResult.error || 'Page scan did not produce a usable report.',
             {
               errorCode: resolvedPageScanResult.errorCode,
               statusCode: resolvedPageScanResult.statusCode,
@@ -2101,7 +2132,7 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           }
           missingPagesByPlatform[device]?.push({
             url: targetPage.url,
-            reason: humanizeAuditFailureReason({
+            reason: redirectGapReason || humanizeAuditFailureReason({
               errorCode: resolvedPageScanResult.errorCode,
               error: resolvedPageScanResult.error,
             }),
