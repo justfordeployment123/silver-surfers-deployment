@@ -1,3 +1,4 @@
+import json
 import os
 import random
 import time
@@ -137,6 +138,69 @@ def navigate_for_audit(page, url: str):
                 except Exception:
                     pass
             raise first_error
+
+
+def _collect_dom_readiness(page) -> Dict[str, Any]:
+    try:
+        return page.evaluate(
+            """
+            () => {
+                const text = (document.body && document.body.innerText) || '';
+                const count = (selector) => document.querySelectorAll(selector).length;
+                const hasViewport = Boolean(document.querySelector('meta[name="viewport"]'));
+                const structuralCount =
+                    count('a[href]')
+                    + count('button, [role="button"]')
+                    + count('input, select, textarea')
+                    + count('img, svg, picture, video, canvas')
+                    + count('h1, h2, h3, h4, h5, h6')
+                    + count('main, nav, header, footer, section, [role="main"], [role="navigation"]');
+                return {
+                    url: window.location.href,
+                    title: document.title || '',
+                    readyState: document.readyState,
+                    hasViewport,
+                    bodyChars: text.trim().length,
+                    domCount: count('*'),
+                    links: count('a[href]'),
+                    buttons: count('button, [role="button"]'),
+                    controls: count('input, select, textarea'),
+                    media: count('img, svg, picture, video, canvas'),
+                    headings: count('h1, h2, h3, h4, h5, h6'),
+                    landmarks: count('main, nav, header, footer, section, [role="main"], [role="navigation"]'),
+                    structuralCount,
+                };
+            }
+            """
+        ) or {}
+    except Exception as error:
+        return {"error": safe_text(str(error))}
+
+
+def _wait_for_auditable_dom(page, timeout_ms: int = 15000) -> Dict[str, Any]:
+    deadline = time.time() + max(1, timeout_ms) / 1000
+    diagnostics: Dict[str, Any] = {}
+
+    while True:
+        diagnostics = _collect_dom_readiness(page)
+        has_viewport = bool(diagnostics.get("hasViewport"))
+        structural_count = int(diagnostics.get("structuralCount", 0) or 0)
+        body_chars = int(diagnostics.get("bodyChars", 0) or 0)
+        dom_count = int(diagnostics.get("domCount", 0) or 0)
+
+        if has_viewport and (structural_count >= 8 or body_chars >= 300 or dom_count >= 80):
+            diagnostics["auditableReady"] = True
+            return diagnostics
+
+        if time.time() >= deadline:
+            diagnostics["auditableReady"] = False
+            return diagnostics
+
+        try:
+            page.wait_for_timeout(500)
+        except Exception:
+            diagnostics["auditableReady"] = False
+            return diagnostics
 
 
 def run_camoufox_audit_sync(
@@ -307,6 +371,29 @@ def run_camoufox_audit_sync(
                 page.wait_for_timeout(random.randint(300, 800))
             except Exception:
                 pass
+
+            readiness = _wait_for_auditable_dom(page)
+            print(
+                "Auditable DOM readiness: "
+                + json.dumps(
+                    {
+                        "ready": readiness.get("auditableReady"),
+                        "url": readiness.get("url"),
+                        "title": readiness.get("title"),
+                        "readyState": readiness.get("readyState"),
+                        "hasViewport": readiness.get("hasViewport"),
+                        "bodyChars": readiness.get("bodyChars"),
+                        "domCount": readiness.get("domCount"),
+                        "links": readiness.get("links"),
+                        "buttons": readiness.get("buttons"),
+                        "controls": readiness.get("controls"),
+                        "media": readiness.get("media"),
+                        "headings": readiness.get("headings"),
+                        "landmarks": readiness.get("landmarks"),
+                    },
+                    ensure_ascii=False,
+                )
+            )
             
             # Get page content (sync)
             html_content = page.content()
@@ -704,9 +791,26 @@ def run_camoufox_audit_sync(
                 }
             
             # Viewport meta tag
-            viewport_meta = soup.find("meta", attrs={"name": "viewport"})
-            has_viewport = viewport_meta is not None
-            viewport_content = viewport_meta.get("content", "") if viewport_meta else ""
+            try:
+                viewport_result = page.evaluate(
+                    """
+                    () => {
+                        const meta = document.querySelector('meta[name="viewport"]');
+                        return {
+                            found: Boolean(meta),
+                            content: meta ? (meta.getAttribute('content') || '') : '',
+                        };
+                    }
+                    """
+                ) or {}
+            except Exception:
+                viewport_meta = soup.find("meta", attrs={"name": "viewport"})
+                viewport_result = {
+                    "found": viewport_meta is not None,
+                    "content": viewport_meta.get("content", "") if viewport_meta else "",
+                }
+            has_viewport = bool(viewport_result.get("found"))
+            viewport_content = safe_text(viewport_result.get("content") or "")
             audits["viewport"] = {
                 "id": "viewport",
                 "title": "Has a `<meta name=\"viewport\">` tag with `width` or `initial-scale`",

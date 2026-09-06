@@ -26,7 +26,7 @@ from urllib.parse import urljoin, urlparse
 import boto3
 
 from camoufox_auditor import run_camoufox_audit_sync
-from scanner_config import get_viewport_for_device
+from scanner_config import LITE_AUDIT_REFS, get_viewport_for_device
 from scanner_service import _extract_links_sync
 from scanner_utils import run_with_clean_event_loop_context, safe_text, sanitize_report_data
 
@@ -1047,6 +1047,45 @@ class ScannerSqsWorker:
             raise RuntimeError("Audit score is 0, indicating a failed audit.")
 
         report = sanitize_report_data(result.get("report") or {})
+        if is_lite_version:
+            lite_audit_scores = {}
+            for audit_ref in LITE_AUDIT_REFS:
+                audit_id = audit_ref.get("id")
+                audit = (report.get("audits") or {}).get(audit_id) if audit_id else None
+                if not isinstance(audit, dict):
+                    lite_audit_scores[audit_id] = "missing"
+                    continue
+                lite_audit_scores[audit_id] = {
+                    "score": audit.get("score"),
+                    "displayValue": audit.get("displayValue"),
+                    "scoreDisplayMode": audit.get("scoreDisplayMode"),
+                    "debugFailure": audit.get("debugFailure"),
+                }
+            axe_failures = {}
+            for audit_id, audit in (report.get("audits") or {}).items():
+                if (
+                    isinstance(audit_id, str)
+                    and audit_id.startswith("axe-")
+                    and audit_id != "axe-core"
+                    and isinstance(audit, dict)
+                    and audit.get("score") not in (None, 1, 1.0)
+                ):
+                    axe_failures[audit_id] = {
+                        "score": audit.get("score"),
+                        "title": audit.get("title"),
+                        "displayValue": audit.get("displayValue"),
+                    }
+            logger.info(
+                "Scanner SQS lite audit score inputs.",
+                extra={
+                    "scannerJobId": scanner_job_id,
+                    "url": url,
+                    "device": device,
+                    "score": final_score,
+                    "liteAuditScores": lite_audit_scores,
+                    "axeFailures": axe_failures,
+                },
+            )
         key = self._build_artifact_key(scanner_job_id, url, is_lite_version)
         self.s3.put_object(
             Bucket=self.bucket,

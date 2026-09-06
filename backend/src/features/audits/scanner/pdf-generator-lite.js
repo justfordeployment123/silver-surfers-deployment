@@ -80,6 +80,22 @@ const LITE_AUDIT_INFO = {
     }
 };
 
+function formatDynamicAxeTitle(auditId, auditResult) {
+    const rawTitle = auditResult?.title || auditId.replace(/^axe-/, '');
+    return String(rawTitle)
+        .replace(/^axe[-\s:]*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim() || auditId;
+}
+
+function formatDynamicAxeImpact(auditResult) {
+    const description = auditResult?.description || auditResult?.displayValue || '';
+    return String(description)
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 180) || 'axe-core detected an accessibility issue that should be reviewed and corrected.';
+}
+
 const LITE_CATEGORY_COLORS = {
     'Vision': { bg: '#E3F2FD', border: '#1976D2' },
     'Motor': { bg: '#F3E5F5', border: '#7B1FA2' },
@@ -251,7 +267,7 @@ class LiteAccessibilityPDFGenerator {
         const titleWidth = cardWidth - badgeWidth - titleLeftPad - titleRightGap;
 
         // Pre-compute each card's required height so paired cards in the same row share the same height
-        const cardItems = Object.keys(LITE_AUDIT_INFO)
+        const staticCardItems = Object.keys(LITE_AUDIT_INFO)
             .map((auditId) => {
                 const auditResult = audits[auditId];
                 const auditInfo = LITE_AUDIT_INFO[auditId];
@@ -259,6 +275,26 @@ class LiteAccessibilityPDFGenerator {
                 return { auditId, auditResult, auditInfo };
             })
             .filter(Boolean);
+        const dynamicAxeCardItems = Object.entries(audits)
+            .filter(([auditId, auditResult]) => (
+                auditId.startsWith('axe-')
+                && auditId !== 'axe-core'
+                && !LITE_AUDIT_INFO[auditId]
+                && auditResult
+                && auditResult.score !== null
+                && auditResult.score !== undefined
+                && Number(auditResult.score) < 0.999
+            ))
+            .map(([auditId, auditResult]) => ({
+                auditId,
+                auditResult,
+                auditInfo: {
+                    title: formatDynamicAxeTitle(auditId, auditResult),
+                    category: 'WCAG',
+                    impact: formatDynamicAxeImpact(auditResult),
+                },
+            }));
+        const cardItems = [...staticCardItems, ...dynamicAxeCardItems];
 
         // Calculate each card's height before drawing so paired rows share max height
         const cardHeights = cardItems.map(({ auditInfo }) => {

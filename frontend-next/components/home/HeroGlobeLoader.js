@@ -7,7 +7,10 @@
 // `React.lazy(() => import('../components/HeroGlobe'))` + <Suspense>.
 import dynamic from 'next/dynamic';
 
-const HeroGlobe = dynamic(() => import('../HeroGlobe'), { ssr: false });
+const HeroGlobe = dynamic(
+  () => import('../HeroGlobe').catch(() => ({ default: () => null })),
+  { ssr: false },
+);
 
 export default function HeroGlobeLoader() {
   return <HeroGlobe />;

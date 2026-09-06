@@ -6,7 +6,7 @@
 // loaded exclusively via components/home/HeroGlobeLoader.js's
 // next/dynamic(..., { ssr: false }), the direct replacement for the old
 // app's React.lazy() + Suspense code-split point.
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Globe from 'react-globe.gl';
 import * as THREE from 'three';
 import countryStats from '../data/countryStats';
@@ -49,9 +49,32 @@ const PALETTES = {
   },
 };
 
-const getTheme = () => (
-  document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark'
-);
+const getTheme = () => {
+  if (typeof document === 'undefined') return 'dark';
+  return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+};
+
+class HeroGlobeBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Hero globe disabled after render error.', error);
+    }
+  }
+
+  render() {
+    if (this.state.hasError) return null;
+    return this.props.children;
+  }
+}
 
 const HeroGlobe = () => {
   const globeRef = useRef(null);
@@ -68,6 +91,7 @@ const HeroGlobe = () => {
   // Follow the site's theme toggle — it flips document.documentElement's
   // data-theme attribute in place (no page reload), so watch for that.
   useEffect(() => {
+    if (typeof document === 'undefined' || typeof MutationObserver === 'undefined') return undefined;
     const observer = new MutationObserver(() => setTheme(getTheme()));
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     return () => observer.disconnect();
@@ -109,13 +133,20 @@ const HeroGlobe = () => {
 
     const trySetup = () => {
       if (cancelled) return;
-      const controls = globeRef.current?.controls();
+      let controls = null;
+      try {
+        controls = globeRef.current?.controls();
+      } catch (_) {
+        return;
+      }
       if (controls) {
         controls.autoRotate = true;
         controls.autoRotateSpeed = AUTO_ROTATE_SPEED;
         controls.enableZoom = false;
         controls.enablePan = false;
-        globeRef.current.pointOfView({ lat: 22, lng: -40, altitude: 2.05 });
+        try {
+          globeRef.current?.pointOfView({ lat: 22, lng: -40, altitude: 2.05 });
+        } catch (_) {}
       } else {
         raf = requestAnimationFrame(trySetup);
       }
@@ -129,8 +160,10 @@ const HeroGlobe = () => {
   }, []);
 
   const setAutoRotate = useCallback((value) => {
-    const controls = globeRef.current?.controls();
-    if (controls) controls.autoRotate = value;
+    try {
+      const controls = globeRef.current?.controls();
+      if (controls) controls.autoRotate = value;
+    } catch (_) {}
   }, []);
 
   const handleHover = useCallback((polygon) => {
@@ -156,13 +189,18 @@ const HeroGlobe = () => {
     setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
   }, []);
 
+  let materialReady = true;
   if (!materialRef.current) {
-    materialRef.current = new THREE.MeshPhongMaterial({
-      color: palette.sphereColor,
-      emissive: palette.sphereEmissive,
-      emissiveIntensity: palette.emissiveIntensity,
-      shininess: 6,
-    });
+    try {
+      materialRef.current = new THREE.MeshPhongMaterial({
+        color: palette.sphereColor,
+        emissive: palette.sphereEmissive,
+        emissiveIntensity: palette.emissiveIntensity,
+        shininess: 6,
+      });
+    } catch (_) {
+      materialReady = false;
+    }
   }
 
   // Material colors are mutable THREE.Color objects, not React-diffed props
@@ -191,17 +229,21 @@ const HeroGlobe = () => {
     const trySetup = () => {
       if (cancelled) return;
       if (!graticuleRef.current) {
-        const scene = globeRef.current?.scene?.();
-        scene?.traverse((obj) => {
-          if (
-            !graticuleRef.current
-            && obj.isLineSegments
-            && obj.material?.color?.getHexString() === 'd3d3d3'
-            && obj.material.opacity === 0.1
-          ) {
-            graticuleRef.current = obj;
-          }
-        });
+        try {
+          const scene = globeRef.current?.scene?.();
+          scene?.traverse((obj) => {
+            if (
+              !graticuleRef.current
+              && obj.isLineSegments
+              && obj.material?.color?.getHexString() === 'd3d3d3'
+              && obj.material.opacity === 0.1
+            ) {
+              graticuleRef.current = obj;
+            }
+          });
+        } catch (_) {
+          return;
+        }
       }
       if (graticuleRef.current) {
         graticuleRef.current.material.color.set(palette.graticuleColor);
@@ -232,6 +274,8 @@ const HeroGlobe = () => {
   const altitude = useCallback((d) => (d === hovered ? 0.02 : 0.006), [hovered]);
 
   const hoveredStat = hovered && countryStats[hovered.id];
+
+  if (!materialReady || !materialRef.current) return null;
 
   return (
     <>
@@ -270,27 +314,29 @@ const HeroGlobe = () => {
         onMouseLeave={handleMouseLeave}
         aria-hidden="true"
       >
-        <Globe
-          ref={globeRef}
-          width={size}
-          height={size}
-          backgroundColor="rgba(0,0,0,0)"
-          globeImageUrl={null}
-          globeMaterial={materialRef.current}
-          showGraticules
-          showAtmosphere
-          atmosphereColor={palette.atmosphere}
-          atmosphereAltitude={0.2}
-          polygonsData={countries}
-          polygonCapColor={capColor}
-          polygonSideColor={() => palette.sideColor}
-          polygonStrokeColor={strokeColor}
-          polygonAltitude={altitude}
-          polygonsTransitionDuration={250}
-          onPolygonHover={handleHover}
-          onPolygonClick={handleClick}
-          animateIn={false}
-        />
+        <HeroGlobeBoundary>
+          <Globe
+            ref={globeRef}
+            width={size}
+            height={size}
+            backgroundColor="rgba(0,0,0,0)"
+            globeImageUrl={null}
+            globeMaterial={materialRef.current}
+            showGraticules
+            showAtmosphere
+            atmosphereColor={palette.atmosphere}
+            atmosphereAltitude={0.2}
+            polygonsData={countries}
+            polygonCapColor={capColor}
+            polygonSideColor={() => palette.sideColor}
+            polygonStrokeColor={strokeColor}
+            polygonAltitude={altitude}
+            polygonsTransitionDuration={250}
+            onPolygonHover={handleHover}
+            onPolygonClick={handleClick}
+            animateIn={false}
+          />
+        </HeroGlobeBoundary>
 
         {hoveredStat && (
           <div className="hg3-tip" style={{ left: mousePos.x, top: mousePos.y }}>
