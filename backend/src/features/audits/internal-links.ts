@@ -115,6 +115,32 @@ export function scorePageUrl(url: string, baseOrigin: string): number {
     return -1;
   }
 
+  // Hard block: WordPress admin area (admin-ajax.php lives under wp-admin/,
+  // so blocking the whole directory covers it too) and non-content assets
+  // under wp-content/ — mirrors _BLOCKED_AUDIT_PATH_RE in scanner_service.py
+  // (P3-06: chateausureau.com's crawl plan queued these as if real pages).
+  if (/\/wp-admin(\/|$)/i.test(pathLower) || /\/wp-content\//i.test(pathLower)) {
+    return -1;
+  }
+
+  // Hard block: a literal wildcard character can never appear in a real
+  // page's URL — it's always a broken template placeholder or a
+  // robots.txt-style glob pattern picked up as if it were a real link
+  // (P3-06 — this is what produced chateausureau.com's literal "* Page"
+  // TOC entry).
+  if (path.includes('*')) {
+    return -1;
+  }
+
+  // Hard block: WordPress-style date archives (/2016/10/ or /2016/10/15/)
+  // are chronological post listings, not distinct navigable content
+  // (P3-06, weldingworks's residual case). Kept narrow to a 4-digit-year +
+  // 2-digit-month path shape so it can't accidentally match a numeric
+  // product slug like /products/2024-limited-edition.
+  if (/\/\d{4}\/\d{2}(\/\d{2})?(\/|$)/.test(path)) {
+    return -1;
+  }
+
   // Hard block: transactional / account pages — never audit these.
   if (/\/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup)\b/i.test(pathLower)) {
     return -1;

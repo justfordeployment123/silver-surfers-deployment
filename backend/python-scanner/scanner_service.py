@@ -421,8 +421,15 @@ _BLOCKED_AUDIT_PATH_RE = re.compile(
     r"/(cart|checkout|basket|wishlist|my-account|order-status|login|signin|register|signup|identity|profile|sentry|loyalty|feed|rss|tag|author)(/|$)"
     # WordPress infrastructure endpoints (with optional .php extension)
     r"|/(wp-login|xmlrpc|wp-cron|wp-trackback|wp-signup|wp-activate|wp-mail)(\.php)?(/|$)"
-    # WordPress plugin asset generators
-    r"|/wp-content/plugins/"
+    # WordPress admin area — admin-ajax.php lives under wp-admin/, so
+    # blocking the whole directory covers it too, without needing a
+    # separate admin-ajax pattern (P3-06).
+    r"|/wp-admin(/|$)"
+    # WordPress plugin/theme assets and uploaded media under wp-content/ —
+    # broadened from plugins/ only, since admin-ajax "Load More"-style links
+    # and asset paths elsewhere in wp-content/ are equally not content
+    # (P3-06; was /wp-content/plugins/ only).
+    r"|/wp-content/"
     # Shopify Web Pixels Manager fragments and similar bare infrastructure
     # segments — they never hold auditable page content
     r"|/(previewimage|cdn|wpm|next|open|close)(/|$)"
@@ -430,7 +437,19 @@ _BLOCKED_AUDIT_PATH_RE = re.compile(
     r"|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     # Long hex runs per segment (hash IDs / content fingerprints,
     # mirrors scorePageUrl in internal-links.ts)
-    r"|[0-9a-f]{20,}",
+    r"|[0-9a-f]{20,}"
+    # A literal wildcard character can never appear in a real page's URL —
+    # it's always leftover from a broken template placeholder (e.g. an
+    # unsubstituted "/category/*" in the page's own rendered markup) or a
+    # robots.txt-style glob pattern picked up as if it were a real link
+    # (P3-06 — this is what produced chateausureau.com's literal "* Page"
+    # TOC entry).
+    r"|\*"
+    # WordPress-style date archives (/2016/10/ or /2016/10/15/) are
+    # chronological post listings, not distinct navigable content (P3-06,
+    # optional per the finding — kept narrow to a 4-digit-year + 2-digit-
+    # month path shape so it can't accidentally match a numeric product slug).
+    r"|/\d{4}/\d{2}(/\d{2})?(/|$)",
     re.I,
 )
 _CATALOGUE_ID_SEGMENT_RE = re.compile(r"^(pcm(?:cat|id)\d{4,}.*|(?:ab)?cat\d{4,}\.c)$", re.I)

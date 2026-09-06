@@ -51,3 +51,61 @@ test('scorePageUrl does not over-block similar-looking real pages', () => {
     assert.ok(scorePageUrl(url, baseOrigin) > 0, `expected ${url} to keep a positive score`);
   }
 });
+
+// P3-06 — chateausureau.com's crawl plan queued wp-admin/*, wp-content/*,
+// and admin-ajax.php as if they were real pages; all 6 slots 404'd but
+// still showed up in the client-facing TOC (e.g. "Admin Ajax.php Page").
+test('scorePageUrl hard-blocks the WordPress admin area and wp-content assets', () => {
+  const baseOrigin = 'https://example.com';
+  const blockedPaths = [
+    'https://example.com/wp-admin/',
+    'https://example.com/wp-admin/admin-ajax.php',
+    'https://example.com/wp-admin/options-general.php',
+    'https://example.com/wp-content/uploads/2024/01/banner.png',
+    'https://example.com/wp-content/themes/some-theme/style.css',
+  ];
+
+  for (const url of blockedPaths) {
+    assert.equal(scorePageUrl(url, baseOrigin), -1, `expected ${url} to score -1`);
+  }
+});
+
+// P3-06 — a literal wildcard character can never appear in a real page's
+// URL; chateausureau.com's TOC showed a literal "* Page" entry, meaning a
+// broken template placeholder (or a robots.txt-style glob pattern) got
+// picked up as if it were a real link.
+test('scorePageUrl hard-blocks any URL containing a literal wildcard character', () => {
+  const baseOrigin = 'https://example.com';
+  const blockedPaths = [
+    'https://example.com/category/*',
+    'https://example.com/*',
+    'https://example.com/blog/*.php',
+  ];
+
+  for (const url of blockedPaths) {
+    assert.equal(scorePageUrl(url, baseOrigin), -1, `expected ${url} to score -1`);
+  }
+});
+
+// P3-06 — WordPress date archives (weldingworks's residual case): a
+// chronological listing of post excerpts, not distinct navigable content.
+test('scorePageUrl hard-blocks WordPress-style date archives without over-blocking numeric-looking slugs', () => {
+  const baseOrigin = 'https://example.com';
+  const blockedPaths = [
+    'https://example.com/2016/10/',
+    'https://example.com/2016/10',
+    'https://example.com/2016/10/15/some-post-slug',
+  ];
+  for (const url of blockedPaths) {
+    assert.equal(scorePageUrl(url, baseOrigin), -1, `expected ${url} to score -1`);
+  }
+
+  const allowedPaths = [
+    'https://example.com/products/2024-limited-edition',
+    'https://example.com/2024-annual-report',
+    'https://example.com/blog/10-tips-for-2024',
+  ];
+  for (const url of allowedPaths) {
+    assert.ok(scorePageUrl(url, baseOrigin) > 0, `expected ${url} to keep a positive score, not be mistaken for a date archive`);
+  }
+});

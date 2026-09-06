@@ -161,6 +161,45 @@ class CrawlerBlocklistSmokeTest(unittest.TestCase):
             with self.subTest(path=path):
                 self.assert_blocked(path)
 
+    # P3-06 — chateausureau.com's crawl plan queued wp-admin/*, wp-content/*,
+    # and admin-ajax.php as if they were real pages; all 6 slots 404'd but
+    # still showed up in the client-facing TOC (e.g. "Admin Ajax.php Page").
+    def test_wordpress_admin_area_is_blocked(self) -> None:
+        for path in (
+            "/wp-admin/",
+            "/wp-admin/admin-ajax.php",
+            "/wp-admin/options-general.php",
+            "/wp-content/uploads/2024/01/banner.png",
+            "/wp-content/themes/some-theme/style.css",
+        ):
+            with self.subTest(path=path):
+                self.assert_blocked(path)
+
+    # P3-06 — a literal wildcard character can never appear in a real page's
+    # URL; chateausureau.com's TOC showed a literal "* Page" entry, meaning
+    # a broken template placeholder (or a robots.txt-style glob pattern) got
+    # picked up as if it were a real link.
+    def test_literal_wildcard_paths_are_blocked(self) -> None:
+        for path in ("/category/*", "/*", "/blog/*.php"):
+            with self.subTest(path=path):
+                self.assert_blocked(path)
+
+    # P3-06 — WordPress date archives (weldingworks's residual case): a
+    # chronological listing of post excerpts, not distinct navigable content.
+    def test_wordpress_date_archives_are_blocked(self) -> None:
+        for path in ("/2016/10/", "/2016/10", "/2016/10/15/some-post-slug"):
+            with self.subTest(path=path):
+                self.assert_blocked(path)
+
+    # Positive control for the new date-archive pattern specifically: a
+    # product/content slug that happens to start with digits must not be
+    # mistaken for a date archive — the pattern requires two consecutive
+    # numeric path segments shaped like a year and a month.
+    def test_numeric_looking_slugs_are_not_mistaken_for_date_archives(self) -> None:
+        for path in ("/products/2024-limited-edition", "/2024-annual-report", "/blog/10-tips-for-2024"):
+            with self.subTest(path=path):
+                self.assert_allowed(path)
+
 
 if __name__ == "__main__":
     unittest.main()
