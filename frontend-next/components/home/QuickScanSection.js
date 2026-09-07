@@ -36,7 +36,7 @@ const ScanResultsModal = ({ result, isVisible, onClose }) => {
         <div style={{ marginBottom: 20 }}>
           <div style={{
             fontFamily: 'var(--ffd)', fontSize: 48, fontWeight: 700,
-            color: 'var(--t4)', lineHeight: 1, marginBottom: 10,
+            color: 'var(--tlink)', lineHeight: 1, marginBottom: 10,
           }}>
             {result.score}/100
           </div>
@@ -184,6 +184,7 @@ export default function QuickScanSection() {
         disabled={disabled}
         style={{
           padding: '10px 8px',
+          fontSize: 16,
           borderRadius: 'var(--r)',
           border: active ? '2px solid var(--t4)' : '2px solid rgba(255,255,255,0.2)',
           background: active ? 'rgba(10,168,143,0.25)' : 'rgba(255,255,255,0.06)',
@@ -301,7 +302,7 @@ export default function QuickScanSection() {
             <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', textAlign: 'center', marginTop: 8 }}>
               {hasSubscriptionQuickScanAccess
                 ? 'Active subscription detected. Tablet and mobile quick scans are unlocked.'
-                : <><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet and Mobile testing available with <a href="/services" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a></>
+                : <><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet and Mobile testing available with <a href="/services" className="home-subscription-link" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a></>
               }
             </p>
           </div>
@@ -341,7 +342,7 @@ export default function QuickScanSection() {
           </a>
           <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)' }}>
             Tablet and Mobile testing available with{' '}
-            <a href="/subscription" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a>
+            <a href="/subscription" className="home-subscription-link" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a>
           </p>
         </div>
 

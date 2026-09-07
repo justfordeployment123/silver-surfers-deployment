@@ -325,6 +325,13 @@ pre code {
 
 /* Primary — light bg. Uses t6 (not the brighter t4) so white button text
    clears 4.5:1 contrast (t4 + white only reaches ~3.4:1). */
+.home-subscription-link {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+}
+
 .btn-p {
   background: var(--t6);
   color: #fff;

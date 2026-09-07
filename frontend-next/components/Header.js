@@ -116,7 +116,7 @@ const Header = () => {
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .ss-logo span { color: var(--t4); }
+        .ss-logo span { color: var(--tlink); }
         .ss-logo-mark { height: 28px; width: 28px; flex-shrink: 0; object-fit: contain; }
 
         /* ── Desktop links ─────────────────────────────── */

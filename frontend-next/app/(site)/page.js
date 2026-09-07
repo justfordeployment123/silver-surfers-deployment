@@ -214,7 +214,7 @@ export default function Home() {
                 { n: '30s',  l: 'Quick Assessment' },
               ].map(({ n, l }) => (
                 <div key={l} style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: 'var(--ffd)', fontSize: 'clamp(32px,4vw,48px)', fontWeight: 700, color: 'var(--t4)', lineHeight: 1, marginBottom: 6 }}>{n}</div>
+                  <div style={{ fontFamily: 'var(--ffd)', fontSize: 48, fontWeight: 700, color: 'var(--tlink)', lineHeight: 1, marginBottom: 6 }}>{n}</div>
                   <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink6)' }}>{l}</div>
                 </div>
               ))}
@@ -374,7 +374,7 @@ export default function Home() {
               </a>
               <p className="cta-note" style={{ marginTop: 12 }}>
                 Tablet and Mobile testing available with{' '}
-                <a href="/subscription" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a>
+                <a href="/subscription" className="home-subscription-link" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a>
               </p>
             </div>
           </div>
