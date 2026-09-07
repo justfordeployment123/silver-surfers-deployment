@@ -662,6 +662,20 @@ def run_camoufox_audit_sync(
                         for (let i = 0; i < scanLimit && textElements.length < 100; i++) {
                             const el = allElements[i];
                             if (!el.offsetParent) continue; // Skip hidden elements
+                            // Screen-reader-only text has layout boxes but no painted text.
+                            // Check ancestors too, since a clipped wrapper hides its labels.
+                            let visuallyHidden = false;
+                            for (let node = el; node; node = node.parentElement) {
+                                const s = window.getComputedStyle(node);
+                                if (s.display === 'none' || s.visibility === 'hidden' ||
+                                    s.visibility === 'collapse' || Number(s.opacity) === 0 ||
+                                    /^rect\\(0px[, ]+0px[, ]+0px[, ]+0px\\)$/.test(s.clip) ||
+                                    /^inset\\(50%(?: 50%){0,3}\\)$/.test(s.clipPath)) {
+                                    visuallyHidden = true;
+                                    break;
+                                }
+                            }
+                            if (visuallyHidden) continue;
                             // WCAG exempts disabled controls from contrast requirements - check
                             // the element itself AND ancestors (a disabled <button>'s inner label
                             // <div> isn't itself .disabled, but it's still part of the disabled control).
@@ -732,7 +746,13 @@ def run_camoufox_audit_sync(
             # Target size (check for small clickable elements) - sync eval with details
             target_size_results = page.evaluate("""
                 () => {
-                    const elements = document.querySelectorAll('a, button, input[type="button"], input[type="submit"]');
+                    const elements = Array.from(document.querySelectorAll('a, button, input[type="button"], input[type="submit"]')).filter(el => {
+                        const rect = el.getBoundingClientRect();
+                        const style = window.getComputedStyle(el);
+                        // Responsive controls with no rendered box are not touch targets.
+                        return rect.width > 0 && rect.height > 0 &&
+                            style.visibility !== 'hidden' && style.visibility !== 'collapse';
+                    });
                     const smallItems = [];
                     elements.forEach(el => {
                         const rect = el.getBoundingClientRect();
