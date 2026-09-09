@@ -9,7 +9,6 @@ dist/
 build/
 .next/
 out/
-frontend/mongo-backup.archive
 Silver-Surfers-backend/dist/
 Silver-Surfers-frontend/build/
 Silver-Surfers-frontend/dist/
@@ -71,4 +70,4 @@ coverage/
 !DEVELOPER_TASK_CHECKLIST.md
 !WORKING_REQUIREMENTS_LETTER.md
 !backend/README.md
-!frontend/README.md
+!frontend-next/README.md

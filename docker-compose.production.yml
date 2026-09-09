@@ -5,22 +5,23 @@
 #   - API (Backend server)
 #   - Worker (Background processor)
 #   - Scanner (Headless Chromium / Lighthouse)
-#   - Frontend (React SPA + Nginx)
+#   - Frontend (Next.js)
 
 services:
     # ──────────────────────────────────────────────
-    # Frontend — React SPA + Nginx
+    # Frontend — Next.js
     # ──────────────────────────────────────────────
     frontend:
         build:
-            context: ./frontend
+            context: ./frontend-next
             dockerfile: Dockerfile
             args:
-                - REACT_APP_API_BASE_URL=https://silver-surfers-backend.kodevio.com
+                - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://silver-surfers-backend.kodevio.com}
+                - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
         container_name: ss-frontend
         restart: unless-stopped
         ports:
-            - "3000:80"
+            - "3000:3000"
         networks:
             - ssnet
 

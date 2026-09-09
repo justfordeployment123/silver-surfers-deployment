@@ -11,7 +11,7 @@ Use this file together with:
 - `PROJECT_SCOPE_STATUS.md`
 - `DEVELOPER_TASK_CHECKLIST.md`
 - `backend/README.md`
-- `frontend/README.md`
+- `frontend-next/README.md`
 
 ## Source Documents Reviewed
 

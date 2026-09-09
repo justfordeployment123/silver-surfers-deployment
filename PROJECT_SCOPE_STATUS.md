@@ -222,11 +222,11 @@ What is done:
 
 Code evidence:
 
-- `frontend/src/pages/Home.js`
-- `frontend/src/pages/Checkout.js`
-- `frontend/src/pages/Account.js`
-- `frontend/src/pages/AnalysisDetail.js`
-- `frontend/src/pages/admin/AdminDashboard.js`
+- `frontend-next/app/(site)/page.js`
+- `frontend-next/app/(site)/checkout/page.js`
+- `frontend-next/app/(site)/account/page.js`
+- `frontend-next/app/(site)/account/analysis/[taskId]/page.js`
+- `frontend-next/app/admin/(dashboard)/dashboard/page.js`
 
 ## Additional Requested Intelligence Layers
 

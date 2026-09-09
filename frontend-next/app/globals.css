@@ -1,7 +1,5 @@
 /* ── Design Tokens ─────────────────────────────────────────── */
-/* Ported from frontend/src/index.css — keep both in sync until the CRA app
-   is retired. Includes the accessibility-contrast fixes already applied
-   there (see the inline comments below). */
+/* Canonical frontend theme, including the accessibility contrast fixes. */
 :root {
   /* Solid logo-matched brand scale: deep ocean navy, surf teal, and aqua.
      Kept as flat colors so the UI feels brand-led instead of gradient-heavy. */

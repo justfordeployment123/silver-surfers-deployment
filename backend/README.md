@@ -253,7 +253,7 @@ The most important Mongo models are:
 1. Add the route under the correct feature folder in `src/features/*/*.routes.ts`.
 2. Put heavy logic in the feature controller or service, not directly in the route.
 3. If the endpoint needs auth, use `authRequired` or `adminRequired`.
-4. If the frontend calls it, update `frontend/src/api.js` or `frontend/src/config/apiBase.js`.
+4. If the frontend calls it, update `frontend-next/lib/apiClient.js` or `frontend-next/lib/publicApi.js`.
 
 ### Change how a full audit is queued
 
@@ -273,7 +273,7 @@ The most important Mongo models are:
 
 - Backend detail shape: `src/features/audits/analysis-details.ts`
 - Auth detail route: `src/features/auth/auth.routes.ts`
-- Frontend screen: `../frontend/src/pages/AnalysisDetail.js`
+- Frontend screen: `../frontend-next/app/(site)/account/analysis/[taskId]/page.js`
 
 ### Change subscription rules or available plans
 
