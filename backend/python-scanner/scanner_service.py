@@ -262,9 +262,14 @@ async def _perform_audit_impl(request: AuditRequest):
         
         report = result["report"]
         final_score = result["score"]
-        
+
         if final_score == 0:
-            raise Exception("Audit score is 0, indicating a failed audit")
+            summary = result.get("scoreBreakdownSummary") or {}
+            raise Exception(
+                "Audit score is 0, indicating a failed audit "
+                f"(missingAudits={summary.get('missingAuditCount', '?')}/{summary.get('auditRefCount', '?')}, "
+                f"zeroScoringAudits={summary.get('zeroScoringAuditIds', '?')})"
+            )
         
         # Save report to file
         url_obj = urlparse(url)

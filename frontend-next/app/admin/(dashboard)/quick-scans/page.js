@@ -112,7 +112,7 @@ export default function AdminQuickScans() {
   };
 
   const handleExport = () => {
-    const headers = ['URL', 'Email', 'Name', 'Score (%)', 'Scan Date', 'Status', 'Report Generated', 'Created At'];
+    const headers = ['URL', 'Email', 'Name', 'Score (%)', 'Scan Date', 'Status', 'Report Generated', 'Error Code', 'Error Message', 'Created At'];
     const csvData = quickScans.map(scan => {
       const fullName = [scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A';
       const score = scan.scanScore !== null && scan.scanScore !== undefined ? Math.round(scan.scanScore) : 'N/A';
@@ -124,6 +124,8 @@ export default function AdminQuickScans() {
         new Date(scan.scanDate).toLocaleString(),
         scan.status || 'unknown',
         scan.reportGenerated ? 'Yes' : 'No',
+        scan.scannerErrorCode || '',
+        scan.errorMessage || scan.emailError || '',
         new Date(scan.createdAt).toLocaleString()
       ];
     });
@@ -300,10 +302,14 @@ export default function AdminQuickScans() {
                       <th>Name</th>
                       <th>Score</th>
                       <th><button className="ap-th-btn" onClick={() => handleSort('scanDate')}>Scan Date <SortArrow field="scanDate" /></button></th>
+                      <th>Status</th>
+                      <th>Error</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {quickScans.map((scan) => (
+                    {quickScans.map((scan) => {
+                      const failureReason = scan.errorMessage || scan.emailError || '';
+                      return (
                       <tr key={scan._id}>
                         <td>
                           <span style={{ display: 'block', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={scan.url}>
@@ -322,8 +328,26 @@ export default function AdminQuickScans() {
                           )}
                         </td>
                         <td style={{ whiteSpace: 'nowrap' }}>{new Date(scan.scanDate).toLocaleString()}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <span style={{ fontWeight: 600, color: scan.status === 'failed' ? '#ef4444' : scan.status === 'completed' ? '#16a34a' : 'var(--ink6)' }}>
+                            {scan.status || 'unknown'}
+                          </span>
+                        </td>
+                        <td>
+                          {failureReason ? (
+                            <span
+                              style={{ display: 'block', maxWidth: '260px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#ef4444' }}
+                              title={`${scan.scannerErrorCode ? `[${scan.scannerErrorCode}] ` : ''}${failureReason}`}
+                            >
+                              {scan.scannerErrorCode ? `[${scan.scannerErrorCode}] ` : ''}{failureReason}
+                            </span>
+                          ) : (
+                            <span style={{ color: 'var(--ink3)' }}>—</span>
+                          )}
+                        </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

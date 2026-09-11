@@ -9,7 +9,7 @@ from bs4 import BeautifulSoup
 from camoufox.sync_api import Camoufox
 
 from axe_integration import ensure_expected_audits, find_axe_core_script, merge_axe_results_into_audits, make_not_checked_audit
-from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score
+from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score, describe_score_breakdown
 from scanner_utils import safe_text
 
 
@@ -221,6 +221,15 @@ def run_camoufox_audit_sync(
     Returns:
         {"success": True, "report": {...}, "score": ...}
     """
+    # Printed before the browser even launches, so a hang/crash in Camoufox
+    # startup itself (before the audit-duration timer inside the `with`
+    # block below starts) still leaves a log line showing the job was
+    # picked up and for which URL/device.
+    print(
+        "Audit starting: "
+        + json.dumps({"url": url, "isLite": is_lite, "device": device_config.get("viewport")}, ensure_ascii=False)
+    )
+
     # Use Camoufox for advanced anti-detection (sync API)
     # Note: viewport is set on the page, not in the browser constructor
     with Camoufox(headless=True) as browser:
@@ -358,9 +367,12 @@ def run_camoufox_audit_sync(
                 });
             })();
         """)
-        
+
+        _audit_started_at = time.time()
         try:
+            _nav_started_at = time.time()
             nav_response = navigate_for_audit(page, url)
+            print(f"Navigation completed in {round((time.time() - _nav_started_at) * 1000)}ms for {url}")
 
             # Jittered post-navigation wait to look human and let dynamic content settle
             page.wait_for_timeout(random.randint(2000, 4500))
@@ -3883,7 +3895,40 @@ def run_camoufox_audit_sync(
             category_title = "Senior Accessibility (Lite)" if is_lite else "Senior Friendliness"
             
             final_score = calculate_score({"audits": audits}, is_lite)
-            
+
+            # Logged unconditionally (not just when final_score == 0) and
+            # BEFORE returning, so the caller's own "score is 0, treat as a
+            # failed audit" short-circuits (scanner_service.py's HTTP path
+            # and sqs_worker.py's SQS path both raise immediately on
+            # final_score == 0, before ever seeing this data) never skip it.
+            # Answers "which audits actually dragged the score down" without
+            # having to re-derive calculate_score's weighting by hand.
+            score_breakdown = describe_score_breakdown({"audits": audits}, is_lite)
+            print(
+                "Score breakdown: "
+                + json.dumps(
+                    {
+                        "url": url,
+                        "isLite": is_lite,
+                        "finalScore": score_breakdown["finalScore"],
+                        "totalWeight": score_breakdown["totalWeight"],
+                        "auditRefCount": score_breakdown["auditRefCount"],
+                        "missingAuditCount": score_breakdown["missingAuditCount"],
+                        "zeroScoringAuditIds": score_breakdown["zeroScoringAuditIds"],
+                    },
+                    ensure_ascii=False,
+                )
+            )
+            if final_score == 0 or score_breakdown["missingAuditCount"] > 0:
+                # The common case is cheap (one summary line above); only pay
+                # for the full per-audit dump when there's actually something
+                # to explain — a zero score or an expected audit that never
+                # ran at all.
+                print(
+                    "Score breakdown detail: "
+                    + json.dumps({"url": url, "audits": score_breakdown["audits"]}, ensure_ascii=False)
+                )
+
             report = {
                 "scannerVersion": "camoufox-axe-1.0",
                 "fetchTime": time.time() * 1000,
@@ -3903,10 +3948,28 @@ def run_camoufox_audit_sync(
             return {
                 "success": True,
                 "report": report,
-                "score": final_score
+                "score": final_score,
+                # Callers that treat a 0 score as a failed audit (both the
+                # HTTP path in scanner_service.py and the SQS path in
+                # sqs_worker.py) can fold this into the error they surface,
+                # so the reason is visible from the QuickScan/AnalysisRecord
+                # errorMessage field alone, without cross-referencing
+                # container logs by scannerJobId/timestamp.
+                "scoreBreakdownSummary": {
+                    "totalWeight": score_breakdown["totalWeight"],
+                    "auditRefCount": score_breakdown["auditRefCount"],
+                    "missingAuditCount": score_breakdown["missingAuditCount"],
+                    "zeroScoringAuditIds": score_breakdown["zeroScoringAuditIds"],
+                },
             }
             
         finally:
+            # Fires on both success and failure (including exceptions raised
+            # by navigate_for_audit or any page.evaluate call below) — total
+            # wall-clock cost of one audit, to correlate failures/stuck jobs
+            # against upstream timeout budgets (SQS visibility timeout, the
+            # Node HTTP client timeout, ECS task limits, etc.).
+            print(f"Audit total duration: {round((time.time() - _audit_started_at) * 1000)}ms for {url}")
             page.close()
 
 

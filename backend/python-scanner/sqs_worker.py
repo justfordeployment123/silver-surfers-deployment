@@ -1044,7 +1044,12 @@ class ScannerSqsWorker:
 
         final_score = result.get("score")
         if final_score == 0:
-            raise RuntimeError("Audit score is 0, indicating a failed audit.")
+            summary = result.get("scoreBreakdownSummary") or {}
+            raise RuntimeError(
+                "Audit score is 0, indicating a failed audit "
+                f"(missingAudits={summary.get('missingAuditCount', '?')}/{summary.get('auditRefCount', '?')}, "
+                f"zeroScoringAudits={summary.get('zeroScoringAuditIds', '?')})"
+            )
 
         report = sanitize_report_data(result.get("report") or {})
         if is_lite_version:
@@ -1602,7 +1607,12 @@ class ScannerSqsWorker:
 
             final_score = result.get("score")
             if final_score == 0:
-                raise RuntimeError("Audit score is 0, indicating a failed audit.")
+                summary = result.get("scoreBreakdownSummary") or {}
+                raise RuntimeError(
+                    "Audit score is 0, indicating a failed audit "
+                    f"(missingAudits={summary.get('missingAuditCount', '?')}/{summary.get('auditRefCount', '?')}, "
+                    f"zeroScoringAudits={summary.get('zeroScoringAuditIds', '?')})"
+                )
 
             logger.info(
                 "Scanner SQS batch target completed.",

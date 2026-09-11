@@ -119,6 +119,74 @@ def calculate_score(report: Dict[str, Any], is_lite: bool = False) -> float:
     return round(final_score, 2)
 
 
+def describe_score_breakdown(report: Dict[str, Any], is_lite: bool = False) -> Dict[str, Any]:
+    """
+    Diagnostic mirror of calculate_score's own logic (same audit_refs, same
+    exclusion/zero-scoring rules) — returns which audits drove the final
+    score instead of just the number, so a 0 or unexpectedly-low score is
+    explainable from logs alone without re-deriving the arithmetic by hand.
+    Never used for the actual scoring decision; keep in lockstep with
+    calculate_score above if that function's rules ever change.
+    """
+    audit_refs = LITE_AUDIT_REFS if is_lite else FULL_AUDIT_REFS
+    audits = report.get("audits", {})
+    breakdown = []
+    total_weighted_score = 0
+    total_weight = 0
+    missing_count = 0
+
+    for audit_ref in audit_refs:
+        audit_id = audit_ref["id"]
+        weight = audit_ref["weight"]
+        result = audits.get(audit_id)
+
+        if result is None:
+            missing_count += 1
+
+        excluded = bool(result) and (
+            result.get("notApplicable")
+            or result.get("notChecked")
+            or result.get("scoreDisplayMode") in {"notApplicable", "notChecked", "manual"}
+        )
+
+        entry = {
+            "id": audit_id,
+            "weight": weight,
+            "present": result is not None,
+            "excluded": excluded,
+            "score": result.get("score") if result else None,
+            "scoreDisplayMode": result.get("scoreDisplayMode") if result else None,
+            "displayValue": result.get("displayValue") if result else None,
+        }
+
+        if not excluded:
+            score = result.get("score", 0) if result else 0
+            if result and result.get("score") is None:
+                score = 0
+            entry["scoredAs"] = score
+            entry["contribution"] = score * weight
+            total_weighted_score += score * weight
+            total_weight += weight
+
+        breakdown.append(entry)
+
+    final_score = round((total_weighted_score / total_weight * 100) if total_weight > 0 else 0, 2)
+    zero_or_low_scoring = [
+        entry for entry in breakdown
+        if not entry["excluded"] and entry.get("scoredAs") == 0
+    ]
+
+    return {
+        "finalScore": final_score,
+        "totalWeight": total_weight,
+        "totalWeightedScore": total_weighted_score,
+        "auditRefCount": len(audit_refs),
+        "missingAuditCount": missing_count,
+        "zeroScoringAuditIds": [entry["id"] for entry in zero_or_low_scoring],
+        "audits": breakdown,
+    }
+
+
 def get_viewport_for_device(device: str = "desktop") -> Dict[str, Any]:
     device_configs = {
         "desktop": {
