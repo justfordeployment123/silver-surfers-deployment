@@ -121,13 +121,37 @@ export default function Home() {
           top: 96px;
           right: 4%;
           width: min(32vw, 420px);
-          height: min(32vw, 420px);
           z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+        }
+        .hero-globe-viz {
+          width: 100%;
+          height: min(32vw, 420px);
+        }
+        .hero-globe-caption {
+          margin-top: 16px;
+          text-align: center;
+        }
+        .hero-globe-caption-title {
+          font-size: 15px;
+          font-weight: 600;
+          color: var(--t2);
+          margin-bottom: 4px;
+          white-space: nowrap;
+        }
+        .hero-globe-caption-sub {
+          font-size: 12.5px;
+          line-height: 1.5;
+          color: rgba(255, 255, 255, 0.55);
+          white-space: nowrap;
         }
 
         /* ── Responsive ────────────────────────────────── */
         @media (max-width: 1200px) {
-          .hero-globe-slot { right: 2%; width: min(30vw, 360px); height: min(30vw, 360px); }
+          .hero-globe-slot { right: 2%; width: min(30vw, 360px); }
+          .hero-globe-viz { height: min(30vw, 360px); }
         }
         @media (max-width: 1024px) {
           .hero-globe-slot { display: none; }
@@ -148,7 +172,13 @@ export default function Home() {
         ════════════════════════════════════════════════ */}
         <section className="home-hero">
           <div className="hero-globe-slot">
-            <HeroGlobeLoader />
+            <div className="hero-globe-viz">
+              <HeroGlobeLoader />
+            </div>
+            <div className="hero-globe-caption">
+              <div className="hero-globe-caption-title">Explore the Silver Economy</div>
+              <div className="hero-globe-caption-sub">Click a highlighted country to see its 50+ market insights.</div>
+            </div>
           </div>
 
           <div className="wrap" style={{ position: 'relative', zIndex: 1 }}>
