@@ -137,7 +137,7 @@ export default function Home() {
         }
         .hero-globe-caption-arc {
           width: 260px;
-          height: 46px;
+          height: 64px;
           display: block;
           margin: 0 auto;
         }
@@ -182,9 +182,9 @@ export default function Home() {
               <HeroGlobeLoader />
             </div>
             <div className="hero-globe-caption">
-              <svg className="hero-globe-caption-arc" viewBox="0 0 320 60">
+              <svg className="hero-globe-caption-arc" viewBox="0 0 320 80">
                 <defs>
-                  <path id="heroTitleArcPath" d="M10,48 A340,340 0 0 1 310,48" fill="none" />
+                  <path id="heroTitleArcPath" d="M10,24 Q160,78 310,24" fill="none" />
                 </defs>
                 <text textAnchor="middle" className="hero-globe-caption-title-path">
                   <textPath href="#heroTitleArcPath" startOffset="50%">
