@@ -187,7 +187,7 @@ export default function QuickScanSection() {
           fontSize: 16,
           borderRadius: 'var(--r)',
           border: active ? '2px solid var(--t4)' : '2px solid rgba(255,255,255,0.2)',
-          background: active ? 'rgba(10,168,143,0.25)' : 'rgba(255,255,255,0.06)',
+          background: active ? 'rgba(1,150,189,0.25)' : 'rgba(255,255,255,0.06)',
           color: disabled ? 'rgba(255,255,255,0.35)' : '#fff',
           cursor: disabled ? 'not-allowed' : 'pointer',
           opacity: disabled ? 0.6 : 1,

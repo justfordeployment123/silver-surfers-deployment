@@ -57,7 +57,7 @@ function PaymentSuccessContent() {
   if (loading) {
     return (
       <>
-        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; } .ps-spinner { width: 48px; height: 48px; border: 3px solid rgba(10,168,143,0.2); border-top-color: var(--t4); border-radius: 50%; animation: psSpin 0.8s linear infinite; } @keyframes psSpin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`.ps-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; } .ps-spinner { width: 48px; height: 48px; border: 3px solid rgba(1,150,189,0.2); border-top-color: var(--t4); border-radius: 50%; animation: psSpin 0.8s linear infinite; } @keyframes psSpin { to { transform: rotate(360deg); } }`}</style>
         <div className="ps-bg">
           <div className="auth-card" style={{ textAlign: 'center', maxWidth: '460px' }}>
             <div className="ps-spinner" style={{ margin: '0 auto 20px' }} />

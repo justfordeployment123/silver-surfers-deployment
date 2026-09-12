@@ -48,13 +48,13 @@ export default async function BlogPage() {
         .blog-glow-1 {
           position: absolute; top: -100px; right: -60px;
           width: 480px; height: 480px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(1,150,189,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .blog-glow-2 {
           position: absolute; bottom: -80px; left: -40px;
           width: 300px; height: 300px; border-radius: 50%;
-          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(1,150,189,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .blog-feat-card {

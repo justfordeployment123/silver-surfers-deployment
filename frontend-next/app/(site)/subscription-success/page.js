@@ -60,7 +60,7 @@ export default function SubscriptionSuccess() {
   if (loading) {
     return (
       <>
-        <style>{`.ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; } .ss-spin { width: 40px; height: 40px; border: 3px solid rgba(10,168,143,0.2); border-top-color: var(--t4); border-radius: 50%; animation: ssSpin 0.8s linear infinite; margin: 0 auto 16px; } @keyframes ssSpin { to { transform: rotate(360deg); } }`}</style>
+        <style>{`.ss-bg { background: var(--t9); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 96px 24px 40px; } .ss-spin { width: 40px; height: 40px; border: 3px solid rgba(1,150,189,0.2); border-top-color: var(--t4); border-radius: 50%; animation: ssSpin 0.8s linear infinite; margin: 0 auto 16px; } @keyframes ssSpin { to { transform: rotate(360deg); } }`}</style>
         <div className="ss-bg" style={{ flexDirection: 'column', gap: '12px' }}>
           <div className="ss-spin" />
           <p style={{ color: 'rgba(255, 255, 255, 0.75)', fontSize: '16px' }}>Confirming your subscription…</p>

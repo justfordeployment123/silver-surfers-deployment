@@ -1,12 +1,20 @@
 /* ── Design Tokens ─────────────────────────────────────────── */
 /* Canonical frontend theme, including the accessibility contrast fixes. */
 :root {
-  /* Solid logo-matched brand scale: deep ocean navy, surf teal, and aqua.
+  /* Solid logo-matched brand scale: deep ocean navy and aqua, both blue-
+     family hues. --t6/--t4 were originally a spring-green-leaning teal
+     (#087D79 / #0AA88F) left over from a pre-rebrand palette — visibly
+     "green" rather than a shade of the new navy, and the single most
+     visible offender since --t4 backs the scrollbar thumb, every focus
+     ring, and the text-selection highlight. Replaced with the Brand Kit
+     v2.0 blue that was already defined below as --blue but never actually
+     used anywhere in the UI: #0196BD (native) / #017FA1 (darkened for
+     4.5:1 text contrast, same treatment --blue itself already documents).
      Kept as flat colors so the UI feels brand-led instead of gradient-heavy. */
   --t9:  #102F45;
   --t8:  #16445A;
-  --t6:  #087D79;
-  --t4:  #0AA88F;
+  --t6:  #017FA1;
+  --t4:  #0196BD;
   --t2:  #54D6DC;
   --t1:  #DDF8FA;
   --t05: #F0FCFC;
@@ -176,7 +184,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ── Selection ─────────────────────────────────────────────── */
 ::selection {
-  background: rgba(10,168,143, 0.25);
+  background: rgba(1,150,189, 0.25);
   color: var(--ink);
 }
 

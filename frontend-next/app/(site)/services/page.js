@@ -32,7 +32,7 @@ export default function ServicesPage() {
         }
         .svc-glow {
           position: absolute; border-radius: 50%; pointer-events: none;
-          background: radial-gradient(circle, rgba(10,168,143,0.16) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(1,150,189,0.16) 0%, transparent 70%);
         }
         .svc-glow-1 { width: 640px; height: 640px; top: -180px; right: -80px; }
         .svc-glow-2 { width: 380px; height: 380px; bottom: -100px; left: -60px; }

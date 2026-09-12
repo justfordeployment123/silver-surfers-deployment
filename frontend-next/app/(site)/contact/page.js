@@ -59,7 +59,7 @@ export default function ContactPage() {
           width: 500px;
           height: 500px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(10,168,143,0.18) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(1,150,189,0.18) 0%, transparent 70%);
           pointer-events: none;
         }
         .contact-glow-2 {
@@ -69,7 +69,7 @@ export default function ContactPage() {
           width: 320px;
           height: 320px;
           border-radius: 50%;
-          background: radial-gradient(circle, rgba(10,168,143,0.12) 0%, transparent 70%);
+          background: radial-gradient(circle, rgba(1,150,189,0.12) 0%, transparent 70%);
           pointer-events: none;
         }
         .contact-method-icon {

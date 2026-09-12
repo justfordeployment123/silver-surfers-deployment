@@ -46,7 +46,7 @@ export default function Home() {
           transition: box-shadow 0.4s;
         }
         .home-form-card.highlighted {
-          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(10,168,143,0.2);
+          box-shadow: 0 0 0 3px var(--t4), 0 16px 48px rgba(1,150,189,0.2);
         }
 
         /* ── Form inputs on dark bg ────────────────────── */
@@ -68,7 +68,7 @@ export default function Home() {
         .home-input::placeholder { color: #6E6E6B; }
         .home-input:focus {
           border-color: var(--t4);
-          box-shadow: 0 0 0 3px rgba(10,168,143,0.15);
+          box-shadow: 0 0 0 3px rgba(1,150,189,0.15);
         }
 
         /* ── How it works (sand section) ──────────────── */
@@ -129,9 +129,18 @@ export default function Home() {
         .hero-globe-viz {
           width: 100%;
           height: min(32vw, 420px);
+          position: relative;
+        }
+        .hero-globe-arc {
+          position: absolute;
+          left: 50%;
+          bottom: -22px;
+          transform: translateX(-50%);
+          width: 122%;
+          pointer-events: none;
         }
         .hero-globe-caption {
-          margin-top: 16px;
+          margin-top: 28px;
           text-align: center;
         }
         .hero-globe-caption-title {
@@ -174,6 +183,20 @@ export default function Home() {
           <div className="hero-globe-slot">
             <div className="hero-globe-viz">
               <HeroGlobeLoader />
+              <svg
+                className="hero-globe-arc"
+                viewBox="0 0 300 50"
+                fill="none"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path
+                  d="M8 10 Q150 60 292 10"
+                  stroke="rgba(255,255,255,0.45)"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
             </div>
             <div className="hero-globe-caption">
               <div className="hero-globe-caption-title">Explore the Silver Economy</div>

@@ -85,7 +85,7 @@ const STYLES = `
   background: var(--surface); color: var(--ink); border: 1.5px solid var(--sandd);
 }
 .wss-trigger--themed:hover { border-color: var(--t2); }
-.wss-trigger--themed.open { border-color: var(--t4); box-shadow: 0 0 0 3px rgba(10,168,143,0.15); }
+.wss-trigger--themed.open { border-color: var(--t4); box-shadow: 0 0 0 3px rgba(1,150,189,0.15); }
 .wss-trigger--glass-dark {
   /* Fixed light background regardless of site theme (matches .home-input),
      so the label text must stay a fixed dark color too — var(--ink) flips
@@ -93,7 +93,7 @@ const STYLES = `
   background: rgba(255,255,255,0.92); color: #1A1A18; border: 1.5px solid transparent;
 }
 .wss-trigger--glass-dark .wss-trigger-chevron { color: rgba(26,26,24,0.55); }
-.wss-trigger--glass-dark.open { border-color: var(--t4); box-shadow: 0 0 0 3px rgba(10,168,143,0.15); }
+.wss-trigger--glass-dark.open { border-color: var(--t4); box-shadow: 0 0 0 3px rgba(1,150,189,0.15); }
 .wss-trigger-label { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .wss-trigger-title { font-weight: 600; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wss-trigger-chevron { flex-shrink: 0; color: var(--ink3); transition: transform .15s; }
@@ -127,7 +127,7 @@ const STYLES = `
   display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; padding: 4px 12px;
   border-radius: 9999px; font-size: 16px; font-weight: 700; background: var(--t1); color: var(--t9);
 }
-.wss-chip--glass-dark { background: rgba(10,168,143,0.22); color: #eafff5; }
+.wss-chip--glass-dark { background: rgba(1,150,189,0.22); color: #eafff5; }
 `;
 
 /**
