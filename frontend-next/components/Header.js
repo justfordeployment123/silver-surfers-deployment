@@ -116,7 +116,7 @@ const Header = () => {
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .ss-logo span { color: var(--tlink); }
+        .ss-logo-tld { color: var(--tlink); }
         .ss-logo-mark { height: 28px; width: 28px; flex-shrink: 0; object-fit: contain; }
 
         /* ── Desktop links ─────────────────────────────── */
@@ -383,7 +383,12 @@ const Header = () => {
           {/* Logo */}
           <Link href="/" className="ss-logo" onClick={closeMobileMenu}>
             <img src="/logo.svg" alt="" className="ss-logo-mark" />
-            SilverSurfers<span>.ai</span>
+            {/* .ss-logo is a flex container with `gap: 8px` between flex
+                items — without this wrapper, the bare text node and the
+                <span> below are each their own flex item, so the gap lands
+                between "SilverSurfers" and ".ai" too, not just after the
+                icon. */}
+            <span className="ss-logo-text">SilverSurfers<span className="ss-logo-tld">.ai</span></span>
           </Link>
 
           {/* Desktop links */}
