@@ -131,24 +131,21 @@ export default function Home() {
           height: min(32vw, 420px);
           position: relative;
         }
-        .hero-globe-arc {
-          position: absolute;
-          left: 50%;
-          bottom: -22px;
-          transform: translateX(-50%);
-          width: 122%;
-          pointer-events: none;
-        }
         .hero-globe-caption {
-          margin-top: 28px;
+          margin-top: 16px;
           text-align: center;
         }
-        .hero-globe-caption-title {
-          font-size: 15px;
+        .hero-globe-caption-arc {
+          width: 260px;
+          height: 46px;
+          display: block;
+          margin: 0 auto;
+        }
+        .hero-globe-caption-title-path {
+          font-size: 16px;
           font-weight: 600;
-          color: var(--t2);
-          margin-bottom: 4px;
-          white-space: nowrap;
+          fill: var(--t2);
+          font-family: var(--ff);
         }
         .hero-globe-caption-sub {
           font-size: 12.5px;
@@ -183,23 +180,18 @@ export default function Home() {
           <div className="hero-globe-slot">
             <div className="hero-globe-viz">
               <HeroGlobeLoader />
-              <svg
-                className="hero-globe-arc"
-                viewBox="0 0 300 50"
-                fill="none"
-                aria-hidden="true"
-                focusable="false"
-              >
-                <path
-                  d="M8 10 Q150 60 292 10"
-                  stroke="rgba(255,255,255,0.45)"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-              </svg>
             </div>
             <div className="hero-globe-caption">
-              <div className="hero-globe-caption-title">Explore the Silver Economy</div>
+              <svg className="hero-globe-caption-arc" viewBox="0 0 320 60">
+                <defs>
+                  <path id="heroTitleArcPath" d="M10,48 A340,340 0 0 1 310,48" fill="none" />
+                </defs>
+                <text textAnchor="middle" className="hero-globe-caption-title-path">
+                  <textPath href="#heroTitleArcPath" startOffset="50%">
+                    Explore the Silver Economy
+                  </textPath>
+                </text>
+              </svg>
               <div className="hero-globe-caption-sub">Click a highlighted country to see its 50+ market insights.</div>
             </div>
           </div>

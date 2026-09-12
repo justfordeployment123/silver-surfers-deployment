@@ -92,12 +92,21 @@
   /* Same 4.5:1 fix as light mode's --ink3, mirrored for the dark surfaces. */
   --ink3: #8C8B85;
 
-  --sand:  #0D2821;
-  --sandd: #164438;
+  /* These four were genuinely green (#0D2821/#164438/#0B1210/#101815 are
+     all green-dominant hex — G channel higher than both R and B), totally
+     disconnected from light mode's blue-gray --sand (#F4F7F9) and from
+     --t9/--t8's navy hue. That's the real source of the "green everywhere
+     in dark mode" reports (How It Works, About, Contact, Services, FAQ,
+     Blog, Subscription — every section using --bg/--surface/--sand).
+     Rebuilt in the same navy family as --t9 (#102F45)/--t8 (#16445A),
+     keeping the same relative lightness steps (bg darkest < surface <
+     sand < sandd) the original scale had. */
+  --sand:  #142B3F;
+  --sandd: #1D3F58;
 
-  --bg:      #0B1210;
-  --surface: #101815;
-  --nav-bg:  rgba(11, 18, 16, 0.86);
+  --bg:      #0A1420;
+  --surface: #0F1D2C;
+  --nav-bg:  rgba(10, 20, 32, 0.86);
 
   --tlink: var(--t2);
 
