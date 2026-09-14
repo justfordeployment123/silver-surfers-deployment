@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { Poppins } from "next/font/google";
 import "./globals.css";
 
@@ -43,6 +44,34 @@ const THEME_INIT_SCRIPT = `
 })();
 `;
 
+// LinkedIn Insight Tag (client-provided partner ID 10021236) — sitewide, per
+// LinkedIn's own install instructions ("paste into the global footer of
+// your domain"). Base pixel only: it lets LinkedIn Campaign Manager
+// attribute site visits/conversions back to LinkedIn ad clicks. Firing a
+// specific "ran a Quick Scan" conversion event additionally requires a
+// Conversion ID created in Campaign Manager (client-side setup, not a code
+// change) — see the conversion-tracking call in QuickScanSection.js once
+// that ID exists.
+const LINKEDIN_PARTNER_ID = "10021236";
+const LINKEDIN_INSIGHT_INIT_SCRIPT = `
+_linkedin_partner_id = "${LINKEDIN_PARTNER_ID}";
+window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+window._linkedin_data_partner_ids.push(_linkedin_partner_id);
+`;
+const LINKEDIN_INSIGHT_LOADER_SCRIPT = `
+(function(l) {
+  if (!l) {
+    window.lintrk = function (a, b) { window.lintrk.q.push([a, b]) };
+    window.lintrk.q = [];
+  }
+  var s = document.getElementsByTagName("script")[0];
+  var b = document.createElement("script");
+  b.type = "text/javascript"; b.async = true;
+  b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
+  s.parentNode.insertBefore(b, s);
+})(window.lintrk);
+`;
+
 export default function RootLayout({ children }) {
   return (
     <html
@@ -59,7 +88,25 @@ export default function RootLayout({ children }) {
         <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, user-scalable=yes" />
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
-      <body>{children}</body>
+      <body>
+        {children}
+        <Script id="linkedin-insight-init" strategy="afterInteractive">
+          {LINKEDIN_INSIGHT_INIT_SCRIPT}
+        </Script>
+        <Script id="linkedin-insight-loader" strategy="afterInteractive">
+          {LINKEDIN_INSIGHT_LOADER_SCRIPT}
+        </Script>
+        <noscript>
+          {/* eslint-disable-next-line @next/next/no-img-element -- LinkedIn's tracking pixel, not an optimizable content image */}
+          <img
+            height="1"
+            width="1"
+            style={{ display: "none" }}
+            alt=""
+            src={`https://px.ads.linkedin.com/collect/?pid=${LINKEDIN_PARTNER_ID}&fmt=gif`}
+          />
+        </noscript>
+      </body>
     </html>
   );
 }
