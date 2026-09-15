@@ -126,6 +126,14 @@ export default function QuickScanSection() {
       } else {
         setSuccess(res?.message || 'Your FREE scan has started! We\'ll email you the results shortly - no subscription required!');
         setScanData({ websiteUrl: '', email: '', firstName: '', lastName: '' });
+        // LinkedIn Insight Tag conversion "Quick Scan submitted" (client-
+        // provided ID). window.lintrk is defined by the sitewide tag in
+        // app/layout.js as a queueing stub, so this is safe to call even
+        // before the external insight.min.js has finished loading — it
+        // just won't exist at all if an ad blocker stripped the tag.
+        if (typeof window !== 'undefined' && typeof window.lintrk === 'function') {
+          window.lintrk('track', { conversion_id: 28689884 });
+        }
       }
     } catch (err) {
       console.error('Scan error:', err);
