@@ -6,11 +6,12 @@ from typing import Any, Dict, Optional
 from urllib.parse import urlparse, urlunparse
 
 from bs4 import BeautifulSoup
-from camoufox.sync_api import Camoufox
+from browser_runtime import scanner_browser, new_scanner_page, capture_failure
 
 from axe_integration import ensure_expected_audits, find_axe_core_script, merge_axe_results_into_audits, make_not_checked_audit
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score, describe_score_breakdown
 from scanner_utils import safe_text
+from navigation_retry import navigate_with_retries
 
 
 class _WcagScopeSkip(Exception):
@@ -232,64 +233,18 @@ def run_camoufox_audit_sync(
 
     # Use Camoufox for advanced anti-detection (sync API)
     # Note: viewport is set on the page, not in the browser constructor
-    with Camoufox(headless=True) as browser:
+    with scanner_browser(device_config) as browser:
         # Get a page from the browser (sync API)
-        page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
+        page = new_scanner_page(browser, device_config)
         
         # Set viewport and device emulation for the page
         viewport = device_config.get("viewport", {"width": 1920, "height": 1080})
         page.set_viewport_size(viewport)
         
-        # Get device emulation settings
-        user_agent = device_config.get("user_agent")
-        device_scale_factor = device_config.get("device_scale_factor", 1)
-        is_mobile = device_config.get("is_mobile", False)
-        has_touch = device_config.get("has_touch", False)
+        # Keep Camoufox's native user agent and platform consistent with Firefox.
+        # Device layout and touch emulation do not require a Chrome identity.
         
-        # Set user agent via context (more reliable)
-        if user_agent:
-            context = page.context
-            context.set_extra_http_headers({"User-Agent": user_agent})
-        
-        # Emulate device characteristics via JavaScript injection before navigation
-        # This must be done before goto() to ensure proper emulation
-        touch_value = 1 if has_touch else 0
-        platform_value = 'Linux armv8l' if is_mobile else 'Win32'
-        mobile_bool = 'true' if is_mobile else 'false'
-        
-        page.add_init_script(f"""
-            // Override user agent
-            Object.defineProperty(navigator, 'userAgent', {{
-                get: () => '{user_agent or "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}',
-                configurable: true
-            }});
-            
-            // Override max touch points for touch support
-            Object.defineProperty(navigator, 'maxTouchPoints', {{
-                get: () => {touch_value},
-                configurable: true
-            }});
-            
-            // Override device pixel ratio
-            Object.defineProperty(window, 'devicePixelRatio', {{
-                get: () => {device_scale_factor},
-                configurable: true
-            }});
-            
-            // Override platform
-            Object.defineProperty(navigator, 'platform', {{
-                get: () => '{platform_value}',
-                configurable: true
-            }});
-            
-            // Override hardware concurrency for mobile devices
-            if ({mobile_bool}) {{
-                Object.defineProperty(navigator, 'hardwareConcurrency', {{
-                    get: () => 8,
-                    configurable: true
-                }});
-            }}
-        """)
+        # DPR and touch are configured on the browser context, not JS properties.
 
         page.add_init_script("""
             (() => {
@@ -369,9 +324,17 @@ def run_camoufox_audit_sync(
         """)
 
         _audit_started_at = time.time()
+        audit_succeeded = False
         try:
             _nav_started_at = time.time()
-            nav_response = navigate_for_audit(page, url)
+            document_response = {"latest": None}
+
+            def remember_document_response(response):
+                if response.request.is_navigation_request() and response.frame == page.main_frame:
+                    document_response["latest"] = response
+
+            page.on("response", remember_document_response)
+            nav_response = navigate_with_retries(page, url, navigate_for_audit)
             print(f"Navigation completed in {round((time.time() - _nav_started_at) * 1000)}ms for {url}")
 
             # Jittered post-navigation wait to look human and let dynamic content settle
@@ -421,6 +384,7 @@ def run_camoufox_audit_sync(
             # on error pages or non-HTML endpoints. The response object comes
             # from the main-document navigation; recovery paths may have no
             # response, in which case the later content gates still apply.
+            nav_response = document_response["latest"] or nav_response
             if nav_response is not None:
                 try:
                     nav_status = int(getattr(nav_response, "status", 0) or 0)
@@ -429,7 +393,10 @@ def run_camoufox_audit_sync(
                 if nav_status and not 200 <= nav_status < 300:
                     return {
                         "success": False,
-                        "errorCode": "PAGE_NOT_FOUND" if nav_status == 404 else "PAGE_HTTP_ERROR",
+                        "errorCode": {
+                            403: "ACCESS_DENIED", 404: "PAGE_NOT_FOUND",
+                            429: "RATE_LIMITED", 525: "ORIGIN_TLS_ERROR",
+                        }.get(nav_status, "PAGE_HTTP_ERROR"),
                         "error": f"Page returned HTTP {nav_status} during navigation. URL skipped.",
                     }
                 try:
@@ -458,7 +425,8 @@ def run_camoufox_audit_sync(
             if req_host and fin_host and req_host != fin_host:
                 return {
                     "success": False,
-                    "error": f"Page redirected to a different domain ({final_parsed.hostname}) — bot protection suspected. URL skipped.",
+                    "errorCode": "CROSS_DOMAIN_REDIRECT",
+                    "error": f"Page redirected to a different domain ({final_parsed.hostname}). Destination requires scope verification before scanning.",
                 }
 
             # Check 2: bot-wall text fingerprints in the page body.
@@ -3945,6 +3913,7 @@ def run_camoufox_audit_sync(
                 "audits": audits
             }
             
+            audit_succeeded = True
             return {
                 "success": True,
                 "report": report,
@@ -3964,6 +3933,8 @@ def run_camoufox_audit_sync(
             }
             
         finally:
+            if not audit_succeeded:
+                capture_failure(page)
             # Fires on both success and failure (including exceptions raised
             # by navigate_for_audit or any page.evaluate call below) — total
             # wall-clock cost of one audit, to correlate failures/stuck jobs

@@ -1966,6 +1966,9 @@ class ScannerSqsWorker:
 
 
 def main() -> None:
+    from browser_runtime import browser_options, verify_browser
+    browser_options()
+    print("Scanner startup runtime: " + json.dumps(verify_browser()))
     ScannerSqsWorker().run_forever()
 
 

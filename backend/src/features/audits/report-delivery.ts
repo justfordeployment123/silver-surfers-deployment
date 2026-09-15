@@ -1030,7 +1030,7 @@ function buildAuditReportEmailBodyLegacy(options: {
 }
 
 function buildFromAddress(): string {
-    return `SilverSurfers <${process.env.SMTP_USER || "no-reply@silversurfers.local"}>`;
+    return `SilverSurfers <${process.env.SMTP_FROM || "noreply@silversurfers.ai"}>`;
 }
 
 function usesSignedS3Urls(): boolean {

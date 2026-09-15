@@ -18,7 +18,7 @@ from urllib.parse import urljoin, urlparse
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from camoufox.sync_api import Camoufox
+from browser_runtime import scanner_browser, new_scanner_page, verify_browser, browser_options
 
 from camoufox_auditor import run_camoufox_audit_sync
 from scanner_config import (
@@ -39,6 +39,12 @@ class HealthCheckFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(HealthCheckFilter())
 
 app = FastAPI(title="SilverSurfers Python Scanner", version="1.0.0")
+
+
+@app.on_event("startup")
+async def verify_scanner_runtime():
+    browser_options()
+    print("Scanner startup runtime: " + json.dumps(verify_browser()))
 
 # Thread-safe lock for synchronous Camoufox operations
 _precheck_lock = threading.Lock()        # one precheck at a time
@@ -347,17 +353,13 @@ def _precheck_url_sync(url: str) -> Dict[str, Any]:
     with _precheck_lock:
         try:
             # Use Camoufox with context manager (proper usage pattern)
-            with Camoufox(headless=True) as browser:
-                page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
+            with scanner_browser() as browser:
+                page = new_scanner_page(browser)
                 
                 # Set basic viewport
                 page.set_viewport_size({"width": 1920, "height": 1080})
                 
-                # Set realistic user agent
-                context = page.context
-                context.set_extra_http_headers({
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-                })
+                # Preserve Camoufox's native Firefox identity.
                 
                 try:
                     # Navigate with a shorter timeout for precheck (30 seconds)
@@ -871,18 +873,11 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
     """
     with _link_extraction_lock:
         try:
-            with Camoufox(headless=True) as browser:
-                page = browser.new_page(ignore_https_errors=_scanner_ignore_https_errors())
+            with scanner_browser() as browser:
+                page = new_scanner_page(browser)
                 page.set_viewport_size({"width": 1920, "height": 1080})
 
-                # Realistic desktop user-agent
-                page.context.set_extra_http_headers({
-                    "User-Agent": (
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) "
-                        "Chrome/131.0.0.0 Safari/537.36"
-                    )
-                })
+                # Preserve Camoufox's native Firefox identity.
 
                 try:
                     max_depth = max(0, min(int(max_depth or 1), 3))
