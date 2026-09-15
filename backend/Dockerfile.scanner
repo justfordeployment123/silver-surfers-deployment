@@ -111,7 +111,7 @@ COPY python-scanner/ ./
 
 RUN mkdir -p /tmp \
     && chmod 777 /tmp \
-    && python -m camoufox fetch \
+    && python install_browser.py \
     && python browser_runtime.py
 
 EXPOSE 8001
