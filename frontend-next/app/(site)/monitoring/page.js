@@ -42,6 +42,10 @@ const STYLES = `
 .mo-empty { text-align: center; padding: 60px 24px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 20px; }
 .mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
 .mo-empty p { color: rgba(255,255,255,0.75); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; }
+.mo-success { padding: 14px 16px; border-radius: 10px; background: rgba(1,150,189,0.14); border: 1px solid rgba(1,150,189,0.4); color: #fff; font-size: 16px; margin-bottom: 20px; }
+.mo-trend-label { font-size: 16px; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
+.mo-view-trend { font-size: 16px; font-weight: 700; color: var(--t4); background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.mo-view-trend:hover { text-decoration: underline; }
 `;
 
 function scoreColor(score) {
@@ -94,6 +98,7 @@ function MonitoringContent() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingJob, setEditingJob] = useState(null);
     const [busyJobId, setBusyJobId] = useState(null);
+    const [successMessage, setSuccessMessage] = useState('');
 
     const load = async () => {
         setLoading(true);
@@ -141,6 +146,8 @@ function MonitoringContent() {
 
     const handleAction = async (job, action) => {
         setBusyJobId(job._id);
+        setError('');
+        setSuccessMessage('');
         let res;
         if (action === 'pause') res = await pauseMonitoringJob(job._id);
         else if (action === 'resume') res = await resumeMonitoringJob(job._id);
@@ -151,6 +158,16 @@ function MonitoringContent() {
         }
         setBusyJobId(null);
         if (res?.error) { setError(res.error); return; }
+        if (action === 'trigger') {
+            // "Run Now" used to give zero feedback — the scan was actually
+            // queued (confirmed by the backend's { success: true } response)
+            // but nothing on screen showed it, so it looked like the click
+            // did nothing. This scan runs in the background and can take a
+            // few minutes to complete, so tell the user that up front rather
+            // than leaving them refreshing and guessing.
+            setSuccessMessage(`Scan started for ${job.domain}. This runs in the background — it can take a few minutes to finish and update below.`);
+            setTimeout(() => setSuccessMessage((current) => (current.startsWith(`Scan started for ${job.domain}`) ? '' : current)), 8000);
+        }
         load();
     };
 
@@ -166,6 +183,10 @@ function MonitoringContent() {
                         <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>Monitoring</h1>
                         <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Automatically re-scan your domains on a schedule and get alerted when accessibility regresses.</p>
                     </header>
+
+                    {successMessage && (
+                        <div className="mo-success" role="status">{successMessage}</div>
+                    )}
 
                     {error && (
                         <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px', marginBottom: '20px' }}>
@@ -212,8 +233,22 @@ function MonitoringContent() {
                                                         {typeof job.lastRunScore === 'number' ? Math.round(job.lastRunScore) : '—'}
                                                     </div>
                                                 </div>
-                                                <Sparkline scores={runs.map((r) => r.score)} />
+                                                <div>
+                                                    <div className="mo-trend-label">Score trend</div>
+                                                    <Sparkline scores={runs.map((r) => r.score)} />
+                                                </div>
                                             </div>
+                                            {/* Explicit call-to-action rather than relying on people to guess
+                                                that the domain name text up top is clickable — the full
+                                                trend chart and run history only live on the detail page,
+                                                and that wasn't obvious ("you have to click in the monitor
+                                                box... not overly clear"). */}
+                                            <button type="button" className="mo-view-trend" onClick={() => router.push(`/monitoring/${job._id}`)}>
+                                                View full trend &amp; run history
+                                                <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </button>
                                             <div className="mo-job-actions">
                                                 <button className="mo-btn" onClick={() => openEdit(job)}>Edit</button>
                                                 {job.status === 'paused'
