@@ -136,19 +136,24 @@ export default function Home() {
           text-align: center;
         }
         .hero-globe-caption-arc {
-          width: 260px;
-          height: 64px;
+          /* Matches the SVG viewBox 1:1 (320x80) on purpose — when the CSS
+             box was smaller than the viewBox, the whole SVG (including its
+             font-size) was scaled down by the browser, so the "16px" set
+             below was actually rendering at ~13px on screen. Keeping a 1:1
+             scale means font-size here means what it says. */
+          width: 320px;
+          height: 80px;
           display: block;
           margin: 0 auto;
         }
         .hero-globe-caption-title-path {
-          font-size: 16px;
+          font-size: 19px;
           font-weight: 600;
           fill: var(--t2);
           font-family: var(--ff);
         }
         .hero-globe-caption-sub {
-          font-size: 12.5px;
+          font-size: 16px;
           line-height: 1.5;
           color: rgba(255, 255, 255, 0.55);
           white-space: nowrap;
@@ -158,6 +163,11 @@ export default function Home() {
         @media (max-width: 1200px) {
           .hero-globe-slot { right: 2%; width: min(30vw, 360px); }
           .hero-globe-viz { height: min(30vw, 360px); }
+          /* The bigger caption font (readability fix) no longer fits on one
+             line once the globe slot is this close to the viewport edge —
+             it was overflowing off-screen and getting clipped. Wrapping to
+             two lines here is preferable to that. */
+          .hero-globe-caption-sub { white-space: normal; max-width: 260px; margin: 0 auto; }
         }
         @media (max-width: 1024px) {
           .hero-globe-slot { display: none; }
