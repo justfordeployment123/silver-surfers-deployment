@@ -10,22 +10,25 @@ from urllib.parse import urlsplit, urlunsplit
 
 from camoufox.pkgman import camoufox_path, installed_verstr
 from camoufox.sync_api import Camoufox
+from camoufox import DefaultAddons
 from bs4 import BeautifulSoup
+from proxy_fallback import proxy_mode
 
 
-def browser_options(env=None):
+def browser_options(env=None, *, use_proxy=None, proxy_session=None):
     env = os.environ if env is None else env
     mode = env.get("SCANNER_BROWSER_MODE", "headless")
     if mode not in {"headless", "virtual", "headed"}:
         raise ValueError("SCANNER_BROWSER_MODE must be headless, virtual, or headed")
     options = {"headless": {"headless": True, "virtual": "virtual", "headed": False}[mode]}
-    enabled = env.get("SCANNER_PROXY_ENABLED", "false").lower() == "true"
+    routing_mode = proxy_mode(env)
+    enabled = routing_mode == "always" if use_proxy is None else use_proxy
     if enabled:
         server = env.get("SCANNER_PROXY_SERVER", "")
         parsed = urlsplit(server)
         if parsed.scheme not in {"http", "https", "socks5"} or not parsed.hostname or parsed.username or parsed.password:
             raise ValueError("SCANNER_PROXY_SERVER must be a proxy URL without embedded credentials")
-        username = env.get("SCANNER_PROXY_USERNAME", "").replace("{session}", uuid.uuid4().hex[:10])
+        username = env.get("SCANNER_PROXY_USERNAME", "").replace("{session}", proxy_session or uuid.uuid4().hex[:10])
         password = env.get("SCANNER_PROXY_PASSWORD", "")
         if bool(username) != bool(password):
             raise ValueError("Both proxy username and password must be supplied")
@@ -54,8 +57,10 @@ def safe_url(value):
 
 
 @contextmanager
-def scanner_browser(device=None):
-    options = browser_options()
+def scanner_browser(device=None, *, use_proxy=None, proxy_session=None):
+    options = browser_options(use_proxy=use_proxy, proxy_session=proxy_session)
+    # Audit the page as delivered, not a version altered by an ad blocker.
+    options["exclude_addons"] = [DefaultAddons.UBO]
     device = device or {}
     viewport = device.get("viewport", {"width": 1920, "height": 1080})
     # Audits need deterministic dimensions rather than randomized viewport fingerprints.

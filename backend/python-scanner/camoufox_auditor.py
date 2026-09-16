@@ -12,6 +12,7 @@ from axe_integration import ensure_expected_audits, find_axe_core_script, merge_
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score, describe_score_breakdown
 from scanner_utils import safe_text
 from navigation_retry import navigate_with_retries
+from page_readiness import wait_for_ready
 
 
 class _WcagScopeSkip(Exception):
@@ -158,6 +159,17 @@ def _collect_dom_readiness(page) -> Dict[str, Any]:
                     + count('main, nav, header, footer, section, [role="main"], [role="navigation"]');
                 return {
                     url: window.location.href,
+                    fontsReady: !document.fonts || document.fonts.status === 'loaded',
+                    stylesReady: Array.from(document.querySelectorAll('link[rel="stylesheet"]')).every(e => e.sheet || e.disabled),
+                    visibleImagesReady: Array.from(document.images).every(e => {
+                        const r = e.getBoundingClientRect();
+                        return r.bottom <= 0 || r.top >= innerHeight || r.width === 0 || e.complete;
+                    }),
+                    challengeDetected: /^(verify you are human|checking your browser|performing security verification)/i.test(text.trim()) && text.length < 2000,
+                    layoutSignature: Array.from(document.querySelectorAll('main, header, h1, form')).slice(0, 12).map(e => {
+                        const r = e.getBoundingClientRect();
+                        return [r.x, r.y, r.width, r.height].map(Math.round).join(',');
+                    }).join(';'),
                     title: document.title || '',
                     readyState: document.readyState,
                     hasViewport,
@@ -209,6 +221,31 @@ def run_camoufox_audit_sync(
     device_config: Dict[str, Any],
     is_lite: bool,
     wcag_filter: Optional[Dict[str, Any]] = None,
+    proxy_session: Optional[str] = None,
+) -> Dict[str, Any]:
+    from proxy_fallback import proxy_mode, run_with_proxy_fallback
+    from browser_runtime import browser_options
+
+    mode = proxy_mode()
+    if mode == "fallback":
+        # Reject broken configuration before starting a potentially long audit.
+        browser_options(use_proxy=True)
+    return run_with_proxy_fallback(
+        lambda use_proxy: _run_camoufox_audit_once(
+            url, device_config, is_lite, wcag_filter, use_proxy=use_proxy, proxy_session=proxy_session
+        ),
+        mode,
+    )
+
+
+def _run_camoufox_audit_once(
+    url: str,
+    device_config: Dict[str, Any],
+    is_lite: bool,
+    wcag_filter: Optional[Dict[str, Any]] = None,
+    *,
+    use_proxy: bool = False,
+    proxy_session: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Synchronous wrapper for Camoufox audit.
@@ -233,7 +270,7 @@ def run_camoufox_audit_sync(
 
     # Use Camoufox for advanced anti-detection (sync API)
     # Note: viewport is set on the page, not in the browser constructor
-    with scanner_browser(device_config) as browser:
+    with scanner_browser(device_config, use_proxy=use_proxy, proxy_session=proxy_session) as browser:
         # Get a page from the browser (sync API)
         page = new_scanner_page(browser, device_config)
         
@@ -347,7 +384,7 @@ def run_camoufox_audit_sync(
             except Exception:
                 pass
 
-            readiness = _wait_for_auditable_dom(page)
+            readiness = wait_for_ready(page, _collect_dom_readiness, lambda: document_response["latest"] or nav_response)
             print(
                 "Auditable DOM readiness: "
                 + json.dumps(
@@ -379,6 +416,13 @@ def run_camoufox_audit_sync(
             
             # Get final URL after redirects
             final_url = page_url
+
+            if not readiness.get("auditableReady") and readiness.get("readinessError") != "HTTP_ERROR":
+                return {
+                    "success": False,
+                    "errorCode": readiness.get("readinessError", "PAGE_NOT_READY"),
+                    "error": "Website did not reach a stable, auditable page before the readiness timeout. No score was generated.",
+                }
 
             # Check 0: HTTP status / content-type gate — never spend audit work
             # on error pages or non-HTML endpoints. The response object comes
