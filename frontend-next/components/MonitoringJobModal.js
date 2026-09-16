@@ -22,6 +22,7 @@ const STYLES = `
 .mjm-input { width: 100%; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--sandd); background: var(--bg); color: var(--ink); font-size: 16px; outline: none; box-sizing: border-box; }
 .mjm-input:focus { border-color: var(--t4); }
 .mjm-error { font-size: 16px; color: var(--coral); margin-top: -6px; }
+.mjm-footer-error { font-size: 16px; font-weight: 600; color: var(--coral); background: var(--coralbg); border: 1px solid var(--coral); border-radius: 10px; padding: 10px 14px; }
 .mjm-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mjm-opt-card { border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
 .mjm-opt-card:hover { border-color: var(--t1); }
@@ -44,7 +45,8 @@ const STYLES = `
 .mjm-review-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--sandd); font-size: 16px; }
 .mjm-review-k { color: var(--ink3); }
 .mjm-review-v { font-weight: 700; text-align: right; }
-.mjm-footer { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-top: 1px solid var(--sandd); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 24px 24px; }
+.mjm-footer { display: flex; flex-direction: column; gap: 12px; padding: 18px 24px; border-top: 1px solid var(--sandd); position: sticky; bottom: 0; background: var(--surface); border-radius: 0 0 24px 24px; }
+.mjm-footer-btn-row { display: flex; justify-content: space-between; align-items: center; }
 .mjm-preview-box { padding: 10px 14px; border-radius: 10px; background: var(--t05, var(--t1)); color: var(--t9); font-size: 16px; font-weight: 600; }
 `;
 
@@ -213,8 +215,6 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
           </div>
 
           <div className="mjm-body">
-            {error && <div className="mjm-error">{error}</div>}
-
             {step === 1 && (
               <div>
                 <label className="mjm-label">Domain to monitor</label>
@@ -387,12 +387,20 @@ const MonitoringJobModal = ({ isOpen, onClose, onSaved, job, planLimits }) => {
           </div>
 
           <div className="mjm-footer">
-            <button className="btn btn-o" onClick={step === 1 ? onClose : goBack}>{step === 1 ? 'Cancel' : 'Back'}</button>
-            {step < 5 ? (
-              <button className="btn btn-d" onClick={goNext}>Continue</button>
-            ) : (
-              <button className="btn btn-d" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Monitor')}</button>
-            )}
+            {/* Rendered in the sticky footer (always on screen) rather than
+                at the top of the scrollable body — a limit-reached error
+                triggered by clicking "Create Monitor" at step 5 used to
+                render above content the user had already scrolled past,
+                so it was easy to miss entirely ("I don't see anything"). */}
+            {error && <div className="mjm-footer-error" role="alert">{error}</div>}
+            <div className="mjm-footer-btn-row">
+              <button className="btn btn-o" onClick={step === 1 ? onClose : goBack}>{step === 1 ? 'Cancel' : 'Back'}</button>
+              {step < 5 ? (
+                <button className="btn btn-d" onClick={goNext}>Continue</button>
+              ) : (
+                <button className="btn btn-d" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Monitor')}</button>
+              )}
+            </div>
           </div>
         </div>
       </div>

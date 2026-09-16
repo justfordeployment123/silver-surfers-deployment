@@ -54,6 +54,7 @@ const STYLES = `
 .mjd-pg-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
 .mjd-pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mjd-pg-btn-active { border-color: var(--t4); background: var(--t6); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 16px; font-weight: 600; cursor: default; }
+.mjd-success { padding: 14px 16px; border-radius: 10px; background: rgba(1,150,189,0.14); border: 1px solid rgba(1,150,189,0.4); color: #fff; font-size: 16px; margin-bottom: 20px; }
 `;
 
 function scoreColor(score) {
@@ -114,6 +115,7 @@ function MonitoringJobDetailContent() {
     const [notifsPage, setNotifsPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [successMessage, setSuccessMessage] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [triggering, setTriggering] = useState(false);
 
@@ -188,9 +190,17 @@ function MonitoringJobDetailContent() {
 
     const handleTriggerNow = async () => {
         setTriggering(true);
+        setError('');
+        setSuccessMessage('');
         const res = await triggerMonitoringJob(jobId);
         setTriggering(false);
         if (res?.error) { setError(res.error); return; }
+        // Same fix as the monitors list page: "Run Now" dispatched the scan
+        // fine but gave no visible confirmation, so it looked like nothing
+        // happened. The scan runs in the background and can take a few
+        // minutes, so say so up front instead of leaving the user guessing.
+        setSuccessMessage('Scan started. This runs in the background — it can take a few minutes to finish and appear in the run history below.');
+        setTimeout(() => setSuccessMessage((current) => (current.startsWith('Scan started') ? '' : current)), 8000);
         load();
     };
 
@@ -245,6 +255,10 @@ function MonitoringJobDetailContent() {
                             <button className="btn btn-d" onClick={handleTriggerNow} disabled={triggering}>{triggering ? 'Running…' : 'Run Now'}</button>
                         </div>
                     </div>
+
+                    {successMessage && (
+                        <div className="mjd-success" role="status">{successMessage}</div>
+                    )}
 
                     {error && (
                         <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px', marginBottom: '20px' }}>{error}</div>
