@@ -698,6 +698,15 @@ class LiteAccessibilityPDFGenerator {
             }
 
             // 2.2.7.3 — evaluated WCAG standard/level, prominent in the report header
+            if (reportData.auditScope?.type === 'legacy-frameset-content') {
+                const scopeText = `Embedded content audited: ${reportData.auditScope.contentUrl}\nScore covers this content frame only, not the legacy frameset wrapper. Embedded frames are not separate scan targets.`;
+                this.doc.fontSize(10).font('RegularFont').fillColor('#333333');
+                const scopeHeight = this.doc.heightOfString(scopeText, { width: this.pageWidth });
+                if (this.currentY + scopeHeight + 20 > this.doc.page.height - this.margin) this.addPage();
+                this.doc.text(scopeText, this.margin, this.currentY, { width: this.pageWidth });
+                this.currentY = this.doc.y + 15;
+            }
+
             this.doc.fontSize(11).font('RegularFont').fillColor('#333333')
                 .text(`Evaluated against: ${describeWcagStandardLabel(reportData.wcagStandard, reportData.conformanceLevel)}`, this.margin, this.currentY);
             this.currentY += 20;

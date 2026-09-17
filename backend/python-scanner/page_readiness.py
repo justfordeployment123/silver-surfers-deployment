@@ -4,7 +4,23 @@ import time
 
 def is_challenge(metrics):
     title = str(metrics.get("title", "")).strip().lower()
-    return title in {"just a moment...", "just a moment", "checking your browser", "attention required! | cloudflare"} or bool(metrics.get("challengeDetected"))
+    return title in {"just a moment...", "just a moment", "checking your browser", "attention required! | cloudflare", "vercel security checkpoint"} or bool(metrics.get("challengeDetected"))
+
+
+def response_is_challenge(response):
+    headers = getattr(response, "headers", {}) or {}
+    return isinstance(headers, dict) and any(
+        str(headers.get(key, "")).lower() == "challenge"
+        for key in ("x-vercel-mitigated", "cf-mitigated")
+    )
+
+
+def is_empty_document(metrics, status, has_frames):
+    return (status == 200 and not has_frames
+            and metrics.get("readyState") == "complete"
+            and metrics.get("bodyChars") == 0
+            and 0 < metrics.get("domCount", 0) <= 10
+            and all(metrics.get(key, 0) == 0 for key in ("links", "buttons", "controls", "media", "headings")))
 
 
 def wait_for_ready(page, collect, latest_response, timeout_ms=45000):
@@ -16,7 +32,7 @@ def wait_for_ready(page, collect, latest_response, timeout_ms=45000):
         metrics = collect(page)
         response = latest_response()
         status = int(getattr(response, "status", 0) or 0)
-        challenge = is_challenge(metrics)
+        challenge = is_challenge(metrics) or response_is_challenge(response)
         reason = "PAGE_NOT_READY"
         if challenge:
             reason = "BOT_CHALLENGE"

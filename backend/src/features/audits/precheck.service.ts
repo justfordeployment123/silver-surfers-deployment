@@ -61,7 +61,7 @@ function toCleanUrl(urlObj: URL): string {
 }
 
 // Builds candidate URLs to try, including www / non-www variants for apex domains.
-// Order: https-www, https-bare, http-www, http-bare.
+// Preserve the submitted hostname first, then try its alternate for each protocol.
 export function buildCandidateUrls(input: string | undefined): CandidateUrlResult {
   const raw = String(input || '').trim();
   if (!raw) return { input: raw, candidateUrls: [] };
@@ -108,8 +108,8 @@ export function buildCandidateUrls(input: string | undefined): CandidateUrlResul
         const noWwwUrl = new URL(base);
         noWwwUrl.hostname = bare;
 
-        add(toCleanUrl(wwwUrl));
-        add(toCleanUrl(noWwwUrl));
+        add(toCleanUrl(parsed));
+        add(toCleanUrl(hostname.startsWith('www.') ? noWwwUrl : wwwUrl));
       } else {
         add(base);
       }

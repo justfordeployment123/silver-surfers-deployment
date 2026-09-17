@@ -1531,7 +1531,7 @@ class ScannerSqsWorker:
 
         # Changing audit depth cannot repair an access failure. In particular,
         # do not repeat the proxy fallback through the full/lite retry chain.
-        if first_attempt.get("errorCode") in {"ACCESS_DENIED", "BOT_CHALLENGE", "RATE_LIMITED", "PAGE_NOT_FOUND"}:
+        if first_attempt.get("errorCode") in {"ACCESS_DENIED", "BOT_CHALLENGE", "RATE_LIMITED", "PAGE_NOT_FOUND", "EMPTY_DOCUMENT", "TLS_HANDSHAKE_ERROR"}:
             return first_attempt
 
         if allow_full_retry:

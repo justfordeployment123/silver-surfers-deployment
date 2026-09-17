@@ -3,10 +3,17 @@ import json
 import os
 import hashlib
 import uuid
+import time
+import math
+import re
 from urllib.parse import urlsplit
 
 
-PROXY_ELIGIBLE_ERRORS = frozenset({"ACCESS_DENIED", "BOT_CHALLENGE"})
+PROXY_ELIGIBLE_ERRORS = frozenset({"ACCESS_DENIED", "BOT_CHALLENGE", "EMPTY_DOCUMENT", "TLS_HANDSHAKE_ERROR"})
+
+
+def is_unknown_tls_handshake(error):
+    return bool(re.search(r"\bSSL_ERROR_UNKNOWN\b", str(error)))
 
 
 def proxy_session_id(job_id=None):
@@ -47,6 +54,12 @@ def run_with_proxy_fallback(attempt, mode):
     result = attempt(mode == "always")
     if mode != "fallback" or result.get("success") or result.get("errorCode") not in PROXY_ELIGIBLE_ERRORS:
         return result
+    delay = float(result.get("retryAfterSeconds") or 0)
+    if not math.isfinite(delay) or delay > 60:
+        result["proxyFallbackDeferred"] = True
+        return result
+    if delay > 0:
+        time.sleep(delay)
     print("Scanner proxy fallback: " + json.dumps({"reason": result.get("errorCode"), "attempt": 1}))
     retried = attempt(True)
     retried["proxyFallbackAttempted"] = True
