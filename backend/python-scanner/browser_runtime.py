@@ -12,7 +12,7 @@ from camoufox.pkgman import camoufox_path, installed_verstr
 from camoufox.sync_api import Camoufox
 from camoufox import DefaultAddons
 from bs4 import BeautifulSoup
-from proxy_fallback import proxy_mode
+from proxy_fallback import proxy_mode, proxy_countries, proxy_country_context
 
 
 def browser_options(env=None, *, use_proxy=None, proxy_session=None):
@@ -28,7 +28,17 @@ def browser_options(env=None, *, use_proxy=None, proxy_session=None):
         parsed = urlsplit(server)
         if parsed.scheme not in {"http", "https", "socks5"} or not parsed.hostname or parsed.username or parsed.password:
             raise ValueError("SCANNER_PROXY_SERVER must be a proxy URL without embedded credentials")
-        username = env.get("SCANNER_PROXY_USERNAME", "").replace("{session}", proxy_session or uuid.uuid4().hex[:10])
+        countries = proxy_countries(env)
+        country = proxy_country_context.get() or (countries[0] if countries else None)
+        session = proxy_session or uuid.uuid4().hex[:20]
+        if countries:
+            # Different countries must not reuse one provider sticky-session identifier.
+            session = uuid.uuid5(uuid.NAMESPACE_URL, session + ":" + country).hex[:20]
+        username = env.get("SCANNER_PROXY_USERNAME", "").replace("{session}", session)
+        if country:
+            username = username.replace("{country}", country)
+        if "{country}" in username:
+            raise ValueError("Country template requires SCANNER_PROXY_COUNTRIES")
         password = env.get("SCANNER_PROXY_PASSWORD", "")
         if bool(username) != bool(password):
             raise ValueError("Both proxy username and password must be supplied")
