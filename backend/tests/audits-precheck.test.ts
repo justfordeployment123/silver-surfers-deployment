@@ -10,15 +10,15 @@ test('buildCandidateUrls adds www and non-www variants for bare apex domain', ()
   assert.deepEqual(buildCandidateUrls('example.com'), {
     input: 'example.com',
     candidateUrls: [
-      'https://www.example.com',
       'https://example.com',
-      'http://www.example.com',
+      'https://www.example.com',
       'http://example.com',
+      'http://www.example.com',
     ],
   });
 });
 
-test('buildCandidateUrls treats www-prefixed input the same as bare domain', () => {
+test('buildCandidateUrls preserves www-prefixed input first', () => {
   assert.deepEqual(buildCandidateUrls('www.example.com'), {
     input: 'www.example.com',
     candidateUrls: [
@@ -34,12 +34,27 @@ test('buildCandidateUrls adds www variants for explicit-protocol apex domain', (
   assert.deepEqual(buildCandidateUrls('https://example.com'), {
     input: 'https://example.com',
     candidateUrls: [
-      'https://www.example.com',
       'https://example.com',
-      'http://www.example.com',
+      'https://www.example.com',
       'http://example.com',
+      'http://www.example.com',
     ],
   });
+});
+
+test('Eye Center non-www submission stays first, including when precheck is skipped', () => {
+  const result = buildCandidateUrls('https://theeyecenterofpa.com/');
+  assert.deepEqual(result.candidateUrls, [
+    'https://theeyecenterofpa.com', 'https://www.theeyecenterofpa.com',
+    'http://theeyecenterofpa.com', 'http://www.theeyecenterofpa.com',
+  ]);
+});
+
+test('candidate ordering preserves explicit HTTP protocol and hostname', () => {
+  assert.deepEqual(buildCandidateUrls('http://example.com/').candidateUrls, [
+    'http://example.com', 'http://www.example.com',
+    'https://example.com', 'https://www.example.com',
+  ]);
 });
 
 test('buildCandidateUrls does not add www variants for subdomains', () => {

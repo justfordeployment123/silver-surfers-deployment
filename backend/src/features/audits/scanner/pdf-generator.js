@@ -780,6 +780,16 @@ addOverallScoreDisplay(scoreData) {
         }
 
         // Package information (simple label, no dev-only notes)
+        if (reportData.auditScope?.type === 'legacy-frameset-content') {
+            const scopeText = `Embedded content audited: ${reportData.auditScope.contentUrl}\nScore covers this content frame only, not the legacy frameset wrapper. Embedded frames are not separate scan targets.`;
+            this.doc.fontSize(10).font('RegularFont').fillColor('#2C3E50');
+            const scopeWidth = this.pageWidth - 60;
+            const scopeHeight = this.doc.heightOfString(scopeText, { width: scopeWidth });
+            if (this.currentY + scopeHeight + 80 > this.doc.page.height - this.margin) this.addPage();
+            this.doc.text(scopeText, this.margin + 60, this.currentY, { width: scopeWidth });
+            this.currentY = this.doc.y + 15;
+        }
+
         this.doc.fontSize(11).font('RegularFont').fillColor('#2C3E50')
             .text(`Package: ${packageText}`, this.margin + 60, this.currentY);
         this.currentY += 25;

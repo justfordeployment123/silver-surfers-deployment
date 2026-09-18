@@ -862,20 +862,40 @@ def _scanner_click_navigation_controls(page, deadline: float) -> list[Dict[str, 
     return diagnostics[:10]
 
 
-def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay_ms: int = 500) -> Dict[str, Any]:
+def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay_ms: int = 500, proxy_session: Optional[str] = None) -> Dict[str, Any]:
+    from proxy_fallback import proxy_mode, proxy_session_id, run_with_proxy_fallback
+
+    mode = proxy_mode()
+    session = proxy_session or proxy_session_id()
+    if mode == "fallback":
+        browser_options(use_proxy=True, proxy_session=session)
+    return run_with_proxy_fallback(
+        lambda use_proxy: _extract_links_once(url, max_links, max_depth, delay_ms,
+                                             use_proxy=use_proxy, proxy_session=session),
+        mode,
+    )
+
+
+def _extract_links_once(url: str, max_links: int = 50, max_depth: int = 1, delay_ms: int = 500, *, use_proxy: bool = False, proxy_session: Optional[str] = None) -> Dict[str, Any]:
     """
     Navigate to a URL using Camoufox and return all same-origin internal links.
 
-    Camoufox uses Firefox with randomised fingerprints, which bypasses bot-detection
-    mechanisms that block headless Chromium (Puppeteer) and plain HTTP clients.
+    Access can still be blocked; the caller applies bounded proxy fallback.
 
     Thread-safe via its own lock so it never blocks audits or prechecks.
     """
     with _link_extraction_lock:
         try:
-            with scanner_browser() as browser:
+            with scanner_browser(use_proxy=use_proxy, proxy_session=proxy_session) as browser:
                 page = new_scanner_page(browser)
                 page.set_viewport_size({"width": 1920, "height": 1080})
+                document_status = [0]
+
+                def record_document(response):
+                    if response.request.is_navigation_request() and response.frame == page.main_frame:
+                        document_status[0] = response.status
+
+                page.on("response", record_document)
 
                 # Preserve Camoufox's native Firefox identity.
 
@@ -931,6 +951,7 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                             page.wait_for_timeout(delay_ms + jitter)
 
                         try:
+                            document_status[0] = 0
                             page.goto(current_url, wait_until="domcontentloaded", timeout=min(navigation_timeout_ms, max(1_000, remaining_ms)))
                         except Exception as page_error:
                             warnings.append(f"Skipped {current_url}: {str(page_error)}")
@@ -947,6 +968,12 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
                             page.wait_for_timeout(min(1_000, max(0, int((deadline - time.monotonic()) * 1000))))
 
                         if current_url == url:
+                            from proxy_fallback import discovery_access_error
+                            access_error = discovery_access_error(document_status[0], page.title(), url, page.url)
+                            if access_error:
+                                return {"success": False, "links": [], "finalUrl": url,
+                                        "errorCode": access_error, "error": "Link discovery could not access the requested website.",
+                                        "homepageDiagnostics": {"status": document_status[0], "title": page.title()}}
                             final_url = page.url
                             home_key = (_scanner_canonicalize_url(final_url) or {}).get("key", "")
                             # Simulate human reading the page before following links

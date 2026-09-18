@@ -11,7 +11,9 @@ from browser_runtime import scanner_browser, new_scanner_page, capture_failure
 from axe_integration import ensure_expected_audits, find_axe_core_script, merge_axe_results_into_audits, make_not_checked_audit
 from scanner_config import FULL_AUDIT_REFS, LITE_AUDIT_REFS, calculate_score, describe_score_breakdown
 from scanner_utils import safe_text
-from navigation_retry import navigate_with_retries
+from navigation_retry import navigate_with_retries, retry_delay
+from page_readiness import wait_for_ready, is_empty_document
+from frameset_scope import select_frameset_scope
 
 
 class _WcagScopeSkip(Exception):
@@ -158,6 +160,17 @@ def _collect_dom_readiness(page) -> Dict[str, Any]:
                     + count('main, nav, header, footer, section, [role="main"], [role="navigation"]');
                 return {
                     url: window.location.href,
+                    fontsReady: !document.fonts || document.fonts.status === 'loaded',
+                    stylesReady: Array.from(document.querySelectorAll('link[rel="stylesheet"]')).every(e => e.sheet || e.disabled),
+                    visibleImagesReady: Array.from(document.images).every(e => {
+                        const r = e.getBoundingClientRect();
+                        return r.bottom <= 0 || r.top >= innerHeight || r.width === 0 || e.complete;
+                    }),
+                    challengeDetected: /^(verify you are human|checking your browser|performing security verification)/i.test(text.trim()) && text.length < 2000,
+                    layoutSignature: Array.from(document.querySelectorAll('main, header, h1, form')).slice(0, 12).map(e => {
+                        const r = e.getBoundingClientRect();
+                        return [r.x, r.y, r.width, r.height].map(Math.round).join(',');
+                    }).join(';'),
                     title: document.title || '',
                     readyState: document.readyState,
                     hasViewport,
@@ -209,6 +222,31 @@ def run_camoufox_audit_sync(
     device_config: Dict[str, Any],
     is_lite: bool,
     wcag_filter: Optional[Dict[str, Any]] = None,
+    proxy_session: Optional[str] = None,
+) -> Dict[str, Any]:
+    from proxy_fallback import proxy_mode, run_with_proxy_fallback
+    from browser_runtime import browser_options
+
+    mode = proxy_mode()
+    if mode == "fallback":
+        # Reject broken configuration before starting a potentially long audit.
+        browser_options(use_proxy=True)
+    return run_with_proxy_fallback(
+        lambda use_proxy: _run_camoufox_audit_once(
+            url, device_config, is_lite, wcag_filter, use_proxy=use_proxy, proxy_session=proxy_session
+        ),
+        mode,
+    )
+
+
+def _run_camoufox_audit_once(
+    url: str,
+    device_config: Dict[str, Any],
+    is_lite: bool,
+    wcag_filter: Optional[Dict[str, Any]] = None,
+    *,
+    use_proxy: bool = False,
+    proxy_session: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Synchronous wrapper for Camoufox audit.
@@ -233,7 +271,7 @@ def run_camoufox_audit_sync(
 
     # Use Camoufox for advanced anti-detection (sync API)
     # Note: viewport is set on the page, not in the browser constructor
-    with scanner_browser(device_config) as browser:
+    with scanner_browser(device_config, use_proxy=use_proxy, proxy_session=proxy_session) as browser:
         # Get a page from the browser (sync API)
         page = new_scanner_page(browser, device_config)
         
@@ -328,13 +366,27 @@ def run_camoufox_audit_sync(
         try:
             _nav_started_at = time.time()
             document_response = {"latest": None}
+            frame_responses = {}
+            outer_page = page
+            audit_scope = None
 
             def remember_document_response(response):
-                if response.request.is_navigation_request() and response.frame == page.main_frame:
-                    document_response["latest"] = response
+                if response.request.is_navigation_request():
+                    frame_responses[response.frame] = response
+                    if response.frame == outer_page.main_frame:
+                        document_response["latest"] = response
 
             page.on("response", remember_document_response)
-            nav_response = navigate_with_retries(page, url, navigate_for_audit)
+            try:
+                nav_response = navigate_with_retries(page, url, navigate_for_audit)
+            except Exception as navigation_error:
+                # Unknown TLS transport failure may differ by network route.
+                # Certificate validation failures are intentionally not caught.
+                from proxy_fallback import is_unknown_tls_handshake
+                if is_unknown_tls_handshake(navigation_error):
+                    return {"success": False, "errorCode": "TLS_HANDSHAKE_ERROR",
+                            "error": "Navigation failed with SSL_ERROR_UNKNOWN. No score was generated."}
+                raise
             print(f"Navigation completed in {round((time.time() - _nav_started_at) * 1000)}ms for {url}")
 
             # Jittered post-navigation wait to look human and let dynamic content settle
@@ -347,7 +399,16 @@ def run_camoufox_audit_sync(
             except Exception:
                 pass
 
-            readiness = _wait_for_auditable_dom(page)
+            page, audit_scope = select_frameset_scope(outer_page, frame_responses, url)
+            if audit_scope:
+                print("Scanner frameset audit scope: " + json.dumps(audit_scope))
+
+            def latest_audit_response():
+                if audit_scope:
+                    return frame_responses.get(page.main_frame)
+                return document_response["latest"] or nav_response
+
+            readiness = wait_for_ready(page, _collect_dom_readiness, latest_audit_response)
             print(
                 "Auditable DOM readiness: "
                 + json.dumps(
@@ -365,6 +426,10 @@ def run_camoufox_audit_sync(
                         "media": readiness.get("media"),
                         "headings": readiness.get("headings"),
                         "landmarks": readiness.get("landmarks"),
+                        "fontsReady": readiness.get("fontsReady"),
+                        "stylesReady": readiness.get("stylesReady"),
+                        "visibleImagesReady": readiness.get("visibleImagesReady"),
+                        "frameCount": max(0, len(page.frames) - 1),
                     },
                     ensure_ascii=False,
                 )
@@ -380,11 +445,29 @@ def run_camoufox_audit_sync(
             # Get final URL after redirects
             final_url = page_url
 
+            if not readiness.get("auditableReady") and readiness.get("readinessError") != "HTTP_ERROR":
+                latest = latest_audit_response()
+                error_code = readiness.get("readinessError", "PAGE_NOT_READY")
+                if error_code == "PAGE_NOT_READY" and is_empty_document(
+                    readiness, int(getattr(latest, "status", 0) or 0),
+                    bool(soup.find(["iframe", "frame"])) or len(page.frames) > 1,
+                ):
+                    error_code = "EMPTY_DOCUMENT"
+                # Wait conservatively after readiness too; never retry early.
+                headers = getattr(latest, "headers", {}) or {}
+                retry_after = retry_delay(latest, 0) if headers.get("retry-after") else 0
+                return {
+                    "success": False,
+                    "errorCode": error_code,
+                    "retryAfterSeconds": retry_after,
+                    "error": "Website did not reach a stable, auditable page before the readiness timeout. No score was generated.",
+                }
+
             # Check 0: HTTP status / content-type gate — never spend audit work
             # on error pages or non-HTML endpoints. The response object comes
             # from the main-document navigation; recovery paths may have no
             # response, in which case the later content gates still apply.
-            nav_response = document_response["latest"] or nav_response
+            nav_response = latest_audit_response()
             if nav_response is not None:
                 try:
                     nav_status = int(getattr(nav_response, "status", 0) or 0)
@@ -418,7 +501,8 @@ def run_camoufox_audit_sync(
             def _bare_host(h: str) -> str:
                 return (h or "").lower().removeprefix("www.")
 
-            requested_parsed = urlparse(url if url.startswith("http") else f"https://{url}")
+            scope_url = audit_scope["sourceUrl"] if audit_scope else url
+            requested_parsed = urlparse(scope_url if scope_url.startswith("http") else f"https://{scope_url}")
             final_parsed = urlparse(final_url)
             req_host = _bare_host(requested_parsed.hostname or "")
             fin_host = _bare_host(final_parsed.hostname or "")
@@ -3901,7 +3985,8 @@ def run_camoufox_audit_sync(
                 "scannerVersion": "camoufox-axe-1.0",
                 "fetchTime": time.time() * 1000,
                 "requestedUrl": url,
-                "finalUrl": final_url,
+                "finalUrl": audit_scope["wrapperUrl"] if audit_scope else final_url,
+                **({"auditScope": {**audit_scope, "contentUrl": final_url}} if audit_scope else {}),
                 "categories": {
                     category_id: {
                         "id": category_id,

@@ -28,6 +28,7 @@ import boto3
 from camoufox_auditor import run_camoufox_audit_sync
 from scanner_config import LITE_AUDIT_REFS, get_viewport_for_device
 from scanner_service import _extract_links_sync
+from proxy_fallback import proxy_session_id
 from scanner_utils import run_with_clean_event_loop_context, safe_text, sanitize_report_data
 
 
@@ -1321,6 +1322,7 @@ class ScannerSqsWorker:
             raw_link_limit,
             max_depth,
             delay_ms,
+            proxy_session_id(scanner_job_id),
         )
         extraction_links = [safe_text(link) for link in extraction.get("links") or [] if safe_text(link)]
         plain_discovery_attempted = False
@@ -1527,6 +1529,11 @@ class ScannerSqsWorker:
         if first_attempt.get("success"):
             return first_attempt
 
+        # Changing audit depth cannot repair an access failure. In particular,
+        # do not repeat the proxy fallback through the full/lite retry chain.
+        if first_attempt.get("errorCode") in {"ACCESS_DENIED", "BOT_CHALLENGE", "RATE_LIMITED", "PAGE_NOT_FOUND", "EMPTY_DOCUMENT", "TLS_HANDSHAKE_ERROR"}:
+            return first_attempt
+
         if allow_full_retry:
             time.sleep(1.5)
             second_attempt = self._run_batch_target_attempt(scanner_job_id, queue_kind, url, device, False, index, "full", wcag_filter)
@@ -1583,6 +1590,7 @@ class ScannerSqsWorker:
                     device_config,
                     is_lite_version,
                     wcag_filter,
+                    proxy_session_id(scanner_job_id),
                 )
 
             if not result.get("success"):
