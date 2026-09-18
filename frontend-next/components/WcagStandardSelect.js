@@ -111,8 +111,14 @@ const STYLES = `
   display: block; border-bottom: 1px solid var(--sandd);
 }
 .wss-option:last-child { border-bottom: none; }
-.wss-option:hover, .wss-option:focus-visible { background: var(--t05, var(--t1)); outline: none; }
-.wss-option.selected { background: var(--t05, var(--t1)); }
+/* UAT: these used to use var(--t05, var(--t1)) — a fixed near-white that
+   does NOT flip with theme — paired with .wss-option-title/-desc's
+   var(--ink)/var(--ink3), which DO flip to near-white/light-gray in dark
+   mode. Result: near-white text on a near-white background in dark mode.
+   A translucent brand-tint instead of a solid theme-invariant color stays
+   readable against both --surface values. */
+.wss-option:hover, .wss-option:focus-visible { background: rgba(1,150,189,0.12); outline: none; }
+.wss-option.selected { background: rgba(1,150,189,0.12); }
 .wss-option-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
 .wss-option-title { font-weight: 700; font-size: 16px; color: var(--ink); }
 .wss-option-badge {

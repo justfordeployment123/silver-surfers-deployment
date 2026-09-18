@@ -26,7 +26,12 @@ const STYLES = `
 .mjm-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .mjm-opt-card { border: 2px solid var(--sandd); border-radius: 12px; padding: 14px; cursor: pointer; background: var(--bg); text-align: left; transition: border-color .15s, background .15s; }
 .mjm-opt-card:hover { border-color: var(--t1); }
-.mjm-opt-card.selected { border-color: var(--t4); background: var(--t05, var(--t1)); }
+/* UAT: var(--t05, var(--t1)) is a fixed near-white that doesn't flip with
+   theme, but .mjm-opt-name/-desc's text color does (inherits var(--ink) /
+   var(--ink3)) — near-white text on a near-white card in dark mode. Same
+   fix as WcagStandardSelect's option list: a translucent tint instead of
+   a solid theme-invariant background. */
+.mjm-opt-card.selected { border-color: var(--t4); background: rgba(1,150,189,0.12); }
 .mjm-opt-card:disabled { opacity: 0.45; cursor: not-allowed; }
 .mjm-opt-name { font-size: 16px; font-weight: 700; margin: 0 0 2px 0; }
 .mjm-opt-desc { font-size: 16px; color: var(--ink3); margin: 0; }
