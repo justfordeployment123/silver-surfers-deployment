@@ -47,7 +47,12 @@ const STYLES = `
 .mo-empty { text-align: center; padding: 60px 24px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 20px; }
 .mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
 .mo-empty p { color: rgba(255,255,255,0.75); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; }
-.mo-success { padding: 14px 16px; border-radius: 10px; background: rgba(1,150,189,0.14); border: 1px solid rgba(1,150,189,0.4); color: #fff; font-size: 16px; margin-bottom: 20px; }
+/* UAT: this used to render inline at the top of the page, so a "Run Now"
+   click on a card further down the (potentially long) list produced
+   feedback that was off-screen — it looked like nothing happened unless
+   you scrolled up. A fixed toast is visible regardless of scroll position. */
+.mo-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: rgba(6,35,48,0.97); border: 1px solid rgba(1,150,189,0.5); color: #fff; font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.4); animation: mo-toast-in .2s ease-out; }
+@keyframes mo-toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 .mo-trend-label { font-size: 16px; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
 .mo-view-trend { font-size: 16px; font-weight: 700; color: var(--t4); background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .mo-view-trend:hover { text-decoration: underline; }
@@ -103,6 +108,7 @@ function MonitoringContent() {
     const [modalOpen, setModalOpen] = useState(false);
     const [editingJob, setEditingJob] = useState(null);
     const [busyJobId, setBusyJobId] = useState(null);
+    const [triggeringId, setTriggeringId] = useState(null);
     const [successMessage, setSuccessMessage] = useState('');
 
     const load = async () => {
@@ -151,6 +157,7 @@ function MonitoringContent() {
 
     const handleAction = async (job, action) => {
         setBusyJobId(job._id);
+        if (action === 'trigger') setTriggeringId(job._id);
         setError('');
         setSuccessMessage('');
         let res;
@@ -162,6 +169,7 @@ function MonitoringContent() {
             res = await deleteMonitoringJob(job._id);
         }
         setBusyJobId(null);
+        setTriggeringId(null);
         if (res?.error) { setError(res.error); return; }
         if (action === 'trigger') {
             // "Run Now" used to give zero feedback — the scan was actually
@@ -259,7 +267,7 @@ function MonitoringContent() {
                                                 {job.status === 'paused'
                                                     ? <button className="mo-btn" disabled={busyJobId === job._id} onClick={() => handleAction(job, 'resume')}>Resume</button>
                                                     : <button className="mo-btn" disabled={busyJobId === job._id} onClick={() => handleAction(job, 'pause')}>Pause</button>}
-                                                <button className="mo-btn" disabled={busyJobId === job._id} onClick={() => handleAction(job, 'trigger')}>Run Now</button>
+                                                <button className="mo-btn" disabled={busyJobId === job._id} onClick={() => handleAction(job, 'trigger')}>{triggeringId === job._id ? 'Running…' : 'Run Now'}</button>
                                                 <button className="mo-btn mo-btn-del" disabled={busyJobId === job._id} onClick={() => handleAction(job, 'delete')}>Delete</button>
                                             </div>
                                         </div>

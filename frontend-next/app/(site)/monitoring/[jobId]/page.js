@@ -54,7 +54,11 @@ const STYLES = `
 .mjd-pg-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
 .mjd-pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mjd-pg-btn-active { border-color: var(--t4); background: var(--t6); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 16px; font-weight: 600; cursor: default; }
-.mjd-success { padding: 14px 16px; border-radius: 10px; background: rgba(1,150,189,0.14); border: 1px solid rgba(1,150,189,0.4); color: #fff; font-size: 16px; margin-bottom: 20px; }
+/* UAT: same fix as the monitors list page — a fixed toast stays visible
+   regardless of scroll position instead of an inline banner that can end
+   up off-screen. */
+.mjd-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: rgba(6,35,48,0.97); border: 1px solid rgba(1,150,189,0.5); color: #fff; font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.4); animation: mjd-toast-in .2s ease-out; }
+@keyframes mjd-toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
 function scoreColor(score) {
