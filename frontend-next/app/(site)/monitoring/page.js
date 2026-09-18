@@ -15,24 +15,31 @@ import {
 import MonitoringJobModal from '../../../components/MonitoringJobModal';
 
 const STYLES = `
-.mo-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
+/* UAT: this whole page used to hardcode a fixed-dark background
+   (var(--t9), a decorative token that intentionally never flips) plus
+   white/black overlay colors everywhere, so toggling the site theme only
+   visibly changed the header — the page body looked identical in both
+   modes. Switched to the theme-aware tokens (var(--bg)/var(--surface)/
+   var(--ink)/var(--sandd)) the rest of the site's content pages use, so
+   this page now actually flips light/dark like everything else. */
+.mo-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--bg); color: var(--ink); }
 .mo-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
 .mo-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 28px; }
-.mo-tile { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 18px; }
-.mo-tile-label { font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.75); margin-bottom: 6px; }
+.mo-tile { background: var(--surface); border: 1px solid var(--sandd); border-radius: 14px; padding: 18px; }
+.mo-tile-label { font-size: 16px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink6); margin-bottom: 6px; }
 .mo-tile-value { font-size: 26px; font-weight: 800; color: var(--t4); }
 .mo-jobs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .mo-job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
-.mo-job-card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
+.mo-job-card { background: var(--surface); border: 1px solid var(--sandd); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
 .mo-job-card:hover { border-color: rgba(1,150,189,0.4); }
 /* UAT: a long domain in this flex row (justify-content: space-between)
    was squeezing the status pill below its own text's natural width, since
    neither side had flex-shrink/min-width rules — the pill's rounded
    background shrank but "PAUSED"/"ACTIVE" didn't, so the text overflowed
    its own box. The domain truncates now instead of squeezing its sibling. */
-.mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; color: var(--ink); }
 .mo-job-domain:hover { text-decoration: underline; color: var(--t4); }
-.mo-job-meta { font-size: 16px; color: rgba(255,255,255,0.75); }
+.mo-job-meta { font-size: 16px; color: var(--ink6); }
 .mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; white-space: nowrap; }
 .mo-status-active { background: rgba(1,150,189,0.65); color: #fff; }
 .mo-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
@@ -40,28 +47,28 @@ const STYLES = `
 .mo-job-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .mo-job-score { font-size: 22px; font-weight: 800; }
 .mo-job-actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.mo-btn { border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); padding: 6px 10px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; }
-.mo-btn:hover { background: rgba(255,255,255,0.12); }
-.mo-btn-del { border-color: rgba(248,113,113,0.25); background: rgba(239,68,68,0.08); color: #fca5a5; }
+.mo-btn { border-radius: 8px; border: 1px solid var(--sandd); background: var(--sand); padding: 6px 10px; font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; }
+.mo-btn:hover { background: var(--sandd); }
+.mo-btn-del { border-color: rgba(239,68,68,0.3); background: rgba(239,68,68,0.08); color: var(--coral); }
 .mo-btn-del:hover { background: rgba(239,68,68,0.15); }
-.mo-empty { text-align: center; padding: 60px 24px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.15); border-radius: 20px; }
-.mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: #fff; }
-.mo-empty p { color: rgba(255,255,255,0.75); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; }
+.mo-empty { text-align: center; padding: 60px 24px; background: var(--surface); border: 1px dashed var(--sandd); border-radius: 20px; }
+.mo-empty h3 { font-size: 20px; margin-bottom: 8px; color: var(--ink); }
+.mo-empty p { color: var(--ink6); max-width: 460px; margin: 0 auto 20px auto; font-size: 16px; }
 /* UAT: this used to render inline at the top of the page, so a "Run Now"
    click on a card further down the (potentially long) list produced
    feedback that was off-screen — it looked like nothing happened unless
    you scrolled up. A fixed toast is visible regardless of scroll position. */
-.mo-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: rgba(6,35,48,0.97); border: 1px solid rgba(1,150,189,0.5); color: #fff; font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.4); animation: mo-toast-in .2s ease-out; }
+.mo-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: var(--surface); border: 1px solid var(--t4); color: var(--ink); font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.25); animation: mo-toast-in .2s ease-out; }
 @keyframes mo-toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
-.mo-trend-label { font-size: 16px; color: rgba(255,255,255,0.55); margin-bottom: 4px; }
+.mo-trend-label { font-size: 16px; color: var(--ink6); margin-bottom: 4px; }
 .mo-view-trend { font-size: 16px; font-weight: 700; color: var(--t4); background: none; border: none; padding: 0; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
 .mo-view-trend:hover { text-decoration: underline; }
 `;
 
 function scoreColor(score) {
-    if (typeof score !== 'number') return 'rgba(255,255,255,0.4)';
+    if (typeof score !== 'number') return 'var(--ink3)';
     if (score >= 80) return 'var(--t4)';
-    if (score >= 60) return '#f59e0b';
+    if (score >= 60) return 'var(--amber)';
     return 'var(--coral)';
 }
 
@@ -82,7 +89,7 @@ function scheduleLabel(job) {
 
 const Sparkline = ({ scores }) => {
     const valid = scores.filter((s) => typeof s === 'number');
-    if (valid.length < 2) return <div style={{ height: 32, fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', display: 'flex', alignItems: 'center' }}>Not enough runs yet</div>;
+    if (valid.length < 2) return <div style={{ height: 32, fontSize: 16, color: 'var(--ink6)', display: 'flex', alignItems: 'center' }}>Not enough runs yet</div>;
     const w = 140, h = 32, max = 100, min = 0;
     const points = scores.map((s, i) => {
         const x = (i / (scores.length - 1)) * w;
@@ -194,7 +201,7 @@ function MonitoringContent() {
                 <div className="mo-wrap">
                     <header style={{ marginBottom: '28px' }}>
                         <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>Monitoring</h1>
-                        <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Automatically re-scan your domains on a schedule and get alerted when accessibility regresses.</p>
+                        <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>Automatically re-scan your domains on a schedule and get alerted when accessibility regresses.</p>
                     </header>
 
                     {successMessage && (
@@ -202,13 +209,13 @@ function MonitoringContent() {
                     )}
 
                     {error && (
-                        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px', marginBottom: '20px' }}>
+                        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: 'var(--coral)', fontSize: '16px', marginBottom: '20px' }}>
                             {error}
                         </div>
                     )}
 
                     {loading ? (
-                        <p style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Loading your monitors…</p>
+                        <p style={{ color: 'var(--ink6)' }}>Loading your monitors…</p>
                     ) : jobs.length === 0 ? (
                         <div className="mo-empty">
                             <h3>No monitors set up yet</h3>
@@ -225,7 +232,7 @@ function MonitoringContent() {
                             </div>
 
                             <div className="mo-jobs-head">
-                                <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#fff' }}>Your Monitors {limits ? `(${jobs.filter(j=>j.status==='active').length}${limits.maxActiveJobs === Infinity ? '' : ` / ${limits.maxActiveJobs}`} active)` : ''}</h2>
+                                <h2 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--ink)' }}>Your Monitors {limits ? `(${jobs.filter(j=>j.status==='active').length}${limits.maxActiveJobs === Infinity ? '' : ` / ${limits.maxActiveJobs}`} active)` : ''}</h2>
                                 <button className="btn btn-d" onClick={openCreate}>+ New Monitor</button>
                             </div>
 

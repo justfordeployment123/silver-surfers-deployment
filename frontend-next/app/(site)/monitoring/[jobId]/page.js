@@ -22,25 +22,30 @@ function describeRunWcagStandard(wcagStandard, conformanceLevel) {
 }
 
 const STYLES = `
-.mjd-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--t9); color: #fff; }
+/* UAT: this page (like the monitors list page) hardcoded a fixed-dark
+   background (var(--t9), a decorative token that never flips) plus
+   white/black overlay colors throughout, so toggling the site theme only
+   visibly changed the header. Switched to theme-aware tokens so the page
+   actually flips light/dark like the rest of the site. */
+.mjd-pg { min-height: 100vh; padding-top: 112px; padding-bottom: 80px; background: var(--bg); color: var(--ink); }
 .mjd-wrap { max-width: 1000px; margin: 0 auto; padding: 0 24px; }
-.mjd-back { color: rgba(255,255,255,0.75); font-size: 16px; cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
-.mjd-back:hover { color: #fff; }
+.mjd-back { color: var(--ink6); font-size: 16px; cursor: pointer; background: none; border: none; padding: 0; margin-bottom: 14px; }
+.mjd-back:hover { color: var(--ink); }
 .mjd-head { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
-.mjd-meta { font-size: 16px; color: rgba(255,255,255,0.75); margin-top: 6px; }
+.mjd-meta { font-size: 16px; color: var(--ink6); margin-top: 6px; }
 .mjd-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; margin-left: 10px; vertical-align: middle; }
 .mjd-status-active { background: rgba(1,150,189,0.65); color: #fff; }
 .mjd-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
 .mjd-status-error { background: rgba(220,38,38,0.65); color: #fff; }
-.mjd-section { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
-.mjd-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #fff; }
+.mjd-section { background: var(--surface); border: 1px solid var(--sandd); border-radius: 16px; padding: 24px; margin-bottom: 20px; }
+.mjd-section h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; color: var(--ink); }
 .mjd-chart-wrap { overflow-x: auto; }
 .mjd-point { cursor: pointer; }
-.mjd-point:hover { stroke: #fff; stroke-width: 2; }
+.mjd-point:hover { stroke: var(--ink); stroke-width: 2; }
 .mjd-table { width: 100%; border-collapse: collapse; font-size: 16px; }
-.mjd-table th { text-align: left; padding: 8px 10px; color: rgba(255,255,255,0.75); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid rgba(255,255,255,0.1); }
-.mjd-table td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,0.06); }
-.mjd-table tr:hover td { background: rgba(255,255,255,0.03); }
+.mjd-table th { text-align: left; padding: 8px 10px; color: var(--ink6); font-weight: 600; font-size: 16px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--sandd); }
+.mjd-table td { padding: 10px; border-bottom: 1px solid var(--sandd); }
+.mjd-table tr:hover td { background: var(--sand); }
 .mjd-delta-up { color: var(--t4); font-weight: 700; }
 .mjd-delta-down { color: var(--coral); font-weight: 700; }
 .mjd-link { color: var(--t4); cursor: pointer; text-decoration: none; }
@@ -49,22 +54,22 @@ const STYLES = `
 .mjd-run-complete { background: rgba(1,150,189,0.65); color: #fff; }
 .mjd-run-failed { background: rgba(220,38,38,0.65); color: #fff; }
 .mjd-run-pending, .mjd-run-running { background: rgba(37,99,235,0.65); color: #fff; }
-.mjd-empty { color: rgba(255,255,255,0.75); font-size: 16px; padding: 12px 0; }
-.mjd-pg-btn { border: 1px solid rgba(255,255,255,0.16); border-radius: 6px; padding: 6px 12px; font-size: 16px; font-weight: 500; color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.05); cursor: pointer; transition: background .15s; }
-.mjd-pg-btn:hover:not(:disabled) { background: rgba(255,255,255,0.12); }
+.mjd-empty { color: var(--ink6); font-size: 16px; padding: 12px 0; }
+.mjd-pg-btn { border: 1px solid var(--sandd); border-radius: 6px; padding: 6px 12px; font-size: 16px; font-weight: 500; color: var(--ink); background: var(--sand); cursor: pointer; transition: background .15s; }
+.mjd-pg-btn:hover:not(:disabled) { background: var(--sandd); }
 .mjd-pg-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .mjd-pg-btn-active { border-color: var(--t4); background: var(--t6); color: #fff; border-radius: 6px; padding: 6px 12px; font-size: 16px; font-weight: 600; cursor: default; }
 /* UAT: same fix as the monitors list page — a fixed toast stays visible
    regardless of scroll position instead of an inline banner that can end
    up off-screen. */
-.mjd-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: rgba(6,35,48,0.97); border: 1px solid rgba(1,150,189,0.5); color: #fff; font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.4); animation: mjd-toast-in .2s ease-out; }
+.mjd-success { position: fixed; top: 84px; right: 24px; z-index: 900; max-width: 380px; padding: 14px 18px; border-radius: 10px; background: var(--surface); border: 1px solid var(--t4); color: var(--ink); font-size: 16px; box-shadow: 0 12px 32px rgba(0,0,0,0.25); animation: mjd-toast-in .2s ease-out; }
 @keyframes mjd-toast-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 `;
 
 function scoreColor(score) {
-    if (typeof score !== 'number') return 'rgba(255,255,255,0.4)';
+    if (typeof score !== 'number') return 'var(--ink3)';
     if (score >= 80) return 'var(--t4)';
-    if (score >= 60) return '#f59e0b';
+    if (score >= 60) return 'var(--amber)';
     return 'var(--coral)';
 }
 
@@ -167,7 +172,7 @@ function MonitoringJobDetailContent() {
         for (let p = start; p <= end; p += 1) pages.push(p);
         return (
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginTop: '12px' }}>
-                <span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.75)' }}>
+                <span style={{ fontSize: '16px', color: 'var(--ink6)' }}>
                     Page {activePage} of {totalPages} ({pagination.total} total)
                 </span>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center' }}>
@@ -214,7 +219,7 @@ function MonitoringJobDetailContent() {
 
     if (loading) {
         return (
-            <div className="mjd-pg"><div className="mjd-wrap"><p style={{ color: 'rgba(255, 255, 255, 0.75)' }}>Loading monitor…</p></div></div>
+            <div className="mjd-pg"><div className="mjd-wrap"><p style={{ color: 'var(--ink6)' }}>Loading monitor…</p></div></div>
         );
     }
 
@@ -227,7 +232,7 @@ function MonitoringJobDetailContent() {
                     </svg>
                     Back to Monitoring
                 </button>
-                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px' }}>{error}</div>
+                <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: 'var(--coral)', fontSize: '16px' }}>{error}</div>
             </div></div>
         );
     }
@@ -265,7 +270,7 @@ function MonitoringJobDetailContent() {
                     )}
 
                     {error && (
-                        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: '#fca5a5', fontSize: '16px', marginBottom: '20px' }}>{error}</div>
+                        <div style={{ padding: '14px 16px', borderRadius: '10px', background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(248,113,113,0.25)', color: 'var(--coral)', fontSize: '16px', marginBottom: '20px' }}>{error}</div>
                     )}
 
                     <div className="mjd-section">
