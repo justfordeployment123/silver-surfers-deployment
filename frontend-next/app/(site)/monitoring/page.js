@@ -25,14 +25,19 @@ const STYLES = `
 .mo-job-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
 .mo-job-card { background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 12px; transition: border-color .15s; }
 .mo-job-card:hover { border-color: rgba(1,150,189,0.4); }
-.mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; }
+/* UAT: a long domain in this flex row (justify-content: space-between)
+   was squeezing the status pill below its own text's natural width, since
+   neither side had flex-shrink/min-width rules — the pill's rounded
+   background shrank but "PAUSED"/"ACTIVE" didn't, so the text overflowed
+   its own box. The domain truncates now instead of squeezing its sibling. */
+.mo-job-domain { font-size: 16px; font-weight: 700; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .mo-job-domain:hover { text-decoration: underline; color: var(--t4); }
 .mo-job-meta { font-size: 16px; color: rgba(255,255,255,0.75); }
-.mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; }
+.mo-status-pill { display: inline-flex; padding: 3px 10px; border-radius: 9999px; font-size: 16px; font-weight: 700; letter-spacing: 0.04em; flex-shrink: 0; white-space: nowrap; }
 .mo-status-active { background: rgba(1,150,189,0.65); color: #fff; }
 .mo-status-paused { background: rgba(75,85,99,0.55); color: #fff; }
 .mo-status-error { background: rgba(220,38,38,0.65); color: #fff; }
-.mo-job-row { display: flex; align-items: center; justify-content: space-between; }
+.mo-job-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .mo-job-score { font-size: 22px; font-weight: 800; }
 .mo-job-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .mo-btn { border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.05); padding: 6px 10px; font-size: 16px; font-weight: 700; color: #fff; cursor: pointer; }
