@@ -222,6 +222,36 @@ export default function QuickScanSection() {
     <>
       <div className={`home-form-card${formHighlighted ? ' highlighted' : ''}`}>
 
+        {/* Client-requested callout (UAT): make it unmistakable where to
+            actually run the quick scan, since that's the page's whole
+            conversion goal. */}
+        <div style={{
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+          padding: '14px 16px', borderRadius: 'var(--r)',
+          background: 'rgba(1,150,189,0.12)', border: '1px solid rgba(1,150,189,0.4)',
+          marginBottom: 20,
+        }}>
+          <div style={{
+            flexShrink: 0, width: 36, height: 36, borderRadius: '50%',
+            background: 'rgba(1,150,189,0.2)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', color: 'var(--t2)',
+          }}>
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M21 21l-4.3-4.3" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16, color: '#fff', marginBottom: 2 }}>
+              Run Your Free SilverSurfers Quick Scan
+            </div>
+            <div style={{ fontSize: 16, color: 'rgba(255,255,255,0.75)', lineHeight: 1.5 }}>
+              Instantly see how well your website supports adults 50+ and receive your{' '}
+              <span style={{ color: 'var(--t2)', fontWeight: 600 }}>SilverSurfers Score</span>.
+            </div>
+          </div>
+        </div>
+
         {success && (
           <div className="alert-success" style={{ marginBottom: 20 }}>{success}</div>
         )}
@@ -307,12 +337,16 @@ export default function QuickScanSection() {
               <DeviceBtn device="tablet"  label="Tablet"  locked={true}  />
               <DeviceBtn device="mobile"  label="Mobile"  locked={true}  />
             </div>
-            <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', textAlign: 'center', marginTop: 8 }}>
-              {hasSubscriptionQuickScanAccess
-                ? 'Active subscription detected. Tablet and mobile quick scans are unlocked.'
-                : <><svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 4 }}><path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/></svg>Tablet and Mobile testing available with <a href="/services" className="home-subscription-link" style={{ color: 'var(--t2)', textDecoration: 'underline' }}>paid subscriptions</a></>
-              }
-            </p>
+            {/* UAT: this used to also show "Tablet and Mobile testing
+                available with paid subscriptions" here, duplicating the
+                identical message in the Secondary CTA section below —
+                only the subscribed-user confirmation (not a duplicate of
+                anything else on this card) stays here. */}
+            {hasSubscriptionQuickScanAccess && (
+              <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)', textAlign: 'center', marginTop: 8 }}>
+                Active subscription detected. Tablet and mobile quick scans are unlocked.
+              </p>
+            )}
           </div>
 
           {/* WCAG standard selector */}
@@ -334,7 +368,7 @@ export default function QuickScanSection() {
           >
             {isScanning
               ? <><Spinner /> Analyzing…</>
-              : 'Get your SilverSurfers Score'
+              : 'Run My Free Quick Scan'
             }
           </button>
         </form>
@@ -346,7 +380,7 @@ export default function QuickScanSection() {
             className="btn btn-g"
             style={{ display: 'inline-flex', marginBottom: 10 }}
           >
-            Get Full Audit Here
+            Explore Our Full Website Audits
           </a>
           <p style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.75)' }}>
             Tablet and Mobile testing available with{' '}
