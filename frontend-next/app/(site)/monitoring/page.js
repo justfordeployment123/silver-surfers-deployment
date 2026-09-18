@@ -87,6 +87,20 @@ function scheduleLabel(job) {
     return map[job.schedule] || job.schedule;
 }
 
+// UAT (client): "add what type of run they are doing — Quick Scan,
+// Starter (then device type)". A job only stores its own scanType and
+// devicesEnabled (not which plan created it, since plans can change
+// after the fact), so this surfaces the two pieces of run info the job
+// actually carries: Quick Scan vs. Full Audit, and which device(s).
+function scanTypeLabel(job) {
+    return job.scanType === 'full' ? 'Full Audit' : 'Quick Scan';
+}
+
+function deviceLabel(job) {
+    const devices = job.devicesEnabled?.length ? job.devicesEnabled : ['desktop'];
+    return devices.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(', ');
+}
+
 const Sparkline = ({ scores }) => {
     const valid = scores.filter((s) => typeof s === 'number');
     if (valid.length < 2) return <div style={{ height: 32, fontSize: 16, color: 'var(--ink6)', display: 'flex', alignItems: 'center' }}>Not enough runs yet</div>;
@@ -246,6 +260,7 @@ function MonitoringContent() {
                                                 <span className={`mo-status-pill mo-status-${job.status}`}>{job.status.toUpperCase()}</span>
                                             </div>
                                             <div className="mo-job-meta">{scheduleLabel(job)} · Next run {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : '—'}</div>
+                                            <div className="mo-job-meta">{scanTypeLabel(job)} · {deviceLabel(job)}</div>
                                             <div className="mo-job-row">
                                                 <div>
                                                     <div className="mo-job-meta" style={{ marginBottom: 4 }}>Last score</div>

@@ -78,6 +78,19 @@ function scheduleLabel(job) {
     return map[job?.schedule] || job?.schedule;
 }
 
+// UAT (client): "add what type of run they are doing — Quick Scan,
+// Starter (then device type)". Same fields/labels as the monitors list
+// page — see that file's scanTypeLabel/deviceLabel for why plan name
+// itself isn't shown (jobs don't record which plan created them).
+function scanTypeLabel(job) {
+    return job?.scanType === 'full' ? 'Full Audit' : 'Quick Scan';
+}
+
+function deviceLabel(job) {
+    const devices = job?.devicesEnabled?.length ? job.devicesEnabled : ['desktop'];
+    return devices.map((d) => d.charAt(0).toUpperCase() + d.slice(1)).join(', ');
+}
+
 const ScoreTrendChart = ({ runs, onPointClick }) => {
     const points = runs.filter((r) => typeof r.score === 'number');
     if (points.length < 2) {
@@ -257,6 +270,9 @@ function MonitoringJobDetailContent() {
                             </h1>
                             <p className="mjd-meta">
                                 {scheduleLabel(job)} · Next run {job.nextRunAt ? new Date(job.nextRunAt).toLocaleString() : '—'} · Last run {job.lastRunAt ? new Date(job.lastRunAt).toLocaleString() : 'never'}
+                            </p>
+                            <p className="mjd-meta">
+                                {scanTypeLabel(job)} · {deviceLabel(job)}
                             </p>
                         </div>
                         <div style={{ display: 'flex', gap: 10 }}>
