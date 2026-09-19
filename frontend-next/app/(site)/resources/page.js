@@ -16,6 +16,14 @@ export default function ResourcesPage() {
   return (
     <>
       <style>{`
+        /* UAT: cards in this grid have descriptions of varying length, and
+           .card (shared globally, not flexed) just stacks its children top
+           down — so "Get This Resource" ended up at a different height on
+           each card instead of lining up along the bottom of the row.
+           Scoped to .rsc-card (not the shared .card) so other pages using
+           .card elsewhere aren't affected. */
+        .rsc-card { display: flex; flex-direction: column; height: 100%; }
+        .rsc-card-desc { flex: 1; }
         .rsc-card-icon {
           width: 44px;
           height: 44px;

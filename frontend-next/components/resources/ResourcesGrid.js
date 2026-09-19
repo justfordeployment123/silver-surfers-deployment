@@ -26,7 +26,7 @@ export default function ResourcesGrid({ resources }) {
         <div className="wrap">
           <div className="g3">
             {resources.map((resource) => (
-              <div className="card" key={resource.slug}>
+              <div className="card rsc-card" key={resource.slug}>
                 <div className="card-bar" />
                 <div className="rsc-card-icon">
                   <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" aria-hidden="true">
@@ -34,7 +34,7 @@ export default function ResourcesGrid({ resources }) {
                   </svg>
                 </div>
                 <h3 className="h3" style={{ marginBottom: '8px' }}>{resource.title}</h3>
-                <p style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65', marginBottom: '20px' }}>
+                <p className="rsc-card-desc" style={{ fontSize: '16px', color: 'var(--ink6)', lineHeight: '1.65', marginBottom: '20px' }}>
                   {resource.description}
                 </p>
                 <button type="button" onClick={() => handleRequestClick(resource.slug)} className="btn btn-p">
