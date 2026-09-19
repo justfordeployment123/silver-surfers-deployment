@@ -69,7 +69,7 @@ export const WCAG_STANDARD_OPTIONS = [
     wcagStandard: 'combined',
     conformanceLevel: 'AA',
     label: 'Full Combined (2.1 + 2.2 A & AA)',
-    description: 'Evaluates against both standards at once for the broadest possible coverage. Current default.',
+    description: 'Evaluates against both standards at once for the broadest possible coverage.',
     criteriaCount: 57,
   },
 ];
@@ -119,11 +119,19 @@ const STYLES = `
    readable against both --surface values. */
 .wss-option:hover, .wss-option:focus-visible { background: rgba(1,150,189,0.12); outline: none; }
 .wss-option.selected { background: rgba(1,150,189,0.12); }
-.wss-option-head { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.wss-option-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 3px; }
 .wss-option-title { font-weight: 700; font-size: 16px; color: var(--ink); }
 .wss-option-badge {
   font-size: 16px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 2px 7px; border-radius: 9999px; background: var(--t6); color: #fff;
+}
+/* UAT: "Current default"/"Current Subscription" used to be static copy
+   baked into the Combined option's description, so it never moved when a
+   different option was actually selected. This badge instead follows
+   whichever option is genuinely selected right now. */
+.wss-option-badge--current {
+  font-size: 16px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 2px 7px; border-radius: 9999px; background: none; border: 1px solid var(--t4); color: var(--t4);
 }
 .wss-option-check { margin-left: auto; color: var(--t4); flex-shrink: 0; }
 .wss-option-desc { font-size: 16px; color: var(--ink3); line-height: 1.4; }
@@ -232,6 +240,7 @@ const WcagStandardSelect = ({
                 <div className="wss-option-head">
                   <span className="wss-option-title">{option.label}</span>
                   {option.recommended && <span className="wss-option-badge">Recommended</span>}
+                  {isSelected && <span className="wss-option-badge--current">Current Selection</span>}
                   {isSelected && (
                     <svg className="wss-option-check" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd" />
