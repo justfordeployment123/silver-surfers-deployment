@@ -74,8 +74,12 @@ const STYLES = `
   .sub-status-canceled { background: rgba(239,68,68,0.1); color: var(--coral); }
   .sub-status-default { background: var(--sand); color: var(--ink6); }
   .sub-cancel-note { background: rgba(245,158,11,0.06); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--r); padding: 10px 14px; font-size: 16px; color: var(--amber); }
-  .sub-portal-note { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--r); padding: 10px 14px; font-size: 16px; color: var(--t7); text-align: center; }
-  .sub-team-info { background: var(--t05); border: 1px solid var(--t1); border-radius: var(--rl); padding: 28px; text-align: center; }
+  /* UAT: same fixed-light-background-with-theme-aware-text bug as the plan
+     card above. .sub-portal-note's color also referenced --t7, which isn't
+     a defined token at all (only t1/t2/t4/t6/t8/t9/t05 exist) — it was
+     silently falling back to the inherited (theme-flipping) ink color. */
+  .sub-portal-note { background: rgba(1,150,189,0.12); border: 1px solid var(--t1); border-radius: var(--r); padding: 10px 14px; font-size: 16px; color: var(--ink); text-align: center; }
+  .sub-team-info { background: rgba(1,150,189,0.12); border: 1px solid var(--t1); border-radius: var(--rl); padding: 28px; text-align: center; }
   .sub-team-icon { width: 56px; height: 56px; background: var(--sandd); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; color: var(--ink6); }
   .sub-billing-toggle { display: inline-flex; align-items: center; background: var(--sand); border: 2px solid var(--sandd); border-radius: 999px; padding: 3px; }
   .sub-billing-opt {
@@ -99,7 +103,13 @@ const STYLES = `
     height: 100%;
     transition: border-color 0.15s;
   }
-  .sub-plan-card.current { border-color: var(--t4); background: var(--t05); }
+  /* UAT: var(--t05) is a fixed near-white that doesn't flip with theme, but
+     .sub-plan-price/-caption/-feat-item's text (var(--ink)/var(--ink6)) do
+     flip to near-white in dark mode — near-white text on a near-white card
+     background. Same fix as the WCAG dropdown/schedule-card selections
+     earlier: a translucent brand tint instead of a solid theme-invariant
+     color stays readable against both --surface values. */
+  .sub-plan-card.current { border-color: var(--t4); background: rgba(1,150,189,0.12); }
   .sub-plan-card.popular { border-color: var(--t3); }
   .sub-plan-tag {
     display: inline-block;
