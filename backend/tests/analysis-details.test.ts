@@ -281,6 +281,148 @@ test('buildAggregateRemediationRoadmap unions per-page roadmaps deduped by rule 
   assert.equal(roadmap.length, 3);
 });
 
+// P3-06 clarification ("Device-Sourced Items in the AI Executive Summary"):
+// pageScorecards spans every device, so "keep the worst-scoring occurrence"
+// could pick a mobile/tablet page's displayValue/sourceUrl as the exec
+// summary's quoted evidence — a number the desktop-only report the client
+// actually receives has no trace of (riacc's "46 of 46" vs. the real 7-28
+// of 23-48 desktop range). Desktop must win whenever one exists, even when
+// it scores better (i.e. looks less severe) than a non-desktop occurrence.
+test('buildAggregateRemediationRoadmap prefers a desktop occurrence over a worse-scoring mobile one', () => {
+  const desktopPageScorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 80,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'keyboard-access',
+            title: 'Interactive elements are not keyboard accessible',
+            description: 'Some interactive elements cannot be reached or operated by keyboard.',
+            score: 70,
+            weight: 6,
+            severity: 'medium',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['2.1.1'],
+            displayValue: '7 of 23 interactive element(s) have keyboard access issues',
+            sourceUrl: 'https://example.com/desktop-page',
+            sourcePlatform: 'desktop',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const mobilePageScorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 20, // worse score than the desktop occurrence above
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'keyboard-access',
+            title: 'Interactive elements are not keyboard accessible',
+            description: 'Some interactive elements cannot be reached or operated by keyboard.',
+            score: 10,
+            weight: 6,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['2.1.1'],
+            displayValue: '46 of 46 interactive element(s) have keyboard access issues',
+            sourceUrl: 'https://example.com/mobile-page',
+            sourcePlatform: 'mobile',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const roadmap = buildAggregateRemediationRoadmap([mobilePageScorecard, desktopPageScorecard]);
+  const item = roadmap.find((entry) => entry.auditId === 'keyboard-access');
+  assert.ok(item);
+  assert.equal(item!.sourcePlatform, 'desktop');
+  assert.equal(item!.displayValue, '7 of 23 interactive element(s) have keyboard access issues');
+  assert.equal(item!.sourceUrl, 'https://example.com/desktop-page');
+});
+
+test('buildAggregateRemediationRoadmap falls back to worst-scoring when no desktop occurrence exists', () => {
+  const mobilePageScorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 90,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'keyboard-access',
+            title: 'Interactive elements are not keyboard accessible',
+            description: 'Some interactive elements cannot be reached or operated by keyboard.',
+            score: 60,
+            weight: 6,
+            severity: 'medium',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['2.1.1'],
+            displayValue: '7 of 46 interactive element(s) have keyboard access issues',
+            sourceUrl: 'https://example.com/mobile-a',
+            sourcePlatform: 'mobile',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const tabletPageScorecard = {
+    dimensions: [
+      {
+        key: 'motorAccessibility',
+        label: 'Motor Accessibility',
+        score: 20,
+        weight: 25,
+        issueCount: 1,
+        topIssues: [
+          {
+            auditId: 'keyboard-access',
+            title: 'Interactive elements are not keyboard accessible',
+            description: 'Some interactive elements cannot be reached or operated by keyboard.',
+            score: 10,
+            weight: 6,
+            severity: 'high',
+            auditSourceType: 'wcag-aa',
+            auditSourceLabel: 'WCAG AA',
+            wcagCriteria: ['2.1.1'],
+            displayValue: '46 of 46 interactive element(s) have keyboard access issues',
+            sourceUrl: 'https://example.com/tablet-a',
+            sourcePlatform: 'tablet',
+          },
+        ],
+      },
+    ],
+    evaluationDimensions: [],
+  } as any;
+
+  const roadmap = buildAggregateRemediationRoadmap([mobilePageScorecard, tabletPageScorecard]);
+  const item = roadmap.find((entry) => entry.auditId === 'keyboard-access');
+  assert.ok(item);
+  // Neither occurrence is desktop, so the worst-scoring one still wins,
+  // same behavior as before this fix.
+  assert.equal(item!.sourcePlatform, 'tablet');
+  assert.equal(item!.displayValue, '46 of 46 interactive element(s) have keyboard access issues');
+});
+
 // P3-03 — chateausureau.com failed WCAG 2.5.8 (touch targets) on all 16
 // pages, and the exec summary ranked it the #2 issue site-wide, but the
 // full report contained zero touch-target recommendation blocks. Root

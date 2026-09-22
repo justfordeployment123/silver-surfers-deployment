@@ -99,6 +99,15 @@ export function computeAggregatePlatformHeadline(
   return { score, simpleMean, weightedMean };
 }
 
+function joinPlatformLabels(platforms: string[]): string {
+  const labels = [...new Set(platforms)]
+    .map((platform) => platform.charAt(0).toUpperCase() + platform.slice(1))
+    .sort();
+  return labels.length > 1
+    ? `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`
+    : labels[0];
+}
+
 /**
  * Phase 6.7c / N10c — device tag for a highlighted executive-summary issue.
  *
@@ -109,34 +118,59 @@ export function computeAggregatePlatformHeadline(
  *
  *  - single-device delivery: the one delivered report *is* that device's, so
  *    every issue is already verifiable and tagging them all says nothing;
- *  - the issue was also seen on desktop, so the desktop report corroborates it;
+ *  - the issue was also seen on desktop and desktop accounts for every page
+ *    it's credited with, so the desktop report fully corroborates it;
  *  - no device attribution at all (quick scan / non-per-device caller);
  *  - a device the per-platform appendix doesn't document, since the tag exists
  *    to point the reader at backing evidence that must be locatable there.
+ *
+ * P3-06 clarification ("Device-Sourced Items in the AI Executive Summary"):
+ * desktop being *one of* an issue's sourcePlatforms used to silence the tag
+ * unconditionally, even when desktop only accounted for a fraction of the
+ * pages the headline claims — e.g. "affects 24 of 24 pages" where desktop's
+ * own matrix only fails 4 of them. The remaining 20 were exactly as
+ * unverifiable in the desktop-only report as a fully non-desktop issue, with
+ * no way for the reader to know that. Passing pageCounts now lets that case
+ * print a breakdown instead of going silent.
  */
 export function resolvePlatformScanTag(
   issuePlatforms: string[] | undefined,
   appendixPlatforms: Array<string | undefined>,
+  pageCounts: { desktopPagesAffected?: number; totalPagesAffected?: number } = {},
 ): string {
   const platforms = (issuePlatforms || [])
     .map((platform) => String(platform || '').trim().toLowerCase())
     .filter(Boolean);
   if (platforms.length === 0) return '';
-  if (platforms.includes('desktop')) return '';
 
   const documented = new Set(
     appendixPlatforms.map((platform) => String(platform || '').trim().toLowerCase()).filter(Boolean),
   );
   if (documented.size <= 1) return '';
-  if (!platforms.every((platform) => documented.has(platform))) return '';
 
-  const labels = [...new Set(platforms)]
-    .map((platform) => platform.charAt(0).toUpperCase() + platform.slice(1))
-    .sort();
-  const joined = labels.length > 1
-    ? `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`
-    : labels[0];
-  return ` (${joined} scan)`;
+  if (!platforms.includes('desktop')) {
+    if (!platforms.every((platform) => documented.has(platform))) return '';
+    return ` (${joinPlatformLabels(platforms)} scan)`;
+  }
+
+  // Desktop is one of the platforms this issue occurred on somewhere on the
+  // site. Only stay silent when desktop's own page count already accounts
+  // for every page credited to this issue; a partial desktop count still
+  // leaves the remainder unverifiable in the delivered report.
+  const { desktopPagesAffected, totalPagesAffected } = pageCounts;
+  if (
+    typeof desktopPagesAffected !== 'number'
+    || typeof totalPagesAffected !== 'number'
+    || desktopPagesAffected >= totalPagesAffected
+  ) {
+    return '';
+  }
+
+  const otherPlatforms = platforms.filter((platform) => platform !== 'desktop');
+  if (otherPlatforms.length === 0) return '';
+  if (!otherPlatforms.every((platform) => documented.has(platform))) return '';
+
+  return ` (Desktop ${desktopPagesAffected} of ${totalPagesAffected}; also fails on ${joinPlatformLabels(otherPlatforms)})`;
 }
 
 function addFooterToPdfDocument(doc: InstanceType<typeof PDFDocument>, pageNumber: number): void {
@@ -720,6 +754,9 @@ export async function generateAuditAiSummaryPdf(
           sourcePlatforms: Array.isArray(issue?.sourcePlatforms)
             ? issue.sourcePlatforms.map((platform) => String(platform || '').trim().toLowerCase()).filter(Boolean)
             : [],
+          // P3-06 clarification: how many of those pages desktop specifically
+          // accounts for, so a partial-desktop issue can still be tagged.
+          desktopPagesAffected: typeof issue?.desktopPagesAffected === 'number' ? issue.desktopPagesAffected : undefined,
         }))
         .filter((issue) => issue.title),
         (issue) => [
@@ -1064,6 +1101,7 @@ export async function generateAuditAiSummaryPdf(
         const scanTag = resolvePlatformScanTag(
           issue.sourcePlatforms,
           platformDetailEntries.map((entry) => entry.platform),
+          { desktopPagesAffected: issue.desktopPagesAffected, totalPagesAffected: issue.pagesAffected },
         );
         doc.text(`${idx + 1}. ${issue.title}${suffix}${breadth}${scanTag}`, pageMarginLeft + 6, doc.y, { width: contentWidth - 6, lineGap: 2 });
       });

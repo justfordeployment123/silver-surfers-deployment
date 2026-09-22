@@ -87,6 +87,40 @@ test('buildPromptPayload includes each roadmap item\'s real evidence so the mode
   assert.equal('evidence' in withoutEvidence, false, 'must not fabricate an evidence field when the scanner captured none');
 });
 
+// P3-06 clarification ("Device-Sourced Items in the AI Executive Summary"):
+// buildAggregateRemediationRoadmap now prefers a desktop occurrence whenever
+// one exists anywhere on the site, so an item's evidence only ever comes
+// from a non-desktop scan when the finding is genuinely mobile/tablet-only.
+// The client's desktop-only report has no way to back that number no matter
+// which page is quoted, so the model must be told which scan it came from
+// rather than presenting it as something the client can look up.
+test('buildPromptPayload tags evidence with its scan when the roadmap item has no desktop occurrence', () => {
+  const roadmapWithDeviceSource = [
+    {
+      ...remediationRoadmap[0],
+      displayValue: '46 of 46 interactive element(s) have keyboard access issues',
+      sourcePlatform: 'mobile',
+    },
+    {
+      ...remediationRoadmap[1],
+      displayValue: '9 UI component(s) below 3:1 contrast ratio',
+      sourcePlatform: 'desktop',
+    },
+  ];
+
+  const payload = JSON.parse(buildPromptPayload({
+    url: 'https://example.com',
+    scorecard,
+    remediationRoadmap: roadmapWithDeviceSource as any,
+  }));
+
+  const mobileSourced = payload.roadmap.find((item: any) => item.auditId === 'color-contrast');
+  assert.equal(mobileSourced.evidenceSource, 'Mobile scan');
+
+  const desktopSourced = payload.roadmap.find((item: any) => item.auditId === 'target-size');
+  assert.equal('evidenceSource' in desktopSourced, false, 'desktop-backed evidence needs no tag — the client\'s own report already has it');
+});
+
 test('buildFallbackAuditAiReport creates a business-friendly local narrative', () => {
   const report = buildFallbackAuditAiReport({
     url: 'https://example.com',

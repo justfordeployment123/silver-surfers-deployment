@@ -108,6 +108,15 @@ export interface AnalysisRemediationItem {
     codeSnippet?: string;
     displayValue?: string;
     sourceUrl?: string;
+    /**
+     * Device profile the displayValue/sourceUrl above came from ("desktop" |
+     * "mobile" | "tablet"). Only set when the source issue carried one (i.e.
+     * a per-device full-audit page, not a single-report/quick-scan caller).
+     * Used by buildAggregateRemediationRoadmap to prefer desktop evidence —
+     * the only scan the client actually receives a document for — over a
+     * worse-scoring non-desktop occurrence (P3-06 clarification).
+     */
+    sourcePlatform?: string;
 }
 
 export interface AnalysisRemediationBucket {
@@ -883,6 +892,7 @@ function collectRankedRemediationItems(scorecard: AuditScorecard | undefined): A
                 ...(template.codeSnippet ? { codeSnippet: template.codeSnippet } : {}),
                 ...(issue.displayValue ? { displayValue: issue.displayValue } : {}),
                 ...(issue.sourceUrl ? { sourceUrl: issue.sourceUrl } : {}),
+                ...(issue.sourcePlatform ? { sourcePlatform: issue.sourcePlatform } : {}),
             });
         }
     }
@@ -935,9 +945,29 @@ export function buildAggregateRemediationRoadmap(pageScorecards: Array<AuditScor
     for (const pageScorecard of pageScorecards) {
         for (const item of collectRankedRemediationItems(pageScorecard)) {
             const existing = merged.get(item.auditId);
-            // Keep the worst-scoring occurrence as the representative, so the
-            // displayed evidence reflects the most severe instance sitewide.
-            if (!existing || item.currentScore < existing.currentScore) {
+            if (!existing) {
+                merged.set(item.auditId, item);
+                continue;
+            }
+            // P3-06 clarification: pageScorecards spans every device (desktop,
+            // mobile, tablet), and the old rule ("keep the worst-scoring
+            // occurrence") could pick a mobile/tablet occurrence's
+            // displayValue/sourceUrl as the representative evidence even
+            // though the client only receives the desktop PDF — producing a
+            // guidance quote ("46 of 46...") the desktop report has no trace
+            // of. A desktop occurrence, when one exists for this audit id
+            // anywhere on the site, is always preferred regardless of score,
+            // since it's the only evidence the delivered document can back.
+            // Among occurrences that agree on desktop-ness, worst-scoring
+            // still wins, same as before.
+            const existingIsDesktop = existing.sourcePlatform === 'desktop';
+            const itemIsDesktop = item.sourcePlatform === 'desktop';
+            if (existingIsDesktop && !itemIsDesktop) continue;
+            if (itemIsDesktop && !existingIsDesktop) {
+                merged.set(item.auditId, item);
+                continue;
+            }
+            if (item.currentScore < existing.currentScore) {
                 merged.set(item.auditId, item);
             }
         }

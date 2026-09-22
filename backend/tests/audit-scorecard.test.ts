@@ -694,3 +694,49 @@ test('platform attribution is omitted when the caller does not scan per device',
     assert.equal(issue.sourcePlatforms, undefined, 'no device data must mean no claim about devices');
   }
 });
+
+// P3-06 clarification ("Device-Sourced Items in the AI Executive Summary"):
+// desktop being *one of* an issue's sourcePlatforms used to read as "fully
+// backed by the desktop report," even when desktop only failed a fraction of
+// the pages credited to the headline (procoffeegear: "24 of 24 pages" with
+// desktop's own matrix failing only 4 of them). desktopPagesAffected is what
+// lets the report tell a partial desktop match from a full one.
+test('desktopPagesAffected records only how many of the credited pages desktop itself failed on', () => {
+  const desktopFailing = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/a', platform: 'desktop',
+  });
+  const desktopPassingB = buildAuditScorecard(buildReport(), {
+    pageUrl: 'https://example.com/b', platform: 'desktop',
+  });
+  const desktopPassingC = buildAuditScorecard(buildReport(), {
+    pageUrl: 'https://example.com/c', platform: 'desktop',
+  });
+  const mobileFailingA = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/a', platform: 'mobile',
+  });
+  const mobileFailingB = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/b', platform: 'mobile',
+  });
+  const mobileFailingC = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/c', platform: 'mobile',
+  });
+
+  const aggregate = buildAggregateAuditScorecard(
+    [desktopFailing, desktopPassingB, desktopPassingC, mobileFailingA, mobileFailingB, mobileFailingC],
+    { pageCount: 3 },
+  );
+  const issue = aggregate.topIssues.find((entry) => entry.auditId === 'color-contrast');
+  assert.ok(issue, 'color-contrast should headline');
+  assert.equal(issue.pagesAffected, 3, 'all 3 pages fail on at least one device');
+  assert.equal(issue.desktopPagesAffected, 1, 'desktop itself only fails page a');
+});
+
+test('desktopPagesAffected equals pagesAffected when desktop alone backs every credited page', () => {
+  const desktop = buildAuditScorecard(buildReport({ 'color-contrast': 0.4 }), {
+    pageUrl: 'https://example.com/a', platform: 'desktop',
+  });
+  const aggregate = buildAggregateAuditScorecard([desktop], { pageCount: 1 });
+  const issue = aggregate.topIssues.find((entry) => entry.auditId === 'color-contrast');
+  assert.ok(issue);
+  assert.equal(issue.desktopPagesAffected, issue.pagesAffected);
+});

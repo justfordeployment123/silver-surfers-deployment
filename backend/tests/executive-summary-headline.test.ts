@@ -256,6 +256,41 @@ test('resolvePlatformScanTag stays silent when the desktop report already backs 
   assert.equal(resolvePlatformScanTag(['desktop', 'mobile', 'tablet'], ALL_DEVICES), '');
 });
 
+// P3-06 clarification ("Device-Sourced Items in the AI Executive Summary"):
+// procoffeegear's "Links must have discernible text" claimed "24 of 24
+// pages" while the desktop matrix for the same criterion only failed 4 of
+// them — desktop being *one of* sourcePlatforms used to silence the tag
+// unconditionally, leaving the other 20 pages just as unverifiable in the
+// desktop-only report as a fully non-desktop issue, with nothing telling
+// the reader that.
+test('resolvePlatformScanTag prints a breakdown when desktop only partially backs the issue', () => {
+  assert.equal(
+    resolvePlatformScanTag(['desktop', 'mobile', 'tablet'], ALL_DEVICES, { desktopPagesAffected: 4, totalPagesAffected: 24 }),
+    ' (Desktop 4 of 24; also fails on Mobile & Tablet)',
+  );
+  assert.equal(
+    resolvePlatformScanTag(['desktop', 'mobile'], ALL_DEVICES, { desktopPagesAffected: 4, totalPagesAffected: 24 }),
+    ' (Desktop 4 of 24; also fails on Mobile)',
+  );
+});
+
+test('resolvePlatformScanTag stays silent once desktop\'s own count reaches every credited page', () => {
+  assert.equal(
+    resolvePlatformScanTag(['desktop', 'mobile'], ALL_DEVICES, { desktopPagesAffected: 24, totalPagesAffected: 24 }),
+    '',
+  );
+  // Without page-count data at all (existing callers), the old fully-silent
+  // behavior is preserved rather than guessing.
+  assert.equal(resolvePlatformScanTag(['desktop', 'mobile'], ALL_DEVICES, {}), '');
+});
+
+test('resolvePlatformScanTag never breaks down toward a device the appendix does not document', () => {
+  assert.equal(
+    resolvePlatformScanTag(['desktop', 'tablet'], ['Desktop', 'Mobile'], { desktopPagesAffected: 4, totalPagesAffected: 24 }),
+    '',
+  );
+});
+
 test('resolvePlatformScanTag makes no device claim without device data', () => {
   assert.equal(resolvePlatformScanTag(undefined, ALL_DEVICES), '');
   assert.equal(resolvePlatformScanTag([], ALL_DEVICES), '');

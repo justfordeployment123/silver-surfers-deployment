@@ -361,6 +361,15 @@ export function buildPromptPayload(options: GenerateAuditAiReportOptions): strin
       action: item.action,
       whyItMatters: item.whyItMatters,
       ...(item.displayValue ? { evidence: item.displayValue } : {}),
+      // P3-06 clarification: buildAggregateRemediationRoadmap now prefers a
+      // desktop occurrence's evidence whenever one exists anywhere on the
+      // site, so this only fires for a genuinely mobile/tablet-only finding
+      // (no desktop occurrence at all) — the desktop PDF the client receives
+      // cannot back this evidence no matter which page is quoted, so the
+      // model needs to say so rather than presenting it as verifiable.
+      ...(item.sourcePlatform && item.sourcePlatform !== 'desktop'
+        ? { evidenceSource: `${item.sourcePlatform.charAt(0).toUpperCase()}${item.sourcePlatform.slice(1)} scan` }
+        : {}),
     })),
   };
 
@@ -448,6 +457,7 @@ async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions
       'Do NOT repeat the same recommendation or finding guidance. If the same issue appears on multiple devices or pages, merge it into one item.',
       'Do NOT include bullet characters or numbering inside array item text; the report renderer adds numbering.',
       'Do NOT invent specific numbers, counts, or statistics ("46 of 46 elements", "a 3:1 contrast ratio") anywhere in this report unless that exact figure appears in the JSON data below. Each roadmap item\'s "evidence" field, when present, is the only source of truth for that finding\'s specifics — quote or closely paraphrase it. If a roadmap item has no "evidence" field, write its explanation and remediation in general terms with no invented numbers at all.',
+      'The full report the client receives covers the desktop scan only. If a roadmap item has an "evidenceSource" field (e.g. "Mobile scan"), its "evidence" number was only observed on that other scan and will not appear anywhere in the desktop report — say so plainly when citing it (e.g. "On the mobile scan, ..."), never present it as something the client can look up in their report.',
       '',
       'Return ONLY a single valid JSON object with EXACTLY these keys (no extras, no comments):',
       '  - "headline": one bold, specific sentence (max 14 words) capturing the overall state of THIS site.',

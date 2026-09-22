@@ -62,6 +62,16 @@ export interface AuditIssueSummary {
      * to tag a headline that no desktop scan can corroborate.
      */
     sourcePlatforms?: string[];
+    /**
+     * How many of pagesAffected's pages specifically failed under the
+     * desktop profile. Only set alongside sourcePlatforms (Phase 6.7c/N10c).
+     * When this is less than pagesAffected, the desktop-only report the
+     * client receives cannot corroborate every page the headline credits
+     * this issue with — used to print a device breakdown instead of staying
+     * silent just because desktop is *one of* the sourcePlatforms (P3-06
+     * clarification).
+     */
+    desktopPagesAffected?: number;
 }
 
 export interface AuditPrimaryDimensionScore {
@@ -809,10 +819,43 @@ function collectPlatformsByAuditId(issues: AuditIssueSummary[]): Map<string, Set
     return platformsByAuditId;
 }
 
+/**
+ * Distinct pages (by sourceUrl) each audit id failed on under the desktop
+ * profile specifically, from the same pre-dedupe issue set as
+ * collectPlatformsByAuditId above (see its comment for why pre-dedupe
+ * matters here too). An audit whose sourcePlatforms includes "desktop" was
+ * previously treated as fully backed by the desktop report regardless of
+ * *how many* of its credited pages desktop actually failed on — a "24 of 24
+ * pages" issue where desktop only fails 4 of them still left 20 pages the
+ * client's desktop-only report cannot corroborate, with no way to tell.
+ * Comparing this count against pagesAffected is what lets the report
+ * distinguish "desktop fully backs this" from "desktop partially backs
+ * this" (P3-06 clarification, "Device-Sourced Items in the AI Executive
+ * Summary").
+ */
+function collectDesktopPageCountByAuditId(issues: AuditIssueSummary[]): Map<string, number> {
+    const urlsByAuditId = new Map<string, Set<string>>();
+    for (const issue of issues) {
+        const platform = typeof issue?.sourcePlatform === "string" ? issue.sourcePlatform.trim().toLowerCase() : "";
+        if (platform !== "desktop") continue;
+        const url = typeof issue?.sourceUrl === "string" ? issue.sourceUrl : "";
+        if (!url) continue;
+        const urls = urlsByAuditId.get(issue.auditId) || new Set<string>();
+        urls.add(url);
+        urlsByAuditId.set(issue.auditId, urls);
+    }
+    const counts = new Map<string, number>();
+    for (const [auditId, urls] of urlsByAuditId) {
+        counts.set(auditId, urls.size);
+    }
+    return counts;
+}
+
 function buildBreadthRankedTopIssues(
     issues: AuditIssueSummary[],
     limit: number,
     platformsByAuditId?: Map<string, Set<string>>,
+    desktopPageCountByAuditId?: Map<string, number>,
 ): AuditIssueSummary[] {
     const byAuditId = new Map<string, AuditIssueSummary[]>();
     for (const issue of issues) {
@@ -835,6 +878,12 @@ function buildBreadthRankedTopIssues(
             || collectPlatformsByAuditId(occurrences).get(auditId);
         const sourcePlatforms = platforms && platforms.size > 0 ? [...platforms].sort() : undefined;
 
+        // Same prefer-the-map-else-recompute-narrower pattern as sourcePlatforms
+        // above, for the desktop-specific page count (P3-06 clarification).
+        const desktopPagesAffected = desktopPageCountByAuditId
+            ? (desktopPageCountByAuditId.get(auditId) ?? 0)
+            : collectDesktopPageCountByAuditId(occurrences).get(auditId) ?? 0;
+
         return {
             auditId,
             pagesAffected,
@@ -843,7 +892,7 @@ function buildBreadthRankedTopIssues(
             issue: {
                 ...representative,
                 pagesAffected,
-                ...(sourcePlatforms ? { sourcePlatforms } : {}),
+                ...(sourcePlatforms ? { sourcePlatforms, desktopPagesAffected } : {}),
             } as AuditIssueSummary,
         };
     });
@@ -1327,10 +1376,14 @@ export function buildAggregateAuditScorecard(
         : [...evaluationDimensionIssues.values()].flat();
     // Phase 6.7c / N10c: platform attribution comes off the full pre-dedupe set.
     const platformsByAuditId = collectPlatformsByAuditId(sourceIssues);
+    // P3-06 clarification: same pre-dedupe requirement, for the desktop-
+    // specific page count that lets a headline distinguish "desktop fully
+    // backs this" from "desktop only backs some of these pages."
+    const desktopPageCountByAuditId = collectDesktopPageCountByAuditId(sourceIssues);
     const allIssues = dedupeIssues(sourceIssues);
     // Phase 6.8/6.6/6.7b (N14, N9, N10b): breadth-ranked, one headline per
     // audit id and per WCAG criterion — see buildBreadthRankedTopIssues.
-    const topIssues = buildBreadthRankedTopIssues(allIssues, 5, platformsByAuditId);
+    const topIssues = buildBreadthRankedTopIssues(allIssues, 5, platformsByAuditId, desktopPageCountByAuditId);
 
     // An audit is notApplicable at aggregate level only if every page said so (intersection)
     const notApplicableSets = scorecards.map((sc) => new Set(sc.notApplicableAuditIds || []));
