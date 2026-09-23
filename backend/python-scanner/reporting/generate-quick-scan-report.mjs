@@ -65,6 +65,12 @@ async function main() {
   const outputDir = readArg('output-dir');
   const manifestPath = readArg('manifest');
   const scoreArg = readArg('score');
+  // UAT: the "Evaluated against: ..." line on a quick-scan PDF fell back to
+  // "Full Combined" even when the scan ran against a specific standard,
+  // because these two were never read from argv at all - sqs_worker.py now
+  // passes them, generateLiteReport already knows how to use them.
+  const wcagStandard = readArg('wcag-standard');
+  const conformanceLevel = readArg('conformance-level');
 
   if (!reportPath || !outputDir || !manifestPath) {
     throw new Error('--report, --output-dir, and --manifest are required.');
@@ -75,6 +81,8 @@ async function main() {
   const score = Number.parseFloat(scoreArg);
   await generateLiteAccessibilityReport(reportPath, outputDir, {
     canonicalScore: Number.isFinite(score) ? score : undefined,
+    ...(wcagStandard ? { wcagStandard } : {}),
+    ...(conformanceLevel ? { conformanceLevel } : {}),
   });
 
   const files = await listPdfFiles(outputDir);

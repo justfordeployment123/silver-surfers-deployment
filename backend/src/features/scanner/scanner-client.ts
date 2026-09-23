@@ -35,6 +35,8 @@ export interface ScannerServiceAuditRequest {
     quickScanId?: string;
     url?: string;
     fullName?: string;
+    wcagStandard?: string;
+    conformanceLevel?: string;
   };
 }
 
@@ -527,6 +529,8 @@ export async function dispatchScannerAuditJob(request: ScannerServiceAuditReques
         quickScanId: request.reportGeneration.quickScanId,
         url: request.reportGeneration.url,
         fullName: request.reportGeneration.fullName,
+        ...(request.reportGeneration.wcagStandard ? { wcagStandard: request.reportGeneration.wcagStandard } : {}),
+        ...(request.reportGeneration.conformanceLevel ? { conformanceLevel: request.reportGeneration.conformanceLevel } : {}),
       },
     } : {}),
     ...(request.wcagFilter ? { wcagFilter: request.wcagFilter } : {}),

@@ -1,11 +1,20 @@
 import unittest
 from unittest.mock import Mock
 
-from proxy_fallback import proxy_mode, run_with_proxy_fallback
+from proxy_fallback import proxy_mode, registrable_domain, run_with_proxy_fallback
 from browser_runtime import browser_options
 
 
 class ProxyFallbackTests(unittest.TestCase):
+    def test_registrable_domain_ignores_www_and_subdomains(self):
+        self.assertEqual(registrable_domain("ign.com"), "ign.com")
+        self.assertEqual(registrable_domain("www.ign.com"), "ign.com")
+        self.assertEqual(registrable_domain("nordic.ign.com"), "ign.com")
+        self.assertEqual(registrable_domain("uk.shop.ign.com"), "ign.com")
+        self.assertNotEqual(registrable_domain("ign.com"), registrable_domain("other.com"))
+        self.assertEqual(registrable_domain(""), "")
+        self.assertEqual(registrable_domain(None), "")
+
     def test_legacy_and_explicit_modes(self):
         self.assertEqual(proxy_mode({}), "off")
         self.assertEqual(proxy_mode({"SCANNER_PROXY_ENABLED": "true"}), "always")

@@ -549,6 +549,17 @@ export async function runQuickScanProcess(payload: QueueJobInput): Promise<Queue
           quickScanId: job.quickScanId,
           url: job.url,
           fullName,
+          // Client-reported UAT: a quick scan run against a non-default
+          // standard (e.g. "WCAG 2.2 Level A") still printed "Evaluated
+          // against: Full Combined" on the delivered PDF. wcagFilter below
+          // (version/level) only scopes which axe rules run and which
+          // matrix rows print — it never reached the scanner-orchestrated
+          // report worker's report-label text, which reads the raw
+          // wcagStandard/conformanceLevel values instead (see
+          // describeWcagStandardLabel). Threading them through here lets
+          // sqs_worker.py pass them on to generate-quick-scan-report.mjs.
+          ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+          ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
         },
         wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
       });

@@ -200,8 +200,14 @@ export default function Checkout() {
           padding: 36px;
           box-shadow: 0 8px 40px rgba(16,47,69,0.15);
         }
+        /* UAT: var(--t05) is a fixed near-white that doesn't flip with theme,
+           but .h3/.co-stat-num/.co-stat-label's text (var(--ink)/var(--ink6))
+           does — near-white text on a near-white card in dark mode. Same fix
+           as the WCAG dropdown/monitor cards/subscription page earlier: a
+           translucent brand tint stays readable against both --surface
+           values. */
         .co-sub-banner {
-          background: var(--t05);
+          background: rgba(1,150,189,0.12);
           border: 1px solid var(--t1);
           border-radius: var(--r);
           padding: 16px;
@@ -251,7 +257,7 @@ export default function Checkout() {
           cursor: pointer;
           transition: border-color 0.15s;
         }
-        .co-credit-opt.selected { border-color: var(--t4); background: var(--t05); }
+        .co-credit-opt.selected { border-color: var(--t4); background: rgba(1,150,189,0.12); }
         .co-device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 20px; }
         .co-device-btn {
           display: flex;
@@ -276,14 +282,18 @@ export default function Checkout() {
           background: var(--t05);
           color: var(--t4);
         }
+        /* UAT: same fixed-bg/theme-text bug, plus color referenced var(--t7),
+           a token that was never actually defined (only t1/t2/t4/t6/t8/t9/t05
+           exist) — it was silently falling back to the inherited (theme-
+           flipping) ink color. */
         .co-pro-note {
-          background: var(--t05);
+          background: rgba(1,150,189,0.12);
           border: 1px solid var(--t1);
           border-radius: var(--r);
           padding: 12px 14px;
           margin-bottom: 20px;
           font-size: 16px;
-          color: var(--t7);
+          color: var(--ink);
           display: flex;
           align-items: center;
           gap: 8px;
