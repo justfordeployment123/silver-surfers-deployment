@@ -1,0 +1,68 @@
+Full audit proxy routing
+========================
+
+Scope: SQS fullAuditBatch jobs, including scanner-owned discovery and explicitly
+provided targets. Quick scans keep their current direct-first country fallback.
+
+Enable using the existing settings:
+SCANNER_PROXY_MODE=fallback
+SCANNER_PROXY_COUNTRIES=us,pk,de
+SCANNER_PROXY_SERVER=http://gate.nodemaven.com:8080
+SCANNER_PROXY_USERNAME=YOUR_BASE_USERNAME-country-{country}-sid-{session}-filter-high
+SCANNER_PROXY_PASSWORD=<secret>
+SCANNER_FULL_PROXY_MAX_BROWSER_ATTEMPTS=300
+
+How full audits run
+- Discovery starts direct, then tries eligible proxy routes. Healthy pages with
+  no links do not trigger paid retries solely because their link count is low.
+- Page and device audits reuse the current route for that hostname. Once a route
+  fails with an eligible access error, the job advances rather than starting over.
+- Each browser invocation is isolated. A country-specific sticky session ID is
+  derived from the existing job session, but cookies are NOT shared between pages.
+  A requested sticky session does not guarantee the provider keeps the same IP.
+- Sitemaps use discovery's browser/proxy, with same-site source filtering and the
+  existing discovery deadline. No VPS routing is introduced.
+- 429 and Retry-After responses establish a persisted cooldown. Remaining targets
+  during that cooldown are recorded as not audited; this does not schedule a retry.
+- Exhausted routes/budget produce explicit failures, not scores. A low or zero
+  valid accessibility score is not a reason to switch proxies or downgrade depth.
+- The configured page/depth/device limits still apply. This is not a guarantee
+  of discovering every URL, accessing every site, or full WCAG conformance.
+
+Persistence and cost
+S3 key: <SCANNER_SQS_ARTIFACT_PREFIX>/proxy-state/<hashed-job-id>.json
+Reservations are written before launching each proxy browser. ETag conditional
+writes prevent stale workers from overwriting another worker's counter. Storage
+errors stop further proxy work. A crash can consume a reservation without traffic.
+The same job ID resumes its counters/routes. A new job ID creates a new budget.
+Changing mode/country order for a resumed job is rejected; submit a new job.
+300 is the default maximum of browser invocations across all pages/devices and
+discovery, NOT three HTTP requests and NOT a GB/dollar spending cap. Discovery can
+load multiple pages within one browser. Successful pages are not cached by this
+feature: queue redelivery can rescan them, subject to the retained budget.
+
+Deploy
+1. Rebuild backend/Dockerfile.scanner and deploy the new ECR image to scanner-full.
+   The image includes the routing module, reporting warning and boto3>=1.37.32.
+2. Keep credentials in ECS secrets; apply non-secret settings to the task definition.
+3. Permit the task role s3:GetObject and s3:PutObject on the proxy-state prefix
+   in the existing artifact bucket (and appropriate KMS permissions if used).
+   IAM/bucket denial of missing-key reads may surface as 403 rather than NoSuchKey;
+   check prefix permissions if the first run fails to read its checkpoint.
+4. Keep checkpoints for at least the job retry/redrive lifetime. Deleting them
+   resets protection. Set an appropriate lifecycle policy after that lifetime.
+5. No EC2 backend/frontend deployment is needed for these scanner-side changes.
+
+Acceptance checks after deployment
+- Use a small authorized full scan with 2-3 pages and all devices first.
+- Confirm discovery and target logs report the reused country and increasing
+  jobProxyAttempts, with no credentials in logs.
+- Confirm S3 aggregate includes proxyRouting, discovery, coverageStatus and
+  per-target proxyAttempts/requestedProxyCountry. Incomplete discovery also
+  appears in the report-generation manifest warnings, not a complete-site claim.
+- Test a low browser-attempt cap on a NEW test job; verify explicit budget failures.
+- Redeliver that job and confirm its count does not reset. Test a 404 and a rate
+  limit: neither should restart the country sequence.
+- Compare NodeMaven usage before/after; automated unit tests do not measure GBs.
+
+No actual AWS deployment or paid proxy/full-site test is performed by unit tests.

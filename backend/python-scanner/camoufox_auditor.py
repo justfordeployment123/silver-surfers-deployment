@@ -236,6 +236,7 @@ def run_camoufox_audit_sync(
             url, device_config, is_lite, wcag_filter, use_proxy=use_proxy, proxy_session=proxy_session
         ),
         mode,
+        site_url=url,
     )
 
 

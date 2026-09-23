@@ -717,6 +717,8 @@ def _scanner_discover_links_from_sitemaps_with_page(
         discovered.append(canonical["url"])
 
     for origin in origins:
+        if time.monotonic() >= deadline:
+            break
         robots_url = f"{origin}/robots.txt"
         try:
             page.goto(robots_url, wait_until="domcontentloaded", timeout=remaining_timeout(8_000))
@@ -732,8 +734,11 @@ def _scanner_discover_links_from_sitemaps_with_page(
             f"{origin}/wp-sitemap.xml",
         ])
 
-    while sitemap_queue and len(visited_sources) < 12 and len(discovered) < max_links:
+    while sitemap_queue and len(visited_sources) < 12 and len(discovered) < max_links and time.monotonic() < deadline:
         sitemap_url = sitemap_queue.pop(0)
+        parsed_source = urlparse(sitemap_url)
+        if parsed_source.scheme not in {"http", "https"} or parsed_source.username or parsed_source.password or _scanner_normalize_host(parsed_source.hostname or "") != expected_host:
+            continue
         if sitemap_url in visited_sources:
             continue
         visited_sources.add(sitemap_url)
@@ -873,6 +878,7 @@ def _extract_links_sync(url: str, max_links: int = 50, max_depth: int = 1, delay
         lambda use_proxy: _extract_links_once(url, max_links, max_depth, delay_ms,
                                              use_proxy=use_proxy, proxy_session=session),
         mode,
+        site_url=url,
     )
 
 
@@ -956,7 +962,10 @@ def _extract_links_once(url: str, max_links: int = 50, max_depth: int = 1, delay
                         except Exception as page_error:
                             warnings.append(f"Skipped {current_url}: {str(page_error)}")
                             if current_url == url and not links:
-                                return {"success": False, "links": [], "finalUrl": final_url, "error": f"Navigation failed: {str(page_error)}"}
+                                from proxy_fallback import is_unknown_tls_handshake
+                                return {"success": False, "links": [], "finalUrl": final_url,
+                                        "errorCode": "TLS_HANDSHAKE_ERROR" if is_unknown_tls_handshake(page_error) else "DISCOVERY_NAVIGATION_FAILED",
+                                        "error": f"Navigation failed: {str(page_error)}"}
                             continue
 
                         try:

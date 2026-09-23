@@ -97,7 +97,11 @@ def proxy_mode(env=None):
     return mode
 
 
-def run_with_proxy_fallback(attempt, mode):
+def run_with_proxy_fallback(attempt, mode, *, site_url=None):
+    from full_scan_proxy import active_full_scan
+    full_scan = active_full_scan.get()
+    if full_scan is not None and mode != "off":
+        return full_scan.run(attempt, site_url)
     countries = proxy_countries() if mode != "off" else []
     if countries:
         return _run_country_pool(attempt, mode, countries)
