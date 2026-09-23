@@ -1793,6 +1793,13 @@ class ScannerSqsWorker:
         email = safe_text(report_metadata.get("email") or payload.get("email") or "unknown-client")
         quick_scan_id = safe_text(report_metadata.get("quickScanId") or payload.get("quickScanId") or scanner_job_id)
         website_url = safe_text(report_metadata.get("url") or payload.get("url") or url or "quick-scan")
+        # UAT: a quick scan run against a non-default standard still printed
+        # "Evaluated against: Full Combined" on the delivered PDF. The Node
+        # backend now threads the raw selection through reportGeneration
+        # (wcagFilter's version/level shape is for matrix filtering only,
+        # not this label) - forward it to the report generator.
+        wcag_standard = safe_text(report_metadata.get("wcagStandard") or "")
+        conformance_level = safe_text(report_metadata.get("conformanceLevel") or "")
 
         with tempfile.TemporaryDirectory(prefix=f"scanner-quick-report-{_sanitize_key_segment(scanner_job_id)}-") as temp_dir:
             temp_path = Path(temp_dir)
@@ -1821,6 +1828,10 @@ class ScannerSqsWorker:
             ]
             if score is not None:
                 command.extend(["--score", safe_text(score)])
+            if wcag_standard:
+                command.extend(["--wcag-standard", wcag_standard])
+            if conformance_level:
+                command.extend(["--conformance-level", conformance_level])
 
             logger.info(
                 "Generating quick-scan report PDF in scanner worker.",
