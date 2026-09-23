@@ -151,6 +151,23 @@ function MonitoringContent() {
 
     useEffect(() => { load(); }, []);
 
+    // UAT: a monitor deleted on this page could keep showing on screen if
+    // the user stepped away (another tab, switched apps, phone locked) and
+    // came back — the list only ever refetched on the initial mount, so a
+    // stale card for an already-deleted monitor stayed clickable. Clicking
+    // "Delete" on it then hit the server a second time for a job that was
+    // already gone, which correctly came back "Not found" but looked to the
+    // user like deleting had silently failed. Refetching whenever the tab
+    // becomes visible again closes that gap without needing to guess why
+    // the list went stale in any one case.
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') load();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
     const tiles = useMemo(() => {
         const activeJobs = jobs.filter((j) => j.status === 'active');
         const nextRun = activeJobs
@@ -191,7 +208,17 @@ function MonitoringContent() {
         }
         setBusyJobId(null);
         setTriggeringId(null);
-        if (res?.error) { setError(res.error); return; }
+        if (res?.error) {
+            // A stale card (see the visibilitychange refresh above) can still
+            // slip through and get deleted a second time before this page
+            // notices — the server correctly says "Not found" for that, but
+            // the end state the user wants (this monitor is gone) is already
+            // true, so treat it as success and refresh instead of showing a
+            // scary error for something that isn't actually wrong.
+            if (action === 'delete' && /not found/i.test(res.error)) { load(); return; }
+            setError(res.error);
+            return;
+        }
         if (action === 'trigger') {
             // "Run Now" used to give zero feedback — the scan was actually
             // queued (confirmed by the backend's { success: true } response)
