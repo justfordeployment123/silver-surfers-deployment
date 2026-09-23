@@ -69,6 +69,30 @@ def proxy_session_id(job_id=None):
     return hashlib.sha256(str(job_id).encode()).hexdigest()[:20] if job_id else uuid.uuid4().hex[:20]
 
 
+def bare_host(hostname):
+    return (hostname or "").lower().removeprefix("www.")
+
+
+def registrable_domain(hostname):
+    """Last two labels of a bare hostname (UAT: ign.com's monitoring scan
+    was blocked as a cross-domain redirect because it regionally redirects
+    to nordic.ign.com — a same-brand subdomain hop, not the bot-wall
+    hijack (e.g. ShieldSquare/Radware routing to unrelated validation
+    infrastructure) this check exists to catch). Comparing full hostnames
+    treated every subdomain redirect as suspicious; comparing registrable
+    domains only flags a redirect that actually leaves the site.
+
+    This is a pragmatic non-PSL-aware heuristic, not a real public-suffix
+    lookup — it under-matches on multi-part TLDs (foo.co.uk and bar.co.uk
+    both reduce to "co.uk"), which trades a rare missed bot-wall on those
+    TLDs for not blocking ordinary regional/marketing subdomain redirects
+    everywhere else. The bot-wall text-fingerprint and near-empty-DOM
+    checks are the backstop for that rare case.
+    """
+    labels = bare_host(hostname).split(".")
+    return ".".join(labels[-2:]) if len(labels) >= 2 else bare_host(hostname)
+
+
 def discovery_access_error(status, title, requested_url, final_url):
     # Do not turn rate limits or missing pages into proxy retries.
     if status == 429:
@@ -82,8 +106,10 @@ def discovery_access_error(status, title, requested_url, final_url):
         return "ACCESS_DENIED"
     if status >= 400:
         return "PAGE_HTTP_ERROR"
-    normalize = lambda url: (urlsplit(url).hostname or "").lower().removeprefix("www.")
-    if normalize(requested_url) != normalize(final_url):
+    normalize = lambda url: (urlsplit(url).hostname or "")
+    requested_host = normalize(requested_url)
+    final_host = normalize(final_url)
+    if requested_host and final_host and registrable_domain(requested_host) != registrable_domain(final_host):
         return "CROSS_DOMAIN_REDIRECT"
     return None
 

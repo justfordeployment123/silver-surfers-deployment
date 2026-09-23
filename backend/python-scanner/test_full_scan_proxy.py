@@ -31,6 +31,21 @@ class FullScanProxyTests(unittest.TestCase):
         self.assertEqual(discovery_access_error(200, "Other", url, "https://other.com"), "CROSS_DOMAIN_REDIRECT")
         self.assertIsNone(discovery_access_error(200, "Home", url, "https://www.example.com"))
 
+        # UAT: ign.com's monitoring scan was blocked outright because it
+        # regionally redirects to nordic.ign.com — a same-brand subdomain
+        # hop, not the bot-wall hijack this check exists to catch.
+        self.assertIsNone(discovery_access_error(200, "Home", "https://ign.com", "https://nordic.ign.com"))
+        self.assertIsNone(discovery_access_error(200, "Home", "https://www.ign.com", "https://uk.ign.com"))
+        # A redirect to genuinely unrelated infrastructure must still be caught.
+        self.assertEqual(
+            discovery_access_error(200, "Just a moment...", "https://ign.com", "https://perfdrive.com/challenge"),
+            "BOT_CHALLENGE",
+        )
+        self.assertEqual(
+            discovery_access_error(200, "Verify", "https://ign.com", "https://some-captcha-vendor.example"),
+            "CROSS_DOMAIN_REDIRECT",
+        )
+
     @patch.dict("os.environ", ENV, clear=True)
     @patch("scanner_service._extract_links_once")
     def test_discovery_then_audits_share_session(self, extract):

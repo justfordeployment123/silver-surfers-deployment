@@ -14,6 +14,7 @@ from scanner_utils import safe_text
 from navigation_retry import navigate_with_retries, retry_delay
 from page_readiness import wait_for_ready, is_empty_document
 from frameset_scope import select_frameset_scope
+from proxy_fallback import registrable_domain
 
 
 class _WcagScopeSkip(Exception):
@@ -498,15 +499,18 @@ def _run_camoufox_audit_once(
 
             # Check 1: cross-domain redirect — bot-walls (e.g. ShieldSquare/Radware) silently
             # redirect the browser to a validation host before returning a CAPTCHA page.
-            def _bare_host(h: str) -> str:
-                return (h or "").lower().removeprefix("www.")
-
+            # UAT: comparing full hostnames flagged ign.com's own regional
+            # redirect to nordic.ign.com as a suspicious cross-domain jump and
+            # blocked the scan outright — that's a same-brand subdomain hop,
+            # not a bot-wall. Comparing registrable domains (shared helper,
+            # see proxy_fallback.registrable_domain) only flags a redirect
+            # that actually leaves the site.
             scope_url = audit_scope["sourceUrl"] if audit_scope else url
             requested_parsed = urlparse(scope_url if scope_url.startswith("http") else f"https://{scope_url}")
             final_parsed = urlparse(final_url)
-            req_host = _bare_host(requested_parsed.hostname or "")
-            fin_host = _bare_host(final_parsed.hostname or "")
-            if req_host and fin_host and req_host != fin_host:
+            req_domain = registrable_domain(requested_parsed.hostname or "")
+            fin_domain = registrable_domain(final_parsed.hostname or "")
+            if req_domain and fin_domain and req_domain != fin_domain:
                 return {
                     "success": False,
                     "errorCode": "CROSS_DOMAIN_REDIRECT",
