@@ -77,6 +77,8 @@ export interface ScannerFullAuditBatchRequest {
     planId?: string;
     selectedDevice?: string | null;
     fullName?: string;
+    wcagStandard?: string;
+    conformanceLevel?: string;
   };
 }
 
@@ -631,6 +633,8 @@ export async function dispatchScannerFullAuditBatch(request: ScannerFullAuditBat
         planId: request.reportGeneration.planId,
         selectedDevice: request.reportGeneration.selectedDevice,
         fullName: request.reportGeneration.fullName,
+        ...(request.reportGeneration.wcagStandard ? { wcagStandard: request.reportGeneration.wcagStandard } : {}),
+        ...(request.reportGeneration.conformanceLevel ? { conformanceLevel: request.reportGeneration.conformanceLevel } : {}),
       },
     } : {}),
     ...(request.orchestration ? {

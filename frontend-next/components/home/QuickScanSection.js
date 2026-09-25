@@ -8,7 +8,6 @@
 // Component and mounts this in place of the old form-card block.
 import { useEffect, useRef, useState } from 'react';
 import { getSubscription, quickAudit } from '../../lib/apiClient';
-import WcagStandardSelect from '../WcagStandardSelect';
 
 /* ── Scan results modal ──────────────────────────────────────── */
 const ScanResultsModal = ({ result, isVisible, onClose }) => {
@@ -87,7 +86,6 @@ const DeviceIcon = ({ device }) => {
 
 export default function QuickScanSection() {
   const [scanData, setScanData] = useState({ websiteUrl: '', email: '', firstName: '', lastName: '' });
-  const [wcagConfig, setWcagConfig] = useState({ wcagStandard: 'combined', conformanceLevel: 'AA' });
   const [selectedDevice, setSelectedDevice]   = useState('desktop');
   const [isScanning, setIsScanning]           = useState(false);
   const [error, setError]                     = useState('');
@@ -120,7 +118,7 @@ export default function QuickScanSection() {
     try {
       let url = scanData.websiteUrl.trim();
       if (url && !/^https?:\/\//i.test(url)) url = `https://${url}`;
-      const res = await quickAudit(scanData.email.trim(), url, scanData.firstName.trim(), scanData.lastName.trim(), selectedDevice, wcagConfig);
+      const res = await quickAudit(scanData.email.trim(), url, scanData.firstName.trim(), scanData.lastName.trim(), selectedDevice);
       if (res?.error) {
         setError(res.error);
       } else {
@@ -347,16 +345,6 @@ export default function QuickScanSection() {
                 Active subscription detected. Tablet and mobile quick scans are unlocked.
               </p>
             )}
-          </div>
-
-          {/* WCAG standard selector */}
-          <div style={{ marginBottom: 20 }}>
-            <WcagStandardSelect
-              variant="glass-dark"
-              wcagStandard={wcagConfig.wcagStandard}
-              conformanceLevel={wcagConfig.conformanceLevel}
-              onChange={setWcagConfig}
-            />
           </div>
 
           {/* Submit */}

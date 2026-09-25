@@ -1019,17 +1019,28 @@ export function buildAnalysisDetail(record: AnalysisRecordLike): AnalysisDetailV
         normalizeStoredReportFiles((record.reportFiles || []) as StoredReportFile[]),
     );
     const remediationRoadmap = buildRemediationRoadmap(scorecard);
-    const wcagMatrix = Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0
-        ? record.wcagMatrix
-        : buildWcagMatrix(
-            scorecard?.issues || [],
-            scorecard?.notApplicableAuditIds || [],
-            scorecard?.manualReviewAuditIds || [],
-            resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
-        );
-    const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
+    // A record with no scorecard and no stored matrix never actually produced
+    // scan results (e.g. the scanner crashed before auditing a single page).
+    // buildWcagMatrix() has no way to distinguish "scanned clean" from "never
+    // scanned" — an empty issues array looks identical either way, and it
+    // would otherwise render a full 56-row Pass/Needs Review breakdown for a
+    // scan that never ran (UAT: nordic.ign.com showed "16 passed" on a
+    // record with 0/75 targets and 0 reports). Only build/show the matrix
+    // when there's real evidence behind it.
+    const hasWcagEvidence = Boolean(scorecard) || (Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0);
     const wcagFilterOptions = resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel);
-    const outOfScopeWcagRows = buildOutOfScopeCriteriaRows(wcagFilterOptions);
+    const wcagMatrix = !hasWcagEvidence
+        ? []
+        : Array.isArray(record.wcagMatrix) && record.wcagMatrix.length > 0
+            ? record.wcagMatrix
+            : buildWcagMatrix(
+                scorecard?.issues || [],
+                scorecard?.notApplicableAuditIds || [],
+                scorecard?.manualReviewAuditIds || [],
+                wcagFilterOptions,
+            );
+    const wcagSummary = buildWcagMatrixSummary(wcagMatrix);
+    const outOfScopeWcagRows = hasWcagEvidence ? buildOutOfScopeCriteriaRows(wcagFilterOptions) : [];
 
     return {
         ...(record._id ? { id: String(record._id) } : {}),

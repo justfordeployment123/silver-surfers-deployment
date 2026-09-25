@@ -1162,6 +1162,8 @@ async function queueFullAuditVpsFallbackFromScannerResult(payload: ScannerSqsRes
       planId: effectivePlanId,
       selectedDevice,
       fullName,
+      ...(record.wcagStandard ? { wcagStandard: record.wcagStandard } : {}),
+      ...(record.conformanceLevel ? { conformanceLevel: record.conformanceLevel } : {}),
     },
     wcagFilter: resolveWcagMatrixFilterOptions(record.wcagStandard, record.conformanceLevel),
   });
@@ -1689,6 +1691,8 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           planId: effectivePlanId,
           selectedDevice: job.selectedDevice,
           fullName,
+          ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+          ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
         },
         wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
       });
@@ -1844,6 +1848,8 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
             url: job.url,
             planId: effectivePlanId,
             selectedDevice: job.selectedDevice,
+            ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+            ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
           },
           wcagFilter: resolveWcagMatrixFilterOptions(job.wcagStandard, job.conformanceLevel),
         });
@@ -1911,6 +1917,8 @@ export async function runFullAuditProcess(payload: QueueJobInput): Promise<Queue
           planId: effectivePlanId,
           selectedDevice: job.selectedDevice,
           fullName,
+          ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+          ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
         },
       }).catch((error) => ({
         success: false as const,

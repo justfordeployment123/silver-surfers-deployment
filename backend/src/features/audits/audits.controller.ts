@@ -480,13 +480,16 @@ export async function startAudit(request: Request, response: Response): Promise<
 }
 
 export async function quickAudit(request: Request, response: Response): Promise<void> {
-  const { email, url, firstName, lastName, selectedDevice, wcagStandard, conformanceLevel } = request.body || {};
+  const { email, url, firstName, lastName, selectedDevice } = request.body || {};
   if (!email || !url) {
     response.status(400).json({ error: 'Email and URL are required.' });
     return;
   }
 
-  const wcagConfig = resolveScanWcagConfig(wcagStandard, conformanceLevel);
+  // Client decision (2026-09-26): Quick Scan is never tied to subscription
+  // status, so it is never offered a standard choice either — every caller
+  // gets the platform default, with no per-request override accepted.
+  const wcagConfig = resolveScanWcagConfig(undefined, undefined);
   if (!wcagConfig) {
     response.status(400).json({ error: 'Invalid wcagStandard or conformanceLevel selection.' });
     return;

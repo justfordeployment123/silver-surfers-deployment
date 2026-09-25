@@ -1703,6 +1703,13 @@ class ScannerSqsWorker:
         task_id = safe_text(report_metadata.get("taskId") or scanner_job_id)
         website_url = safe_text(report_metadata.get("url") or payload.get("url") or "full-audit")
         full_name = safe_text(report_metadata.get("fullName") or payload.get("fullName") or "Valued Customer")
+        # Client-reported UAT: a full audit run against a non-default standard
+        # still printed "Evaluated against: Full Combined" on the delivered
+        # PDF, and the per-page WCAG matrix always showed the unfiltered
+        # combined criteria set. Same root cause as the quick-scan fix above -
+        # thread the raw selection through to the report generator.
+        wcag_standard = safe_text(report_metadata.get("wcagStandard") or "")
+        conformance_level = safe_text(report_metadata.get("conformanceLevel") or "")
 
         with tempfile.TemporaryDirectory(prefix=f"scanner-report-{_sanitize_key_segment(scanner_job_id)}-") as temp_dir:
             temp_path = Path(temp_dir)
@@ -1729,6 +1736,10 @@ class ScannerSqsWorker:
                 "--full-name",
                 full_name,
             ]
+            if wcag_standard:
+                command.extend(["--wcag-standard", wcag_standard])
+            if conformance_level:
+                command.extend(["--conformance-level", conformance_level])
 
             logger.info(
                 "Generating full-audit report PDFs in scanner worker.",

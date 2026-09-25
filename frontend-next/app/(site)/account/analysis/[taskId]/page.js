@@ -629,22 +629,22 @@ function AnalysisDetailContent() {
                   {wcagSummary ? (
                     <div style={{ marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(140px,1fr))', gap: '12px' }}>
                       <div className="wcag-stat-pass">
-                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--t3)' }}>Passed</p>
+                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'var(--t3)', minHeight: '38px' }}>Passed</p>
                         <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: 'var(--t4)' }}>{wcagSummary.passed ?? 0}</p>
                         <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(1,150,189,0.7)' }}>criteria</p>
                       </div>
                       <div className="wcag-stat-fail">
-                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fca5a5' }}>Failed</p>
+                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fca5a5', minHeight: '38px' }}>Failed</p>
                         <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: '#f87171' }}>{wcagSummary.failed ?? 0}</p>
                         <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(239,68,68,0.6)' }}>criteria</p>
                       </div>
                       <div className="wcag-stat-review">
-                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fcd34d' }}>Needs Review</p>
+                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#fcd34d', minHeight: '38px' }}>Needs Review</p>
                         <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: '#fbbf24' }}>{wcagSummary.needsReview ?? 0}</p>
                         <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(245,158,11,0.6)' }}>manual only</p>
                       </div>
                       <div className="wcag-stat-na">
-                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255, 255, 255, 0.75)' }}>Not Applicable</p>
+                        <p style={{ fontSize: '16px', textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(255, 255, 255, 0.75)', minHeight: '38px' }}>Not Applicable</p>
                         <p style={{ marginTop: '12px', fontSize: '28px', fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)' }}>{wcagSummary.notApplicable ?? 0}</p>
                         <p style={{ marginTop: '8px', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>criteria</p>
                       </div>
@@ -716,7 +716,7 @@ function AnalysisDetailContent() {
                     <p style={{ padding: '24px', textAlign: 'center', fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>No criteria match the current filters.</p>
                   ) : (
                     <div style={{ overflow: 'hidden', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.1)' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 52px 110px 60px', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255, 255, 255, 0.75)' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 52px 110px 60px', borderBottom: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)', padding: '10px 16px', fontSize: '16px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: 'rgba(255, 255, 255, 0.75)' }}>
                         <span>Criterion</span>
                         <span>Title</span>
                         <span style={{ textAlign: 'center' }}>Level</span>
@@ -730,7 +730,7 @@ function AnalysisDetailContent() {
                           <div key={row.criterion} style={dimmed ? { opacity: 0.4 } : undefined}>
                             <button
                               onClick={() => !dimmed && setWcagExpandedRow(isExpanded ? null : row.criterion)}
-                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '60px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: dimmed ? 'default' : 'pointer', color: '#fff', transition: 'background .15s' }}
+                              style={{ display: 'grid', width: '100%', gridTemplateColumns: '110px 1fr 52px 110px 60px', alignItems: 'center', gap: '8px', padding: '12px 16px', textAlign: 'left', background: isExpanded ? 'rgba(255,255,255,0.05)' : index % 2 === 1 ? 'rgba(255,255,255,0.02)' : 'transparent', border: 'none', cursor: dimmed ? 'default' : 'pointer', color: '#fff', transition: 'background .15s' }}
                             >
                               <span style={{ fontSize: '16px', fontFamily: 'monospace', fontWeight: 700, color: 'rgba(255, 255, 255, 0.75)' }}>{row.criterion}</span>
                               <span style={{ fontSize: '16px', color: '#fff' }}>{row.title}</span>

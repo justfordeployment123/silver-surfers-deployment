@@ -17,7 +17,7 @@ import {
   buildAggregateAuditScorecard,
   buildAuditScorecard,
 } from './src/features/audits/audit-scorecard.ts';
-import { buildWcagMatrix } from './src/features/audits/wcag-matrix.ts';
+import { buildWcagMatrix, resolveWcagMatrixFilterOptions } from './src/features/audits/wcag-matrix.ts';
 import { buildAggregateRemediationRoadmap } from './src/features/audits/analysis-details.ts';
 import { generateAuditAiReport } from './src/features/audits/ai-reporting.ts';
 
@@ -139,6 +139,13 @@ async function main() {
   // email; the "Valued Customer" placeholder means no name was on file, so
   // treat it the same as "no name" rather than printing it on the cover.
   const clientName = fullName && fullName !== 'Valued Customer' ? fullName : undefined;
+  // Client-reported UAT: a full audit run against a non-default standard
+  // still printed "Evaluated against: Full Combined" and showed the
+  // unfiltered matrix, because these were never read from argv at all -
+  // sqs_worker.py now passes them.
+  const wcagStandard = readArg('wcag-standard') || undefined;
+  const conformanceLevel = readArg('conformance-level') || undefined;
+  const wcagFilterOptions = resolveWcagMatrixFilterOptions(wcagStandard, conformanceLevel);
 
   if (!aggregatePath || !outputDir || !manifestPath) {
     throw new Error('--aggregate, --output-dir, and --manifest are required.');
@@ -222,6 +229,7 @@ async function main() {
       scorecard.issues,
       scorecard.notApplicableAuditIds,
       scorecard.manualReviewAuditIds,
+      wcagFilterOptions,
     );
     for (const row of pageWcagMatrix) {
       if (row.status === 'fail') {
@@ -263,6 +271,8 @@ async function main() {
       formFactor: device,
       planType: planId,
       wcagMatrix: pageWcagMatrix,
+      wcagStandard,
+      conformanceLevel,
     });
     if (pdfResult?.reportPath) {
       entry.outputPdfPath = pdfResult.reportPath;
@@ -334,6 +344,8 @@ async function main() {
           planType: planId,
           individualPdfPaths: successfulPairs.map((p) => p.pdfPath),
           platformSummary: buildPlatformSummary(reportsByPlatform),
+          wcagStandard,
+          conformanceLevel,
         });
       } catch (summaryError) {
         const summaryErrorMessage = summaryError?.message || String(summaryError);

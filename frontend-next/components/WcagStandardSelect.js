@@ -240,7 +240,7 @@ const WcagStandardSelect = ({
                 <div className="wss-option-head">
                   <span className="wss-option-title">{option.label}</span>
                   {option.recommended && <span className="wss-option-badge">Recommended</span>}
-                  {isSelected && <span className="wss-option-badge--current">Current Subscription</span>}
+                  {isSelected && <span className="wss-option-badge--current">Current Selection</span>}
                   {isSelected && (
                     <svg className="wss-option-check" width="16" height="16" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                       <path fillRule="evenodd" d="M16.7 5.3a1 1 0 010 1.4l-8 8a1 1 0 01-1.4 0l-4-4a1 1 0 111.4-1.4L8 12.6l7.3-7.3a1 1 0 011.4 0z" clipRule="evenodd" />
