@@ -219,12 +219,21 @@ export class QuickScanResultWorker {
             scannerQueue: 'quick',
             scannerTier: 'vps',
             scannerJobId: fallbackScannerJobId,
+            // UAT: this VPS-fallback redispatch (fires whenever the first AWS
+            // attempt fails eligibly, e.g. bot-blocked, and is retried on the
+            // VPS tier) rebuilt reportGeneration from scratch and dropped
+            // wcagStandard/conformanceLevel entirely, so a fallback scan's
+            // report always fell back to "Full Combined" no matter what the
+            // client selected — regardless of the fix already in place for
+            // the non-fallback path.
             reportGeneration: {
               enabled: true,
               email: job.email,
               quickScanId: job.quickScanId,
               url: payload.url || job.url,
               fullName,
+              ...(job.wcagStandard ? { wcagStandard: job.wcagStandard } : {}),
+              ...(job.conformanceLevel ? { conformanceLevel: job.conformanceLevel } : {}),
             },
           });
 
