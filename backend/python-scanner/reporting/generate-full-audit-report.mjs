@@ -156,6 +156,9 @@ async function main() {
   // mobile/tablet) could silently ship nothing while desktop succeeded.
   // Collected here and written into the manifest so the caller can see it.
   const warnings = [];
+  if (aggregate.discovery?.warning) {
+    warnings.push(`Incomplete site discovery: ${safeText(aggregate.discovery.warning)} Only selected pages were assessed.`);
+  }
   // Phase 6.2 / N2, N15: distinct page URLs, kept separate from
   // scorecards.length (one entry per page x device) so "Pages audited" never
   // triples the real page count.

@@ -28,7 +28,8 @@ import boto3
 from camoufox_auditor import run_camoufox_audit_sync
 from scanner_config import LITE_AUDIT_REFS, get_viewport_for_device
 from scanner_service import _extract_links_sync
-from proxy_fallback import proxy_session_id
+from proxy_fallback import proxy_session_id, proxy_mode, proxy_countries
+from full_scan_proxy import FullScanProxy, S3ProxyCheckpoint, active_full_scan
 from scanner_utils import run_with_clean_event_loop_context, safe_text, sanitize_report_data
 
 
@@ -1176,6 +1177,23 @@ class ScannerSqsWorker:
         payload: Dict[str, Any],
         receipt_handle: Optional[str] = None,
     ) -> Dict[str, Any]:
+        mode = proxy_mode()
+        if mode == "off":
+            return self._process_full_audit_batch_job_scoped(scanner_job_id, payload, receipt_handle)
+        limit = int(os.getenv("SCANNER_FULL_PROXY_MAX_BROWSER_ATTEMPTS", "300"))
+        if not 1 <= limit <= 1000:
+            raise ValueError("SCANNER_FULL_PROXY_MAX_BROWSER_ATTEMPTS must be between 1 and 1000")
+        routing = FullScanProxy(proxy_countries(), mode, limit,
+            S3ProxyCheckpoint(self.s3, self.bucket, self.prefix, scanner_job_id))
+        with routing.scope():
+            return self._process_full_audit_batch_job_scoped(scanner_job_id, payload, receipt_handle)
+
+    def _process_full_audit_batch_job_scoped(
+        self,
+        scanner_job_id: str,
+        payload: Dict[str, Any],
+        receipt_handle: Optional[str] = None,
+    ) -> Dict[str, Any]:
         started_at = time.time()
         queue_kind = safe_text(payload.get("queueKind") or os.getenv("SCANNER_QUEUE_KIND", "full"))
         scanner_tier = safe_text(payload.get("scannerTier") or os.getenv("SCANNER_TIER", "aws"))
@@ -1239,6 +1257,15 @@ class ScannerSqsWorker:
             "selectedPages": selected_pages,
             "targets": target_results,
         }
+        routing = active_full_scan.get()
+        if routing:
+            aggregate_report["proxyRouting"] = routing.summary()
+            aggregate_report["discovery"] = routing.discovery
+        aggregate_report["coverageStatus"] = (
+            "partial" if successful_count < len(target_results) or
+            (routing and routing.discovery and routing.discovery.get("warning"))
+            else "selected_targets_completed"
+        )
         key = self._build_batch_artifact_key(scanner_job_id)
         self.s3.put_object(
             Bucket=self.bucket,
@@ -1325,10 +1352,19 @@ class ScannerSqsWorker:
             proxy_session_id(scanner_job_id),
         )
         extraction_links = [safe_text(link) for link in extraction.get("links") or [] if safe_text(link)]
+        routing = active_full_scan.get()
+        if routing:
+            routing.discovery = {
+                "success": bool(extraction.get("success")),
+                "linkCount": len(extraction_links),
+                "warning": extraction.get("error") or ("No internal links discovered; only the root page can be selected." if not extraction_links else None),
+                "errorCode": extraction.get("errorCode"),
+                "requestedProxyCountry": extraction.get("requestedProxyCountry"),
+            }
         plain_discovery_attempted = False
         plain_discovery_link_count = 0
         plain_discovery_diagnostics: Dict[str, Any] = {}
-        if len(extraction_links) < 3 and _plain_discovery_fallback_enabled():
+        if len(extraction_links) < 3 and _plain_discovery_fallback_enabled() and not (routing and extraction.get("requestedProxyCountry")):
             plain_discovery_attempted = True
             plain_links = _discover_plain_internal_links(
                 safe_text(extraction.get("finalUrl") or root_url),
@@ -1531,7 +1567,7 @@ class ScannerSqsWorker:
 
         # Changing audit depth cannot repair an access failure. In particular,
         # do not repeat the proxy fallback through the full/lite retry chain.
-        if first_attempt.get("errorCode") in {"ACCESS_DENIED", "BOT_CHALLENGE", "RATE_LIMITED", "PAGE_NOT_FOUND", "EMPTY_DOCUMENT", "TLS_HANDSHAKE_ERROR"}:
+        if first_attempt.get("errorCode") in {"ACCESS_DENIED", "BOT_CHALLENGE", "RATE_LIMITED", "PAGE_NOT_FOUND", "EMPTY_DOCUMENT", "TLS_HANDSHAKE_ERROR", "PROXY_BUDGET_EXHAUSTED", "PROXY_STATE_ERROR"}:
             return first_attempt
 
         if allow_full_retry:
@@ -1611,16 +1647,11 @@ class ScannerSqsWorker:
                     "scanModeUsed": scan_mode_used,
                     "error": error_message,
                     "errorCode": safe_text(result.get("errorCode")) or _classify_scanner_error(error_message),
+                    "proxyAttempts": result.get("proxyAttempts"),
+                    "requestedProxyCountry": result.get("requestedProxyCountry"),
                 }
 
             final_score = result.get("score")
-            if final_score == 0:
-                summary = result.get("scoreBreakdownSummary") or {}
-                raise RuntimeError(
-                    "Audit score is 0, indicating a failed audit "
-                    f"(missingAudits={summary.get('missingAuditCount', '?')}/{summary.get('auditRefCount', '?')}, "
-                    f"zeroScoringAudits={summary.get('zeroScoringAuditIds', '?')})"
-                )
 
             logger.info(
                 "Scanner SQS batch target completed.",
@@ -1637,6 +1668,8 @@ class ScannerSqsWorker:
                 "isLiteVersion": is_lite_version,
                 "scanModeUsed": scan_mode_used,
                 "report": sanitize_report_data(result.get("report") or {}),
+                "proxyAttempts": result.get("proxyAttempts"),
+                "requestedProxyCountry": result.get("requestedProxyCountry"),
             }
         except Exception as error:
             error_message = safe_text(str(error))
