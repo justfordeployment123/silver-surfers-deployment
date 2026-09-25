@@ -26,7 +26,10 @@ const REPORT_LOGO_PATHS = [
     '/app/reporting/src/assets/Logo.png'
 ];
 
-function findReportLogoPath() {
+// Exported so pdf-generator-lite.js (the quick-scan report) can place the
+// same brand mark on its own cover instead of maintaining a second,
+// independently-drifting copy of this candidate-path list.
+export function findReportLogoPath() {
     for (const logoPath of REPORT_LOGO_PATHS) {
         try {
             if (fs.existsSync(logoPath)) {

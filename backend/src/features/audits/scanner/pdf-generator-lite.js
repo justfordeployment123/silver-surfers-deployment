@@ -5,6 +5,7 @@ import PDFDocument from 'pdfkit';
 import { buildAuditScorecard } from '../audit-scorecard.ts';
 import { describeWcagStandardLabel } from '../wcag-mapping.ts';
 import { DISCLAIMER_SHORT } from '../report-disclaimers.ts';
+import { findReportLogoPath } from './pdf-generator.js';
 
 // Helper to get __dirname in ES Modules
 const __filename = fileURLToPath(import.meta.url);
@@ -629,18 +630,30 @@ class LiteAccessibilityPDFGenerator {
             const stream = fs.createWriteStream(outputFile);
             this.doc.pipe(stream);
 
-            // Header - align with deep blue used in premium sections
-            this.doc.rect(0, 0, this.doc.page.width, 120).fill('#1E3A8A');
-            
+            // Header - align with deep blue used in premium sections. Made
+            // taller than the original 120px to fit the brand logo above the
+            // title (client request: match the full audit report's cover,
+            // which leads with the same logo).
+            this.doc.rect(0, 0, this.doc.page.width, 140).fill('#1E3A8A');
+
+            const logoPath = findReportLogoPath();
+            if (logoPath) {
+                try {
+                    this.doc.image(logoPath, (this.doc.page.width - 36) / 2, 10, { fit: [36, 36], align: 'center' });
+                } catch (error) {
+                    console.warn(`Failed to draw quick-scan cover logo from ${logoPath}: ${error.message}`);
+                }
+            }
+
             // Title
             this.doc.fontSize(28).font('BoldFont').fillColor('white')
-                .text('SilverSurfers Quick Scan Report', this.margin, 40, { width: this.pageWidth, align: 'center' });
-            
+                .text('SilverSurfers Quick Scan Report', this.margin, 54, { width: this.pageWidth, align: 'center' });
+
             // Subtitle
             this.doc.fontSize(14).font('RegularFont').fillColor('#E3F2FD')
-                .text('QUICK SCAN VERSION - ESSENTIAL CHECKS', this.margin, 80, { width: this.pageWidth, align: 'center' });
+                .text('QUICK SCAN VERSION - ESSENTIAL CHECKS', this.margin, 94, { width: this.pageWidth, align: 'center' });
 
-            this.currentY = 140;
+            this.currentY = 160;
 
             // Score section with blue background
             const scoreBoxHeight = 200;
