@@ -61,13 +61,13 @@ const exploreProducts = [
     imageAlt: 'AI Readiness Assessment results shown on a tablet screen',
     cta: {
       label: 'Take the Assessment',
-      // Placeholder until the client supplies the final calendar URL
-      // (Milestone 3.0 Developer Plan, Module 9). NEXT_PUBLIC_* vars are
-      // baked into the client bundle at `next build` time (see
-      // frontend-next/Dockerfile) — setting this on the running container
-      // does nothing; it requires rebuilding and redeploying the frontend
-      // image with the var set, same as NEXT_PUBLIC_API_BASE_URL.
-      href: process.env.NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL || '#',
+      // Reuses the same GoHighLevel booking calendar already wired into
+      // contact/page.js (GHL_BOOKING_URL) and Footer.js's "Consulting"
+      // link, per explicit decision rather than a dedicated assessment-only
+      // calendar. This is a 3.0-only stopgap: the source doc's Milestone
+      // Boundary Summary has 3.1 replacing this with an AI agent intake
+      // flow, not a plain booking link.
+      href: 'https://api.leadconnectorhq.com/widget/bookings/jackie-gross-personal-calendar-qwh_05xzk',
       external: true,
       analyticsId: 'explore_ai_readiness_assessment',
     },
@@ -94,13 +94,5 @@ const exploreProducts = [
     },
   },
 ];
-
-if (process.env.NODE_ENV !== 'production' && !process.env.NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL) {
-  console.warn(
-    '[explore-products] NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL is not set — ' +
-      'the AI Readiness Assessment CTA will link to "#" until the client supplies ' +
-      'the calendar URL (Milestone 3.0 Developer Plan, Module 9).',
-  );
-}
 
 export default exploreProducts;
