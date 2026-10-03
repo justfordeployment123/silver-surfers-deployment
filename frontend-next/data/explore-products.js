@@ -5,6 +5,23 @@
  * (ExploreProductGrid) must map over the whole array rather than indexing
  * specific entries, so a 4th/5th product can be added here later without
  * touching any component.
+ *
+ * @typedef {object} ExploreProductCta
+ * @property {string} label
+ * @property {string} href
+ * @property {boolean} external - opens in a new tab when true
+ * @property {string} analyticsId - key into lib/analytics/trackExploreClick.js
+ *
+ * @typedef {object} ExploreProduct
+ * @property {string} id - stable slug, used as the React key
+ * @property {string} category
+ * @property {string} name
+ * @property {string} tagline - may be '' (omit rendering, don't fabricate one)
+ * @property {string} description
+ * @property {string[]} benefits
+ * @property {string} image
+ * @property {string} imageAlt
+ * @property {ExploreProductCta} cta
  */
 const exploreProducts = [
   {
