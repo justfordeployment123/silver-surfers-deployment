@@ -21,8 +21,14 @@ WORKDIR /app
 # they cannot be changed later by just setting a runtime env var.
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+# Milestone 3.0 Explore page: AI Readiness Assessment CTA destination.
+# Client hasn't supplied the final scheduling-calendar URL yet — defaults to
+# "" so data/explore-products.js's `|| '#'` fallback keeps the page buildable
+# in the meantime (see Milestone 3.0 Developer Plan, Module 9).
+ARG NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL=
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+ENV NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL=${NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL}
 
 # Install a pinned pnpm version. Avoid pnpm@latest/Corepack drift in
 # Coolify builds — same reasoning as frontend/Dockerfile's pin.

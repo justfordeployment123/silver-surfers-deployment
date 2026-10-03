@@ -62,7 +62,11 @@ const exploreProducts = [
     cta: {
       label: 'Take the Assessment',
       // Placeholder until the client supplies the final calendar URL
-      // (Milestone 3.0 Developer Plan, Module 9).
+      // (Milestone 3.0 Developer Plan, Module 9). NEXT_PUBLIC_* vars are
+      // baked into the client bundle at `next build` time (see
+      // frontend-next/Dockerfile) — setting this on the running container
+      // does nothing; it requires rebuilding and redeploying the frontend
+      // image with the var set, same as NEXT_PUBLIC_API_BASE_URL.
       href: process.env.NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL || '#',
       external: true,
       analyticsId: 'explore_ai_readiness_assessment',
