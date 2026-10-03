@@ -28,6 +28,29 @@ const exploreProducts = [
       analyticsId: 'explore_ai_edge',
     },
   },
+  {
+    id: 'ai-readiness-assessment',
+    category: 'Assessment',
+    name: 'AI Readiness Assessment',
+    tagline: 'How Ready Is Your Business for AI?',
+    description:
+      "Get a clear picture of your organization's AI readiness and identify the areas that deserve your attention next.",
+    benefits: [
+      'Quick online assessment',
+      'Personalized readiness results',
+      'Actionable next steps',
+    ],
+    image: '/explore/ai-readiness-assessment.png',
+    imageAlt: 'AI Readiness Assessment results shown on a tablet screen',
+    cta: {
+      label: 'Take the Assessment',
+      // Placeholder until the client supplies the final calendar URL
+      // (Milestone 3.0 Developer Plan, Module 9).
+      href: process.env.NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL || '#',
+      external: true,
+      analyticsId: 'explore_ai_readiness_assessment',
+    },
+  },
 ];
 
 export default exploreProducts;
