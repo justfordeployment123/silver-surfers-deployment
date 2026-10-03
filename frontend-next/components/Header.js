@@ -56,6 +56,7 @@ const Header = () => {
   const navLinks = [
     { to: '/',         label: 'Home'     },
     { to: '/services', label: 'Services & Pricing' },
+    { to: '/explore',  label: 'Explore'  },
     { to: '/about',    label: 'About'    },
     { to: '/contact',  label: 'Contact'  },
     { to: '/faq',      label: 'FAQ'      },
@@ -85,13 +86,22 @@ const Header = () => {
 
         .ss-nav-inner {
           /* Wider than .wrap (1140px) on purpose: the logged-in nav row
-             (7 links incl. "Subscription", plus search/theme/CTA/avatar,
-             all with 44px WCAG tap targets) measures ~1212px of real
-             content before padding — it literally cannot fit inside
-             1140px on any screen size, logged-in or not. Decoupling the
-             nav's max-width from the page-content max-width fixes that;
-             see the matching 1360px collapse breakpoint below. */
-          max-width: 1360px;
+             (8 links incl. "Explore" and "Subscription", plus
+             search/theme/CTA/avatar, all with 44px WCAG tap targets) needs
+             real content width — it literally cannot fit inside 1140px on
+             any screen size, logged-in or not. Decoupling the nav's
+             max-width from the page-content max-width fixes that; see the
+             matching 1440px collapse breakpoint below.
+             Milestone 3.0 added "Explore" as an 8th always-visible link
+             (previously 7 incl. the conditional "Subscription"). Measured
+             live via Playwright (logged-in row, .ss-nav-inner scrollWidth
+             vs clientWidth) after that change: the row needed 1374px and
+             was overflowing the previous 1360px cap by 14px — the avatar/
+             dropdown trigger rendered up to 14px past the viewport edge
+             and was silently clipped by body's overflow-x:hidden
+             (invisible AND unclickable, not just visually tight). Bumped
+             to 1440px for headroom above the measured 1374px need. */
+          max-width: 1440px;
           margin: 0 auto;
           padding: 0 40px;
           width: 100%;
@@ -331,16 +341,17 @@ const Header = () => {
 
         .ss-mobile-search { padding: 0 0 8px; }
 
-        /* ── Desktop hidden at ≤1360px ─────────────────────
-           Was 1024px, then 1240px. First bump only accounted for the
-           logged-OUT row (6 links). Logged-in adds a 7th "Subscription"
-           link, and the ≥44px WCAG tap targets on every item push the
-           real minimum content width to ~1212px + padding — it was still
-           clipping the avatar on ordinary desktop widths (measured
-           overflowing even at 1280–1400px). Matches .ss-nav-inner's
-           1360px max-width above: below that, there just isn't room for
-           the full row, logged in or out, so collapse to the hamburger. */
-        @media (max-width: 1360px) {
+        /* ── Desktop hidden at ≤1440px ─────────────────────
+           Was 1024px, then 1240px, then 1360px. Milestone 3.0 added
+           "Explore" as an 8th always-visible link (previously 7 incl. the
+           conditional "Subscription"); measured live via Playwright, the
+           logged-in row then needed 1374px and was overflowing the 1360px
+           cap by 14px (avatar/dropdown trigger rendered off-viewport,
+           clipped by body's overflow-x:hidden — invisible AND
+           unclickable). Matches .ss-nav-inner's 1440px max-width above:
+           below that, there just isn't room for the full row, logged in
+           or out, so collapse to the hamburger. */
+        @media (max-width: 1440px) {
           .ss-nav-links        { display: none; }
           .ss-nav-cta          { display: none; }
           .ss-search-desktop   { display: none; }
