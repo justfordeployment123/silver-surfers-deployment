@@ -51,6 +51,27 @@ const exploreProducts = [
       analyticsId: 'explore_ai_readiness_assessment',
     },
   },
+  {
+    id: 'books',
+    category: 'Books',
+    name: 'Ideas for Work, Life & What Comes Next',
+    tagline: '',
+    description:
+      "Explore thought-provoking books on leadership, longevity, personal growth, and navigating life's next chapter.",
+    benefits: [
+      'Practical insights',
+      'Real-world perspectives',
+      'Available in print and digital formats',
+    ],
+    image: '/explore/books.png',
+    imageAlt: "Stack of SilverSurfers.ai books including The Longevity Gap and The Caregiver's Crossroads",
+    cta: {
+      label: 'Explore the Books',
+      href: 'https://clear-course-compass.base44.app/shop',
+      external: true,
+      analyticsId: 'explore_books',
+    },
+  },
 ];
 
 export default exploreProducts;
