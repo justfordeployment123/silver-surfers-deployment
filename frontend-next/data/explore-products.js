@@ -91,4 +91,12 @@ const exploreProducts = [
   },
 ];
 
+if (process.env.NODE_ENV !== 'production' && !process.env.NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL) {
+  console.warn(
+    '[explore-products] NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL is not set — ' +
+      'the AI Readiness Assessment CTA will link to "#" until the client supplies ' +
+      'the calendar URL (Milestone 3.0 Developer Plan, Module 9).',
+  );
+}
+
 export default exploreProducts;
