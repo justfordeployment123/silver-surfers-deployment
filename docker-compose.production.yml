@@ -18,7 +18,6 @@ services:
             args:
                 - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL:-https://silver-surfers-backend.kodevio.com}
                 - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
-                - NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL=${NEXT_PUBLIC_EXPLORE_ASSESSMENT_CALENDAR_URL:-}
         container_name: ss-frontend
         restart: unless-stopped
         ports:
