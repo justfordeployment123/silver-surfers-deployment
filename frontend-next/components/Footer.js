@@ -273,6 +273,7 @@ const Footer = () => {
             <div>
               <p className="ss-footer-col-heading">Company</p>
               <ul className="ss-footer-links">
+                <li><Link href="/explore" className="ss-footer-link">Explore</Link></li>
                 <li><Link href="/about"   className="ss-footer-link">About Us</Link></li>
                 <li><Link href="/contact" className="ss-footer-link">Contact</Link></li>
                 <li><Link href="/blog"    className="ss-footer-link">Blog</Link></li>
