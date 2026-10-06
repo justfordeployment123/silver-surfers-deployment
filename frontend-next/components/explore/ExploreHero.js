@@ -5,12 +5,12 @@
 // own scoped styles rather than reusing .pg-hero. See Milestone 3.0
 // Developer Plan, Module 2.
 //
-// Hero photo: public/explore/hero.png is the client-supplied, text-free
-// crop of the mockup's "three colleagues at a laptop" photo (native
-// 1206x257 — a short, wide strip). The column below is taller than that
-// native ratio, so object-fit: cover crops the sides rather than the
-// mockup's framing; object-position is tuned to keep all three faces and
-// the pointing hand/laptop in frame rather than defaulting to 50% 50%.
+// Hero photo: public/explore/hero.svg (client-supplied "Team Hero" asset,
+// an SVG wrapping a high-res PNG, native 2048x682 ~= 3:1) is a tighter crop
+// than the original placeholder photo — the three people fill most of the
+// frame already, matching the source mockup's larger treatment of them.
+// The media box's aspect-ratio is set to match that native ratio closely
+// so object-fit: cover barely has to crop anything (keeps them "big").
 export default function ExploreHero() {
   return (
     <section className="explore-hero">
@@ -21,7 +21,7 @@ export default function ExploreHero() {
         }
         .explore-hero-inner {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr 1.2fr;
           gap: 48px;
           align-items: center;
         }
@@ -69,23 +69,23 @@ export default function ExploreHero() {
         .explore-hero-media {
           border-radius: var(--rl);
           overflow: hidden;
-          /* Native photo is 1206x257 (~4.7:1, a short wide strip). 2.5:1
-             is as tall as this column can go while still keeping all
-             three people in frame — taller crops cut the third person off
-             the right edge (checked visually, see Module 2 notes). */
-          aspect-ratio: 5 / 2;
+          /* Matches hero.svg's native ~3:1 ratio (2048x682) almost exactly,
+             so object-fit: cover crops very little — keeps the three
+             people as large in-frame as the source asset, not zoomed out
+             by forcing a taller/narrower box. */
+          aspect-ratio: 3 / 1;
         }
         .explore-hero-media img {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          object-position: 56% 25%;
+          object-position: 50% 30%;
           display: block;
         }
         @media (max-width: 768px) {
           .explore-hero { padding: 88px 0 48px; }
           .explore-hero-inner { grid-template-columns: 1fr; }
-          .explore-hero-media { order: -1; aspect-ratio: 2 / 1; }
+          .explore-hero-media { order: -1; aspect-ratio: 3 / 1; }
         }
       `}</style>
       <div className="wrap">
@@ -107,7 +107,7 @@ export default function ExploreHero() {
           </div>
           <div className="explore-hero-media">
             <img
-              src="/explore/hero.png"
+              src="/explore/hero.svg"
               alt="Three colleagues reviewing a laptop together in an office"
             />
           </div>

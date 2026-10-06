@@ -36,7 +36,7 @@ const exploreProducts = [
       'Practical tools and templates',
       'Learn at your own pace',
     ],
-    image: '/explore/ai-edge.png',
+    image: '/explore/ai-edge.svg',
     imageAlt: 'AI Edge training preview shown on a laptop screen',
     cta: {
       label: 'Explore AI Edge',
@@ -57,7 +57,7 @@ const exploreProducts = [
       'Personalized readiness results',
       'Actionable next steps',
     ],
-    image: '/explore/ai-readiness-assessment.png',
+    image: '/explore/ai-readiness-assessment.svg',
     imageAlt: 'AI Readiness Assessment results shown on a tablet screen',
     cta: {
       label: 'Take the Assessment',
@@ -84,7 +84,7 @@ const exploreProducts = [
       'Real-world perspectives',
       'Available in print and digital formats',
     ],
-    image: '/explore/books.png',
+    image: '/explore/books.svg',
     imageAlt: "Stack of SilverSurfers.ai books including The Longevity Gap and The Caregiver's Crossroads",
     cta: {
       label: 'Explore the Books',
