@@ -88,7 +88,11 @@ const exploreProducts = [
     imageAlt: "Stack of SilverSurfers.ai books including The Longevity Gap and The Caregiver's Crossroads",
     cta: {
       label: 'Explore the Books',
-      href: 'https://clear-course-compass.base44.app/shop',
+      // Old clear-course-compass.base44.app domain 404'd ("app not found") —
+      // client confirmed the shop moved to decision-compass-series.base44.app
+      // (2026-10-07). The base app URL without /shop also works per the
+      // client, but /shop is the direct listing page, matching this CTA's intent.
+      href: 'https://decision-compass-series.base44.app/shop',
       external: true,
       analyticsId: 'explore_books',
     },
