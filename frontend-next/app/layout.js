@@ -1,5 +1,5 @@
 import Script from "next/script";
-import { Poppins } from "next/font/google";
+import { Poppins, Yellowtail } from "next/font/google";
 import "./globals.css";
 
 // Self-hosted via next/font — replaces the render-blocking Google Fonts
@@ -10,6 +10,18 @@ const poppins = Poppins({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-poppins",
+});
+
+// Brush-script accent font for the Explore page's "Learn. Assess. Grow."
+// tagline (matches the approved mockup's hand-lettered style). Feeds
+// globals.css's --ffs token — kept sitewide here rather than a per-page
+// <link> so it benefits from next/font's self-hosting/no-layout-shift the
+// same way Poppins does, even though only one page currently uses it.
+const yellowtail = Yellowtail({
+  weight: "400",
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-yellowtail",
 });
 
 export const metadata = {
@@ -76,7 +88,7 @@ export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
-      className={poppins.variable}
+      className={`${poppins.variable} ${yellowtail.variable}`}
       // The inline theme-init script below sets data-theme on this element
       // client-side, before hydration, on purpose (that's how it avoids a
       // flash of the wrong theme) — this intentionally differs from the

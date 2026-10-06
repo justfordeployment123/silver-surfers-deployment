@@ -54,6 +54,10 @@
      falling back to Helvetica/Arial/sans-serif. */
   --ffd: var(--font-poppins, 'Poppins'), Helvetica, Arial, sans-serif;
   --ff:  var(--font-poppins, 'Poppins'), Helvetica, Arial, sans-serif;
+  /* Brush-script accent, Explore page tagline only (app/layout.js). Not a
+     theme-swapping token — this is a fixed display-font choice, same
+     reasoning as the --t1-9 teal scale being fixed across light/dark. */
+  --ffs: var(--font-yellowtail, 'Yellowtail'), cursive;
 
   /* Radius */
   --r:  8px;
