@@ -1,29 +1,51 @@
 // Server Component — pure markup, no interactivity. Unlike every other
 // page's dark, centered .pg-hero (globals.css ~551), the approved Explore
-// mockup is a light, left-aligned, two-column hero (text + photo) — a
-// deliberate deviation per the source doc's own mockup, so this gets its
-// own scoped styles rather than reusing .pg-hero. See Milestone 3.0
-// Developer Plan, Module 2.
+// mockup is a light, left-aligned hero where the photo bleeds across the
+// right side of the banner and fades/blends into the text block rather than
+// sitting in its own boxed panel with a gap — a deliberate deviation per
+// the source doc's own mockup, so this gets its own scoped styles rather
+// than reusing .pg-hero. See Milestone 3.0 Developer Plan, Module 2.
 //
-// Hero photo: public/explore/hero.svg (client-supplied "Team Hero" asset,
-// an SVG wrapping a high-res PNG, native 2048x682 ~= 3:1) is a tighter crop
-// than the original placeholder photo — the three people fill most of the
-// frame already, matching the source mockup's larger treatment of them.
-// The media box's aspect-ratio is set to match that native ratio closely
-// so object-fit: cover barely has to crop anything (keeps them "big").
+// Blend technique: the photo is absolutely positioned behind the text,
+// right-aligned and wider than the visible text column; a gradient overlay
+// (solid var(--bg) under the text, fading to transparent over the photo)
+// sits on top of it. Because the gradient's solid color is the real
+// --bg token (not a hardcoded hex), this blends correctly in both themes
+// without a separate dark-mode override.
 export default function ExploreHero() {
   return (
     <section className="explore-hero">
       <style>{`
         .explore-hero {
           background: var(--bg);
-          padding: 104px 0 64px;
         }
         .explore-hero-inner {
-          display: grid;
-          grid-template-columns: 1fr 1.2fr;
-          gap: 48px;
+          position: relative;
+          overflow: hidden;
+          min-height: 520px;
+          display: flex;
           align-items: center;
+        }
+        .explore-hero-photo {
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 70%;
+          height: 100%;
+          object-fit: cover;
+          object-position: 70% 22%;
+          display: block;
+        }
+        .explore-hero-fade {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 32%, rgba(0,0,0,0) 62%);
+        }
+        .explore-hero-content {
+          position: relative;
+          z-index: 2;
+          max-width: 480px;
+          padding: 64px 0;
         }
         .explore-hero-eyebrow {
           font-size: 16px;
@@ -48,7 +70,6 @@ export default function ExploreHero() {
           color: var(--ink6);
           line-height: 1.7;
           font-weight: 300;
-          max-width: 460px;
           margin-bottom: 22px;
         }
         .explore-hero-tagline {
@@ -66,31 +87,31 @@ export default function ExploreHero() {
              comment) so hardcoding its current value here is safe. */
           background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 14' preserveAspectRatio='none'%3E%3Cpath d='M3 8 C 60 14, 160 2, 217 9' fill='none' stroke='%23017FA1' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E") left bottom / 100% 14px no-repeat;
         }
-        .explore-hero-media {
-          border-radius: var(--rl);
-          overflow: hidden;
-          /* Matches hero.svg's native ~3:1 ratio (2048x682) almost exactly,
-             so object-fit: cover crops very little — keeps the three
-             people as large in-frame as the source asset, not zoomed out
-             by forcing a taller/narrower box. */
-          aspect-ratio: 3 / 1;
-        }
-        .explore-hero-media img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-          object-position: 50% 30%;
-          display: block;
-        }
         @media (max-width: 768px) {
-          .explore-hero { padding: 88px 0 48px; }
-          .explore-hero-inner { grid-template-columns: 1fr; }
-          .explore-hero-media { order: -1; aspect-ratio: 3 / 1; }
+          /* Unlike desktop, the photo isn't behind the text here — it's a
+             stacked banner above it, so it needs real clearance from the
+             fixed 64px header (Header.js) instead of tucking under it. */
+          .explore-hero-inner { display: block; min-height: 0; padding-top: 64px; }
+          .explore-hero-photo {
+            position: static;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 2 / 1;
+            object-position: 50% 30%;
+          }
+          .explore-hero-fade { display: none; }
+          .explore-hero-content { max-width: 100%; padding: 24px 0 48px; }
         }
       `}</style>
       <div className="wrap">
         <div className="explore-hero-inner">
-          <div>
+          <img
+            className="explore-hero-photo"
+            src="/explore/hero.svg"
+            alt="Three colleagues reviewing a laptop together in an office"
+          />
+          <div className="explore-hero-fade" />
+          <div className="explore-hero-content">
             <p className="explore-hero-eyebrow">More from SilverSurfers.ai</p>
             <h1 className="explore-hero-headline">
               Tools for Smarter
@@ -104,12 +125,6 @@ export default function ExploreHero() {
               navigate AI, business, and what comes next.
             </p>
             <span className="explore-hero-tagline">Learn. Assess. Grow.</span>
-          </div>
-          <div className="explore-hero-media">
-            <img
-              src="/explore/hero.svg"
-              alt="Three colleagues reviewing a laptop together in an office"
-            />
           </div>
         </div>
       </div>
