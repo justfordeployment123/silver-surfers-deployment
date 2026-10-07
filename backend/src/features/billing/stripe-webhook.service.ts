@@ -8,6 +8,7 @@ import {
   sendSubscriptionReinstatementEmail,
   sendSubscriptionWelcomeEmail,
 } from './billing-email.service.ts';
+import { handleProductCheckoutCompleted } from './product-checkout.service.ts';
 import { getLimitsForCycle, getPlanById, getPlanByPriceId } from './subscription-plans.ts';
 import { getStripeClient } from './stripe-client.ts';
 
@@ -121,6 +122,15 @@ async function syncSubscriptionFromStripe(subscription: Stripe.Subscription): Pr
 }
 
 export async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session): Promise<void> {
+  // Milestone 3.1 Architecture Decision 2.2: product-type purchases
+  // (course/assessment/ebook) are an if/else branch ahead of the existing
+  // one-time-scan handling below, not a rewrite of it — that path must
+  // keep working untouched.
+  if (session.metadata?.productType) {
+    await handleProductCheckoutCompleted(session);
+    return;
+  }
+
   if (session.mode !== 'payment' || session.metadata?.type !== 'one-time') {
     return;
   }
