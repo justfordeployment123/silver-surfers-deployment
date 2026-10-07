@@ -9,6 +9,13 @@ import { asyncHandler } from '../../shared/http/async-handler.ts';
 import { adminRequired } from '../auth/admin.middleware.ts';
 import { authRequired } from '../auth/auth.middleware.ts';
 import {
+  approveAssessmentReport,
+  getAssessmentForAdmin,
+  getAssessments,
+  regenerateAssessmentReport,
+  updateAssessmentReport,
+} from './admin-assessments.controller.ts';
+import {
   bulkQuickScans,
   getQuickScans,
   getSubscriptionScans,
@@ -389,5 +396,11 @@ router.put('/users/:id/role', asyncHandler(updateUserRole));
 router.put('/users/:id/status', asyncHandler(updateUserStatus));
 router.put('/users/:id/internal', asyncHandler(toggleInternalFlag));
 router.post('/subscription/update', asyncHandler(updateUserSubscription));
+
+router.get('/assessments', asyncHandler(getAssessments));
+router.get('/assessments/:id', asyncHandler(getAssessmentForAdmin));
+router.put('/assessments/:id/report', asyncHandler(updateAssessmentReport));
+router.post('/assessments/:id/regenerate', asyncHandler(regenerateAssessmentReport));
+router.post('/assessments/:id/approve', asyncHandler(approveAssessmentReport));
 
 export default router;
