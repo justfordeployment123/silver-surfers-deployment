@@ -3,6 +3,7 @@ import type { Express } from 'express';
 import adminRouter from './admin/admin.routes.ts';
 import auditsRouter from './audits/audits.routes.ts';
 import authRouter from './auth/auth.routes.ts';
+import productCheckoutRouter from './billing/product-checkout.routes.ts';
 import stripeRouter from './billing/stripe.routes.ts';
 import subscriptionRouter from './billing/subscription.routes.ts';
 import teamRouter from './billing/team.routes.ts';
@@ -22,6 +23,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', auditsRouter);
   app.use('/', stripeRouter);
   app.use('/', subscriptionRouter);
+  app.use('/', productCheckoutRouter);
   app.use('/', teamRouter);
   app.use('/', contactRouter);
   app.use('/', leadsRouter);
