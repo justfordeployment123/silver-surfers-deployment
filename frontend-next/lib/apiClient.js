@@ -722,3 +722,14 @@ export const getCourseDetail = async (courseId) => {
 export const markCourseLessonComplete = async (courseId, lessonId) => {
   try { const res = await api.post(`/courses/${courseId}/progress`, { lessonId }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+
+// Milestone 3.1 AI Readiness Assessment chat (Modules 8, 10, 11).
+export const getAssessmentDetail = async (assessmentId) => {
+  try { const res = await api.get(`/assessments/${assessmentId}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const startAssessmentFlow = async (assessmentId) => {
+  try { const res = await api.post(`/assessments/${assessmentId}/start`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const respondToAssessment = async (assessmentId, answerText) => {
+  try { const res = await api.post(`/assessments/${assessmentId}/respond`, { answerText }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
