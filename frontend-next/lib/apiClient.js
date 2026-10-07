@@ -602,6 +602,52 @@ export const adminToggleInternalFlag = async (userId) => {
   }
 };
 
+// Admin: AI Readiness Assessment review (Module 13)
+export const adminListAssessments = async (params = {}) => {
+  try {
+    const res = await api.get('/admin/assessments', { params });
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
+export const adminGetAssessment = async (id) => {
+  try {
+    const res = await api.get(`/admin/assessments/${id}`);
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
+export const adminUpdateAssessmentReport = async (id, sections) => {
+  try {
+    const res = await api.put(`/admin/assessments/${id}/report`, { sections });
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
+export const adminRegenerateAssessmentReport = async (id) => {
+  try {
+    const res = await api.post(`/admin/assessments/${id}/regenerate`);
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
+export const adminApproveAssessmentReport = async (id, notes = '') => {
+  try {
+    const res = await api.post(`/admin/assessments/${id}/approve`, { notes });
+    return res.data;
+  } catch (e) {
+    return { error: e.response?.data?.error || e.message };
+  }
+};
+
 // User subscription management
 export const createPortalSession = async () => {
   try {
