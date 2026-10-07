@@ -5,7 +5,7 @@ import Assessment from '../../models/assessment.model.ts';
 export async function getAssessment(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.user?.id;
-    const { id } = request.params;
+    const id = String(request.params.id || '');
 
     if (!userId) {
       response.status(401).json({ error: 'Unauthorized' });
@@ -42,7 +42,7 @@ export async function getAssessment(request: Request, response: Response): Promi
 export async function startAssessment(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.user?.id;
-    const { id } = request.params;
+    const id = String(request.params.id || '');
 
     if (!userId) {
       response.status(401).json({ error: 'Unauthorized' });

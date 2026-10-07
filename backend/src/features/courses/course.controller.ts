@@ -12,7 +12,7 @@ async function ownsCourse(userId: string, courseId: string): Promise<boolean> {
 export async function getCourse(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.user?.id;
-    const { courseId } = request.params;
+    const courseId = String(request.params.courseId || '');
 
     if (!userId) {
       response.status(401).json({ error: 'Unauthorized' });
@@ -46,7 +46,7 @@ export async function getCourse(request: Request, response: Response): Promise<v
 export async function markLessonComplete(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.user?.id;
-    const { courseId } = request.params;
+    const courseId = String(request.params.courseId || '');
     const { lessonId } = request.body ?? {};
 
     if (!userId) {
