@@ -86,22 +86,23 @@ const Header = () => {
 
         .ss-nav-inner {
           /* Wider than .wrap (1140px) on purpose: the logged-in nav row
-             (8 links incl. "Explore" and "Subscription", plus
+             (9 links incl. "Explore", "Dashboard" and "Subscription", plus
              search/theme/CTA/avatar, all with 44px WCAG tap targets) needs
              real content width — it literally cannot fit inside 1140px on
              any screen size, logged-in or not. Decoupling the nav's
              max-width from the page-content max-width fixes that; see the
-             matching 1440px collapse breakpoint below.
+             matching collapse breakpoint below.
              Milestone 3.0 added "Explore" as an 8th always-visible link
-             (previously 7 incl. the conditional "Subscription"). Measured
-             live via Playwright (logged-in row, .ss-nav-inner scrollWidth
-             vs clientWidth) after that change: the row needed 1374px and
-             was overflowing the previous 1360px cap by 14px — the avatar/
-             dropdown trigger rendered up to 14px past the viewport edge
-             and was silently clipped by body's overflow-x:hidden
-             (invisible AND unclickable, not just visually tight). Bumped
-             to 1440px for headroom above the measured 1374px need. */
-          max-width: 1440px;
+             (previously 7 incl. the conditional "Subscription"); that
+             measured need was 1374px, capped at 1360px, fixed by bumping to
+             1440px. Milestone 3.1 added "Dashboard" as a 9th link
+             (logged-in-only, same conditional pattern as "Subscription").
+             Measured live via Playwright (logged-in row, .ss-nav-inner
+             scrollWidth vs clientWidth) after that change: the row needed
+             1492px against the 1440px cap — a 52px overflow, silently
+             clipped by body's overflow-x:hidden the same way as before.
+             Bumped to 1520px for headroom above the measured 1492px need. */
+          max-width: 1520px;
           margin: 0 auto;
           padding: 0 40px;
           width: 100%;
@@ -341,17 +342,17 @@ const Header = () => {
 
         .ss-mobile-search { padding: 0 0 8px; }
 
-        /* ── Desktop hidden at ≤1440px ─────────────────────
-           Was 1024px, then 1240px, then 1360px. Milestone 3.0 added
-           "Explore" as an 8th always-visible link (previously 7 incl. the
-           conditional "Subscription"); measured live via Playwright, the
-           logged-in row then needed 1374px and was overflowing the 1360px
-           cap by 14px (avatar/dropdown trigger rendered off-viewport,
-           clipped by body's overflow-x:hidden — invisible AND
-           unclickable). Matches .ss-nav-inner's 1440px max-width above:
+        /* ── Desktop hidden at ≤1520px ─────────────────────
+           Was 1024px, then 1240px, then 1360px, then 1440px. Milestone 3.1
+           added "Dashboard" as a 9th link (logged-in-only); measured live
+           via Playwright, the logged-in row then needed 1492px and was
+           overflowing the 1440px cap by 52px (avatar/dropdown trigger
+           rendered off-viewport, clipped by body's overflow-x:hidden —
+           invisible AND unclickable, same failure mode as the 3.0
+           regression). Matches .ss-nav-inner's 1520px max-width above:
            below that, there just isn't room for the full row, logged in
            or out, so collapse to the hamburger. */
-        @media (max-width: 1440px) {
+        @media (max-width: 1520px) {
           .ss-nav-links        { display: none; }
           .ss-nav-cta          { display: none; }
           .ss-search-desktop   { display: none; }
@@ -415,6 +416,16 @@ const Header = () => {
                 </Link>
               </li>
             ))}
+            {user && (
+              <li>
+                <Link
+                  href="/dashboard"
+                  className={`ss-nav-link${isActive('/dashboard') ? ' active' : ''}`}
+                >
+                  Dashboard
+                </Link>
+              </li>
+            )}
             {user && (
               <li>
                 <Link
@@ -577,6 +588,15 @@ const Header = () => {
               {label}
             </Link>
           ))}
+          {user && (
+            <Link
+              href="/dashboard"
+              className={`ss-mobile-link${isActive('/dashboard') ? ' active' : ''}`}
+              onClick={closeMobileMenu}
+            >
+              Dashboard
+            </Link>
+          )}
           {user && (
             <Link
               href="/subscription"
