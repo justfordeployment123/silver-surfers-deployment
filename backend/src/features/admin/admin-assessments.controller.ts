@@ -2,8 +2,9 @@ import type { Request, Response } from 'express';
 
 import Assessment from '../../models/assessment.model.ts';
 import User from '../../models/user.model.ts';
-import { generateAssessmentReport } from '../assessments/assessment-report.ts';
 import { sendAssessmentReportReadyEmail } from '../assessments/assessment-email.service.ts';
+import { getQuestionById } from '../assessments/assessment-questions.ts';
+import { generateAssessmentReport } from '../assessments/assessment-report.ts';
 
 // Milestone 3.1 Developer Plan, Module 13. Kept as its own file rather than
 // appended into admin.controller.ts (already ~2000 lines handling
@@ -87,7 +88,17 @@ export async function getAssessmentForAdmin(request: Request, response: Response
       return;
     }
 
-    response.json({ assessment });
+    // The stored answer only has {questionId, text} — the reviewer needs
+    // the actual question wording to make sense of it, so attach it here
+    // rather than making the admin UI hardcode a copy of the question set.
+    const answers = ((assessment as unknown as { answers: Array<{ questionId: number; text: string; clarified: boolean }> }).answers || [])
+      .map((answer) => ({
+        ...answer,
+        question: getQuestionById(answer.questionId)?.prompt || `Question ${answer.questionId}`,
+        section: getQuestionById(answer.questionId)?.section || '',
+      }));
+
+    response.json({ assessment: { ...assessment, answers } });
   } catch (error) {
     console.error('getAssessmentForAdmin error:', error);
     response.status(500).json({ error: 'Failed to fetch assessment.' });
