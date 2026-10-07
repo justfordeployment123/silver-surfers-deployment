@@ -12,6 +12,7 @@ import contactRouter from './contact/contact.routes.ts';
 import contentRouter from './content/content.routes.ts';
 import courseRouter from './courses/course.routes.ts';
 import dashboardRouter from './dashboard/dashboard.routes.ts';
+import ebookRouter from './ebooks/ebook.routes.ts';
 import healthRouter from './health/health.routes.ts';
 import leadsRouter from './leads/leads.routes.ts';
 import legalRouter from './legal/legal.routes.ts';
@@ -32,6 +33,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', dashboardRouter);
   app.use('/', courseRouter);
   app.use('/', assessmentRouter);
+  app.use('/', ebookRouter);
   app.use('/', leadsRouter);
   app.use('/', contentRouter);
   app.use('/', legalRouter);
