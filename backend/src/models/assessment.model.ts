@@ -65,6 +65,12 @@ const assessmentSchema = new mongoose.Schema({
   // Set when the clarification-loop cap (Module 10) is hit on any answer —
   // surfaced as a visual flag on the admin review screen (Module 13).
   needsAdminAttention: { type: Boolean, default: false },
+  // How many clarification rounds the agent has asked for the CURRENT
+  // (not-yet-accepted) question, reset to 0 every time an answer is
+  // accepted and the pointer advances. Module 10's open question proposed
+  // a cap of 2 — tracked here so the service layer doesn't need to
+  // reconstruct attempt count from the transcript on every turn.
+  pendingClarificationCount: { type: Number, default: 0 },
   aiReport: { type: assessmentAiReportSchema, default: () => ({}) },
   adminReview: { type: assessmentAdminReviewSchema, default: () => ({}) },
   stripeSessionId: { type: String, index: true },
