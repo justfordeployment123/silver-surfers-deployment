@@ -9,6 +9,7 @@ import subscriptionRouter from './billing/subscription.routes.ts';
 import teamRouter from './billing/team.routes.ts';
 import contactRouter from './contact/contact.routes.ts';
 import contentRouter from './content/content.routes.ts';
+import courseRouter from './courses/course.routes.ts';
 import dashboardRouter from './dashboard/dashboard.routes.ts';
 import healthRouter from './health/health.routes.ts';
 import leadsRouter from './leads/leads.routes.ts';
@@ -28,6 +29,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', teamRouter);
   app.use('/', contactRouter);
   app.use('/', dashboardRouter);
+  app.use('/', courseRouter);
   app.use('/', leadsRouter);
   app.use('/', contentRouter);
   app.use('/', legalRouter);
