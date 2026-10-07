@@ -6,6 +6,7 @@
 // </ProtectedRoute>} /> pattern.
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import {
     deleteMyAnalysis,
@@ -304,6 +305,10 @@ function AccountContent() {
                     <header style={{ marginBottom: '32px' }}>
                         <h1 className="h1" style={{ color: 'var(--t4)', marginBottom: '8px' }}>My Account</h1>
                         <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)' }}>Your full audits, quick scans, and their current delivery status.</p>
+                        <p style={{ fontSize: '16px', color: 'rgba(255, 255, 255, 0.75)', marginTop: '4px' }}>
+                            Looking for AI Edge, your Assessment, or purchased books? Visit{' '}
+                            <Link href="/dashboard" style={{ color: 'var(--t4)', fontWeight: 600 }}>your dashboard</Link>.
+                        </p>
                     </header>
 
                     {!user && (
