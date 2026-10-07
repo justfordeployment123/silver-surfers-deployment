@@ -714,3 +714,11 @@ export const listMyEbooks = async () => {
 export const createProductCheckoutSession = async (productKey) => {
   try { const res = await api.post('/billing/create-product-checkout-session', { productKey }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+
+// Milestone 3.1 course player (Module 6).
+export const getCourseDetail = async (courseId) => {
+  try { const res = await api.get(`/courses/${courseId}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const markCourseLessonComplete = async (courseId, lessonId) => {
+  try { const res = await api.post(`/courses/${courseId}/progress`, { lessonId }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
