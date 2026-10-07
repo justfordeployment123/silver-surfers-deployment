@@ -4,6 +4,9 @@
 // server/client split for one handler on one small component.
 'use client';
 
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createProductCheckoutSession } from '../../lib/apiClient';
 import { trackExploreClick } from '../../lib/trackExploreClick';
 
 function CheckBadge() {
@@ -15,7 +18,49 @@ function CheckBadge() {
   );
 }
 
+// Milestone 3.1 Module 7 (ThriveCart cutover): when a product's cta
+// includes `productKey`, the button triggers native Stripe checkout
+// (Module 2's /billing/create-product-checkout-session) instead of plain
+// navigation — not live for any product yet (see data/explore-products.js's
+// comment on why AI Edge still uses the ThriveCart link).
+function useProductCheckout(productKey) {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  async function startCheckout() {
+    setError('');
+    const hasToken = typeof window !== 'undefined'
+      && (localStorage.getItem('authToken') || localStorage.getItem('token'));
+
+    if (!hasToken) {
+      // Same 'lastRoute' handoff ProtectedRoute/Login already use, so
+      // logging in sends the customer back here to finish checking out.
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('lastRoute', '/explore');
+      }
+      router.push('/login');
+      return;
+    }
+
+    setLoading(true);
+    const result = await createProductCheckoutSession(productKey);
+    setLoading(false);
+
+    if (result?.error || !result?.url) {
+      setError(result?.error || 'Could not start checkout. Please try again.');
+      return;
+    }
+
+    window.location.href = result.url;
+  }
+
+  return { startCheckout, loading, error };
+}
+
 export default function ExploreProductCard({ product }) {
+  const { startCheckout, loading, error } = useProductCheckout(product.cta.productKey);
+
   return (
     <div className="card explore-card">
       <style>{`
@@ -102,14 +147,31 @@ export default function ExploreProductCard({ product }) {
           ))}
         </div>
 
-        <a
-          href={product.cta.href}
-          className="btn btn-p explore-card-cta"
-          {...(product.cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-          onClick={() => trackExploreClick(product.cta.analyticsId)}
-        >
-          {product.cta.label} →
-        </a>
+        {product.cta.productKey ? (
+          <>
+            <button
+              type="button"
+              className="btn btn-p explore-card-cta"
+              disabled={loading}
+              onClick={() => {
+                trackExploreClick(product.cta.analyticsId);
+                startCheckout();
+              }}
+            >
+              {loading ? 'Redirecting…' : `${product.cta.label} →`}
+            </button>
+            {error && <p style={{ color: '#c0392b', fontSize: 14, marginTop: 8 }}>{error}</p>}
+          </>
+        ) : (
+          <a
+            href={product.cta.href}
+            className="btn btn-p explore-card-cta"
+            {...(product.cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            onClick={() => trackExploreClick(product.cta.analyticsId)}
+          >
+            {product.cta.label} →
+          </a>
+        )}
       </div>
     </div>
   );
