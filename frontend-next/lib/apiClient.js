@@ -779,3 +779,8 @@ export const startAssessmentFlow = async (assessmentId) => {
 export const respondToAssessment = async (assessmentId, answerText) => {
   try { const res = await api.post(`/assessments/${assessmentId}/respond`, { answerText }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+
+// Milestone 3.1 eBook library (Module 16).
+export const getEbookDownloadLink = async (ebookId) => {
+  try { const res = await api.get(`/ebooks/${ebookId}/download-link`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};

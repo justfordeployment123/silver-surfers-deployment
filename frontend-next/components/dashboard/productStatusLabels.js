@@ -58,7 +58,10 @@ export function getNextAction(productType, status, id) {
           return null;
       }
     case 'ebook':
-      return { label: 'Access eBook', href: `/dashboard/ebooks/${id}/download` };
+      // No dedicated page — Module 16's download link is generated
+      // on demand and redirected to directly (see ProductStatusCard's
+      // download-trigger branch), not a navigable route.
+      return { label: 'Access eBook', download: true };
     default:
       return null;
   }
