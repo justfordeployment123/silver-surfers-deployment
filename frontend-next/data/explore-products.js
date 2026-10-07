@@ -8,8 +8,11 @@
  *
  * @typedef {object} ExploreProductCta
  * @property {string} label
- * @property {string} href
- * @property {boolean} external - opens in a new tab when true
+ * @property {string} [href] - external destination; omit when productKey is set
+ * @property {boolean} [external] - opens in a new tab when true
+ * @property {string} [productKey] - Milestone 3.1: triggers native Stripe
+ *   checkout via ExploreProductCard instead of plain navigation (see
+ *   backend/src/features/billing/product-catalog.ts for valid keys)
  * @property {string} analyticsId - key into lib/analytics/trackExploreClick.js
  *
  * @typedef {object} ExploreProduct
@@ -40,6 +43,21 @@ const exploreProducts = [
     imageAlt: 'AI Edge training preview shown on a laptop screen',
     cta: {
       label: 'Explore AI Edge',
+      // Milestone 3.1 Module 7 (ThriveCart cutover): the native checkout
+      // mechanism is built (ExploreProductCard supports cta.productKey →
+      // Stripe redirect via /billing/create-product-checkout-session) and
+      // the one migration risk the plan originally flagged is resolved
+      // (client answers 2026-10-07, #3: no existing ThriveCart customers
+      // to backfill). NOT flipped yet on purpose: there is no Stripe
+      // price configured for 'ai-edge-course' yet (AI_EDGE_PRICE_ID env
+      // var is unset), and the plan's own Module 7 explicitly says this
+      // cutover happens last, after a real purchase is tested end-to-end
+      // in staging — flipping this link now would replace a working
+      // ThriveCart purchase path with a guaranteed-broken one. Once a
+      // Stripe price exists and one real purchase has been verified,
+      // flip this to: cta: { label: 'Explore AI Edge', productKey:
+      // 'ai-edge-course', analyticsId: 'explore_ai_edge' } (external/href
+      // both drop out — see ExploreProductCard.js).
       href: 'https://silversurfers.thrivecart.com/ai-edge-helping-leaders-make-better-decisions-in-the-ai-era/',
       external: true,
       analyticsId: 'explore_ai_edge',
