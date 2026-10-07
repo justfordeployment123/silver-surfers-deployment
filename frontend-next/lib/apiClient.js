@@ -698,3 +698,19 @@ export const previewMonitoringSchedule = async (payload) => {
 export const listMonitoringNotifications = async (id, params = {}) => {
   try { const res = await api.get(`/monitoring/jobs/${id}/notifications`, { params }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+
+// Milestone 3.1 dashboard: owned products (Module 3). Three separate calls,
+// not one combined payload, matching this file's existing pattern of
+// several small list calls rather than one aggregate endpoint.
+export const listMyCourses = async () => {
+  try { const res = await api.get('/dashboard/courses'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const listMyAssessments = async () => {
+  try { const res = await api.get('/dashboard/assessments'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const listMyEbooks = async () => {
+  try { const res = await api.get('/dashboard/ebooks'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const createProductCheckoutSession = async (productKey) => {
+  try { const res = await api.post('/billing/create-product-checkout-session', { productKey }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
