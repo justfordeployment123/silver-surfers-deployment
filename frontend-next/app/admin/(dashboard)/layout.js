@@ -17,7 +17,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { getMe } from '../../../lib/apiClient';
 import ThemeToggle from '../../../components/ThemeToggle';
-import { IconChart, IconUsers, IconPencil, IconQuestion, IconSearch, IconLayers, IconBolt, IconStar, IconGem, IconClock, IconMail, IconClipboard, IconPackage } from '../../../components/admin/AdminIcons';
+import { IconChart, IconUsers, IconPencil, IconQuestion, IconSearch, IconLayers, IconBolt, IconStar, IconGem, IconClock, IconMail, IconClipboard, IconPackage, IconCheckCircle } from '../../../components/admin/AdminIcons';
 
 const STYLES = `
 .adl-shell { min-height: 100vh; background: var(--sand); display: flex; }
@@ -107,6 +107,8 @@ const AdminLayout = ({ children }) => {
     // view) already existed and worked. See app/admin/(dashboard)/
     // subscription-scans/page.js for the full story.
     { name: 'All Subscription Scans', href: '/admin/subscription-scans', icon: IconPackage },
+    // Milestone 3.1 Module 13.
+    { name: 'Assessment Review', href: '/admin/assessments', icon: IconCheckCircle },
     { name: 'Contact Messages', href: '/admin/contact', icon: IconMail },
     { name: 'Legal Documents', href: '/admin/legal', icon: IconClipboard },
   ].map(item => ({ ...item, current: pathname === item.href || (item.href === '/admin/dashboard' && (pathname === '/admin' || pathname === '/admin/')) }));
