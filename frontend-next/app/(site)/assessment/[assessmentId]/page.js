@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import ChatWindow from '../../../../components/assessment/ChatWindow';
 import { getAssessmentDetail, getMe, respondToAssessment, startAssessmentFlow } from '../../../../lib/apiClient';
 
-// Milestone 3.1 Developer Plan, Module 11. Placeholder copy — Jackie is
-// supplying the real wording (client answers 2026-10-07, #6). Do not ship
-// to production with this text still in place.
-const DISCLOSURE_TEXT = "Your answers are saved and reviewed by our team to prepare your personalized report. "
-  + 'You can take your time, there is no time limit, and you can pick up where you left off if you need to step away.';
+// Milestone 3.1 Developer Plan, Module 11. Real wording from Jackie
+// (client answers 2026-10-09), replacing the earlier placeholder.
 
 function ReportView({ sections }) {
   if (!sections) return <p>Your report is ready, but no content was found. Please contact support.</p>;
@@ -144,9 +142,15 @@ function AssessmentContent() {
 
         {(assessment.status === 'purchased' || assessment.status === 'scheduled') && (
           <div className="assessment-disclosure">
-            <p>{DISCLOSURE_TEXT}</p>
+            <p>
+              You&apos;ll be chatting with our AI assistant. Your messages are saved, may be reviewed by the
+              SilverSurfers.ai team, and are processed by the AI service that powers this chat on our behalf.
+              Please don&apos;t share passwords, payment card numbers, or health details. Our{' '}
+              <Link href="/privacy" className="card-lnk" style={{ display: 'inline', marginTop: 0 }}>Privacy Policy</Link>{' '}
+              explains how we handle your information.
+            </p>
             <button type="button" className="btn btn-p" style={{ marginTop: 16 }} disabled={starting} onClick={handleBegin}>
-              {starting ? 'Starting…' : "I understand, let's begin"}
+              {starting ? 'Starting…' : 'I understand, start chat'}
             </button>
           </div>
         )}
