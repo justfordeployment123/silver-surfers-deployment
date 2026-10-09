@@ -100,10 +100,16 @@ export async function createProductCheckoutSession(request: Request, response: R
       payment_method_types: ['card'],
       customer: customerId,
       line_items: [{ price: product.stripePriceId, quantity: 1 }],
+      // courseSlug/ebookId travel in metadata so the webhook handler
+      // (product-checkout.service.ts) can create the right purchase
+      // record directly, without re-resolving the catalog or doing a
+      // second DB lookup at webhook time.
       metadata: {
         userId,
         productKey: product.productKey,
         productType: product.productType,
+        ...('courseSlug' in product && product.courseSlug ? { courseSlug: product.courseSlug } : {}),
+        ...('ebookId' in product && product.ebookId ? { ebookId: product.ebookId } : {}),
       },
       success_url: `${successUrlBase}/dashboard?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${successUrlBase}/explore?canceled=1`,
