@@ -278,6 +278,16 @@ const Footer = () => {
                 <li><Link href="/contact" className="ss-footer-link">Contact</Link></li>
                 <li><Link href="/blog"    className="ss-footer-link">Blog</Link></li>
                 <li><Link href="/faq"     className="ss-footer-link">FAQ</Link></li>
+                <li>
+                  <a
+                    href="https://silversurfersinc.com/"
+                    className="ss-footer-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    SilverSurfers, Inc.
+                  </a>
+                </li>
               </ul>
             </div>
 
