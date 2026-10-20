@@ -20,6 +20,7 @@ Silver-Surfers-frontend/dist/
 .env.test.local
 .env.production.local
 .env.*
+!backend/.env.example
 Silver-Surfers-backend/.env
 Silver-Surfers-frontend/.env
 
