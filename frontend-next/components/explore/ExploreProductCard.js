@@ -21,8 +21,8 @@ function CheckBadge() {
 // Milestone 3.1 Module 7 (ThriveCart cutover): when a product's cta
 // includes `productKey`, the button triggers native Stripe checkout
 // (Module 2's /billing/create-product-checkout-session) instead of plain
-// navigation — not live for any product yet (see data/explore-products.js's
-// comment on why AI Edge still uses the ThriveCart link).
+// navigation. AI Edge and the AI Readiness Assessment use this native path;
+// Books remains an external destination while its sales model is finalized.
 function useProductCheckout(productKey) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);

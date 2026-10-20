@@ -36,11 +36,8 @@ export async function getAssessment(request: Request, response: Response): Promi
 // (or beyond) is a no-op, which is what lets "Continue Assessment" reuse
 // the exact same call instead of needing a separate resume endpoint.
 //
-// Not yet handled here (per the plan's "New follow-up" open items, not
-// resolved by the client as of 2026-10-07): a literal "book a meeting with
-// the agent" option, and a 30-day start window after purchase. Both need a
-// dev-team reply to the client before they're scoped, so this endpoint
-// deliberately only implements the confirmed immediate-start mechanism.
+// The client reconfirmed immediate start on 2026-10-15. No booking step or
+// 30-day expiry is part of the approved flow.
 export async function startAssessment(request: Request, response: Response): Promise<void> {
   try {
     const userId = request.user?.id;

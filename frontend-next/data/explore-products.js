@@ -42,24 +42,10 @@ const exploreProducts = [
     image: '/explore/ai-edge.svg',
     imageAlt: 'AI Edge training preview shown on a laptop screen',
     cta: {
-      label: 'Explore AI Edge',
-      // Milestone 3.1 Module 7 (ThriveCart cutover): the native checkout
-      // mechanism is built (ExploreProductCard supports cta.productKey →
-      // Stripe redirect via /billing/create-product-checkout-session) and
-      // the one migration risk the plan originally flagged is resolved
-      // (client answers 2026-10-07, #3: no existing ThriveCart customers
-      // to backfill). NOT flipped yet on purpose: there is no Stripe
-      // price configured for 'ai-edge-course' yet (AI_EDGE_PRICE_ID env
-      // var is unset), and the plan's own Module 7 explicitly says this
-      // cutover happens last, after a real purchase is tested end-to-end
-      // in staging — flipping this link now would replace a working
-      // ThriveCart purchase path with a guaranteed-broken one. Once a
-      // Stripe price exists and one real purchase has been verified,
-      // flip this to: cta: { label: 'Explore AI Edge', productKey:
-      // 'ai-edge-course', analyticsId: 'explore_ai_edge' } (external/href
-      // both drop out — see ExploreProductCard.js).
-      href: 'https://silversurfers.thrivecart.com/ai-edge-helping-leaders-make-better-decisions-in-the-ai-era/',
-      external: true,
+      label: 'Purchase AI Edge',
+      // Milestone 3.1 native checkout. AI_EDGE_PRICE_ID is configured per
+      // environment and the webhook grants course access after payment.
+      productKey: 'ai-edge-course',
       analyticsId: 'explore_ai_edge',
     },
   },
@@ -78,15 +64,10 @@ const exploreProducts = [
     image: '/explore/ai-readiness-assessment.svg',
     imageAlt: 'AI Readiness Assessment results shown on a tablet screen',
     cta: {
-      label: 'Take the Assessment',
-      // Reuses the same GoHighLevel booking calendar already wired into
-      // contact/page.js (GHL_BOOKING_URL) and Footer.js's "Consulting"
-      // link, per explicit decision rather than a dedicated assessment-only
-      // calendar. This is a 3.0-only stopgap: the source doc's Milestone
-      // Boundary Summary has 3.1 replacing this with an AI agent intake
-      // flow, not a plain booking link.
-      href: 'https://api.leadconnectorhq.com/widget/bookings/jackie-gross-personal-calendar-qwh_05xzk',
-      external: true,
+      label: 'Purchase Assessment',
+      // Milestone 3.1 native checkout. After payment, the assessment is
+      // added to the customer dashboard and can be started immediately.
+      productKey: 'ai-readiness-assessment',
       analyticsId: 'explore_ai_readiness_assessment',
     },
   },
