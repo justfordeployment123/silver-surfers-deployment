@@ -7,6 +7,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createProductCheckoutSession } from '../../lib/apiClient';
+import { trackAnalyticsEvent } from '../../lib/analytics';
 import { trackExploreClick } from '../../lib/trackExploreClick';
 
 function CheckBadge() {
@@ -48,10 +49,16 @@ function useProductCheckout(productKey) {
     setLoading(false);
 
     if (result?.error || !result?.url) {
+      trackAnalyticsEvent('product_checkout_failed', {
+        product: productKey,
+      });
       setError(result?.error || 'Could not start checkout. Please try again.');
       return;
     }
 
+    trackAnalyticsEvent('product_checkout_started', {
+      product: productKey,
+    });
     window.location.href = result.url;
   }
 

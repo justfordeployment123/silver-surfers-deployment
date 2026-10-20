@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import ProductStatusCard from '../../../components/dashboard/ProductStatusCard';
+import { trackAnalyticsEvent } from '../../../lib/analytics';
 import { getMe, listMyAssessments, listMyCourses, listMyEbooks } from '../../../lib/apiClient';
 
 // New, separate from /account (not an addition to it) — Milestone 3.1
@@ -17,6 +18,18 @@ function DashboardContent() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const sessionId = query.get('session_id');
+    const purchaseSucceeded = query.get('purchase') === 'success' && sessionId;
+    const trackedKey = sessionId ? `ss-purchase-tracked:${sessionId}` : '';
+
+    if (purchaseSucceeded && !sessionStorage.getItem(trackedKey)) {
+      trackAnalyticsEvent('product_purchase_completed', {
+        transaction_id: sessionId,
+      });
+      sessionStorage.setItem(trackedKey, '1');
+    }
+
     (async () => {
       const me = await getMe();
       if (!me?.user) {
