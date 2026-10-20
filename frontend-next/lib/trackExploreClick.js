@@ -7,7 +7,9 @@
 // abstraction is needed — see Milestone 3.0 Developer Plan, Module 8.
 //
 // conversion_id values are supplied by marketing per product; until then
-// this is a no-op so unset ids never crash or fire a wrong/blank conversion.
+// LinkedIn is a no-op. GA4 receives the product CTA event when configured.
+import { trackAnalyticsEvent } from './analytics';
+
 const CONVERSION_IDS = {
   explore_ai_edge: undefined,
   explore_ai_readiness_assessment: undefined,
@@ -15,6 +17,10 @@ const CONVERSION_IDS = {
 };
 
 export function trackExploreClick(analyticsId) {
+  trackAnalyticsEvent('product_cta_clicked', {
+    product: analyticsId,
+  });
+
   if (typeof window === 'undefined' || typeof window.lintrk !== 'function') return;
   const conversionId = CONVERSION_IDS[analyticsId];
   if (!conversionId) return;

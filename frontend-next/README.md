@@ -32,6 +32,7 @@ below actually ships, not `pnpm start`'s dev-adjacent path.
 docker build \
   --build-arg NEXT_PUBLIC_API_BASE_URL=https://your-api.example.com \
   --build-arg NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-client-id \
+  --build-arg NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX \
   -t silversurfers-frontend-next .
 
 docker run -p 3000:3000 silversurfers-frontend-next
@@ -60,4 +61,6 @@ docker compose -f docker-compose.production.yml up -d --build --no-deps frontend
 
 Set `NEXT_PUBLIC_API_BASE_URL` and, when using Google sign-in,
 `NEXT_PUBLIC_GOOGLE_CLIENT_ID` in the shell or root `.env` before building.
+Set `NEXT_PUBLIC_GA_MEASUREMENT_ID` to enable GA4 page views and product CTA
+events. Leave it empty until the client provides the Measurement ID.
 The testing Compose file uses `http://localhost:8000` for the API.

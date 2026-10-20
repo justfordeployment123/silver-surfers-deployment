@@ -21,8 +21,10 @@ WORKDIR /app
 # they cannot be changed later by just setting a runtime env var.
 ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ARG NEXT_PUBLIC_GOOGLE_CLIENT_ID=
+ARG NEXT_PUBLIC_GA_MEASUREMENT_ID=
 ENV NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
 ENV NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
+ENV NEXT_PUBLIC_GA_MEASUREMENT_ID=${NEXT_PUBLIC_GA_MEASUREMENT_ID}
 
 # Install a pinned pnpm version. Avoid pnpm@latest/Corepack drift in
 # Coolify builds — same reasoning as frontend/Dockerfile's pin.

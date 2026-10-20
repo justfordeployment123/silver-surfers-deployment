@@ -1,5 +1,6 @@
 import Script from "next/script";
 import { Poppins, Yellowtail } from "next/font/google";
+import GoogleAnalytics from "../components/analytics/GoogleAnalytics";
 import "./globals.css";
 
 // Self-hosted via next/font — replaces the render-blocking Google Fonts
@@ -102,6 +103,7 @@ export default function RootLayout({ children }) {
       </head>
       <body>
         {children}
+        <GoogleAnalytics />
         <Script id="linkedin-insight-init" strategy="afterInteractive">
           {LINKEDIN_INSIGHT_INIT_SCRIPT}
         </Script>
