@@ -26,6 +26,8 @@
  * @property {string} imageAlt
  * @property {ExploreProductCta} cta
  */
+export const BOOK_STORE_URL = 'https://decision-compass-series.base44.app/';
+
 const exploreProducts = [
   {
     id: 'ai-edge',
@@ -87,8 +89,9 @@ const exploreProducts = [
     imageAlt: "Stack of SilverSurfers.ai books including The Longevity Gap and The Caregiver's Crossroads",
     cta: {
       label: 'Explore the Books',
-      // Client-confirmed Decision Compass Series destination (2026-10-14).
-      href: 'https://decision-compass-series.base44.app/',
+      // Final current sales path: all print and digital book purchases are
+      // handled by Base44. SilverSurfers.ai does not host or fulfil ebooks.
+      href: BOOK_STORE_URL,
       external: true,
       analyticsId: 'explore_books',
     },

@@ -1,42 +1,11 @@
 import type { Request, Response } from 'express';
 
-import Ebook from '../../models/ebook.model.ts';
 import User from '../../models/user.model.ts';
 import { getProductByKey } from './product-catalog.ts';
 import { getStripeClient } from './stripe-client.ts';
 
 function resolveFrontendUrl(): string {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
-}
-
-// 'ebook:<slug>' productKeys resolve against the Ebook collection directly
-// rather than the static PRODUCT_CATALOG (see product-catalog.ts's comment)
-// — this is the one place that lookup happens, so both the checkout
-// controller and the webhook handler can share it.
-async function resolveEbookProduct(productKey: string): Promise<{
-  productKey: string;
-  productType: 'ebook';
-  name: string;
-  stripePriceId?: string;
-  ebookId: string;
-} | null> {
-  if (!productKey.startsWith('ebook:')) {
-    return null;
-  }
-
-  const slug = productKey.slice('ebook:'.length);
-  const ebook = await Ebook.findOne({ slug, active: true }).lean();
-  if (!ebook) {
-    return null;
-  }
-
-  return {
-    productKey,
-    productType: 'ebook',
-    name: ebook.title,
-    stripePriceId: ebook.stripePriceId,
-    ebookId: String(ebook._id),
-  };
 }
 
 // Mirrors subscription.controller.ts's createCheckoutSession exactly in
@@ -59,9 +28,17 @@ export async function createProductCheckoutSession(request: Request, response: R
       return;
     }
 
-    const catalogEntry = getProductByKey(productKey);
-    const ebookEntry = catalogEntry ? null : await resolveEbookProduct(productKey);
-    const product = catalogEntry || ebookEntry;
+    // All print and digital book sales currently belong to the client's
+    // Base44 store. Keep the native endpoint closed even if a legacy Ebook
+    // document is accidentally activated in MongoDB.
+    if (productKey.startsWith('ebook:')) {
+      response.status(400).json({
+        error: 'Book purchases are completed through the external book store.',
+      });
+      return;
+    }
+
+    const product = getProductByKey(productKey);
 
     if (!product) {
       response.status(400).json({ error: 'Unknown productKey.' });
@@ -100,7 +77,7 @@ export async function createProductCheckoutSession(request: Request, response: R
       payment_method_types: ['card'],
       customer: customerId,
       line_items: [{ price: product.stripePriceId, quantity: 1 }],
-      // courseSlug/ebookId travel in metadata so the webhook handler
+      // courseSlug travels in metadata so the webhook handler
       // (product-checkout.service.ts) can create the right purchase
       // record directly, without re-resolving the catalog or doing a
       // second DB lookup at webhook time.
@@ -109,7 +86,6 @@ export async function createProductCheckoutSession(request: Request, response: R
         productKey: product.productKey,
         productType: product.productType,
         ...('courseSlug' in product && product.courseSlug ? { courseSlug: product.courseSlug } : {}),
-        ...('ebookId' in product && product.ebookId ? { ebookId: product.ebookId } : {}),
       },
       success_url: `${successUrlBase}/dashboard?purchase=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${successUrlBase}/explore?canceled=1`,

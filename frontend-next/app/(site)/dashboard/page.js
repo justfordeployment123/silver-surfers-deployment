@@ -5,16 +5,16 @@ import Link from 'next/link';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import ProductStatusCard from '../../../components/dashboard/ProductStatusCard';
 import { trackAnalyticsEvent } from '../../../lib/analytics';
-import { getMe, listMyAssessments, listMyCourses, listMyEbooks } from '../../../lib/apiClient';
+import { getMe, listMyAssessments, listMyCourses } from '../../../lib/apiClient';
 
 // New, separate from /account (not an addition to it) — Milestone 3.1
 // Developer Plan, Module 3. /account covers the core audit/scan product;
-// this page covers Explore products (courses, assessments, books).
+// this page covers products fulfilled by SilverSurfers.ai. All print and
+// digital books are purchased and delivered externally through Base44.
 function DashboardContent() {
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState([]);
   const [assessments, setAssessments] = useState([]);
-  const [ebooks, setEbooks] = useState([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -37,24 +37,22 @@ function DashboardContent() {
         return;
       }
 
-      const [coursesRes, assessmentsRes, ebooksRes] = await Promise.all([
+      const [coursesRes, assessmentsRes] = await Promise.all([
         listMyCourses(),
         listMyAssessments(),
-        listMyEbooks(),
       ]);
 
-      if (coursesRes?.error || assessmentsRes?.error || ebooksRes?.error) {
-        setError(coursesRes?.error || assessmentsRes?.error || ebooksRes?.error);
+      if (coursesRes?.error || assessmentsRes?.error) {
+        setError(coursesRes?.error || assessmentsRes?.error);
       }
 
       setCourses(Array.isArray(coursesRes?.courses) ? coursesRes.courses : []);
       setAssessments(Array.isArray(assessmentsRes?.assessments) ? assessmentsRes.assessments : []);
-      setEbooks(Array.isArray(ebooksRes?.ebooks) ? ebooksRes.ebooks : []);
       setLoading(false);
     })();
   }, []);
 
-  const hasAnyProducts = courses.length > 0 || assessments.length > 0 || ebooks.length > 0;
+  const hasAnyProducts = courses.length > 0 || assessments.length > 0;
 
   return (
     <section className="sec">
@@ -111,16 +109,6 @@ function DashboardContent() {
                 title="AI Readiness Assessment"
                 status={assessment.status}
                 id={assessment.assessmentId}
-              />
-            ))}
-            {ebooks.map((ebook) => (
-              <ProductStatusCard
-                key={ebook.ebookId}
-                productType="ebook"
-                category="Books"
-                title={ebook.title}
-                status="purchased"
-                id={ebook.ebookId}
               />
             ))}
           </div>

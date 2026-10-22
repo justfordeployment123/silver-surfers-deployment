@@ -1,17 +1,7 @@
-// Seeds the Ebook catalog (models/ebook.model.ts, Milestone 3.1 Developer
-// Plan Module 15) with the 8 real, already-approved "Decision Compass
-// Series" titles by Valentina Teekapa — read directly off the cover art
-// already live on the Explore page (frontend-next/public/explore/books.svg),
-// not guessed. Client answers 2026-10-08, #8: every title gets sold as a
-// PDF (digital), so all 8 are seeded.
-//
-// Seeded with active: false and a placeholder s3Key — the checkout flow
-// (product-checkout.controller.ts's resolveEbookProduct) only matches
-// { active: true }, so these are NOT purchasable yet. Before flipping a
-// title to active:
-//   1. Upload the real PDF to S3 and set its real s3Key.
-//   2. Create a Stripe price for it and set stripePriceId.
-//   3. Set active: true (and re-run this script, or update the doc directly).
+// Legacy catalog safeguard. The current client decision is that every print
+// and digital book purchase is handled by Base44, not native Stripe/S3.
+// Running this script keeps the known titles inactive. Do not activate them
+// unless a future, separately approved milestone restores native ebooks.
 //
 // Usage: node --import ./scripts/register-typescript-loader.mjs scripts/seed-ebooks.ts
 
@@ -57,7 +47,7 @@ async function seed(): Promise<void> {
     console.log(`Seeded Ebook "${title}" (_id: ${ebook?._id}, active: false, placeholder s3Key)`);
   }
 
-  console.log('\nAll 8 titles seeded as inactive placeholders. Before going live on any title: upload the real PDF to S3, set its s3Key, set a real stripePriceId, then set active: true.');
+  console.log('\nAll 8 legacy titles are inactive. Current book sales remain external through Base44.');
 
   await disconnectDatabase();
 }
