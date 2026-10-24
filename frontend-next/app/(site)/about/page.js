@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import AboutGlobe from './AboutGlobe';
 import styles from './about.module.css';
 
 export const metadata = {
@@ -48,25 +49,7 @@ export default function AboutPage() {
               <Link href="/contact#contact-form" className={styles.buttonQuiet}>Start a Conversation <span aria-hidden="true">→</span></Link>
             </div>
           </div>
-          <div className={styles.heroArtwork} aria-hidden="true">
-            <span className={styles.orbitOne} />
-            <span className={styles.orbitTwo} />
-            <span className={styles.orbitCore}>
-              <span className={styles.globeMesh}>
-                <span className={styles.meridianOne} />
-                <span className={styles.meridianTwo} />
-                <span className={styles.meridianThree} />
-                <span className={styles.meridianFour} />
-                <span className={styles.latitudeOne} />
-                <span className={styles.latitudeTwo} />
-                <span className={styles.latitudeThree} />
-              </span>
-              <span className={styles.globeShine} />
-              <span className={styles.globeLabel}>People <i /> Purpose <i /> Progress</span>
-            </span>
-            <span className={styles.orbitDotOne} />
-            <span className={styles.orbitDotTwo} />
-          </div>
+          <AboutGlobe />
         </div>
         <div className={styles.heroBottom} aria-hidden="true"><span>01 / Our Story</span><span>Scroll to explore ↓</span></div>
       </section>
