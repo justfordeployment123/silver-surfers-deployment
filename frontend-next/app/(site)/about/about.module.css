@@ -16,6 +16,8 @@
 .buttonPrimary:hover { background: #006783; color: #fff; transform: translateY(-3px); box-shadow: 0 19px 42px rgba(0, 85, 130, .3); }
 .buttonQuiet { border: 1px solid rgba(187, 230, 244, .55); color: #e7f5fb; }
 .buttonQuiet:hover { background: rgba(255,255,255,.09); color: #fff; transform: translateY(-3px); }
+.arrowIcon { width: 16px; height: 16px; flex: none; }
+.scrollCue { display: inline-flex; align-items: center; gap: 6px; }
 .heroArtwork { position: relative; width: min(480px, 100%); aspect-ratio: 1; justify-self: center; perspective: 900px; animation: drift 6s ease-in-out infinite; }
 .orbitOne, .orbitTwo, .orbitCore { position: absolute; inset: 10%; border-radius: 50%; }
 .orbitOne, .orbitTwo { border: 1px solid rgba(104, 218, 233, .44); box-shadow: 0 0 40px rgba(31, 192, 214, .08); }

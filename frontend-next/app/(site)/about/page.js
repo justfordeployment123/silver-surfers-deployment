@@ -2,6 +2,20 @@ import Image from 'next/image';
 import Link from 'next/link';
 import styles from './about.module.css';
 
+function ArrowIcon({ direction = 'upRight' }) {
+  const paths = {
+    upRight: 'M5 15 15 5 M7 5h8v8',
+    right: 'M4 10h12 M11 5l5 5-5 5',
+    down: 'M10 3v14 M5 12l5 5 5-5',
+  };
+
+  return (
+    <svg className={styles.arrowIcon} viewBox="0 0 20 20" fill="none" aria-hidden="true" focusable="false">
+      <path d={paths[direction]} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export const metadata = {
   title: 'About Us | SilverSurfers.ai',
   description:
@@ -44,8 +58,8 @@ export default function AboutPage() {
             <h1 id="about-title">Technology should move <em>people</em> forward.</h1>
             <p className={styles.heroLead}>We bring business experience, thoughtful AI, and inclusive digital design together to help organizations make better decisions and build experiences that work for everyone.</p>
             <div className={styles.heroActions}>
-              <a href="#leadership" className={styles.buttonPrimary}>Meet Our Leadership <span aria-hidden="true">↗</span></a>
-              <Link href="/contact#contact-form" className={styles.buttonQuiet}>Start a Conversation <span aria-hidden="true">→</span></Link>
+              <a href="#leadership" className={styles.buttonPrimary}>Meet Our Leadership <ArrowIcon /></a>
+              <Link href="/contact#contact-form" className={styles.buttonQuiet}>Start a Conversation <ArrowIcon direction="right" /></Link>
             </div>
           </div>
           <div className={styles.heroArtwork} aria-hidden="true">
@@ -68,7 +82,7 @@ export default function AboutPage() {
             <span className={styles.orbitDotTwo} />
           </div>
         </div>
-        <div className={styles.heroBottom} aria-hidden="true"><span>01 / Our Story</span><span>Scroll to explore ↓</span></div>
+        <div className={styles.heroBottom} aria-hidden="true"><span>01 / Our Story</span><span className={styles.scrollCue}>Scroll to explore <ArrowIcon direction="down" /></span></div>
       </section>
 
       <section className={styles.intro} aria-labelledby="intro-title">
@@ -78,7 +92,7 @@ export default function AboutPage() {
             <div className={styles.introCopy}>
               <p>SilverSurfers.ai began with a simple belief: digital experiences should welcome people of every age and ability. Our accessibility and usability work helps organizations see where their websites create friction and how to make them easier to use.</p>
               <p>Through SilverSurfers, Inc., our work extends into AI solutions, business intelligence, and advisory services. The same principle guides both: understand the people and the business problem first, then put technology to work with purpose.</p>
-              <a href="https://silversurfersinc.com" target="_blank" rel="noopener noreferrer" className={styles.inlineLink}>Explore SilverSurfers, Inc. <span aria-hidden="true">↗</span></a>
+              <a href="https://silversurfersinc.com" target="_blank" rel="noopener noreferrer" className={styles.inlineLink}>Explore SilverSurfers, Inc. <ArrowIcon /></a>
             </div>
           </div>
         </div>
@@ -127,7 +141,7 @@ export default function AboutPage() {
           <p className={styles.eyebrow}>Let&apos;s connect</p>
           <h2 id="closing-title">Ready to build what comes next?</h2>
           <p>Tell us what your organization is trying to improve. We&apos;ll help you find a practical place to start.</p>
-          <Link href="/contact#contact-form" className={styles.buttonPrimary}>Contact Our Team <span aria-hidden="true">↗</span></Link>
+          <Link href="/contact#contact-form" className={styles.buttonPrimary}>Contact Our Team <ArrowIcon /></Link>
         </div>
       </section>
     </div>
