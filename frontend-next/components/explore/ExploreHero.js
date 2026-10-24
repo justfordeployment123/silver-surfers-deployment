@@ -9,7 +9,9 @@
 // Blend technique: the photo is absolutely positioned behind the text,
 // right-aligned and wider than the visible text column; a gradient overlay
 // (solid var(--bg) under the text, fading to transparent over the photo)
-// sits on top of it. Because the gradient's solid color is the real
+// sits on top of it. A second, narrower gradient softens the photo's right
+// edge so it blends into the page instead of ending in a hard vertical line.
+// Because the gradients' solid color is the real
 // --bg token (not a hardcoded hex), this blends correctly in both themes
 // without a separate dark-mode override.
 export default function ExploreHero() {
@@ -39,7 +41,9 @@ export default function ExploreHero() {
         .explore-hero-fade {
           position: absolute;
           inset: 0;
-          background: linear-gradient(90deg, var(--bg) 0%, var(--bg) 32%, rgba(0,0,0,0) 62%);
+          background:
+            linear-gradient(270deg, var(--bg) 0%, transparent 12%),
+            linear-gradient(90deg, var(--bg) 0%, var(--bg) 32%, transparent 62%);
         }
         .explore-hero-content {
           position: relative;
