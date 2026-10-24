@@ -26,7 +26,7 @@
  * @property {string} imageAlt
  * @property {ExploreProductCta} cta
  */
-export const BOOK_STORE_URL = 'https://clear-course-compass.base44.app/';
+export const BOOK_STORE_URL = 'https://clear-course-compass.base44.app/resources';
 
 const exploreProducts = [
   {
