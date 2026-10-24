@@ -51,7 +51,19 @@ export default function AboutPage() {
           <div className={styles.heroArtwork} aria-hidden="true">
             <span className={styles.orbitOne} />
             <span className={styles.orbitTwo} />
-            <span className={styles.orbitCore}>People <i /> Purpose <i /> Progress</span>
+            <span className={styles.orbitCore}>
+              <span className={styles.globeMesh}>
+                <span className={styles.meridianOne} />
+                <span className={styles.meridianTwo} />
+                <span className={styles.meridianThree} />
+                <span className={styles.meridianFour} />
+                <span className={styles.latitudeOne} />
+                <span className={styles.latitudeTwo} />
+                <span className={styles.latitudeThree} />
+              </span>
+              <span className={styles.globeShine} />
+              <span className={styles.globeLabel}>People <i /> Purpose <i /> Progress</span>
+            </span>
             <span className={styles.orbitDotOne} />
             <span className={styles.orbitDotTwo} />
           </div>
