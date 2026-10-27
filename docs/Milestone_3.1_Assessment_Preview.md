@@ -13,6 +13,8 @@ This is an invitation-only route for three testers to try AI Edge and the real A
 
 ## Set up the three testers
 
+Deploy both the backend and `frontend-next` changes from this release before sharing the link. The backend can be deployed with the preview disabled; the frontend page will not grant access on its own.
+
 1. Get the exact email address each person will use to sign in. Each person should have their own account. Their accounts can be created on staging and email-verified before the preview is enabled.
 2. On the AWS backend host, edit `~/silver-surfers/backend/.env` and add:
 
@@ -48,3 +50,5 @@ Set `ASSESSMENT_PREVIEW_ENABLED=false` in the AWS backend `.env` and recreate on
 - AI Edge preview progress does not carry over to a later purchase.
 - The admin queue labels the preview record and still requires manual approval before the customer sees the report.
 - Disable the feature after testing and confirm the invited account can no longer open its preview record.
+
+The invitation bypasses checkout only for AI Edge and AI Readiness Assessment. It does not test Stripe payment, webhooks, or paid entitlement creation. Those need a separate controlled checkout test. Public book links can be reviewed from the normal Explore page.
