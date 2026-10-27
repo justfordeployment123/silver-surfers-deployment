@@ -35,6 +35,9 @@ const assessmentAdminReviewSchema = new mongoose.Schema({
 
 const assessmentSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+  // Preview assessments are invite-only and never originate from Stripe.
+  // Keep them distinct from paid entitlements in queries and admin review.
+  source: { type: String, enum: ['purchase', 'preview'], default: 'purchase', index: true },
   // Milestone 3.1 client answers 2026-10-07, #1: "keep the old results as
   // well... I like the idea of keeping all of them." Deliberately NOT a
   // unique index on userId — a customer may purchase/redo the assessment
@@ -81,6 +84,10 @@ const assessmentSchema = new mongoose.Schema({
 // and the admin review queue's "pending_review first" listing (Module 13).
 assessmentSchema.index({ userId: 1, createdAt: -1 });
 assessmentSchema.index({ status: 1, createdAt: -1 });
+assessmentSchema.index(
+  { userId: 1, source: 1 },
+  { unique: true, partialFilterExpression: { source: 'preview' } },
+);
 
 const Assessment = (mongoose.models.Assessment as mongoose.Model<unknown> | undefined)
   || mongoose.model('Assessment', assessmentSchema);

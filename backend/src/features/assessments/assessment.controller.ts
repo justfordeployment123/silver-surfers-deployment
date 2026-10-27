@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 
 import Assessment from '../../models/assessment.model.ts';
 import { getCurrentQuestionForAssessment } from './assessment-agent.service.ts';
+import { canAccessAssessment } from './assessment-preview.access.ts';
+import { assessmentForCustomer } from './assessment-customer-view.ts';
 import { getQuestionById } from './assessment-questions.ts';
 
 export async function getAssessment(request: Request, response: Response): Promise<void> {
@@ -15,12 +17,12 @@ export async function getAssessment(request: Request, response: Response): Promi
     }
 
     const assessment = await Assessment.findOne({ _id: id, userId }).lean();
-    if (!assessment) {
+    if (!assessment || !canAccessAssessment(assessment, request.user)) {
       response.status(404).json({ error: 'Assessment not found.' });
       return;
     }
 
-    response.json({ assessment, currentQuestion: getCurrentQuestionForAssessment(assessment) });
+    response.json({ assessment: assessmentForCustomer(assessment), currentQuestion: getCurrentQuestionForAssessment(assessment) });
   } catch (error) {
     console.error('getAssessment error:', error);
     response.status(500).json({ error: 'Failed to load assessment.' });
@@ -49,7 +51,7 @@ export async function startAssessment(request: Request, response: Response): Pro
     }
 
     const assessment = await Assessment.findOne({ _id: id, userId });
-    if (!assessment) {
+    if (!assessment || !canAccessAssessment(assessment, request.user)) {
       response.status(404).json({ error: 'Assessment not found.' });
       return;
     }
@@ -67,7 +69,7 @@ export async function startAssessment(request: Request, response: Response): Pro
       await assessment.save();
     }
 
-    response.json({ assessment, currentQuestion: getCurrentQuestionForAssessment(assessment) });
+    response.json({ assessment: assessmentForCustomer(assessment.toObject()), currentQuestion: getCurrentQuestionForAssessment(assessment) });
   } catch (error) {
     console.error('startAssessment error:', error);
     response.status(500).json({ error: 'Failed to start assessment.' });

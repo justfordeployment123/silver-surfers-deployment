@@ -27,4 +27,9 @@ courseProgressSchema.index({ userId: 1, courseId: 1 }, { unique: true });
 const CourseProgress = (mongoose.models.CourseProgress as mongoose.Model<unknown> | undefined)
   || mongoose.model('CourseProgress', courseProgressSchema);
 
+// Preview progress lives in its own collection. A later real purchase must
+// never inherit lessons marked complete during an invite-only review.
+export const CoursePreviewProgress = (mongoose.models.CoursePreviewProgress as mongoose.Model<unknown> | undefined)
+  || mongoose.model('CoursePreviewProgress', courseProgressSchema);
+
 export default CourseProgress;

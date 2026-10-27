@@ -2,7 +2,8 @@ import type { Request, Response } from 'express';
 
 import Course from '../../models/course.model.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
-import CourseProgress from '../../models/course-progress.model.ts';
+import CourseProgress, { CoursePreviewProgress } from '../../models/course-progress.model.ts';
+import { canUseAssessmentPreview } from '../assessments/assessment-preview.access.ts';
 
 async function ownsCourse(userId: string, courseId: string): Promise<boolean> {
   const purchase = await CoursePurchase.findOne({ userId, courseId }).lean();
@@ -19,7 +20,8 @@ export async function getCourse(request: Request, response: Response): Promise<v
       return;
     }
 
-    if (!(await ownsCourse(userId, courseId))) {
+    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
+    if (!preview && !(await ownsCourse(userId, courseId))) {
       response.status(403).json({ error: 'You do not own this course.' });
       return;
     }
@@ -29,8 +31,13 @@ export async function getCourse(request: Request, response: Response): Promise<v
       response.status(404).json({ error: 'Course not found.' });
       return;
     }
+    if (preview && course.slug !== 'ai-edge') {
+      response.status(403).json({ error: 'This course is not available in the preview.' });
+      return;
+    }
 
-    const progress = await CourseProgress.findOne({ userId, courseId }).lean();
+    const Progress = preview ? CoursePreviewProgress : CourseProgress;
+    const progress = await Progress.findOne({ userId, courseId }).lean();
 
     response.json({ course, progress: progress || { moduleProgress: [] } });
   } catch (error) {
@@ -59,7 +66,8 @@ export async function markLessonComplete(request: Request, response: Response): 
       return;
     }
 
-    if (!(await ownsCourse(userId, courseId))) {
+    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
+    if (!preview && !(await ownsCourse(userId, courseId))) {
       response.status(403).json({ error: 'You do not own this course.' });
       return;
     }
@@ -67,6 +75,10 @@ export async function markLessonComplete(request: Request, response: Response): 
     const course = await Course.findById(courseId).lean();
     if (!course) {
       response.status(404).json({ error: 'Course not found.' });
+      return;
+    }
+    if (preview && course.slug !== 'ai-edge') {
+      response.status(403).json({ error: 'This course is not available in the preview.' });
       return;
     }
 
@@ -79,9 +91,10 @@ export async function markLessonComplete(request: Request, response: Response): 
       return;
     }
 
-    let progress = await CourseProgress.findOne({ userId, courseId });
+    const Progress = preview ? CoursePreviewProgress : CourseProgress;
+    let progress = await Progress.findOne({ userId, courseId });
     if (!progress) {
-      progress = await CourseProgress.create({ userId, courseId, moduleProgress: [] });
+      progress = await Progress.create({ userId, courseId, moduleProgress: [] });
     }
 
     let moduleProgress = progress.moduleProgress.find(

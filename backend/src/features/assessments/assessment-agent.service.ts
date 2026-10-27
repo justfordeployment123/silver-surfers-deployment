@@ -11,6 +11,7 @@ import {
   type AssessmentQuestion,
 } from './assessment-questions.ts';
 import { generateAssessmentReport } from './assessment-report.ts';
+import { canAccessAssessment } from './assessment-preview.access.ts';
 
 const assessmentAgentLogger = logger.child('feature:assessments:assessment-agent');
 
@@ -120,7 +121,7 @@ export async function respondToAssessment(request: Request, response: Response):
     }
 
     const assessment = await Assessment.findOne({ _id: id, userId });
-    if (!assessment) {
+    if (!assessment || !canAccessAssessment(assessment, request.user)) {
       response.status(404).json({ error: 'Assessment not found.' });
       return;
     }

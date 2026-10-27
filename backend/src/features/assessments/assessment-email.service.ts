@@ -10,15 +10,17 @@ function resolveFrontendUrl(): string {
   return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/+$/, '');
 }
 
-export async function sendAssessmentReportReadyEmail(to: string): Promise<ReturnType<typeof sendDirectMail>> {
-  const dashboardUrl = `${resolveFrontendUrl()}/dashboard`;
+export async function sendAssessmentReportReadyEmail(to: string, preview = false): Promise<ReturnType<typeof sendDirectMail>> {
+  const dashboardUrl = preview
+    ? (process.env.ASSESSMENT_PREVIEW_URL || 'https://staging.silversurfers.ai/assessment-preview')
+    : `${resolveFrontendUrl()}/dashboard`;
 
   return sendDirectMail({
     to,
-    subject: 'Your AI Readiness Assessment report is ready',
+    subject: preview ? 'Your preview AI Readiness Assessment report is ready' : 'Your AI Readiness Assessment report is ready',
     html: `
       <p>Your AI Readiness Assessment report has been reviewed and is now ready to view.</p>
-      <p><a href="${dashboardUrl}">View your report on your SilverSurfers.ai dashboard</a></p>
+      <p><a href="${dashboardUrl}">${preview ? 'View your preview report' : 'View your report on your SilverSurfers.ai dashboard'}</a></p>
     `,
     text: `Your AI Readiness Assessment report has been reviewed and is now ready to view.\n\nView it here: ${dashboardUrl}`,
   });

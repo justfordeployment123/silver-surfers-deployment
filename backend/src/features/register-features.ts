@@ -2,6 +2,7 @@ import type { Express } from 'express';
 
 import adminRouter from './admin/admin.routes.ts';
 import assessmentRouter from './assessments/assessment.routes.ts';
+import assessmentPreviewRouter from './assessments/assessment-preview.routes.ts';
 import auditsRouter from './audits/audits.routes.ts';
 import authRouter from './auth/auth.routes.ts';
 import productCheckoutRouter from './billing/product-checkout.routes.ts';
@@ -33,6 +34,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', dashboardRouter);
   app.use('/', courseRouter);
   app.use('/', assessmentRouter);
+  app.use('/', assessmentPreviewRouter);
   app.use('/', ebookRouter);
   app.use('/', leadsRouter);
   app.use('/', contentRouter);

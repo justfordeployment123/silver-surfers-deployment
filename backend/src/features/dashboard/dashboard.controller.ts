@@ -85,7 +85,7 @@ export async function getMyAssessments(request: Request, response: Response): Pr
       return;
     }
 
-    const assessments = await Assessment.find({ userId })
+    const assessments = await Assessment.find({ userId, source: { $ne: 'preview' } })
       .select('status createdAt completedAt')
       .sort({ createdAt: -1 })
       .lean();

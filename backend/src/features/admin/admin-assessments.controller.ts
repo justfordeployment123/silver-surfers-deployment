@@ -48,6 +48,7 @@ export async function getAssessments(request: Request, response: Response): Prom
             { $limit: limit },
             {
               $project: {
+                source: 1,
                 status: 1,
                 createdAt: 1,
                 completedAt: 1,
@@ -185,7 +186,7 @@ export async function approveAssessmentReport(request: Request, response: Respon
     const user = await User.findById(assessment.userId).lean();
     if (user?.email) {
       try {
-        await sendAssessmentReportReadyEmail(user.email);
+        await sendAssessmentReportReadyEmail(user.email, assessment.source === 'preview');
       } catch (error) {
         console.error('Failed to send assessment report-ready email:', error);
       }
