@@ -45,6 +45,19 @@ const leaders = [
       'With a background spanning healthcare, technology, and business consulting, Jackie brings a practical, results-driven approach to helping organizations navigate change and embrace new opportunities. As Co-Founder of SilverSurfers, Inc., she is passionate about helping businesses use artificial intelligence, business intelligence, and innovative solutions to improve performance, streamline operations, and achieve sustainable growth.',
     ],
   },
+  {
+    name: 'Zubair',
+    role: 'Sales & Technology Professional',
+    image: '/zubair.jpg',
+    alt: 'Portrait of Zubair',
+    lead: 'Connecting client needs with practical technology and measurable business results.',
+    paragraphs: [
+      'Zubair is a sales and technology professional with experience building client relationships, solving business challenges, and driving revenue growth across SaaS, healthcare, and venture capital.',
+      'Most recently, he generated $25,000 in cash collected as a full-cycle Sales Specialist, conducting over 700 sales calls involving prospect qualification, objection handling, and closing. As an Implementation Consultant, he delivered automation solutions, increased CRM productivity by 30%, and presented a webinar to 40 executives that secured a software contract.',
+      'Previous achievements include developing a reporting platform for $179 million in investment assets, contributing to a $14 million investment deal, and accelerating regulatory approval by four months, saving $40,000.',
+      'With an engineering background and strong client focus, he brings a commercially focused mindset and a commitment to delivering measurable results.',
+    ],
+  },
 ];
 
 export default function AboutPage() {
