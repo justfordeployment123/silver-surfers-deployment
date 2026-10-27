@@ -762,14 +762,20 @@ export const createProductCheckoutSession = async (productKey) => {
 };
 
 // Milestone 3.1 course player (Module 6).
-export const getCourseDetail = async (courseId) => {
-  try { const res = await api.get(`/courses/${courseId}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+export const getCourseDetail = async (courseId, preview = false) => {
+  try { const res = await api.get(`/courses/${courseId}`, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
-export const markCourseLessonComplete = async (courseId, lessonId) => {
-  try { const res = await api.post(`/courses/${courseId}/progress`, { lessonId }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+export const markCourseLessonComplete = async (courseId, lessonId, preview = false) => {
+  try { const res = await api.post(`/courses/${courseId}/progress`, { lessonId }, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
 
 // Milestone 3.1 AI Readiness Assessment chat (Modules 8, 10, 11).
+export const getAssessmentPreview = async () => {
+  try { const res = await api.get('/assessment-preview'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const createAssessmentPreview = async () => {
+  try { const res = await api.post('/assessment-preview'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
 export const getAssessmentDetail = async (assessmentId) => {
   try { const res = await api.get(`/assessments/${assessmentId}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };

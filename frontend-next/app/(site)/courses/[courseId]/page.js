@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import { getCourseDetail, getMe, markCourseLessonComplete } from '../../../../lib/apiClient';
 
@@ -26,6 +27,7 @@ function CoursePlayerContent() {
   const [moduleProgress, setModuleProgress] = useState([]);
   const [activeLessonId, setActiveLessonId] = useState(null);
   const [marking, setMarking] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   const completedLessonIds = useMemo(() => {
     const set = new Set();
@@ -36,7 +38,9 @@ function CoursePlayerContent() {
   async function load() {
     setLoading(true);
     setError('');
-    const result = await getCourseDetail(courseId);
+    const isPreview = new URLSearchParams(window.location.search).get('preview') === '1';
+    setPreview(isPreview);
+    const result = await getCourseDetail(courseId, isPreview);
     if (result?.error) {
       setError(result.error);
       setLoading(false);
@@ -79,7 +83,7 @@ function CoursePlayerContent() {
   async function handleMarkComplete() {
     if (!activeLessonId) return;
     setMarking(true);
-    const result = await markCourseLessonComplete(courseId, activeLessonId);
+    const result = await markCourseLessonComplete(courseId, activeLessonId, preview);
     setMarking(false);
     if (result?.error) {
       setError(result.error);
@@ -113,7 +117,8 @@ function CoursePlayerContent() {
         }
       `}</style>
       <div className="wrap">
-        <h1 className="h2" style={{ marginBottom: 24 }}>{course.title}</h1>
+        <h1 className="h2" style={{ marginBottom: 24 }}>{course.title}{preview ? ' Preview' : ''}</h1>
+        {preview && <p style={{ marginBottom: 24 }}><Link href="/assessment-preview">Back to your preview</Link> · No payment required</p>}
         <div className="course-player">
           <nav aria-label="Course modules">
             {(course.modules || []).map((courseModule) => (

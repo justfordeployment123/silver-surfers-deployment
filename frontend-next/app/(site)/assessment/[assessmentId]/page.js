@@ -136,7 +136,12 @@ function AssessmentContent() {
         .assessment-disclosure { border: 1px solid var(--sandd); border-radius: var(--rl); padding: 28px; background: var(--surface); }
       `}</style>
       <div className="assessment-page">
-        <h1 className="h2" style={{ marginBottom: 24 }}>AI Readiness Assessment</h1>
+        <h1 className="h2" style={{ marginBottom: 24 }}>
+          {assessment.source === 'preview' ? 'AI Readiness Assessment Preview' : 'AI Readiness Assessment'}
+        </h1>
+        {assessment.source === 'preview' && (
+          <p style={{ marginBottom: 24 }}><Link href="/assessment-preview">Back to your preview</Link> · No payment required</p>
+        )}
 
         {error && <p style={{ color: '#c0392b' }}>{error}</p>}
 

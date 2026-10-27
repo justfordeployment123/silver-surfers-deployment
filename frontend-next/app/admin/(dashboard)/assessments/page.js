@@ -229,7 +229,10 @@ export default function AdminAssessments() {
                 ) : (
                   items.map((item) => (
                     <tr key={item._id}>
-                      <td>{customerLabel(item.user)}</td>
+                      <td>
+                        {customerLabel(item.user)}
+                        {item.source === 'preview' && <span className="pill pill-t" style={{ marginLeft: 8 }}>Preview</span>}
+                      </td>
                       <td><span className={`pill ${STATUS_PILL[item.status] || 'pill-gr'}`}>{item.status}</span></td>
                       <td>{item.aiReport?.status || '—'}</td>
                       <td>{item.needsAdminAttention ? <span className="pill pill-r">Needs attention</span> : '—'}</td>
@@ -265,7 +268,9 @@ export default function AdminAssessments() {
           <div className="ap-modal">
             <div className="ap-modal-hdr">
               <div>
-                <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--ink)', marginBottom: '3px' }}>Assessment Review</h3>
+                <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--ink)', marginBottom: '3px' }}>
+                  Assessment Review {detail.source === 'preview' && <span className="pill pill-t">Preview</span>}
+                </h3>
                 <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>{customerLabel(detail.userId)}</p>
               </div>
               <button onClick={() => setDetail(null)} className="ap-modal-close">
