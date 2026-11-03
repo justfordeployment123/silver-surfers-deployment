@@ -9,6 +9,7 @@ import User from '../../models/user.model.ts';
 import { buildCandidateUrls, precheckCandidateUrl } from '../audits/precheck.service.ts';
 import { getAuditQueues } from '../audits/audits.runtime.ts';
 import { getPlanById } from '../billing/subscription-plans.ts';
+import { addAccountStatusToScans, getUserIdsForAccountStatus, parseAccountStatusFilter } from './admin-account-status.ts';
 
 const MANAGEABLE_SUBSCRIPTION_STATUSES = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete', 'paused'];
 const TERMINAL_STRIPE_SUBSCRIPTION_STATUSES = new Set(['canceled', 'incomplete_expired']);
@@ -339,6 +340,7 @@ export async function getSubscriptionScans(request: Request, response: Response)
     const limit = Math.min(Number(request.query.limit) || 100, 500);
     const search = request.query.search;
     const planId = request.query.planId;
+    const accountStatus = parseAccountStatusFilter(request.query.accountStatus);
     const sortBy = typeof request.query.sortBy === 'string' ? request.query.sortBy : 'createdAt';
     const sortOrder = request.query.sortOrder === 'asc' ? 1 : -1;
     const skip = (page - 1) * limit;
@@ -346,6 +348,9 @@ export async function getSubscriptionScans(request: Request, response: Response)
     const query: Record<string, unknown> = { planId: { $ne: null } };
     if (planId && planId !== 'all') {
       query.planId = planId;
+    }
+    if (accountStatus) {
+      query.user = { $in: await getUserIdsForAccountStatus(accountStatus) };
     }
     if (search) {
       const regex = { $regex: search, $options: 'i' };
@@ -385,7 +390,7 @@ export async function getSubscriptionScans(request: Request, response: Response)
 
     response.json({
       success: true,
-      items,
+      items: await addAccountStatusToScans(items as Array<Record<string, unknown>>),
       total,
       page,
       limit,

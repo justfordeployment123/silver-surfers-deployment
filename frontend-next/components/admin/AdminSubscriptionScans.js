@@ -58,6 +58,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [accountStatusFilter, setAccountStatusFilter] = useState('all');
   const [sortBy, setSortBy] = useState('createdAt');
   const [sortOrder, setSortOrder] = useState('desc');
   const [refreshing, setRefreshing] = useState(false);
@@ -66,7 +67,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
   const title = PLAN_TITLES[planType] || 'All Subscription Scans';
   const PlanIcon = PLAN_ICONS[planType] || IconSearch;
 
-  useEffect(() => { loadScans(); }, [sortBy, sortOrder, planType]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadScans(); }, [sortBy, sortOrder, planType, accountStatusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const t = setTimeout(() => { if (searchQuery !== undefined) loadScans(); }, 500);
@@ -82,6 +83,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
         limit: 100,
         search: searchQuery || undefined,
         planId: planType !== 'all' ? planType : undefined,
+        accountStatus: accountStatusFilter !== 'all' ? accountStatusFilter : undefined,
         sortBy, sortOrder
       };
       const result = await adminListSubscriptionScans(params);
@@ -104,10 +106,10 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
   const handleRefresh = async () => { setRefreshing(true); await loadScans(); setRefreshing(false); };
 
   const handleExport = () => {
-    const headers = ['URL', 'Email', 'First Name', 'Last Name', 'Plan', 'Device', 'Score', 'Status', 'Scan Date'];
+    const headers = ['URL', 'Email', 'First Name', 'Last Name', 'Plan', 'Account Status', 'Device', 'Score', 'Status', 'Scan Date'];
     const csvData = scans.map(scan => [
       scan.url, scan.email, scan.firstName || '', scan.lastName || '',
-      scan.planId || 'N/A', scan.device || 'N/A',
+      scan.planId || 'N/A', scan.accountStatus || 'N/A', scan.device || 'N/A',
       scan.score !== undefined ? `${Math.round(scan.score)}%` : 'N/A',
       scan.status, new Date(scan.createdAt).toLocaleString()
     ]);
@@ -143,6 +145,12 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
     if (status === 'processing') return <span className="pill pill-t">processing</span>;
     if (status === 'queued') return <span className="pill pill-y">queued</span>;
     return <span className="pill pill-r">{status || 'unknown'}</span>;
+  };
+
+  const accountStatusPill = (status) => {
+    if (status === 'suspended') return <span className="pill pill-r">suspended</span>;
+    if (status === 'active') return <span className="pill pill-g">active</span>;
+    return <span className="pill pill-gr">not linked</span>;
   };
 
   if (loading) {
@@ -235,7 +243,17 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
               <option value="url-asc">URL A-Z</option>
               <option value="url-desc">URL Z-A</option>
             </select>
-            <button onClick={() => { setSearchQuery(''); setSortBy('createdAt'); setSortOrder('desc'); }} className="ap-btn-s">
+            <select
+              value={accountStatusFilter}
+              onChange={(e) => setAccountStatusFilter(e.target.value)}
+              className="ap-sel"
+              aria-label="Filter scans by account status"
+            >
+              <option value="all">All Account Statuses</option>
+              <option value="active">Active Accounts</option>
+              <option value="suspended">Suspended Accounts</option>
+            </select>
+            <button onClick={() => { setSearchQuery(''); setAccountStatusFilter('all'); setSortBy('createdAt'); setSortOrder('desc'); }} className="ap-btn-s">
               Clear Filters
             </button>
           </div>
@@ -256,6 +274,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
                     <th><button className="ap-th-btn" onClick={() => handleSort('email')}>Email <SortArrow field="email" /></button></th>
                     <th>Name</th>
                     <th>Plan</th>
+                    <th>Account Status</th>
                     <th>Device</th>
                     <th><button className="ap-th-btn" onClick={() => handleSort('score')}>Score <SortArrow field="score" /></button></th>
                     <th>Status</th>
@@ -273,6 +292,7 @@ const AdminSubscriptionScans = ({ planType = 'all' }) => {
                       <td>{scan.email}</td>
                       <td style={{ whiteSpace: 'nowrap' }}>{[scan.firstName, scan.lastName].filter(Boolean).join(' ') || 'N/A'}</td>
                       <td>{planPill(scan.planId)}</td>
+                      <td>{accountStatusPill(scan.accountStatus)}</td>
                       <td style={{ textTransform: 'capitalize' }}>{scan.device || 'All'}</td>
                       <td>
                         {scan.score !== undefined && scan.score !== null ? (

@@ -28,6 +28,7 @@ import {
   updateUserRole,
   updateUserSubscription,
 } from './admin.controller.ts';
+import { addAccountStatusToScans, getUserIdsForAccountStatus, parseAccountStatusFilter } from './admin-account-status.ts';
 
 const router = Router();
 
@@ -260,12 +261,16 @@ router.delete('/faqs/:id', asyncHandler(async (request, response) => {
 }));
 
 router.get('/analysis', asyncHandler(async (request, response) => {
-  const { email, url, status, emailStatus, limit, page } = request.query ?? {};
+  const { email, url, status, emailStatus, accountStatus: accountStatusQuery, limit, page } = request.query ?? {};
   const query: Record<string, unknown> = {};
   if (email) query.email = String(email);
   if (url) query.url = String(url);
   if (status) query.status = String(status);
   if (emailStatus) query.emailStatus = String(emailStatus);
+  const accountStatus = parseAccountStatusFilter(accountStatusQuery);
+  if (accountStatus) {
+    query.user = { $in: await getUserIdsForAccountStatus(accountStatus) };
+  }
 
   if (page === undefined) {
     // Back-compat: old callers pass only `limit` and expect a plain array,
@@ -276,7 +281,13 @@ router.get('/analysis', asyncHandler(async (request, response) => {
       AnalysisRecord.find(query).sort({ createdAt: -1 }).limit(cappedLimit).lean(),
       AnalysisRecord.countDocuments(query),
     ]);
-    response.json({ items, total, page: 1, limit: cappedLimit, pages: Math.ceil(total / cappedLimit) || 1 });
+    response.json({
+      items: await addAccountStatusToScans(items as Array<Record<string, unknown>>),
+      total,
+      page: 1,
+      limit: cappedLimit,
+      pages: Math.ceil(total / cappedLimit) || 1,
+    });
     return;
   }
 
@@ -289,7 +300,13 @@ router.get('/analysis', asyncHandler(async (request, response) => {
     AnalysisRecord.countDocuments(query),
   ]);
 
-  response.json({ items, total, page: pageNum, limit: pageLimit, pages: Math.ceil(total / pageLimit) || 1 });
+  response.json({
+    items: await addAccountStatusToScans(items as Array<Record<string, unknown>>),
+    total,
+    page: pageNum,
+    limit: pageLimit,
+    pages: Math.ceil(total / pageLimit) || 1,
+  });
 }));
 
 router.get('/analysis/:taskId', asyncHandler(async (request, response) => {

@@ -42,6 +42,7 @@ export default function AdminAnalysis() {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [accountStatusFilter, setAccountStatusFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ total: 0, page: 1, limit: 50, pages: 1 });
@@ -49,7 +50,7 @@ export default function AdminAnalysis() {
   useEffect(() => {
     loadAnalysis();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter, currentPage]);
+  }, [statusFilter, accountStatusFilter, currentPage]);
 
   const loadAnalysis = async () => {
     try {
@@ -57,6 +58,7 @@ export default function AdminAnalysis() {
       setError('');
       const params = { page: currentPage, limit: 50 };
       if (statusFilter && statusFilter !== 'all') params.status = statusFilter;
+      if (accountStatusFilter && accountStatusFilter !== 'all') params.accountStatus = accountStatusFilter;
       const result = await adminListAnalysis(params);
       if (result.error) {
         setError(result.error);
@@ -121,6 +123,12 @@ export default function AdminAnalysis() {
     if (emailStatus === 'failed') return <span className="pill pill-r">email failed</span>;
     if (emailStatus === 'sending') return <span className="pill pill-t">email sending</span>;
     return <span className="pill pill-gr">email {emailStatus || 'pending'}</span>;
+  };
+
+  const getAccountStatusPill = (accountStatus) => {
+    if (accountStatus === 'suspended') return <span className="pill pill-r">account suspended</span>;
+    if (accountStatus === 'active') return <span className="pill pill-g">account active</span>;
+    return <span className="pill pill-gr">no linked account</span>;
   };
 
   const formatDate = (dateString) => {
@@ -203,7 +211,17 @@ export default function AdminAnalysis() {
               <option value="completed_with_warnings">Completed with warnings</option>
               <option value="failed">Failed</option>
             </select>
-            <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); setCurrentPage(1); }} className="ap-btn-s">
+            <select
+              value={accountStatusFilter}
+              onChange={(e) => { setAccountStatusFilter(e.target.value); setCurrentPage(1); }}
+              className="ap-sel"
+              aria-label="Filter scans by account status"
+            >
+              <option value="all">All Account Statuses</option>
+              <option value="active">Active Accounts</option>
+              <option value="suspended">Suspended Accounts</option>
+            </select>
+            <button onClick={() => { setSearchQuery(''); setStatusFilter('all'); setAccountStatusFilter('all'); setCurrentPage(1); }} className="ap-btn-s">
               Clear Filters
             </button>
           </div>
@@ -231,6 +249,7 @@ export default function AdminAnalysis() {
                         <span style={{ fontWeight: 600, fontSize: '16px', color: 'var(--ink)', wordBreak: 'break-all' }}>{record.url}</span>
                         {getStatusPill(record.status)}
                         {getEmailPill(record.emailStatus)}
+                        {getAccountStatusPill(record.accountStatus)}
                       </div>
                       <div style={{ fontSize: '16px', color: 'var(--ink6)', display: 'flex', flexWrap: 'wrap', gap: '16px', marginBottom: '4px' }}>
                         <span>Email: {record.email}</span>
