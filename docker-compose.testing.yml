@@ -11,6 +11,7 @@ services:
             args:
                 - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
                 - NEXT_PUBLIC_GOOGLE_CLIENT_ID=${NEXT_PUBLIC_GOOGLE_CLIENT_ID:-}
+                - NEXT_PUBLIC_GA_MEASUREMENT_ID=${NEXT_PUBLIC_GA_MEASUREMENT_ID:-G-8J210PJ85T}
         container_name: ss-frontend
         restart: unless-stopped
         ports:
