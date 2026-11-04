@@ -31,6 +31,13 @@ export default function ChatInput({ question, onSubmit, disabled }) {
     onSubmit(trimmed);
   }
 
+  function handleComposerKeyDown(e) {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      submitText(e);
+    }
+  }
+
   function submitDirect(text) {
     if (disabled || !text) return;
     onSubmit(text);
@@ -56,6 +63,9 @@ export default function ChatInput({ question, onSubmit, disabled }) {
         background: var(--surface);
       }
       .chat-input-row textarea { min-height: 72px; resize: vertical; }
+      .chat-composer { display: grid; gap: 8px; margin-top: 8px; }
+      .chat-composer .chat-input-row { margin-top: 0; }
+      .chat-input-hint, .chat-scale-legend { margin: 0; color: var(--ink3); font-size: 13px; }
       .chat-option-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
       .chat-option-btn {
         padding: 10px 16px;
@@ -68,6 +78,10 @@ export default function ChatInput({ question, onSubmit, disabled }) {
       }
       .chat-option-btn:hover { border-color: var(--t6); color: var(--t6); }
       .chat-option-btn.selected { background: var(--t6); border-color: var(--t6); color: #fff; }
+      @media (max-width: 560px) {
+        .chat-composer .chat-input-row { flex-direction: column; }
+        .chat-composer .btn { width: 100%; }
+      }
     `}</style>
   );
 
@@ -92,6 +106,7 @@ export default function ChatInput({ question, onSubmit, disabled }) {
     return (
       <div>
         {sharedStyle}
+        <p className="chat-scale-legend">{question.notes || '1 = lowest, 5 = highest'}</p>
         <div className="chat-option-list">
           {[1, 2, 3, 4, 5].map((n) => (
             <button
@@ -163,32 +178,39 @@ export default function ChatInput({ question, onSubmit, disabled }) {
 
   if (question.inputType === 'textarea') {
     return (
-      <form className="chat-input-row" onSubmit={submitText}>
+      <form className="chat-composer" onSubmit={submitText}>
         {sharedStyle}
-        <textarea
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          disabled={disabled}
-          aria-label={question.prompt}
-        />
-        <button type="submit" className="btn btn-p" disabled={disabled || !value.trim()}>Send</button>
+        <div className="chat-input-row">
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={handleComposerKeyDown}
+            disabled={disabled}
+            aria-label={question.prompt}
+          />
+          <button type="submit" className="btn btn-p" disabled={disabled || !value.trim()}>Send answer</button>
+        </div>
+        <p className="chat-input-hint">Enter adds a new line. Ctrl + Enter sends your answer.</p>
       </form>
     );
   }
 
-  // text, ranking, matrix, contact, and any select/multiselect with no
-  // listed options — free text is always a valid, fully-supported answer.
+  // Text and fallback question types use the same composer behavior as
+  // multi-line answers so Enter is consistent throughout the interview.
   return (
-    <form className="chat-input-row" onSubmit={submitText}>
+    <form className="chat-composer" onSubmit={submitText}>
       {sharedStyle}
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        disabled={disabled}
-        aria-label={question.prompt}
-      />
-      <button type="submit" className="btn btn-p" disabled={disabled || !value.trim()}>Send</button>
+      <div className="chat-input-row">
+        <textarea
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={handleComposerKeyDown}
+          disabled={disabled}
+          aria-label={question.prompt}
+        />
+        <button type="submit" className="btn btn-p" disabled={disabled || !value.trim()}>Send answer</button>
+      </div>
+      <p className="chat-input-hint">Enter adds a new line. Ctrl + Enter sends your answer.</p>
     </form>
   );
 }
