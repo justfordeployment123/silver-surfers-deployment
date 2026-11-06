@@ -13,7 +13,7 @@
 // revise question wording later — each Assessment record should store which
 // version it was answered against so old and new reports stay comparable.
 
-export const QUESTIONNAIRE_VERSION = 1;
+export const QUESTIONNAIRE_VERSION = 2;
 
 export type AssessmentInputType =
   | 'text'       // single-line free text
@@ -77,10 +77,33 @@ export const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
   {
     id: 3,
     section: 'Business Profile',
-    prompt: 'Business type',
+    prompt: 'Which industry best describes your business?',
     inputType: 'select',
-    options: [], // source doc says "[Select one]" but does not list the choices
-    notes: 'Options not specified in the source requirements doc — confirm the actual list with the client before Module 11.',
+    options: [
+      { value: 'automotive_mobility_transportation', label: 'Automotive - Mobility & Transportation' },
+      { value: 'professional_business_services', label: 'Professional & Business Services' },
+      { value: 'consumer_products_beauty_wellness', label: 'Consumer Products - Beauty & Wellness' },
+      { value: 'digital_health_telehealth_remote_care', label: 'Digital Health - Telehealth & Remote Care' },
+      { value: 'education_learning_community', label: 'Education - Learning & Community' },
+      { value: 'financial_services_banking_brokerage', label: 'Financial Services - Banking & Brokerage' },
+      { value: 'food_grocery_restaurants', label: 'Food - Grocery & Restaurants' },
+      { value: 'government_public_services', label: 'Government & Public Services' },
+      { value: 'health_insurance_medicare', label: 'Health Insurance & Medicare' },
+      { value: 'healthcare_providers_health_systems', label: 'Healthcare Providers & Health Systems' },
+      { value: 'home_housing_home_services', label: 'Home - Housing & Home Services' },
+      { value: 'media_news_entertainment', label: 'Media - News & Entertainment' },
+      { value: 'nonprofits_advocacy_caregiving', label: 'Nonprofits - Advocacy & Caregiving' },
+      { value: 'payments_fintech_digital_identity', label: 'Payments - Fintech & Digital Identity' },
+      { value: 'pharma_life_sciences_medical_devices', label: 'Pharma - Life Sciences & Medical Devices' },
+      { value: 'pharmacy_retail_health_clinics', label: 'Pharmacy - Retail Health & Clinics' },
+      { value: 'retail_ecommerce', label: 'Retail & E-Commerce' },
+      { value: 'senior_living_aging_services', label: 'Senior Living & Aging Services' },
+      { value: 'technology_telecom_consumer_electronics', label: 'Technology - Telecom & Consumer Electronics' },
+      { value: 'travel_hospitality_leisure', label: 'Travel - Hospitality & Leisure' },
+      { value: 'other', label: 'Other (specify)' },
+      { value: 'not_sure', label: 'Not sure' },
+    ],
+    notes: 'Industry list supplied by the client on 2026-11-06. Business (Misc.) was renamed to Professional & Business Services per the revised specification.',
   },
   {
     id: 4,

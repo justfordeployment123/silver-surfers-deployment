@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 // Milestone 3.1 Developer Plan, Module 11. Adapts to the current question's
 // inputType. Only text/textarea/number/scale get a dedicated control;
-// select/multiselect/ranking render as buttons/checkboxes when the question
+// select/multiselect/ranking render as dropdowns/buttons when the question
 // actually has options, otherwise (and for matrix/contact, which have no
 // simple single-control shape) this falls back to a plain textarea — the
 // backend already accepts any free-text answerText regardless of
@@ -13,10 +13,12 @@ import { useEffect, useState } from 'react';
 // which is exactly the case this fallback exists for.
 export default function ChatInput({ question, onSubmit, disabled }) {
   const [value, setValue] = useState('');
+  const [otherValue, setOtherValue] = useState('');
   const [selected, setSelected] = useState([]);
 
   useEffect(() => {
     setValue('');
+    setOtherValue('');
     setSelected([]);
   }, [question?.id]);
 
@@ -43,6 +45,18 @@ export default function ChatInput({ question, onSubmit, disabled }) {
     onSubmit(text);
   }
 
+  function submitSelect(e) {
+    e.preventDefault();
+    if (disabled || !value) return;
+    if (value === 'Other (specify)') {
+      const detail = otherValue.trim();
+      if (!detail) return;
+      onSubmit(`Other: ${detail}`);
+      return;
+    }
+    onSubmit(value);
+  }
+
   function toggleMultiselect(label) {
     setSelected((prev) => (prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label]));
   }
@@ -52,6 +66,7 @@ export default function ChatInput({ question, onSubmit, disabled }) {
       .chat-input-row { display: flex; gap: 10px; margin-top: 8px; }
       .chat-input-row input[type="text"],
       .chat-input-row input[type="number"],
+      .chat-input-row select,
       .chat-input-row textarea {
         flex: 1;
         padding: 12px 14px;
@@ -63,6 +78,7 @@ export default function ChatInput({ question, onSubmit, disabled }) {
         background: var(--surface);
       }
       .chat-input-row textarea { min-height: 72px; resize: vertical; }
+      .chat-input-row select { min-width: 0; }
       .chat-composer { display: grid; gap: 8px; margin-top: 8px; }
       .chat-composer .chat-input-row { margin-top: 0; }
       .chat-input-hint, .chat-scale-legend { margin: 0; color: var(--ink3); font-size: 13px; }
@@ -125,23 +141,49 @@ export default function ChatInput({ question, onSubmit, disabled }) {
   }
 
   if (question.inputType === 'select' && hasOptions) {
+    const needsOtherDetail = value === 'Other (specify)';
+
     return (
-      <div>
+      <form className="chat-composer" onSubmit={submitSelect}>
         {sharedStyle}
-        <div className="chat-option-list">
-          {question.options.map((option) => (
-            <button
-              key={option.value}
-              type="button"
-              className="chat-option-btn"
-              disabled={disabled}
-              onClick={() => submitDirect(option.label)}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="chat-input-row">
+          <select
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            disabled={disabled}
+            aria-label={question.prompt}
+          >
+            <option value="">Select an option</option>
+            {question.options.map((option) => (
+              <option
+                key={option.value}
+                value={option.label}
+              >
+                {option.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            className="btn btn-p"
+            disabled={disabled || !value || (needsOtherDetail && !otherValue.trim())}
+          >
+            Send answer
+          </button>
         </div>
-      </div>
+        {needsOtherDetail && (
+          <div className="chat-input-row">
+            <input
+              type="text"
+              value={otherValue}
+              onChange={(e) => setOtherValue(e.target.value)}
+              disabled={disabled}
+              aria-label="Describe the other industry"
+              placeholder="Describe your industry"
+            />
+          </div>
+        )}
+      </form>
     );
   }
 
