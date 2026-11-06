@@ -1,8 +1,7 @@
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import Assessment from '../../models/assessment.model.ts';
-import { requestAiTextWithFallback, type AiProvider } from '../ai/ai-text-provider.ts';
-import { extractJsonObject } from './anthropic-text.ts';
+import { extractJsonObject, extractResponseText } from './anthropic-text.ts';
 import { getQuestionById } from './assessment-questions.ts';
 
 const assessmentReportLogger = logger.child('feature:assessments:assessment-report');
@@ -87,10 +86,14 @@ function buildPromptPayload(answers: StructuredAnswer[]): string {
   return JSON.stringify(withQuestionText, null, 2);
 }
 
-async function requestAiSections(
+async function requestAnthropicSections(
   answers: StructuredAnswer[],
   fallback: AssessmentReportSections,
-): Promise<{ sections: AssessmentReportSections; provider: AiProvider }> {
+): Promise<AssessmentReportSections> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
+
+  try {
     const systemPrompt = [
       'You are a senior business consultant writing an AI Readiness Assessment report for a small business, based on their intake answers.',
       'Write for a business owner, not a technologist. Tone: confident, specific, practical.',
@@ -110,8 +113,31 @@ async function requestAiSections(
       buildPromptPayload(answers),
     ].join('\n');
 
-    const result = await requestAiTextWithFallback({ systemPrompt, userPrompt, maxTokens: 3000, temperature: 0.4 });
-    const jsonText = extractJsonObject(result.text);
+    const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': env.anthropicApiKey || '',
+        'anthropic-version': env.anthropicVersion,
+      },
+      body: JSON.stringify({
+        model: env.anthropicModel,
+        max_tokens: 3000,
+        temperature: 0.4,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
+    }
+
+    const payload = await response.json();
+    const outputText = extractResponseText(payload);
+    const jsonText = extractJsonObject(outputText);
 
     let parsed: Partial<AssessmentReportSections>;
     try {
@@ -120,7 +146,7 @@ async function requestAiSections(
       throw new Error(`Failed to parse model JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. Preview: ${jsonText.slice(0, 400)}`);
     }
 
-    const sections = {
+    return {
       summary: typeof parsed.summary === 'string' && parsed.summary.trim() ? parsed.summary.trim() : fallback.summary,
       hoursReclaimable: parsed.hoursReclaimable?.estimate ? parsed.hoursReclaimable as AssessmentReportSections['hoursReclaimable'] : fallback.hoursReclaimable,
       impactEffortPrioritization: Array.isArray(parsed.impactEffortPrioritization) && parsed.impactEffortPrioritization.length > 0
@@ -131,7 +157,9 @@ async function requestAiSections(
         : fallback.toolRecommendations,
       estimatedFinancialReturn: parsed.estimatedFinancialReturn?.estimate ? parsed.estimatedFinancialReturn as AssessmentReportSections['estimatedFinancialReturn'] : fallback.estimatedFinancialReturn,
     };
-    return { sections, provider: result.provider };
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // Milestone 3.1 Developer Plan, Module 12. Callable on demand — triggered
@@ -154,19 +182,17 @@ export async function generateAssessmentReport(assessmentId: string): Promise<vo
 
   let sections = fallback;
   let status: 'generated' | 'fallback' = 'fallback';
-  let provider: 'openai' | 'anthropic' | 'local' = 'local';
+  let provider: 'anthropic' | 'local' = 'local';
 
-  if (env.openAiApiKey || env.anthropicApiKey) {
+  if (env.anthropicApiKey) {
     try {
-      const result = await requestAiSections(answers, fallback);
-      sections = result.sections;
+      sections = await requestAnthropicSections(answers, fallback);
       status = 'generated';
-      provider = result.provider;
+      provider = 'anthropic';
     } catch (error) {
-      assessmentReportLogger.warn('AI assessment report generation failed. Falling back to local summary.', {
+      assessmentReportLogger.warn('Claude assessment report generation failed. Falling back to local summary.', {
         assessmentId,
-        openAiModel: env.openAiModel,
-        anthropicFallbackModel: env.anthropicModel,
+        model: env.anthropicModel,
         error: error instanceof Error ? error.message : String(error),
       });
     }

@@ -5,13 +5,12 @@ import type { AnalysisRemediationItem } from './analysis-details.ts';
 import type { WcagMatrixRow } from './wcag-mapping.ts';
 import { WCAG_REMEDIATION_FALLBACKS } from './wcag-remediation-fallbacks.ts';
 import { appendStakeholderDisclaimer } from './report-disclaimers.ts';
-import { requestAiTextWithFallback, type AiProvider } from '../ai/ai-text-provider.ts';
 
 const aiReportingLogger = logger.child('feature:audits:ai-reporting');
 const MAX_AI_FINDING_GUIDANCE = 20;
 
 export type AuditAiReportStatus = 'generated' | 'fallback';
-export type AuditAiReportProvider = 'openai' | 'anthropic' | 'local';
+export type AuditAiReportProvider = 'anthropic' | 'local';
 
 export interface AuditAiReport {
   status: AuditAiReportStatus;
@@ -422,19 +421,17 @@ function extractJsonObject(rawText: string): string {
   return trimmed;
 }
 
-function normalizeAiReport(
+function normalizeAnthropicReport(
   payload: AiAuditReportPayload,
   fallback: AuditAiReport,
-  provider: AiProvider,
-  model: string,
 ): AuditAiReport {
   const topRecommendations = limitRecommendationList(payload.topRecommendations);
   const perFindingGuidance = limitFindingGuidanceList(payload.perFindingGuidance, fallback.perFindingGuidance);
 
   return {
     status: 'generated',
-    provider,
-    model,
+    provider: 'anthropic',
+    model: env.anthropicModel,
     generatedAt: new Date().toISOString(),
     headline: sanitizeSentence(payload.headline, fallback.headline),
     summary: sanitizeSentence(payload.summary, fallback.summary),
@@ -446,7 +443,11 @@ function normalizeAiReport(
   };
 }
 
-async function requestPreferredAuditReport(options: GenerateAuditAiReportOptions, fallback: AuditAiReport): Promise<AuditAiReport> {
+async function requestAnthropicAuditReport(options: GenerateAuditAiReportOptions, fallback: AuditAiReport): Promise<AuditAiReport> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
+
+  try {
     const systemPrompt = [
       'You are a senior accessibility analyst writing executive-level audit reports for the SilverSurfers platform, which evaluates websites for older-adult usability (50+ users).',
       'Write for a business stakeholder, not a developer. Tone: confident, specific, plainspoken.',
@@ -478,33 +479,61 @@ async function requestPreferredAuditReport(options: GenerateAuditAiReportOptions
       buildPromptPayload(options),
     ].join('\n');
 
-    const result = await requestAiTextWithFallback({ systemPrompt, userPrompt, maxTokens: 4000, temperature: 0.4 });
-    const jsonText = extractJsonObject(result.text);
+    const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': env.anthropicApiKey || '',
+        'anthropic-version': env.anthropicVersion,
+      },
+      body: JSON.stringify({
+        model: env.anthropicModel,
+        max_tokens: 4000,
+        temperature: 0.4,
+        system: systemPrompt,
+        messages: [
+          { role: 'user', content: userPrompt },
+        ],
+      }),
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => '');
+      throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
+    }
+
+    const payload = await response.json();
+    const outputText = extractResponseText(payload);
+    const jsonText = extractJsonObject(outputText);
+    const finishReason = payload?.choices?.[0]?.finish_reason;
 
     let parsed: AiAuditReportPayload;
     try {
       parsed = JSON.parse(jsonText) as AiAuditReportPayload;
     } catch (parseError) {
       throw new Error(
-        `Failed to parse model JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. Preview: ${jsonText.slice(0, 400)}`,
+        `Failed to parse model JSON (finish_reason=${finishReason}): ${parseError instanceof Error ? parseError.message : String(parseError)}. Preview: ${jsonText.slice(0, 400)}`,
       );
     }
 
-    return normalizeAiReport(parsed, fallback, result.provider, result.model);
+    return normalizeAnthropicReport(parsed, fallback);
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 export async function generateAuditAiReport(options: GenerateAuditAiReportOptions): Promise<AuditAiReport> {
   const fallback = buildFallbackAuditAiReport(options);
 
   let report = fallback;
-  if (env.openAiApiKey || env.anthropicApiKey) {
+  if (env.anthropicApiKey) {
     try {
-      report = await requestPreferredAuditReport(options, fallback);
+      report = await requestAnthropicAuditReport(options, fallback);
     } catch (error) {
-      aiReportingLogger.warn('AI audit summary generation failed. Falling back to local narrative.', {
+      aiReportingLogger.warn('Claude audit summary generation failed. Falling back to local narrative.', {
         url: options.url,
-        openAiModel: env.openAiModel,
-        anthropicFallbackModel: env.anthropicModel,
+        model: env.anthropicModel,
         error: error instanceof Error ? error.message : String(error),
       });
       report = fallback;
@@ -531,7 +560,7 @@ export async function generateWcagRemediations(
     (row) => row.status === 'fail' || (row.status === 'needs-review' && !row.manualReviewRequired),
   );
 
-  if (actionableCriteria.length === 0 || (!env.openAiApiKey && !env.anthropicApiKey)) {
+  if (actionableCriteria.length === 0 || !env.anthropicApiKey) {
     return fallback;
   }
 
@@ -557,8 +586,40 @@ export async function generateWcagRemediations(
       JSON.stringify(criteriaList, null, 2),
     ].join('\n');
 
-    const providerResult = await requestAiTextWithFallback({ systemPrompt, userPrompt, maxTokens: 2000, temperature: 0.2 });
-    const jsonText = extractJsonObject(providerResult.text);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
+
+    let responseText: string;
+    try {
+      const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': env.anthropicApiKey || '',
+          'anthropic-version': env.anthropicVersion,
+        },
+        body: JSON.stringify({
+          model: env.anthropicModel,
+          max_tokens: 2000,
+          temperature: 0.2,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
+      }
+
+      const payload = await response.json();
+      responseText = extractResponseText(payload);
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    const jsonText = extractJsonObject(responseText);
     const parsed = JSON.parse(jsonText) as Record<string, unknown>;
 
     const result = { ...fallback };
