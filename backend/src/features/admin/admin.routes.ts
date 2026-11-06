@@ -29,10 +29,18 @@ import {
   updateUserSubscription,
 } from './admin.controller.ts';
 import { addAccountStatusToScans, getUserIdsForAccountStatus, parseAccountStatusFilter } from './admin-account-status.ts';
+import { getAdminCourse, listAdminCourses, updateAdminCourse } from './admin-courses.controller.ts';
 
 const router = Router();
 
 router.use(authRequired, adminRequired);
+
+// Course authoring is intentionally behind both authentication and the admin
+// role check above. Updating the complete nested structure atomically prevents
+// customers from seeing a partially reordered course.
+router.get('/courses', asyncHandler(listAdminCourses));
+router.get('/courses/:idOrSlug', asyncHandler(getAdminCourse));
+router.put('/courses/:idOrSlug', asyncHandler(updateAdminCourse));
 
 // Pagination is opt-in via `page` here too (see content.routes.ts's public
 // /blogs for the same reasoning) — the still-running CRA admin pages call
