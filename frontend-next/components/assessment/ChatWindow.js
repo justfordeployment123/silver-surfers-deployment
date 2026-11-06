@@ -7,7 +7,7 @@ import ChatInput from './ChatInput';
 // Milestone 3.1 Developer Plan, Module 11. Turn-based, not streaming
 // (Architecture Decision 2.4) — onSend awaits a single POST /respond and
 // the parent re-renders with the updated transcript, no WebSocket/SSE.
-export default function ChatWindow({ transcript, currentQuestion, onSend, sending }) {
+export default function ChatWindow({ transcript, currentQuestion, answerCount, onBack, onSend, sending }) {
   const scrollRef = useRef(null);
   const questionNumber = Number(currentQuestion?.id || 0);
   const totalQuestions = 36;
@@ -58,6 +58,13 @@ export default function ChatWindow({ transcript, currentQuestion, onSend, sendin
           margin-bottom: 16px;
         }
         .chat-thinking { font-size: 15px; color: var(--ink3); font-style: italic; margin-top: 4px; }
+        .chat-actions { display: flex; align-items: flex-end; gap: 12px; }
+        .chat-actions > :last-child { flex: 1; }
+        .chat-back { flex: 0 0 auto; margin-bottom: 0; }
+        @media (max-width: 560px) {
+          .chat-actions { align-items: stretch; flex-direction: column; }
+          .chat-back { width: 100%; }
+        }
       `}</style>
 
       {/* Current question is announced here so screen-reader users hear it
@@ -95,7 +102,16 @@ export default function ChatWindow({ transcript, currentQuestion, onSend, sendin
         {sending && <p className="chat-thinking">Thinking…</p>}
       </div>
 
-      {currentQuestion && <ChatInput question={currentQuestion} onSubmit={onSend} disabled={sending} />}
+      {currentQuestion && (
+        <div className="chat-actions">
+          {answerCount > 0 && (
+            <button type="button" className="btn btn-s chat-back" onClick={onBack} disabled={sending}>
+              Back and change answer
+            </button>
+          )}
+          <ChatInput question={currentQuestion} onSubmit={onSend} disabled={sending} />
+        </div>
+      )}
     </div>
   );
 }

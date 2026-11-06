@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import ChatWindow from '../../../../components/assessment/ChatWindow';
-import { getAssessmentDetail, getMe, respondToAssessment, startAssessmentFlow } from '../../../../lib/apiClient';
+import { getAssessmentDetail, getMe, goBackOneAssessmentAnswer, respondToAssessment, startAssessmentFlow } from '../../../../lib/apiClient';
 
 // Milestone 3.1 Developer Plan, Module 11. Real wording from Jackie
 // (client answers 2026-10-09), replacing the earlier placeholder.
@@ -125,6 +125,19 @@ function AssessmentContent() {
     setCurrentQuestion(result.currentQuestion ?? null);
   }
 
+  async function handleBack() {
+    setSending(true);
+    setError('');
+    const result = await goBackOneAssessmentAnswer(assessmentId);
+    setSending(false);
+    if (result?.error) {
+      setError(result.error);
+      return;
+    }
+    setAssessment(result.assessment);
+    setCurrentQuestion(result.currentQuestion);
+  }
+
   if (loading) return <section className="sec"><div className="wrap"><p>Loading…</p></div></section>;
   if (error && !assessment) return <section className="sec"><div className="wrap"><p style={{ color: '#c0392b' }}>{error}</p></div></section>;
   if (!assessment) return null;
@@ -164,6 +177,8 @@ function AssessmentContent() {
           <ChatWindow
             transcript={assessment.transcript || []}
             currentQuestion={currentQuestion}
+            answerCount={assessment.answers?.length || 0}
+            onBack={handleBack}
             onSend={handleSend}
             sending={sending}
           />

@@ -782,6 +782,9 @@ export const getAssessmentDetail = async (assessmentId) => {
 export const startAssessmentFlow = async (assessmentId) => {
   try { const res = await api.post(`/assessments/${assessmentId}/start`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+export const goBackOneAssessmentAnswer = async (assessmentId) => {
+  try { const res = await api.post(`/assessments/${assessmentId}/back`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
 export const respondToAssessment = async (assessmentId, answerText) => {
   try { const res = await api.post(`/assessments/${assessmentId}/respond`, { answerText }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
