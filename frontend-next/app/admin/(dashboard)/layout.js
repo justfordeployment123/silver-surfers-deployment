@@ -96,6 +96,7 @@ const AdminLayout = ({ children }) => {
     { name: 'User Management', href: '/admin/users', icon: IconUsers },
     { name: 'Blog Management', href: '/admin/blog', icon: IconPencil },
     { name: 'FAQ Management', href: '/admin/faqs', icon: IconQuestion },
+    { name: 'Course Management', href: '/admin/courses', icon: IconLayers },
     { name: 'Analysis Queue', href: '/admin/analysis', icon: IconSearch },
     { name: 'Bulk Quick Scans', href: '/admin/bulk-quick-scans', icon: IconLayers },
     { name: 'Quick Scans', href: '/admin/quick-scans', icon: IconBolt },

@@ -420,6 +420,14 @@ export const adminDeleteFaq = async (id) => {
   try { const res = await api.delete(`/admin/faqs/${id}`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
 
+// Admin API: Course management
+export const adminListCourses = async () => {
+  try { const res = await api.get('/admin/courses'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const adminUpdateCourse = async (idOrSlug, payload) => {
+  try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+
 // Admin API: Analysis records
 export const adminListAnalysis = async (params = {}) => {
   try { const res = await api.get('/admin/analysis', { params }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
