@@ -21,7 +21,7 @@ const assessmentTranscriptEntrySchema = new mongoose.Schema({
 // audit AI reports.
 const assessmentAiReportSchema = new mongoose.Schema({
   status: { type: String, enum: ['pending', 'generated', 'fallback'], default: 'pending' },
-  provider: { type: String, enum: ['anthropic', 'local'] },
+  provider: { type: String, enum: ['openai', 'anthropic', 'local'] },
   sections: { type: mongoose.Schema.Types.Mixed },
   generatedAt: { type: Date },
 }, { _id: false });

@@ -3,7 +3,8 @@ import type { Request, Response } from 'express';
 import { env } from '../../config/env.ts';
 import { logger } from '../../config/logger.ts';
 import Assessment from '../../models/assessment.model.ts';
-import { extractJsonObject, extractResponseText } from './anthropic-text.ts';
+import { requestAiTextWithFallback } from '../ai/ai-text-provider.ts';
+import { extractJsonObject } from './anthropic-text.ts';
 import {
   ASSESSMENT_QUESTIONS,
   getQuestionById,
@@ -22,7 +23,7 @@ const assessmentAgentLogger = logger.child('feature:assessments:assessment-agent
 const CLARIFICATION_CAP = 2;
 
 // Only free-text question types get AI clarification-checking at all —
-// asking Claude to judge whether a dropdown selection or a 1-5 scale value
+// asking an AI model to judge whether a dropdown selection or a 1-5 scale value
 // "needs clarification" doesn't make sense, those are already unambiguous
 // by construction. Structured answers always classify as complete.
 const CLASSIFIABLE_INPUT_TYPES = new Set(['text', 'textarea']);
@@ -35,12 +36,9 @@ interface ClassificationResult {
 async function classifyAnswer(question: AssessmentQuestion, answerText: string): Promise<ClassificationResult> {
   const fallback: ClassificationResult = { status: 'complete', clarifyingQuestion: null };
 
-  if (!env.anthropicApiKey) {
+  if (!env.openAiApiKey && !env.anthropicApiKey) {
     return fallback;
   }
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
 
   try {
     const systemPrompt = [
@@ -58,31 +56,8 @@ async function classifyAnswer(question: AssessmentQuestion, answerText: string):
       `Customer's answer: ${answerText}`,
     ].join('\n');
 
-    const response = await fetch(`${env.anthropicBaseUrl.replace(/\/$/, '')}/messages`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': env.anthropicApiKey || '',
-        'anthropic-version': env.anthropicVersion,
-      },
-      body: JSON.stringify({
-        model: env.anthropicModel,
-        max_tokens: 300,
-        temperature: 0.2,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userPrompt }],
-      }),
-      signal: controller.signal,
-    });
-
-    if (!response.ok) {
-      const errorBody = await response.text().catch(() => '');
-      throw new Error(`Anthropic API error (${response.status}): ${errorBody || response.statusText}`);
-    }
-
-    const payload = await response.json();
-    const outputText = extractResponseText(payload);
-    const jsonText = extractJsonObject(outputText);
+    const result = await requestAiTextWithFallback({ systemPrompt, userPrompt, maxTokens: 300, temperature: 0.2 });
+    const jsonText = extractJsonObject(result.text);
     const parsed = JSON.parse(jsonText) as Partial<ClassificationResult>;
 
     if (parsed.status === 'needs_clarification' && typeof parsed.clarifyingQuestion === 'string' && parsed.clarifyingQuestion.trim()) {
@@ -96,8 +71,6 @@ async function classifyAnswer(question: AssessmentQuestion, answerText: string):
       error: error instanceof Error ? error.message : String(error),
     });
     return fallback;
-  } finally {
-    clearTimeout(timeout);
   }
 }
 
