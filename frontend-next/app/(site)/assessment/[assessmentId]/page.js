@@ -178,6 +178,7 @@ function AssessmentContent() {
             transcript={assessment.transcript || []}
             currentQuestion={currentQuestion}
             answerCount={assessment.answers?.length || 0}
+            answers={assessment.answers || []}
             onBack={handleBack}
             onSend={handleSend}
             sending={sending}

@@ -2,24 +2,18 @@
 
 import { useEffect, useState } from 'react';
 
-// Milestone 3.1 Developer Plan, Module 11. Adapts to the current question's
-// inputType. Only text/textarea/number/scale get a dedicated control;
-// select/multiselect/ranking render as dropdowns/buttons when the question
-// actually has options, otherwise (and for matrix/contact, which have no
-// simple single-control shape) this falls back to a plain textarea — the
-// backend already accepts any free-text answerText regardless of
-// inputType, so the fallback is fully functional, just less polished. Six
-// questions (Module 9) have empty option lists in the source doc itself,
-// which is exactly the case this fallback exists for.
-export default function ChatInput({ question, onSubmit, disabled }) {
+// Render the approved controls and retain input when a request needs retry.
+export default function ChatInput({ question, answers = [], onSubmit, disabled }) {
   const [value, setValue] = useState('');
   const [otherValue, setOtherValue] = useState('');
   const [selected, setSelected] = useState([]);
+  const [matrix, setMatrix] = useState({});
 
   useEffect(() => {
     setValue('');
     setOtherValue('');
     setSelected([]);
+    setMatrix({});
   }, [question?.id]);
 
   if (!question) return null;
@@ -100,6 +94,33 @@ export default function ChatInput({ question, onSubmit, disabled }) {
       }
     `}</style>
   );
+
+  if (question.inputType === 'matrix') {
+    const source = answers.find(answer => answer.questionId === question.matrixRowsFromQuestionId)?.text || '';
+    const rows = question.matrixRows || source.split(', ').filter(Boolean);
+    const columns = question.matrixColumns || [];
+    const painLabels = ['Mildly annoying', 'Somewhat annoying', 'Very annoying', 'Very painful', 'Actively holding the business back'];
+    return <form className="chat-composer" onSubmit={event => {
+      event.preventDefault();
+      if (!disabled) onSubmit(JSON.stringify(rows.map(label => ({ function: label, ...(matrix[label] || {}) }))));
+    }}>
+      {sharedStyle}
+      {rows.map(label => <fieldset key={label} style={{border:'1px solid var(--sandd)',borderRadius:12,padding:16,margin:0}} disabled={disabled}>
+        <legend>{label}</legend>
+        {columns.map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
+          {column.label}
+          <div className="chat-input-row">
+            {column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
+              <option value="">Select a pain rating</option>
+              {painLabels.map((text, index) => <option key={text} value={index + 1}>{index + 1} - {text}</option>)}
+            </select> : <input required type={column.key === 'hoursPerWeek' ? 'number' : 'text'} min={column.key === 'hoursPerWeek' ? 0 : undefined} max={column.key === 'hoursPerWeek' ? 168 : undefined} step={column.key === 'hoursPerWeek' ? 'any' : undefined} value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))} />}
+          </div>
+        </label>)}
+      </fieldset>)}
+      {!rows.length && <p>Please go back and select at least one business function.</p>}
+      <button type="submit" className="btn btn-p" disabled={disabled || !rows.length}>Send answer</button>
+    </form>;
+  }
 
   if (question.inputType === 'number') {
     return (

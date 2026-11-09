@@ -7,7 +7,7 @@ import ChatInput from './ChatInput';
 // Milestone 3.1 Developer Plan, Module 11. Turn-based, not streaming
 // (Architecture Decision 2.4) — onSend awaits a single POST /respond and
 // the parent re-renders with the updated transcript, no WebSocket/SSE.
-export default function ChatWindow({ transcript, currentQuestion, answerCount, onBack, onSend, sending }) {
+export default function ChatWindow({ transcript, currentQuestion, answerCount, answers, onBack, onSend, sending }) {
   const scrollRef = useRef(null);
   const questionNumber = Number(currentQuestion?.id || 0);
   const totalQuestions = 36;
@@ -109,7 +109,7 @@ export default function ChatWindow({ transcript, currentQuestion, answerCount, o
               Back and change answer
             </button>
           )}
-          <ChatInput question={currentQuestion} onSubmit={onSend} disabled={sending} />
+          <ChatInput question={currentQuestion} answers={answers} onSubmit={onSend} disabled={sending} />
         </div>
       )}
     </div>

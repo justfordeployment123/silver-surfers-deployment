@@ -3,6 +3,15 @@
 // rest of the codebase having no component library dependency.
 export default function ChatMessage({ role, text }) {
   const isAgent = role === 'agent';
+  let displayText = text;
+  if (!isAgent) {
+    try {
+      const rows = JSON.parse(text);
+      if (Array.isArray(rows) && rows.every(row => typeof row.function === 'string')) {
+        displayText = rows.map(row => `${row.function}\n${Object.entries(row).filter(([key]) => key !== 'function').map(([key, value]) => `${({hoursPerWeek:'Hours per week',pain:'Pain (1-5)',handledBy:'Handled by',toolsUsed:'Tools used',satisfied:'Satisfied',notes:'Notes'})[key] || key}: ${value}`).join('\n')}`).join('\n\n');
+      }
+    } catch { /* Existing free-text answers are displayed unchanged. */ }
+  }
 
   return (
     <div
@@ -24,7 +33,7 @@ export default function ChatMessage({ role, text }) {
         .chat-msg-agent .chat-bubble { background: var(--surface); border: 1px solid var(--sandd); color: var(--ink); }
         .chat-msg-customer .chat-bubble { background: var(--t6); color: #fff; }
       `}</style>
-      <div className="chat-bubble">{text}</div>
+      <div className="chat-bubble">{displayText}</div>
     </div>
   );
 }
