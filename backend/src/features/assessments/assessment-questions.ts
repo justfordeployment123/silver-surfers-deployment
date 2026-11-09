@@ -13,7 +13,7 @@
 // revise question wording later — each Assessment record should store which
 // version it was answered against so old and new reports stay comparable.
 
-export const QUESTIONNAIRE_VERSION = 2;
+export const QUESTIONNAIRE_VERSION = 3;
 
 export type AssessmentInputType =
   | 'text'       // single-line free text
@@ -115,9 +115,8 @@ export const ASSESSMENT_QUESTIONS: AssessmentQuestion[] = [
     id: 5,
     section: 'Business Profile',
     prompt: 'What is the single primary focus for this assessment?',
-    inputType: 'select',
-    options: [],
-    notes: 'Options not specified in the source requirements doc — confirm the actual list with the client before Module 11.',
+    inputType: 'textarea',
+    notes: 'Free text with AI clarification until the client supplies approved dropdown choices.',
   },
   {
     id: 6,

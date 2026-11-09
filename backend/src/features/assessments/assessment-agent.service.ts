@@ -12,6 +12,7 @@ import {
 } from './assessment-questions.ts';
 import { generateAssessmentReport } from './assessment-report.ts';
 import { canAccessAssessment } from './assessment-preview.access.ts';
+import { validateAssessmentAnswer } from './assessment-answer.validation.ts';
 
 const assessmentAgentLogger = logger.child('feature:assessments:assessment-agent');
 
@@ -32,11 +33,11 @@ interface ClassificationResult {
   clarifyingQuestion: string | null;
 }
 
-async function classifyAnswer(question: AssessmentQuestion, answerText: string): Promise<ClassificationResult> {
+export async function classifyAnswer(question: AssessmentQuestion, answerText: string): Promise<ClassificationResult> {
   const fallback: ClassificationResult = { status: 'complete', clarifyingQuestion: null };
 
   if (!env.anthropicApiKey) {
-    return fallback;
+    throw new Error('The AI assistant is temporarily unavailable. Your answer has not been submitted. Please try again shortly or contact our team.');
   }
 
   const controller = new AbortController();
@@ -89,13 +90,14 @@ async function classifyAnswer(question: AssessmentQuestion, answerText: string):
       return { status: 'needs_clarification', clarifyingQuestion: parsed.clarifyingQuestion.trim() };
     }
 
-    return fallback;
+    if (parsed.status === 'complete') return fallback;
+    throw new Error('Invalid AI classification response.');
   } catch (error) {
-    assessmentAgentLogger.warn('Answer classification failed; accepting answer as-is.', {
+    assessmentAgentLogger.warn('Answer classification failed; keeping the question open for retry.', {
       questionId: question.id,
       error: error instanceof Error ? error.message : String(error),
     });
-    return fallback;
+    throw new Error('The AI assistant is temporarily unavailable. Your answer has not been submitted. Please try again shortly or contact our team.');
   } finally {
     clearTimeout(timeout);
   }
@@ -143,11 +145,23 @@ export async function respondToAssessment(request: Request, response: Response):
       return;
     }
 
-    assessment.transcript.push({ role: 'customer', text: answerText, at: new Date() });
+    try {
+      validateAssessmentAnswer(question, answerText, assessment.answers as any);
+    } catch (error) {
+      response.status(400).json({ error: (error as Error).message });
+      return;
+    }
 
-    const classification = CLASSIFIABLE_INPUT_TYPES.has(question.inputType)
-      ? await classifyAnswer(question, answerText)
-      : { status: 'complete' as const, clarifyingQuestion: null };
+    let classification: ClassificationResult;
+    try {
+      classification = CLASSIFIABLE_INPUT_TYPES.has(question.inputType) && assessment.pendingClarificationCount < CLARIFICATION_CAP
+        ? await classifyAnswer(question, answerText)
+        : { status: assessment.pendingClarificationCount >= CLARIFICATION_CAP ? 'needs_clarification' : 'complete', clarifyingQuestion: null };
+    } catch (error) {
+      response.status(503).json({ error: (error as Error).message });
+      return;
+    }
+    assessment.transcript.push({ role: 'customer', text: answerText, at: new Date() });
 
     if (classification.status === 'needs_clarification' && assessment.pendingClarificationCount < CLARIFICATION_CAP) {
       assessment.pendingClarificationCount += 1;
