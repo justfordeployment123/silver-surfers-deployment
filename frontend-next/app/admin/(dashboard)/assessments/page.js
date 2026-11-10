@@ -58,6 +58,29 @@ const STYLES = `
 .ap-detail-lbl { font-size: 16px; font-weight: 600; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 3px; }
 .ap-section-hdr { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 10px; padding-bottom: 8px; border-bottom: 1px solid var(--sandd); margin-top: 20px; }
 .ap-answer-row { margin-bottom: 14px; }
+.ap-modal-overlay { padding: 0; background: var(--sand); }
+.ap-modal { --review-text: #182b3a; --review-muted: #344d60; --review-question: #eaf2f8; --review-answer: #ffffff; --review-border: #8093a3; width: 100%; max-width: none; height: 100dvh; max-height: none; border-radius: 0; color: var(--review-text); background: var(--sand); }
+:root[data-theme='dark'] .ap-modal { --review-text: #f3f7fb; --review-muted: #d2dfeb; --review-question: #243c50; --review-answer: #102536; --review-border: #7790a5; }
+.ap-modal-hdr { padding: 20px clamp(20px,4vw,64px); background: var(--review-answer); border-color: var(--review-border); align-items: center; }
+.ap-modal-body { padding: 28px clamp(20px,4vw,64px) 48px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 32px; align-items: start; }
+.ap-review-pane { min-width: 0; }
+.ap-modal .ap-section-hdr { font-size: 23px; color: var(--review-text); margin: 0 0 20px; padding-bottom: 14px; }
+.ap-modal .ap-answer-row { background: var(--review-answer); border: 1px solid var(--review-border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+.ap-modal .ap-detail-lbl { padding: 16px 20px; margin: 0; background: var(--review-question); color: var(--review-text); font-size: 17px; font-weight: 700; line-height: 1.6; text-transform: none; letter-spacing: 0; border-bottom: 1px solid var(--review-border); }
+.ap-review-answer { padding: 18px 20px; font-size: 17px; line-height: 1.75; color: var(--review-text); overflow-wrap: anywhere; }
+.ap-modal table { font-size: 16px; color: var(--review-text); }
+.ap-modal th { background: var(--review-question); }
+.ap-modal td,.ap-modal th { min-width: 110px; line-height: 1.65; }
+.ap-modal .ap-inp { background: var(--review-answer); color: var(--review-text); border-color: var(--review-border); padding: 14px 16px; font-size: 17px; line-height: 1.7; min-height: 50px; }
+.ap-modal textarea.ap-inp { min-height: 140px !important; resize: vertical; }
+.ap-modal .ap-inp:focus { outline: 3px solid #009abe; outline-offset: 2px; }
+.ap-modal label { color: var(--review-text); font-size: 17px; font-weight: 600; }
+.ap-modal fieldset { background: var(--review-answer); border-color: var(--review-border) !important; border-radius: 12px; padding: 20px !important; margin-bottom: 24px !important; }
+.ap-modal legend { color: var(--review-text); font-size: 19px; font-weight: 700; padding: 0 8px; }
+.ap-modal button { min-height: 44px; }
+.ap-modal-close { color: var(--review-text); border: 1px solid var(--review-border); padding: 10px 16px; display: flex; gap: 8px; align-items: center; font-size: 16px; font-weight: 600; }
+.ap-review-actions { position: sticky; bottom: 0; background: var(--review-answer); border: 1px solid var(--review-border); border-radius: 12px; padding: 16px; }
+@media(max-width:1050px) { .ap-modal-body { grid-template-columns: minmax(0,1fr); } }
 .ap-sk { background: var(--sandd); border-radius: 6px; animation: ap-pulse 1.5s ease-in-out infinite; }
 @keyframes ap-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 `;
@@ -88,6 +111,13 @@ export default function AdminAssessments() {
   const [detail, setDetail] = useState(null);
   const [editedSections, setEditedSections] = useState('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!detail) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = previous; };
+  }, [Boolean(detail)]);
 
   async function load() {
     setLoading(true);
@@ -260,7 +290,7 @@ export default function AdminAssessments() {
 
       {detail && (
         <div className="ap-modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setDetail(null); }}>
-          <div className="ap-modal">
+          <div className="ap-modal" role="dialog" aria-modal="true" aria-label="Assessment review workspace">
             <div className="ap-modal-hdr">
               <div>
                 <h3 style={{ fontSize: '17px', fontWeight: 700, color: 'var(--ink)', marginBottom: '3px' }}>
@@ -269,12 +299,14 @@ export default function AdminAssessments() {
                 <p style={{ fontSize: '16px', color: 'var(--ink6)' }}>{customerLabel(detail.userId)}</p>
               </div>
               <button onClick={() => setDetail(null)} className="ap-modal-close">
+                Back to assessments
                 <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
             <div className="ap-modal-body">
+              <section className="ap-review-pane" aria-label="Customer answers">
               <div className="ap-section-hdr" style={{ marginTop: 0 }}>Answers ({(detail.answers || []).length} of 36)</div>
               {(detail.answers || []).map((answer) => (
                 <div key={answer.questionId} className="ap-answer-row">
@@ -282,15 +314,17 @@ export default function AdminAssessments() {
                     Q{answer.questionId}. {answer.question}
                     {!answer.clarified && <span className="pill pill-r" style={{ marginLeft: 8 }}>Not fully clarified</span>}
                   </div>
-                  <ReadableAssessmentAnswer text={answer.text} />
+                  <div className="ap-review-answer"><ReadableAssessmentAnswer text={answer.text} /></div>
                 </div>
               ))}
 
+              </section>
+              <section className="ap-review-pane" aria-label="Report editor">
               <div className="ap-section-hdr">AI Report Draft ({detail.aiReport?.status}, {detail.aiReport?.provider})</div>
               {detail.aiReport?.provider === 'local' && <p role="status">This is a basic local summary. Claude did not generate this report. Use Regenerate with AI to try again before approval.</p>}
               <AdminReportEditor value={editedSections} onChange={setEditedSections} disabled={busy} />
 
-              <div style={{ display: 'grid', gap: 10, marginTop: 20 }}>
+              <div className="ap-review-actions" style={{ display: 'grid', gap: 10, marginTop: 20 }}>
                 <button type="button" className="ap-action-btn ap-action-btn-neutral" disabled={busy} onClick={handleSaveEdit}>
                   Save Edited Report
                 </button>
@@ -301,6 +335,7 @@ export default function AdminAssessments() {
                   Approve &amp; Release to Customer
                 </button>
               </div>
+              </section>
             </div>
           </div>
         </div>
