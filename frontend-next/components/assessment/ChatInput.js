@@ -107,10 +107,11 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
       {sharedStyle}
       {rows.map(label => <fieldset key={label} style={{border:'1px solid var(--sandd)',borderRadius:12,padding:16,margin:0}} disabled={disabled}>
         <legend>{label}</legend>
-        {columns.map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
-          {column.label}
+        {question.id === 15 && <label style={{display:'block',marginTop:10}}><input type="checkbox" checked={matrix[label]?.toolsUsed === 'No tool currently used'} onChange={event => setMatrix(current => ({...current,[label]:event.target.checked ? {toolsUsed:'No tool currently used'} : {toolsUsed:''}}))} /> No tool currently used</label>}
+        {columns.filter(column => question.id !== 15 || (matrix[label]?.toolsUsed !== 'No tool currently used' && (column.key !== 'notes' || ['No','Somewhat'].includes(matrix[label]?.satisfied)))).map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
+          {question.id === 15 && column.key === 'notes' ? 'What is not working well? Please explain.' : column.label}
           <div className="chat-input-row">
-            {column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
+            {question.id === 15 && column.key === 'satisfied' ? <select required value={matrix[label]?.satisfied || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],satisfied:event.target.value,notes:''}}))}><option value="">Select satisfaction</option>{['Yes','Somewhat','No'].map(option => <option key={option}>{option}</option>)}</select> : column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
               <option value="">Select a pain rating</option>
               {painLabels.map((text, index) => <option key={text} value={index + 1}>{index + 1} - {text}</option>)}
             </select> : <input required type={column.key === 'hoursPerWeek' ? 'number' : 'text'} min={column.key === 'hoursPerWeek' ? 0 : undefined} max={column.key === 'hoursPerWeek' ? 168 : undefined} step={column.key === 'hoursPerWeek' ? 'any' : undefined} value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))} />}
