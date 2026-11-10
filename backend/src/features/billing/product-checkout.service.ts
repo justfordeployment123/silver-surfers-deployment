@@ -26,21 +26,21 @@ async function handleCourseCheckout(session: Stripe.Checkout.Session, userId: st
     return;
   }
 
-  await CoursePurchase.create({
+  await CoursePurchase.updateOne({userId,courseId:course._id,stripeSessionId:session.id}, {$setOnInsert:{
     userId,
     courseId: course._id,
     stripeSessionId: session.id,
     amount: session.amount_total || 0,
     purchasedAt: new Date(),
-  });
+  }}, {upsert:true});
 
   // Created empty (not lazily on first page view, Module 5) so the
   // dashboard has something to render the instant payment completes.
-  await CourseProgress.create({
+  await CourseProgress.updateOne({userId,courseId:course._id}, {$setOnInsert:{
     userId,
     courseId: course._id,
     moduleProgress: [],
-  });
+  }}, {upsert:true});
 }
 
 async function handleAssessmentCheckout(session: Stripe.Checkout.Session, userId: string): Promise<void> {
@@ -93,6 +93,7 @@ export async function handleProductCheckoutCompleted(session: Stripe.Checkout.Se
 
   switch (productType) {
     case 'course':
+      if (session.mode !== 'payment' || !['paid','no_payment_required'].includes(session.payment_status)) return;
       await handleCourseCheckout(session, userId);
       break;
     case 'assessment':

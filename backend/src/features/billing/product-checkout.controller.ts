@@ -3,6 +3,9 @@ import type { Request, Response } from 'express';
 import User from '../../models/user.model.ts';
 import { getProductByKey } from './product-catalog.ts';
 import { getStripeClient } from './stripe-client.ts';
+import Course from '../../models/course.model.ts';
+import CoursePurchase from '../../models/course-purchase.model.ts';
+import { validateCoursePrice } from '../courses/course-catalog.ts';
 
 function resolveFrontendUrl(): string {
   return process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -38,7 +41,13 @@ export async function createProductCheckoutSession(request: Request, response: R
       return;
     }
 
-    const product = getProductByKey(productKey);
+    let product = getProductByKey(productKey);
+    if (productKey.startsWith('course:')) {
+      const course = await Course.findOne({slug:productKey.slice(7),status:'published'}).lean();
+      if (!course) { response.status(404).json({error:'This course is not available for purchase.'}); return; }
+      if (await CoursePurchase.findOne({userId,courseId:course._id}).lean()) { response.status(409).json({error:'You already own this course. Open it from your dashboard.'}); return; }
+      product = {productKey,productType:'course',name:course.title,courseSlug:course.slug,stripePriceId:course.stripePriceId};
+    }
 
     if (!product) {
       response.status(400).json({ error: 'Unknown productKey.' });
@@ -58,6 +67,10 @@ export async function createProductCheckoutSession(request: Request, response: R
 
     let customerId = user.stripeCustomerId;
     const stripe = getStripeClient();
+    if (productKey.startsWith('course:')) {
+      try { validateCoursePrice(await stripe.prices.retrieve(product.stripePriceId)); }
+      catch { response.status(400).json({error:'This course price is unavailable. Please contact our team.'}); return; }
+    }
 
     if (!customerId) {
       const existingCustomers = await stripe.customers.list({ email: user.email, limit: 1 });

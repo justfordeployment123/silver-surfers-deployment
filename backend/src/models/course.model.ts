@@ -35,6 +35,11 @@ const courseSchema = new mongoose.Schema({
   },
   title: { type: String, required: true },
   modules: { type: [courseModuleSchema], default: [] },
+  description: { type: String, default: '' },
+  status: { type: String, enum: ['draft', 'published'], default: 'draft' },
+  stripePriceId: { type: String, default: '' },
+  priceCents: { type: Number },
+  currency: { type: String },
 }, { timestamps: true });
 
 const Course = (mongoose.models.Course as mongoose.Model<unknown> | undefined)
