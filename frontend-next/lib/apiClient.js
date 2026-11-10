@@ -424,6 +424,12 @@ export const adminDeleteFaq = async (id) => {
 export const adminListCourses = async () => {
   try { const res = await api.get('/admin/courses'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+export const adminCreateCourse = async (payload) => {
+  try { const res = await api.post('/admin/courses', payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const listPublishedCourses = async () => {
+  try { const res = await api.get('/courses'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
 export const adminUpdateCourse = async (idOrSlug, payload) => {
   try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };

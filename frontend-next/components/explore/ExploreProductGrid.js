@@ -3,6 +3,7 @@
 // entry, no change here. See Milestone 3.0 Developer Plan, Module 3.
 import exploreProducts from '../../data/explore-products';
 import ExploreProductCard from './ExploreProductCard';
+import TrainingCourseCatalog from './TrainingCourseCatalog';
 
 export default function ExploreProductGrid() {
   return (
@@ -13,6 +14,7 @@ export default function ExploreProductGrid() {
       {exploreProducts.map((product) => (
         <ExploreProductCard key={product.id} product={product} />
       ))}
+      <TrainingCourseCatalog />
     </div>
   );
 }
