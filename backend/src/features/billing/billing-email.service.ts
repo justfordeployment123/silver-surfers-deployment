@@ -47,7 +47,7 @@ function escapeHtml(value: unknown): string {
  * header across every SilverSurfers email is what actually reads as
  * "not spam", not any one email's own color choice.
  */
-function wrapBillingEmail(options: {
+export function wrapBillingEmail(options: {
   bannerTitle: string;
   heading: string;
   intro: string;
