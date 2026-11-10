@@ -32,27 +32,37 @@ function answerNumber(answers: StructuredAnswer[], questionId: number): number |
 // Deterministic, computed from the customer's own numbers where available
 // (same "fallback is a weaker but still genuinely useful answer, never a
 // fake AI response" ethos as ai-reporting.ts's buildFallbackAuditAiReport).
-function buildFallbackSections(answers: StructuredAnswer[]): AssessmentReportSections {
+export function buildFallbackSections(answers: StructuredAnswer[]): AssessmentReportSections {
   const businessName = answerFor(answers, 1) || 'your business';
   const weeklyRepetitiveHours = answerNumber(answers, 7);
   const hourlyValue = answerNumber(answers, 25);
   const topTasks = answerFor(answers, 10);
+  let functionHours: number | null = null;
+  try {
+    const rows = JSON.parse(answerFor(answers, 9));
+    if (Array.isArray(rows) && rows.length && rows.every(row => String(row.hoursPerWeek ?? '').trim() && Number.isFinite(Number(row.hoursPerWeek)))) {
+      functionHours = rows.reduce((sum, row) => sum + Number(row.hoursPerWeek), 0);
+    }
+  } catch { /* Older assessments contain free-text matrix answers. */ }
+  const conflictingHours = weeklyRepetitiveHours !== null && functionHours !== null && Math.abs(weeklyRepetitiveHours - functionHours) > 0.1;
 
   // Conservative, clearly-labeled estimate: assume roughly a third of
   // reported repetitive/manual hours could realistically be reclaimed —
   // not a precise figure, just a directional starting point.
-  const reclaimableWeeklyHours = weeklyRepetitiveHours !== null ? Math.round(weeklyRepetitiveHours * 0.3 * 10) / 10 : null;
+  const reclaimableWeeklyHours = weeklyRepetitiveHours !== null && !conflictingHours ? Math.round(weeklyRepetitiveHours * 0.3 * 10) / 10 : null;
   const annualReturn = reclaimableWeeklyHours !== null && hourlyValue !== null
     ? Math.round(reclaimableWeeklyHours * hourlyValue * 52)
     : null;
 
   return {
-    summary: `Based on ${businessName}'s responses, there are concrete opportunities to reduce time spent on repetitive work and redirect it toward higher-value activity. This summary uses the numbers you provided directly; a staff member will review it before it's finalized.`,
+    summary: `Based on ${businessName}'s responses, there are concrete opportunities to reduce time spent on repetitive work and redirect it toward higher-value activity.`,
     hoursReclaimable: {
       estimate: reclaimableWeeklyHours !== null
         ? `Roughly ${reclaimableWeeklyHours} hours per week`
         : 'Not enough information to estimate yet',
-      explanation: weeklyRepetitiveHours !== null
+      explanation: conflictingHours
+        ? `Your overall estimate is ${weeklyRepetitiveHours} hours per week, while the function estimates total ${functionHours} hours. Confirm whether these overlap before estimating time savings.`
+        : weeklyRepetitiveHours !== null
         ? `You reported about ${weeklyRepetitiveHours} hours per week going into repetitive, manual, or administrative tasks. As a rough, directional estimate, roughly a third of that is often reclaimable with the right tools and process changes.`
         : 'This estimate normally draws on the hours-per-week figure from the intake — that answer was not available here.',
     },
@@ -70,7 +80,9 @@ function buildFallbackSections(answers: StructuredAnswer[]): AssessmentReportSec
     }],
     estimatedFinancialReturn: {
       estimate: annualReturn !== null ? `Roughly $${annualReturn.toLocaleString('en-US')} per year` : 'Not enough information to estimate yet',
-      explanation: annualReturn !== null
+      explanation: conflictingHours
+        ? 'Confirm the inconsistent weekly hours before calculating financial return.'
+        : annualReturn !== null
         ? `Using your own estimate of $${hourlyValue}/hour and the reclaimable hours above, this is a rough, directional annual figure, not a guarantee.`
         : 'This estimate normally draws on the hourly-value and hours-per-week figures from the intake — one or both were not available here.',
     },
@@ -86,12 +98,13 @@ function buildPromptPayload(answers: StructuredAnswer[]): string {
   return JSON.stringify(withQuestionText, null, 2);
 }
 
-async function requestAnthropicSections(
+export async function requestAnthropicSections(
   answers: StructuredAnswer[],
   fallback: AssessmentReportSections,
 ): Promise<AssessmentReportSections> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), env.anthropicTimeoutMs);
+  // Long-form reports need more time than short intake classifications.
+  const timeout = setTimeout(() => controller.abort(), Math.max(env.anthropicTimeoutMs, 120_000));
 
   try {
     const systemPrompt = [
@@ -99,6 +112,8 @@ async function requestAnthropicSections(
       'Write for a business owner, not a technologist. Tone: confident, specific, practical.',
       'Ground every section in the actual answers provided — reference their real numbers, tasks, and tools by name. Do NOT use generic boilerplate.',
       'Do NOT invent specific numbers (dollar amounts, hour counts, percentages) that are not directly derivable from the provided answers.',
+      'If overall hours and per-function hours conflict, flag the discrepancy and withhold numeric savings and financial return estimates until reconciled.',
+      'Do not mention staff review, draft status, or finalization in the report text.',
       'Return ONLY a single valid JSON object with EXACTLY these keys (no extras, no comments):',
       '  - "summary": 2-3 sentences summarizing their overall AI readiness and biggest opportunity.',
       '  - "hoursReclaimable": { "estimate": short string, "explanation": 1-2 sentences grounded in their reported hours }.',
@@ -136,6 +151,7 @@ async function requestAnthropicSections(
     }
 
     const payload = await response.json();
+    if (payload.stop_reason === 'max_tokens') throw new Error('Claude report was truncated. Increase the report token limit and retry.');
     const outputText = extractResponseText(payload);
     const jsonText = extractJsonObject(outputText);
 
@@ -144,6 +160,12 @@ async function requestAnthropicSections(
       parsed = JSON.parse(jsonText) as Partial<AssessmentReportSections>;
     } catch (parseError) {
       throw new Error(`Failed to parse model JSON: ${parseError instanceof Error ? parseError.message : String(parseError)}. Preview: ${jsonText.slice(0, 400)}`);
+    }
+
+    if (!parsed || typeof parsed.summary !== 'string' || !parsed.summary.trim()
+      || !parsed.hoursReclaimable?.estimate || !parsed.estimatedFinancialReturn?.estimate
+      || !Array.isArray(parsed.impactEffortPrioritization) || !Array.isArray(parsed.toolRecommendations)) {
+      throw new Error('Claude report is missing required sections.');
     }
 
     return {

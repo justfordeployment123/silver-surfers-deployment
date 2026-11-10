@@ -20,6 +20,14 @@ export function validateAssessmentAnswer(question: AssessmentQuestion, text: str
     throw new Error('Please complete a table row for every selected function.');
   }
   for (const row of rows) {
+    if (question.id === 15) {
+      const tool = String(row.toolsUsed || '').trim();
+      if (!tool) throw new Error('Enter a tool or choose No tool currently used.');
+      if (/^(no tool currently used|n\/?a|none)$/i.test(tool)) continue;
+      if (!['yes', 'no', 'somewhat'].includes(String(row.satisfied || '').toLowerCase())) throw new Error('Choose Yes, Somewhat, or No for satisfaction.');
+      if (String(row.satisfied).toLowerCase() !== 'yes' && !String(row.notes || '').trim()) throw new Error('Please explain what is not working well.');
+      continue;
+    }
     for (const column of question.matrixColumns || []) {
       const value = String(row[column.key] ?? '').trim();
       if (!value) throw new Error(`Complete ${column.label} for each function.`);
