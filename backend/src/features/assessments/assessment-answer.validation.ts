@@ -1,6 +1,7 @@
 import { getQuestionById, type AssessmentQuestion } from './assessment-questions.ts';
 
 export function validateAssessmentAnswer(question: AssessmentQuestion, text: string, answers: Array<{questionId: number; text: string}>): void {
+  if (!text.trim()) throw new Error('Please answer this question or choose an applicable option.');
   if (question.inputType === 'select' && question.options?.length) {
     if (!question.options.some(option => text === option.label || text === option.value || (option.value === 'other' && /^Other: .+/.test(text)))) {
       throw new Error('Please choose one of the available options.');
@@ -24,8 +25,8 @@ export function validateAssessmentAnswer(question: AssessmentQuestion, text: str
       const tool = String(row.toolsUsed || '').trim();
       if (!tool) throw new Error('Enter a tool or choose No tool currently used.');
       if (/^(no tool currently used|n\/?a|none)$/i.test(tool)) continue;
-      if (!['yes', 'no', 'somewhat'].includes(String(row.satisfied || '').toLowerCase())) throw new Error('Choose Yes, Somewhat, or No for satisfaction.');
-      if (String(row.satisfied).toLowerCase() !== 'yes' && !String(row.notes || '').trim()) throw new Error('Please explain what is not working well.');
+      if (!['yes', 'no', 'uncertain'].includes(String(row.satisfied || '').toLowerCase())) throw new Error('Choose Yes, No, or Uncertain for satisfaction.');
+      if (String(row.satisfied).toLowerCase() === 'no' && !String(row.notes || '').trim()) throw new Error('Please explain what is not working well.');
       continue;
     }
     for (const column of question.matrixColumns || []) {

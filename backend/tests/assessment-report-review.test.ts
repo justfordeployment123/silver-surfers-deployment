@@ -14,7 +14,7 @@ test('tool satisfaction is constrained and explanation is conditional', () => {
   assert.doesNotThrow(() => validateAssessmentAnswer(getQuestionById(15)!, JSON.stringify(rows), []));
   rows[0] = {...rows[0],satisfied:'No'} as any;
   assert.throws(() => validateAssessmentAnswer(getQuestionById(15)!, JSON.stringify(rows), []), /explain/i);
-  rows[0] = {...rows[0],satisfied:'Somewhat',notes:'Hard to use'} as any;
+  rows[0] = {...rows[0],satisfied:'Uncertain'} as any;
   assert.doesNotThrow(() => validateAssessmentAnswer(getQuestionById(15)!, JSON.stringify(rows), []));
 });
 test('fallback removes review wording and flags conflicting hours before estimating ROI', () => {

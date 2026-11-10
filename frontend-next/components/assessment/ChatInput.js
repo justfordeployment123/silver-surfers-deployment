@@ -19,6 +19,21 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
   if (!question) return null;
 
   const hasOptions = Array.isArray(question.options) && question.options.length > 0;
+  const flexibleReplies = {
+    14: ['No specific event'],
+    17: ['No AI tools used yet'],
+    22: ['No known requirements', 'Uncertain'],
+    27: ['We do not create marketing content'],
+    28: ['No time spent on content creation'],
+    29: ['We do not currently receive leads'],
+    30: ['Not applicable - no leads currently'],
+    31: ['No recurring customer questions'],
+    32: ['Not applicable - no customer requests'],
+    33: ['We do not schedule appointments or jobs'],
+    34: ['No invoicing or bookkeeping tool currently used'],
+    35: ['Nothing else to add'],
+  }[question.id] || [];
+  const replyChoices = <div className="chat-option-list">{flexibleReplies.map(reply => <button key={reply} type="button" className="chat-option-btn" disabled={disabled} onClick={() => setValue(reply)}>{reply}</button>)}</div>;
 
   function submitText(e) {
     e?.preventDefault();
@@ -108,10 +123,10 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
       {rows.map(label => <fieldset key={label} style={{border:'1px solid var(--sandd)',borderRadius:12,padding:16,margin:0}} disabled={disabled}>
         <legend>{label}</legend>
         {question.id === 15 && <label style={{display:'block',marginTop:10}}><input type="checkbox" checked={matrix[label]?.toolsUsed === 'No tool currently used'} onChange={event => setMatrix(current => ({...current,[label]:event.target.checked ? {toolsUsed:'No tool currently used'} : {toolsUsed:''}}))} /> No tool currently used</label>}
-        {columns.filter(column => question.id !== 15 || (matrix[label]?.toolsUsed !== 'No tool currently used' && (column.key !== 'notes' || ['No','Somewhat'].includes(matrix[label]?.satisfied)))).map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
+        {columns.filter(column => question.id !== 15 || (matrix[label]?.toolsUsed !== 'No tool currently used' && (column.key !== 'notes' || matrix[label]?.satisfied === 'No'))).map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
           {question.id === 15 && column.key === 'notes' ? 'What is not working well? Please explain.' : column.label}
           <div className="chat-input-row">
-            {question.id === 15 && column.key === 'satisfied' ? <select required value={matrix[label]?.satisfied || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],satisfied:event.target.value,notes:''}}))}><option value="">Select satisfaction</option>{['Yes','Somewhat','No'].map(option => <option key={option}>{option}</option>)}</select> : column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
+            {question.id === 15 && column.key === 'satisfied' ? <select required value={matrix[label]?.satisfied || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],satisfied:event.target.value,notes:''}}))}><option value="">Select satisfaction</option>{['Yes','No','Uncertain'].map(option => <option key={option}>{option}</option>)}</select> : column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
               <option value="">Select a pain rating</option>
               {painLabels.map((text, index) => <option key={text} value={index + 1}>{index + 1} - {text}</option>)}
             </select> : <input required type={column.key === 'hoursPerWeek' ? 'number' : 'text'} min={column.key === 'hoursPerWeek' ? 0 : undefined} max={column.key === 'hoursPerWeek' ? 168 : undefined} step={column.key === 'hoursPerWeek' ? 'any' : undefined} value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))} />}
@@ -129,6 +144,8 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
         {sharedStyle}
         <input
           type="number"
+          required
+          min="0"
           value={value}
           onChange={(e) => setValue(e.target.value)}
           disabled={disabled}
@@ -170,6 +187,7 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
         {sharedStyle}
         <div className="chat-input-row">
           <select
+            required
             value={value}
             onChange={(e) => setValue(e.target.value)}
             disabled={disabled}
@@ -244,8 +262,10 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
     return (
       <form className="chat-composer" onSubmit={submitText}>
         {sharedStyle}
+        {replyChoices}
         <div className="chat-input-row">
           <textarea
+            required
             value={value}
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={handleComposerKeyDown}
@@ -264,8 +284,10 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
   return (
     <form className="chat-composer" onSubmit={submitText}>
       {sharedStyle}
+      {replyChoices}
       <div className="chat-input-row">
         <textarea
+          required
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleComposerKeyDown}

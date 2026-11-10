@@ -49,6 +49,7 @@ export async function classifyAnswer(question: AssessmentQuestion, answerText: s
       'You are given ONE specific question from that form and the customer\'s answer to it.',
       'Decide whether the answer is complete and responsive to the question, or whether it genuinely needs clarification (e.g. it is off-topic, contradictory, or too vague to be usable in a report).',
       'Do not be overly strict — short, plain answers are normal and acceptable. Only ask for clarification when the answer truly cannot be used as-is.',
+      'A direct statement that a function is not performed, no tool is used, no experience exists, or the customer is uncertain is a valid answer where relevant. Do not force customers to invent activities or tools.',
       'If clarification is needed, write ONE follow-up question. It must stay focused on the SAME original question and must NOT introduce a new topic or change what is being asked.',
       'Return ONLY a single valid JSON object with EXACTLY these keys: "status" (either "complete" or "needs_clarification") and "clarifyingQuestion" (a string if status is "needs_clarification", otherwise null).',
     ].join('\n');
