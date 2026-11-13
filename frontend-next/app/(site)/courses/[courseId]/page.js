@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import ProtectedRoute from '../../../../components/ProtectedRoute';
 import { getCourseDetail, getMe, markCourseLessonComplete } from '../../../../lib/apiClient';
+import { workbookOffer } from '../../../../lib/courseArrival';
 
 function CheckMark() {
   return (
@@ -25,6 +26,7 @@ function CoursePlayerContent() {
   const [error, setError] = useState('');
   const [loadStatus, setLoadStatus] = useState(null);
   const [course, setCourse] = useState(null);
+  const [workbook, setWorkbook] = useState(null);
   const [moduleProgress, setModuleProgress] = useState([]);
   const [activeLessonId, setActiveLessonId] = useState(null);
   const [marking, setMarking] = useState(false);
@@ -50,6 +52,7 @@ function CoursePlayerContent() {
     }
     setLoadStatus(null);
     setCourse(result.course);
+    setWorkbook(workbookOffer(result));
     const progress = result.progress?.moduleProgress || [];
     setModuleProgress(progress);
 
@@ -134,13 +137,30 @@ function CoursePlayerContent() {
         .course-video-wrap iframe { width: 100%; height: 100%; border: 0; }
         .course-video-placeholder { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--ink3); }
         .course-downloads { margin-top: 20px; }
+        .course-workbook { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 20px 24px; margin-bottom: 8px; }
+        .course-workbook .btn { flex-shrink: 0; }
+        .course-workbook-owned { margin-bottom: 8px; color: var(--ink6); }
         @media (max-width: 768px) {
           .course-player { grid-template-columns: 1fr; padding: 88px 0 48px; }
+          .course-workbook { flex-direction: column; align-items: flex-start; }
         }
       `}</style>
       <div className="wrap">
         <h1 className="h2" style={{ marginBottom: 24 }}>{course.title}{preview ? ' Preview' : ''}</h1>
         {preview && <p style={{ marginBottom: 24 }}><Link href="/assessment-preview">Back to your preview</Link> · No payment required</p>}
+        {/* Milestone 3.2 Developer Plan, Module 7: GHL sells and emails the workbook. */}
+        {workbook?.kind === 'offer' && (
+          <div className="card course-workbook">
+            <div>
+              <h2 className="h3" style={{ fontSize: 18, marginBottom: 4 }}>Get the companion workbook</h2>
+              <p style={{ margin: 0 }}>Put each module into practice with the {course.title} workbook. The download link is emailed to you after purchase.</p>
+            </div>
+            <a href={workbook.href} className="btn btn-p">Get the workbook →</a>
+          </div>
+        )}
+        {workbook?.kind === 'owned' && (
+          <p className="course-workbook-owned">You own the workbook. The download link was emailed to you. Can&apos;t find it? Email <a href="mailto:hello@silversurfers.ai">hello@silversurfers.ai</a>.</p>
+        )}
         <div className="course-player">
           <nav aria-label="Course modules">
             {(course.modules || []).map((courseModule) => (

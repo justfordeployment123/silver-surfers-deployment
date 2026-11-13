@@ -5,6 +5,7 @@ import Course from '../../models/course.model.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
 import CourseProgress, { CoursePreviewProgress } from '../../models/course-progress.model.ts';
 import { canUseAssessmentPreview } from '../assessments/assessment-preview.access.ts';
+import { ownsAddon } from './course-access.service.ts';
 
 async function ownsCourse(userId: string, courseId: string): Promise<boolean> {
   const purchase = await CoursePurchase.findOne({ userId, courseId }).lean();
@@ -48,7 +49,17 @@ export async function getCourse(request: Request, response: Response): Promise<v
     const Progress = preview ? CoursePreviewProgress : CourseProgress;
     const progress = await Progress.findOne({ userId, courseId }).lean();
 
-    response.json({ course, progress: progress || { moduleProgress: [] } });
+    // Milestone 3.2 Developer Plan, Module 7: checkout configuration stays
+    // server-side; the player only gets the workbook offer it may show.
+    const { stripePriceId: _stripePriceId, ghlCheckoutUrl: _ghlCheckoutUrl, ghlWorkbookUrl, ...playerCourse } = course;
+    const ownsWorkbook = preview ? false : await ownsAddon(userId, courseId, 'workbook');
+
+    response.json({
+      course: playerCourse,
+      progress: progress || { moduleProgress: [] },
+      workbookUrl: ghlWorkbookUrl || '',
+      ownsWorkbook,
+    });
   } catch (error) {
     console.error('getCourse error:', error);
     response.status(500).json({ error: 'Failed to load course.' });

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { courseCta, isCourseArrival, postSignInTarget } from '../lib/courseArrival.js';
+import { courseCta, isCourseArrival, postSignInTarget, workbookOffer } from '../lib/courseArrival.js';
 
 // Milestone 3.2 Developer Plan, Module 6.
 
@@ -38,4 +38,20 @@ test('a Stripe course keeps native checkout', () => {
 test('a GHL course without a usable https order form falls back to native checkout', () => {
   assert.equal(courseCta({ slug: 'x', checkoutMethod: 'ghl', checkoutUrl: '' }).productKey, 'course:x');
   assert.equal(courseCta({ slug: 'x', checkoutMethod: 'ghl', checkoutUrl: 'javascript:alert(1)' }).productKey, 'course:x');
+});
+
+// Module 7: workbook offer on the training page.
+test('buyers without the workbook are offered the GHL workbook order form', () => {
+  assert.deepEqual(workbookOffer({ workbookUrl: 'https://pay.example.com/wb', ownsWorkbook: false }), { kind: 'offer', href: 'https://pay.example.com/wb' });
+});
+
+test('buyers who own the workbook are told it was emailed to them', () => {
+  assert.deepEqual(workbookOffer({ workbookUrl: 'https://pay.example.com/wb', ownsWorkbook: true }), { kind: 'owned' });
+  assert.deepEqual(workbookOffer({ workbookUrl: '', ownsWorkbook: true }), { kind: 'owned' });
+});
+
+test('no workbook message appears when there is no usable workbook link', () => {
+  assert.equal(workbookOffer({ workbookUrl: '', ownsWorkbook: false }), null);
+  assert.equal(workbookOffer({ workbookUrl: 'javascript:alert(1)', ownsWorkbook: false }), null);
+  assert.equal(workbookOffer({}), null);
 });

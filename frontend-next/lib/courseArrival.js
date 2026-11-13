@@ -28,3 +28,12 @@ export function courseCta(course) {
   }
   return { label: 'Purchase course', productKey: `course:${course.slug}`, analyticsId };
 }
+
+// Module 7: what the training page shows about the course's GHL workbook.
+// Buyers who own it get a note (GHL emails the PDF); others get the order
+// form link, when one is configured.
+export function workbookOffer({ workbookUrl, ownsWorkbook } = {}) {
+  if (ownsWorkbook) return { kind: 'owned' };
+  if (isHttpsUrl(workbookUrl)) return { kind: 'offer', href: workbookUrl };
+  return null;
+}
