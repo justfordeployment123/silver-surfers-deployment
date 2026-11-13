@@ -40,6 +40,13 @@ const courseSchema = new mongoose.Schema({
   stripePriceId: { type: String, default: '' },
   priceCents: { type: Number },
   currency: { type: String },
+  // Milestone 3.2 Developer Plan, Module 1: courses sold through a
+  // GoHighLevel order form instead of native Stripe checkout. GHL prices
+  // are not readable from here, so the display price is entered by hand.
+  checkoutMethod: { type: String, enum: ['stripe', 'ghl'], default: 'stripe' },
+  ghlCheckoutUrl: { type: String, default: '' },
+  ghlWorkbookUrl: { type: String, default: '' },
+  displayPriceCents: { type: Number },
 }, { timestamps: true });
 
 const Course = (mongoose.models.Course as mongoose.Model<unknown> | undefined)

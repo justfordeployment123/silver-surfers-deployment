@@ -18,11 +18,18 @@ const coursePurchaseSchema = new mongoose.Schema({
   stripeSessionId: { type: String, index: true },
   amount: { type: Number },
   purchasedAt: { type: Date, default: Date.now },
+  // Milestone 3.2 Developer Plan, Module 1. Existing documents have no
+  // source and read as 'stripe'. externalOrderId has no default on purpose:
+  // the sparse unique index below only skips documents missing the field.
+  source: { type: String, enum: ['stripe', 'ghl', 'admin'], default: 'stripe' },
+  externalOrderId: { type: String },
+  addons: { type: [String], default: [] },
 }, { timestamps: true });
 
 // Backs the dashboard's "which courses does this customer own" query
 // (Milestone 3.1 Developer Plan, Module 3).
 coursePurchaseSchema.index({ userId: 1, courseId: 1 });
+coursePurchaseSchema.index({ externalOrderId: 1 }, { unique: true, sparse: true });
 
 const CoursePurchase = (mongoose.models.CoursePurchase as mongoose.Model<unknown> | undefined)
   || mongoose.model('CoursePurchase', coursePurchaseSchema);

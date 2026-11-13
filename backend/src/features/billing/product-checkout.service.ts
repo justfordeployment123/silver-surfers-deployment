@@ -2,11 +2,10 @@ import type Stripe from 'stripe';
 
 import Assessment from '../../models/assessment.model.ts';
 import Course from '../../models/course.model.ts';
-import CoursePurchase from '../../models/course-purchase.model.ts';
-import CourseProgress from '../../models/course-progress.model.ts';
 import Ebook from '../../models/ebook.model.ts';
 import EbookPurchase from '../../models/ebook-purchase.model.ts';
 import { QUESTIONNAIRE_VERSION } from '../assessments/assessment-questions.ts';
+import { grantCourse } from '../courses/course-access.service.ts';
 
 const EBOOK_DOWNLOAD_LINK_LIFETIME_DAYS = 7; // client answers 2026-10-07, #9
 
@@ -26,21 +25,15 @@ async function handleCourseCheckout(session: Stripe.Checkout.Session, userId: st
     return;
   }
 
-  await CoursePurchase.updateOne({userId,courseId:course._id,stripeSessionId:session.id}, {$setOnInsert:{
+  // Milestone 3.2 Developer Plan, Module 2: same writes as before, now
+  // through the write path shared with GHL and admin grants.
+  await grantCourse({
     userId,
     courseId: course._id,
+    source: 'stripe',
     stripeSessionId: session.id,
-    amount: session.amount_total || 0,
-    purchasedAt: new Date(),
-  }}, {upsert:true});
-
-  // Created empty (not lazily on first page view, Module 5) so the
-  // dashboard has something to render the instant payment completes.
-  await CourseProgress.updateOne({userId,courseId:course._id}, {$setOnInsert:{
-    userId,
-    courseId: course._id,
-    moduleProgress: [],
-  }}, {upsert:true});
+    amountCents: session.amount_total || 0,
+  });
 }
 
 async function handleAssessmentCheckout(session: Stripe.Checkout.Session, userId: string): Promise<void> {
