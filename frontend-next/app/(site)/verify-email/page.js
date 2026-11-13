@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { verifyEmail, resendVerification } from '../../../lib/apiClient';
+import { postSignInTarget } from '../../../lib/courseArrival';
 
 export default function VerifyEmail() {
   const [token, setToken] = useState('');
@@ -27,7 +28,9 @@ export default function VerifyEmail() {
     setLoading(false);
     if (res?.error) { setError(res.error); return; }
     const params = new URLSearchParams(window.location.search);
-    router.replace(params.get('redirect') || '/');
+    // Milestone 3.2: verifying claims any GHL purchase made with this email,
+    // so send the buyer straight to their courses, even on another device.
+    router.replace(params.get('redirect') || postSignInTarget('/', res?.claimedCourses));
   };
 
   useEffect(() => {

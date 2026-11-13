@@ -24,6 +24,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE, fetchJSON } from '../../../lib/publicApi';
 import { getMe } from '../../../lib/apiClient';
+import { isCourseArrival, postSignInTarget } from '../../../lib/courseArrival';
 
 const getInviteParams = () => {
   if (typeof window === 'undefined') return { inviteToken: null, inviteEmail: null, fromCheckout: false };
@@ -60,6 +61,7 @@ export default function Login() {
   const [unverifiedEmail, setUnverifiedEmail] = useState(null);
   const [resendStatus, setResendStatus] = useState({ sending: false, message: null, error: null });
   const [googleReady, setGoogleReady] = useState(false);
+  const [courseArrival, setCourseArrival] = useState(false);
   const googleDivRef = useRef(null);
   const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID;
 
@@ -87,7 +89,10 @@ export default function Login() {
     if (lastRoute && (lastRoute.includes('/api') || lastRoute.includes('undefined') || !lastRoute.startsWith('/') || lastRoute.includes('/dashboard/'))) {
       console.warn('Clearing invalid lastRoute:', lastRoute);
       localStorage.removeItem('lastRoute');
+      return;
     }
+    // Milestone 3.2: buyers following the GHL /dashboard link land here.
+    setCourseArrival(isCourseArrival(lastRoute));
   }, []);
 
   useEffect(() => {
@@ -179,7 +184,7 @@ export default function Login() {
       localStorage.setItem('authToken', data.token);
       localStorage.setItem('token', data.token);
       try { const payload = JSON.parse(atob(data.token.split('.')[1])); if (payload.role === 'admin') { router.replace('/admin'); return; } } catch {}
-      router.replace(redirectTo);
+      router.replace(postSignInTarget(redirectTo, data.claimedCourses));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -223,6 +228,15 @@ export default function Login() {
               <p className="auth-invite-title">Team Invitation</p>
               <p className="auth-invite-text">
                 Please log in with <strong>{inviteEmail}</strong> to accept your team invitation.
+              </p>
+            </div>
+          )}
+
+          {!inviteEmail && courseArrival && (
+            <div className="auth-invite">
+              <p className="auth-invite-title">Bought a course?</p>
+              <p className="auth-invite-text">
+                Sign in with the email you used at checkout. New here? <a className="auth-link" href="/signup">Create your account</a> with that same email, then confirm it from the verification email.
               </p>
             </div>
           )}

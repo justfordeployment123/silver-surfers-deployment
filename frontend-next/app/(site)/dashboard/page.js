@@ -83,6 +83,8 @@ function DashboardContent() {
         {!loading && !hasAnyProducts && (
           <div className="dash-empty">
             <p>You haven&apos;t purchased anything from Explore yet.</p>
+            {/* Milestone 3.2: GHL purchases unlock by checkout email. */}
+            <p style={{ marginTop: 8 }}>Just bought a course? Make sure you&apos;re signed in with the email you used at checkout. If it still doesn&apos;t appear, contact <a href="mailto:hello@silversurfers.ai">hello@silversurfers.ai</a>.</p>
             <Link href="/explore" className="btn btn-p" style={{ marginTop: 16, display: 'inline-block' }}>
               Explore our products
             </Link>

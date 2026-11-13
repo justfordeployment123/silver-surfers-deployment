@@ -430,6 +430,13 @@ export const adminCreateCourse = async (payload) => {
 export const listPublishedCourses = async () => {
   try { const res = await api.get('/courses'); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+// Milestone 3.2: the AI Edge card and the training catalog on Explore both
+// need the published course list; share one request per page load.
+let publishedCoursesRequest = null;
+export const listPublishedCoursesCached = () => {
+  if (!publishedCoursesRequest) publishedCoursesRequest = listPublishedCourses();
+  return publishedCoursesRequest;
+};
 export const adminUpdateCourse = async (idOrSlug, payload) => {
   try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };

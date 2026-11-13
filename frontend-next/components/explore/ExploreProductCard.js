@@ -4,9 +4,10 @@
 // server/client split for one handler on one small component.
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createProductCheckoutSession } from '../../lib/apiClient';
+import { createProductCheckoutSession, listPublishedCoursesCached } from '../../lib/apiClient';
+import { courseCta } from '../../lib/courseArrival';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import { trackExploreClick } from '../../lib/trackExploreClick';
 
@@ -65,8 +66,32 @@ function useProductCheckout(productKey) {
   return { startCheckout, loading, error };
 }
 
+// Milestone 3.2 Developer Plan, Module 6: a static card tied to a training
+// course (AI Edge) switches to that course's GHL order form once it is
+// published with one. The native button stays disabled until the lookup
+// settles so nobody starts the wrong checkout mid-load.
+function useCourseCheckoutOverride(courseSlug) {
+  const [state, setState] = useState({ ready: !courseSlug, cta: null });
+
+  useEffect(() => {
+    if (!courseSlug) return undefined;
+    let active = true;
+    listPublishedCoursesCached().then((result) => {
+      if (!active) return;
+      const course = (result?.items || []).find((item) => item.slug === courseSlug);
+      const cta = course ? courseCta(course) : null;
+      setState({ ready: true, cta: cta?.ghl ? cta : null });
+    });
+    return () => { active = false; };
+  }, [courseSlug]);
+
+  return state;
+}
+
 export default function ExploreProductCard({ product }) {
   const { startCheckout, loading, error } = useProductCheckout(product.cta.productKey);
+  const override = useCourseCheckoutOverride(product.courseSlug);
+  const cta = override.cta ? { ...override.cta, analyticsId: product.cta.analyticsId } : product.cta;
 
   return (
     <div className="card explore-card">
@@ -154,29 +179,32 @@ export default function ExploreProductCard({ product }) {
           ))}
         </div>
 
-        {product.cta.productKey ? (
+        {cta.productKey ? (
           <>
             <button
               type="button"
               className="btn btn-p explore-card-cta"
-              disabled={loading}
+              disabled={loading || !override.ready}
               onClick={() => {
-                trackExploreClick(product.cta.analyticsId);
+                trackExploreClick(cta.analyticsId);
                 startCheckout();
               }}
             >
-              {loading ? 'Redirecting…' : `${product.cta.label} →`}
+              {loading ? 'Redirecting…' : `${cta.label} →`}
             </button>
             {error && <p style={{ color: '#c0392b', fontSize: 14, marginTop: 8 }}>{error}</p>}
           </>
         ) : (
           <a
-            href={product.cta.href}
+            href={cta.href}
             className="btn btn-p explore-card-cta"
-            {...(product.cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-            onClick={() => trackExploreClick(product.cta.analyticsId)}
+            {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+            onClick={() => {
+              trackExploreClick(cta.analyticsId);
+              if (cta.ghl) trackAnalyticsEvent('product_checkout_started', { product: cta.analyticsId, destination: 'ghl' });
+            }}
           >
-            {product.cta.label} →
+            {cta.label} →
           </a>
         )}
       </div>

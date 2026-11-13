@@ -10,6 +10,8 @@
  * @property {string} label
  * @property {string} [href] - external destination; omit when productKey is set
  * @property {boolean} [external] - opens in a new tab when true
+ * @property {boolean} [ghl] - Milestone 3.2: href is a GHL order form
+ *   (same tab, tracked as a checkout start)
  * @property {string} [productKey] - Milestone 3.1: triggers native Stripe
  *   checkout via ExploreProductCard instead of plain navigation (see
  *   backend/src/features/billing/product-catalog.ts for valid keys)
@@ -25,6 +27,8 @@
  * @property {string} image
  * @property {string} imageAlt
  * @property {ExploreProductCta} cta
+ * @property {string} [courseSlug] - Milestone 3.2: a training course whose
+ *   GHL order form, when published, replaces the native checkout CTA
  */
 export const BOOK_STORE_URL = 'https://clear-course-compass.base44.app/resources';
 
@@ -43,6 +47,9 @@ const exploreProducts = [
     ],
     image: '/explore/ai-edge.svg',
     imageAlt: 'AI Edge training preview shown on a laptop screen',
+    // Milestone 3.2: when the ai-edge course is published with a GHL order
+    // form, the card's button opens that form instead of native checkout.
+    courseSlug: 'ai-edge',
     cta: {
       label: 'Purchase AI Edge',
       // Milestone 3.1 native checkout. AI_EDGE_PRICE_ID is configured per
