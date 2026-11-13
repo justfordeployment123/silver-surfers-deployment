@@ -24,9 +24,28 @@ Admins can create separately purchased training courses at `/admin/courses`.
 - Setting a course back to Draft removes it from the catalog and blocks new checkout. Existing purchasers retain their access.
 - Existing AI Edge purchase buttons, environment variables, and entitlements continue to work.
 
+## Selling a course through GoHighLevel (Milestone 3.2)
+
+A course can be sold through a GHL order form instead of native Stripe checkout.
+
+1. In Course Management, set **Checkout method** to *GoHighLevel order form*.
+2. Paste the GHL order form URL and enter the display price shown on Explore. The real price is set in GHL. Optionally, paste a workbook order form URL.
+3. Publish. The Enroll button on Explore opens the order form in the same tab. AI Edge keeps its own Explore card and switches to its GHL form automatically once it's published that way.
+4. In GHL, each payment workflow calls `POST /integrations/ghl/purchase` once per product bought. The body is `{ orderId, email, courseSlug, item: "course" | "workbook", amount }`, and the shared secret goes in the `X-SilverSurfers-Secret` header or the `?token=` query parameter.
+5. Buyers with a verified account get access immediately. Other emails get a pending grant, which is claimed when that email verifies, logs in or resets its password. Unverified accounts never receive a course.
+6. The GHL thank-you page and welcome email link to `/dashboard`.
+
+**Customer access** (bottom of Course Management) grants or removes a course or workbook by email, and lists purchases still waiting for sign-up. Use it when a buyer checked out with a different email, after a refund, or for comps. Removing access keeps the buyer's progress.
+
+The training page shows a "Get the workbook" card to buyers who don't own the workbook, linking to the course's workbook order form. GHL emails the PDF itself.
+
+### Required backend environment variable
+
+`GHL_WEBHOOK_SECRET`: a long random string, shared with the GHL webhook step. If it isn't set, the endpoint returns 503 and grants nothing. Generate one with `openssl rand -hex 32`.
+
 ## Deployment and verification
 
-Redeploy the AWS backend API and worker, and the Hostinger Next.js frontend using the existing hosting instructions. No new environment variables or separate webhook endpoint are required.
+Redeploy the AWS backend API and worker, and the Hostinger Next.js frontend using the existing hosting instructions. Native Stripe course checkout needs no new environment variables. GHL checkout needs `GHL_WEBHOOK_SECRET` in the backend `.env` (see above).
 
 Verify a draft does not appear on Explore, publish a configured course, open its checkout and confirm the Stripe product and price. In an appropriate payment-testing environment, complete payment and check the dashboard, course access, and saved progress. The deployed staging account intentionally uses live Stripe credentials, so completing a checkout there may charge real money.
 
