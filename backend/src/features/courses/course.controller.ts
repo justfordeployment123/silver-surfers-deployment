@@ -1,4 +1,5 @@
 import type { Request, Response } from 'express';
+import mongoose from 'mongoose';
 
 import Course from '../../models/course.model.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
@@ -8,6 +9,14 @@ import { canUseAssessmentPreview } from '../assessments/assessment-preview.acces
 async function ownsCourse(userId: string, courseId: string): Promise<boolean> {
   const purchase = await CoursePurchase.findOne({ userId, courseId }).lean();
   return Boolean(purchase);
+}
+
+// Milestone 3.2 Developer Plan, Module 0. The course is loaded before the
+// ownership check so a malformed ID (e.g. a slug like "ai-edge") or an
+// unknown course answers 404 instead of a 500 cast error or a misleading 403.
+async function findCourse(courseId: string): Promise<any | null> {
+  if (!mongoose.isValidObjectId(courseId)) return null;
+  return Course.findById(courseId).lean();
 }
 
 export async function getCourse(request: Request, response: Response): Promise<void> {
@@ -20,19 +29,19 @@ export async function getCourse(request: Request, response: Response): Promise<v
       return;
     }
 
-    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
-    if (!preview && !(await ownsCourse(userId, courseId))) {
-      response.status(403).json({ error: 'You do not own this course.' });
-      return;
-    }
-
-    const course = await Course.findById(courseId).lean();
+    const course = await findCourse(courseId);
     if (!course) {
       response.status(404).json({ error: 'Course not found.' });
       return;
     }
+
+    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
     if (preview && course.slug !== 'ai-edge') {
       response.status(403).json({ error: 'This course is not available in the preview.' });
+      return;
+    }
+    if (!preview && !(await ownsCourse(userId, courseId))) {
+      response.status(403).json({ error: 'You do not own this course.' });
       return;
     }
 
@@ -66,19 +75,19 @@ export async function markLessonComplete(request: Request, response: Response): 
       return;
     }
 
-    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
-    if (!preview && !(await ownsCourse(userId, courseId))) {
-      response.status(403).json({ error: 'You do not own this course.' });
-      return;
-    }
-
-    const course = await Course.findById(courseId).lean();
+    const course = await findCourse(courseId);
     if (!course) {
       response.status(404).json({ error: 'Course not found.' });
       return;
     }
+
+    const preview = request.query.preview === '1' && canUseAssessmentPreview(request.user);
     if (preview && course.slug !== 'ai-edge') {
       response.status(403).json({ error: 'This course is not available in the preview.' });
+      return;
+    }
+    if (!preview && !(await ownsCourse(userId, courseId))) {
+      response.status(403).json({ error: 'You do not own this course.' });
       return;
     }
 

@@ -23,6 +23,7 @@ function CoursePlayerContent() {
   const { courseId } = useParams();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [loadStatus, setLoadStatus] = useState(null);
   const [course, setCourse] = useState(null);
   const [moduleProgress, setModuleProgress] = useState([]);
   const [activeLessonId, setActiveLessonId] = useState(null);
@@ -43,9 +44,11 @@ function CoursePlayerContent() {
     const result = await getCourseDetail(courseId, isPreview);
     if (result?.error) {
       setError(result.error);
+      setLoadStatus(result.status || null);
       setLoading(false);
       return;
     }
+    setLoadStatus(null);
     setCourse(result.course);
     const progress = result.progress?.moduleProgress || [];
     setModuleProgress(progress);
@@ -93,6 +96,25 @@ function CoursePlayerContent() {
   }
 
   if (loading) return <section className="sec"><div className="wrap"><p>Loading…</p></div></section>;
+  // Milestone 3.2 Developer Plan, Module 0: the page renders client-side, so
+  // the HTTP status is always 200; tell "not found" and "no access" apart
+  // from a real server error in the copy instead.
+  if (!course && (loadStatus === 404 || loadStatus === 403)) {
+    const notFound = loadStatus === 404;
+    return (
+      <section className="sec">
+        <div className="wrap">
+          <h1 className="h2" style={{ marginBottom: 16 }}>{notFound ? 'Course not found' : "You don't have access to this course"}</h1>
+          <p style={{ marginBottom: 24 }}>
+            {notFound
+              ? 'This course link is not valid. Your purchased courses are always listed on your dashboard.'
+              : 'This course is not on your account. If you just bought it, make sure you are signed in with the email you used at checkout.'}
+          </p>
+          <Link href="/dashboard" className="btn btn-p">Go to your dashboard</Link>
+        </div>
+      </section>
+    );
+  }
   if (error) return <section className="sec"><div className="wrap"><p style={{ color: '#c0392b' }}>{error}</p></div></section>;
   if (!course) return null;
 

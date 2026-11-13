@@ -777,10 +777,10 @@ export const createProductCheckoutSession = async (productKey) => {
 
 // Milestone 3.1 course player (Module 6).
 export const getCourseDetail = async (courseId, preview = false) => {
-  try { const res = await api.get(`/courses/${courseId}`, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+  try { const res = await api.get(`/courses/${encodeURIComponent(courseId)}`, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message, status: e.response?.status }; }
 };
 export const markCourseLessonComplete = async (courseId, lessonId, preview = false) => {
-  try { const res = await api.post(`/courses/${courseId}/progress`, { lessonId }, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+  try { const res = await api.post(`/courses/${encodeURIComponent(courseId)}/progress`, { lessonId }, { params: preview ? { preview: '1' } : {} }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
 
 // Milestone 3.1 AI Readiness Assessment chat (Modules 8, 10, 11).

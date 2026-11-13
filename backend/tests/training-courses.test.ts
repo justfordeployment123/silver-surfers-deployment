@@ -55,8 +55,10 @@ test('draft or missing course cannot start checkout', async t => {
 });
 test('purchasing one course does not unlock a different course', async t => {
   t.after(()=>mock.restoreAll());
-  mock.method(CoursePurchase,'findOne',(filter:any)=>{assert.deepEqual(filter,{userId:'user',courseId:'another-course'});return {lean:async()=>null};});
+  const anotherCourse='6ad790dd9fefeb3ba6d95840';
+  mock.method(Course,'findById',()=>({lean:async()=>({_id:anotherCourse,slug:'another-course'})}));
+  mock.method(CoursePurchase,'findOne',(filter:any)=>{assert.deepEqual(filter,{userId:'user',courseId:anotherCourse});return {lean:async()=>null};});
   const res=response();
-  await getCourse({user:{id:'user'},params:{courseId:'another-course'},query:{}} as any,res as any);
+  await getCourse({user:{id:'user'},params:{courseId:anotherCourse},query:{}} as any,res as any);
   assert.equal(res.statusCode,403);
 });
