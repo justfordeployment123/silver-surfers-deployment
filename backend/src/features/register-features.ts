@@ -15,6 +15,7 @@ import courseRouter from './courses/course.routes.ts';
 import dashboardRouter from './dashboard/dashboard.routes.ts';
 import ebookRouter from './ebooks/ebook.routes.ts';
 import healthRouter from './health/health.routes.ts';
+import ghlRouter from './integrations/ghl.routes.ts';
 import leadsRouter from './leads/leads.routes.ts';
 import legalRouter from './legal/legal.routes.ts';
 import { monitoringAdminRouter, monitoringRouter } from './monitoring/monitoring.routes.ts';
@@ -33,6 +34,7 @@ export async function registerFeatures(app: Express): Promise<void> {
   app.use('/', contactRouter);
   app.use('/', dashboardRouter);
   app.use('/', courseRouter);
+  app.use('/', ghlRouter);
   app.use('/', assessmentRouter);
   app.use('/', assessmentPreviewRouter);
   app.use('/', ebookRouter);

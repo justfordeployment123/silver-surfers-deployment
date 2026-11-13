@@ -54,3 +54,25 @@ test('requestLogging keeps non-health requests at info level', (t) => {
   assert.match(String(consoleLog.mock.calls[0]?.arguments[0]), /Request completed/);
   assert.match(String(consoleLog.mock.calls[0]?.arguments[0]), /"path":"\/audit"/);
 });
+
+test('requestLogging redacts secret tokens in query strings', (t) => {
+  t.after(() => {
+    mock.restoreAll();
+  });
+
+  const consoleLog = mock.method(console, 'log', () => {});
+  const request = {
+    requestId: 'req-ghl',
+    method: 'POST',
+    path: '/integrations/ghl/purchase',
+    originalUrl: '/integrations/ghl/purchase?token=super-secret&x=1',
+  };
+  const response = new MockResponse();
+
+  requestLogging(request as never, response as never, () => {});
+  response.emit('finish');
+
+  const line = String(consoleLog.mock.calls[0]?.arguments[0]);
+  assert.doesNotMatch(line, /super-secret/);
+  assert.match(line, /token=\[redacted\]&x=1/);
+});
