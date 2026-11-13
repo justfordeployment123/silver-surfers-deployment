@@ -21,7 +21,7 @@ export async function createAdminCourse(request: Request, response: Response): P
   } catch(error: any) { response.status(400).json({error:error.code === 11000 ? 'That course slug already exists.' : error.message}); }
 }
 
-function courseFilter(idOrSlug: string): Record<string, unknown> {
+export function courseFilter(idOrSlug: string): Record<string, unknown> {
   return mongoose.isValidObjectId(idOrSlug)
     ? { $or: [{ _id: idOrSlug }, { slug: idOrSlug.toLowerCase() }] }
     : { slug: idOrSlug.toLowerCase() };

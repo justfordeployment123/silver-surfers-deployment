@@ -30,6 +30,7 @@ import {
 } from './admin.controller.ts';
 import { addAccountStatusToScans, getUserIdsForAccountStatus, parseAccountStatusFilter } from './admin-account-status.ts';
 import { createAdminCourse, getAdminCourse, listAdminCourses, updateAdminCourse } from './admin-courses.controller.ts';
+import { grantAdminCourseAccess, listAdminCourseAccess, revokeAdminCourseAccess } from './admin-course-access.controller.ts';
 
 const router = Router();
 
@@ -42,6 +43,10 @@ router.get('/courses', asyncHandler(listAdminCourses));
 router.post('/courses', asyncHandler(createAdminCourse));
 router.get('/courses/:idOrSlug', asyncHandler(getAdminCourse));
 router.put('/courses/:idOrSlug', asyncHandler(updateAdminCourse));
+// Milestone 3.2 Developer Plan, Module 5: manual course access by email.
+router.get('/courses/:idOrSlug/access', asyncHandler(listAdminCourseAccess));
+router.post('/courses/:idOrSlug/access', asyncHandler(grantAdminCourseAccess));
+router.post('/courses/:idOrSlug/access/revoke', asyncHandler(revokeAdminCourseAccess));
 
 // Pagination is opt-in via `page` here too (see content.routes.ts's public
 // /blogs for the same reasoning) — the still-running CRA admin pages call

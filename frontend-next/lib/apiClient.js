@@ -433,6 +433,16 @@ export const listPublishedCourses = async () => {
 export const adminUpdateCourse = async (idOrSlug, payload) => {
   try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
+// Milestone 3.2: manual course access by email (grant, revoke, list).
+export const adminListCourseAccess = async (idOrSlug) => {
+  try { const res = await api.get(`/admin/courses/${encodeURIComponent(idOrSlug)}/access`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const adminGrantCourseAccess = async (idOrSlug, email, item = 'course') => {
+  try { const res = await api.post(`/admin/courses/${encodeURIComponent(idOrSlug)}/access`, { email, item }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const adminRevokeCourseAccess = async (idOrSlug, email) => {
+  try { const res = await api.post(`/admin/courses/${encodeURIComponent(idOrSlug)}/access/revoke`, { email }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
 
 // Admin API: Analysis records
 export const adminListAnalysis = async (params = {}) => {

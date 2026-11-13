@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { adminCreateCourse, adminListCourses, adminUpdateCourse } from '../../../../lib/apiClient';
+import CourseAccessPanel from '../../../../components/admin/CourseAccessPanel';
 
 const styles = `
 .acm-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px}.acm-title{font-family:var(--ffd);font-size:32px;color:var(--ink);margin:0 0 8px}.acm-copy{color:var(--ink6);font-size:16px;line-height:1.6;max-width:720px;margin:0}.acm-card{background:var(--surface);border:1px solid var(--sandd);border-radius:16px;padding:22px;margin-bottom:18px;box-shadow:0 6px 20px rgba(16,47,69,.05)}.acm-field{display:flex;flex-direction:column;gap:7px;flex:1}.acm-field label{font-size:14px;font-weight:700;color:var(--ink)}.acm-field input,.acm-field textarea,.acm-select{width:100%;border:1px solid var(--sandd);border-radius:9px;background:var(--surface);color:var(--ink);font:inherit;padding:11px 12px;box-sizing:border-box}.acm-field textarea{min-height:90px;resize:vertical}.acm-field input:focus,.acm-field textarea:focus,.acm-select:focus{outline:2px solid var(--t4);outline-offset:1px}.acm-row{display:flex;gap:14px;align-items:flex-end}.acm-module-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}.acm-module-head h2{font-family:var(--ffd);font-size:21px;color:var(--ink);margin:0;flex:1}.acm-badge{background:var(--t05);color:var(--t6);border-radius:999px;padding:5px 10px;font-size:13px;font-weight:700}.acm-lesson{border:1px solid var(--sandd);border-radius:12px;padding:18px;margin-top:14px;background:var(--sand)}.acm-lesson-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}.acm-lesson-head h3{font-size:17px;margin:0;flex:1;color:var(--ink)}.acm-actions{display:flex;gap:8px;flex-wrap:wrap}.acm-btn{border:1px solid var(--t4);border-radius:9px;background:var(--surface);color:var(--t6);padding:9px 13px;font:inherit;font-weight:700;cursor:pointer}.acm-btn:hover{background:var(--t05)}.acm-btn:disabled{opacity:.45;cursor:not-allowed}.acm-primary{background:var(--t6);color:#fff;border-color:var(--t6)}.acm-primary:hover{background:var(--t8)}.acm-danger{border-color:#d65d5d;color:#b23d3d}.acm-danger:hover{background:#fff2f2}.acm-status{border-radius:10px;padding:12px 14px;margin-bottom:18px;font-weight:600}.acm-error{background:#fff2f2;color:#a52f2f;border:1px solid #efc3c3}.acm-success{background:#edf9f3;color:#1f704e;border:1px solid #bce4d1}.acm-empty{text-align:center;padding:40px;color:var(--ink6)}.acm-footer{position:sticky;bottom:16px;display:flex;justify-content:flex-end;gap:10px;padding:14px;background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--sandd);border-radius:14px;box-shadow:0 8px 30px rgba(16,47,69,.14);backdrop-filter:blur(8px)}@media(max-width:720px){.acm-head,.acm-row{flex-direction:column;align-items:stretch}.acm-actions{justify-content:flex-start}.acm-title{font-size:27px}}
@@ -10,6 +11,15 @@ const styles = `
 const idPart = (value) => String(value || 'item').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 48) || 'item';
 const newId = (prefix, title) => `${prefix}-${idPart(title)}-${Date.now().toString(36)}`;
 const clone = (value) => JSON.parse(JSON.stringify(value));
+// Milestone 3.2: GHL courses take a hand-entered display price in dollars,
+// edited as text so decimals can be typed, and sent to the API in cents.
+const dollarsText = (cents) => (cents == null ? '' : (cents / 100).toFixed(2).replace(/\.00$/, ''));
+const toCents = (text) => {
+  const value = String(text ?? '').replace(/[$,\s]/g, '');
+  if (!value) return null;
+  const amount = Number(value);
+  return Number.isFinite(amount) ? Math.round(amount * 100) : -1;
+};
 
 export default function CourseManagementPage() {
   const [courses, setCourses] = useState([]);
@@ -35,7 +45,7 @@ export default function CourseManagementPage() {
   const dirty = useMemo(() => Boolean(draft && (!saved || JSON.stringify(draft) !== JSON.stringify(saved))), [draft, saved]);
   const newCourse = () => {
     if (dirty && !window.confirm('Discard your unsaved course changes?')) return;
-    setSelected('new'); setDraft({title:'',slug:'',description:'',stripePriceId:'',status:'draft',modules:[]}); setSaved(null); setMessage(null);
+    setSelected('new'); setDraft({title:'',slug:'',description:'',stripePriceId:'',status:'draft',checkoutMethod:'stripe',ghlCheckoutUrl:'',ghlWorkbookUrl:'',displayPriceCents:null,modules:[]}); setSaved(null); setMessage(null);
   };
   const chooseCourse = (id) => {
     if (dirty && !window.confirm('Discard your unsaved course changes?')) return;
@@ -54,7 +64,8 @@ export default function CourseManagementPage() {
   const removeLesson = (mi, li) => { if (window.confirm('Remove this lesson? Existing completion history will be kept, but the lesson will no longer appear.')) setDraft(current => ({ ...current, modules: current.modules.map((module, i) => i === mi ? { ...module, lessons: module.lessons.filter((_, j) => j !== li) } : module) })); };
   const save = async () => {
     setSaving(true); setMessage(null);
-    const payload = {title:draft.title,slug:draft.slug,description:draft.description || '',status:draft.status || 'draft',stripePriceId:draft.stripePriceId || '',modules:draft.modules};
+    const displayPriceCents = draft.displayPriceText !== undefined ? toCents(draft.displayPriceText) : (draft.displayPriceCents ?? null);
+    const payload = {title:draft.title,slug:draft.slug,description:draft.description || '',status:draft.status || 'draft',stripePriceId:draft.stripePriceId || '',checkoutMethod:draft.checkoutMethod || 'stripe',ghlCheckoutUrl:draft.ghlCheckoutUrl || '',ghlWorkbookUrl:draft.ghlWorkbookUrl || '',displayPriceCents,modules:draft.modules};
     const result = draft._id ? await adminUpdateCourse(draft._id,payload) : await adminCreateCourse(payload);
     if (result.error) setMessage({ type: 'error', text: result.error });
     else {
@@ -77,9 +88,15 @@ export default function CourseManagementPage() {
       <div className="acm-card" style={{display:'grid',gap:16}}>
         <div className="acm-field"><label htmlFor="course-slug">Course slug (cannot change after creation)</label><input id="course-slug" disabled={Boolean(draft._id)} value={draft.slug || ''} placeholder="ai-for-business-leaders" onChange={e => setCourse('slug',e.target.value)} /></div>
         <div className="acm-field"><label htmlFor="course-description">Course description</label><textarea id="course-description" value={draft.description || ''} onChange={e => setCourse('description',e.target.value)} /></div>
-        <div className="acm-row"><div className="acm-field"><label htmlFor="course-price">Stripe Price ID</label><input id="course-price" placeholder="price_..." value={draft.stripePriceId || ''} onChange={e => setCourse('stripePriceId',e.target.value)} /><small>Use an active one-time price. Amount and currency are read from Stripe when saved.</small></div><div className="acm-field"><label htmlFor="course-status">Visibility</label><select id="course-status" className="acm-select" value={draft.status || 'draft'} onChange={e => setCourse('status',e.target.value)}><option value="draft">Draft - hidden from Explore</option><option value="published">Published - available to purchase</option></select></div></div>
-        {draft.priceCents != null && <p>Stripe price: {new Intl.NumberFormat('en-US',{style:'currency',currency:draft.currency || 'usd'}).format(draft.priceCents/100)}</p>}
-        <p>Build your course with 6-7 modules or as many as you need. Publishing requires a description, a valid Stripe price, and lesson content. Existing purchasers keep access if a course is returned to draft.</p>
+        <div className="acm-row"><div className="acm-field"><label htmlFor="course-checkout">Checkout method</label><select id="course-checkout" className="acm-select" value={draft.checkoutMethod || 'stripe'} onChange={e => setCourse('checkoutMethod',e.target.value)}><option value="stripe">Stripe (checkout on this site)</option><option value="ghl">GoHighLevel order form</option></select></div><div className="acm-field"><label htmlFor="course-status">Visibility</label><select id="course-status" className="acm-select" value={draft.status || 'draft'} onChange={e => setCourse('status',e.target.value)}><option value="draft">Draft - hidden from Explore</option><option value="published">Published - available to purchase</option></select></div></div>
+        {draft.checkoutMethod === 'ghl' ? <>
+          <div className="acm-row"><div className="acm-field"><label htmlFor="course-ghl-url">GHL order form URL</label><input id="course-ghl-url" type="url" placeholder="https://..." value={draft.ghlCheckoutUrl || ''} onChange={e => setCourse('ghlCheckoutUrl',e.target.value)} /><small>The Enroll button on Explore opens this order form.</small></div><div className="acm-field" style={{flex:'0 0 200px'}}><label htmlFor="course-display-price">Display price (USD)</label><input id="course-display-price" inputMode="decimal" placeholder="197" value={draft.displayPriceText ?? dollarsText(draft.displayPriceCents)} onChange={e => setCourse('displayPriceText',e.target.value)} /><small>Shown on Explore. Set the real price in GHL.</small></div></div>
+          <div className="acm-field"><label htmlFor="course-ghl-workbook">GHL workbook order form URL (optional)</label><input id="course-ghl-workbook" type="url" placeholder="https://..." value={draft.ghlWorkbookUrl || ''} onChange={e => setCourse('ghlWorkbookUrl',e.target.value)} /><small>Shown on the training page to buyers who don&apos;t own the workbook yet.</small></div>
+        </> : <>
+          <div className="acm-field"><label htmlFor="course-price">Stripe Price ID</label><input id="course-price" placeholder="price_..." value={draft.stripePriceId || ''} onChange={e => setCourse('stripePriceId',e.target.value)} /><small>Use an active one-time price. Amount and currency are read from Stripe when saved.</small></div>
+          {draft.priceCents != null && <p>Stripe price: {new Intl.NumberFormat('en-US',{style:'currency',currency:draft.currency || 'usd'}).format(draft.priceCents/100)}</p>}
+        </>}
+        <p>Build your course with 6-7 modules or as many as you need. Publishing requires a description, lesson content, and either a valid Stripe price or a GHL order form URL with a display price. Existing purchasers keep access if a course is returned to draft.</p>
       </div>
       {(draft.modules || []).map((module, mi) => <section className="acm-card" key={module.moduleId}>
         <div className="acm-module-head"><span className="acm-badge">Module {mi + 1}</span><h2>{module.title || 'Untitled module'}</h2><div className="acm-actions"><button className="acm-btn" disabled={mi === 0} onClick={() => moveModule(mi, mi - 1)} aria-label={`Move module ${mi + 1} up`}>↑ Up</button><button className="acm-btn" disabled={mi === draft.modules.length - 1} onClick={() => moveModule(mi, mi + 1)} aria-label={`Move module ${mi + 1} down`}>↓ Down</button><button className="acm-btn acm-danger" onClick={() => removeModule(mi)}>Remove</button></div></div>
@@ -92,6 +109,7 @@ export default function CourseManagementPage() {
         <button className="acm-btn" style={{marginTop:16}} onClick={() => addLesson(mi)}>+ Add lesson</button>
       </section>)}
       <button className="acm-btn" onClick={addModule}>+ Add module</button>
+      {draft._id && <div style={{marginTop:24}}><CourseAccessPanel courseId={draft._id} /></div>}
       <div className="acm-footer"><button className="acm-btn" disabled={!dirty || saving} onClick={() => { setDraft(clone(saved)); setMessage(null); }}>Discard changes</button><button className="acm-btn acm-primary" disabled={(!dirty && Boolean(draft._id)) || saving} onClick={save}>{saving ? 'Saving…' : draft._id ? 'Save course' : 'Create course'}</button></div>
     </>}
   </>;
