@@ -178,3 +178,33 @@ test('the webhook rate limit blocks a burst from one IP and resets after the win
   time = 1000;
   assert.equal(run('1.1.1.1'), 200);
 });
+
+// Jackie, 2026-11-14: GHL runs one workflow per product, so a course + workbook
+// order sends two webhooks for the same buyer, in either order.
+test('course and workbook webhooks for one order both land, whichever arrives first', async (t) => {
+  const user = { _id: USER_ID, email: 'buyer@example.com', verified: true };
+  const { purchase, pending } = setup(t, { user });
+  const pendingRows: any[] = [];
+  let ownsCourse = false;
+  pending.mock.mockImplementation(async (doc: any) => { pendingRows.push({ _id: `g${pendingRows.length}`, claimedAt: null, ...doc }); return doc; });
+  mock.method(PendingCourseGrant, 'find', () => lean(pendingRows.filter((row) => !row.claimedAt)));
+  mock.method(PendingCourseGrant, 'updateOne', async (filter: any) => { const row = pendingRows.find((r) => r._id === filter._id); if (row) row.claimedAt = new Date(); return {}; });
+  purchase.mock.mockImplementation(async (_filter: any, update: any) => {
+    if (update.$setOnInsert) { ownsCourse = true; return { matchedCount: 0, upsertedCount: 1 }; }
+    return { matchedCount: ownsCourse ? 1 : 0 };
+  });
+
+  const workbookFirst = response();
+  await handleGhlPurchase(request({ body: validBody({ item: 'workbook', amount: '37' }) }), workbookFirst as any);
+  assert.deepEqual(workbookFirst.body, { status: 'pending' });
+
+  const courseSecond = response();
+  await handleGhlPurchase(request(), courseSecond as any);
+  assert.deepEqual(courseSecond.body, { status: 'granted' });
+
+  const addonWrites = purchase.mock.calls.filter((call: any) => call.arguments[1].$addToSet);
+  assert.equal(addonWrites.length, 2);
+  assert.deepEqual(addonWrites.at(-1)!.arguments[1], { $addToSet: { addons: 'workbook' } });
+  assert.ok(pendingRows.every((row) => row.claimedAt), 'the waiting workbook was attached');
+  assert.deepEqual(pendingRows.map((row) => row.externalOrderId), ['ghl:ord_1:workbook']);
+});
