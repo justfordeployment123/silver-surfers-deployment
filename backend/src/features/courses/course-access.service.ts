@@ -1,3 +1,4 @@
+import { logger } from '../../config/logger.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
 import CourseProgress from '../../models/course-progress.model.ts';
 import PendingCourseGrant from '../../models/pending-course-grant.model.ts';
@@ -5,6 +6,8 @@ import PendingCourseGrant from '../../models/pending-course-grant.model.ts';
 // Milestone 3.2 Developer Plan, Module 2. The single write path that
 // unlocks a course, shared by the Stripe webhook, the GHL webhook, admin
 // grants and claimed pending grants.
+
+const courseAccessLogger = logger.child('feature:course-access');
 
 export type CourseGrantSource = 'stripe' | 'ghl' | 'admin';
 export type CourseAddon = 'workbook';
@@ -86,4 +89,18 @@ export async function claimPendingGrants(user: { _id?: unknown; id?: unknown; em
   }
 
   return { claimed };
+}
+
+// Used on login and email verification (Module 4): a claim failure is
+// logged and retried at the next login, and must never block signing in.
+export async function claimGrantsSafely(user: Parameters<typeof claimPendingGrants>[0]): Promise<{ claimed: number }> {
+  try {
+    return await claimPendingGrants(user);
+  } catch (error) {
+    courseAccessLogger.error('Claiming pending course grants failed.', {
+      userId: String(user?._id ?? user?.id ?? ''),
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { claimed: 0 };
+  }
 }

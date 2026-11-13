@@ -10,6 +10,7 @@ import { buildAnalysisDetail } from '../audits/analysis-details.ts';
 import { getQuickScanModel } from '../audits/audits.dependencies.ts';
 import { listAnalysisReportFiles, sendAnalysisReportFile } from '../audits/analysis-reports.ts';
 import { getAuditQueues } from '../audits/audits.runtime.ts';
+import { claimGrantsSafely } from '../courses/course-access.service.ts';
 import { getAnalysisRecordModel, getEmailModule, getUserModel } from './auth.dependencies.ts';
 import { authRequired, decodeAuthToken, readBearerToken } from './auth.middleware.ts';
 
@@ -173,6 +174,10 @@ router.post('/verify-email', asyncHandler(async (request, response) => {
   user.verificationExpires = undefined;
   await user.save();
 
+  // Milestone 3.2 Developer Plan, Module 4: GHL purchases made before the
+  // account existed unlock now that the email is proven.
+  const { claimed } = await claimGrantsSafely(user);
+
   response.json({
     token: signToken(user),
     user: {
@@ -180,6 +185,7 @@ router.post('/verify-email', asyncHandler(async (request, response) => {
       role: user.role,
       verified: true,
     },
+    claimedCourses: claimed,
   });
 }));
 
@@ -251,6 +257,10 @@ router.post('/login', asyncHandler(async (request, response) => {
     return;
   }
 
+  // Milestone 3.2 Developer Plan, Module 4: picks up GHL purchases whose
+  // webhook arrived while this verified user was signed out.
+  const { claimed } = await claimGrantsSafely(user);
+
   response.json({
     token: signToken(user),
     user: {
@@ -258,6 +268,7 @@ router.post('/login', asyncHandler(async (request, response) => {
       role: user.role,
       verified: true,
     },
+    claimedCourses: claimed,
   });
 }));
 
@@ -322,6 +333,10 @@ router.post('/reset-password', asyncHandler(async (request, response) => {
   user.resetExpires = undefined;
   await user.save();
 
+  // Milestone 3.2 Developer Plan, Module 4: this also signs the user in,
+  // so claim GHL purchases here too, but only for verified accounts.
+  const { claimed } = user.verified ? await claimGrantsSafely(user) : { claimed: 0 };
+
   response.json({
     message: 'Password has been reset.',
     token: signToken(user),
@@ -330,6 +345,7 @@ router.post('/reset-password', asyncHandler(async (request, response) => {
       role: user.role,
       verified: user.verified,
     },
+    claimedCourses: claimed,
   });
 }));
 
