@@ -28,7 +28,12 @@ const coursePurchaseSchema = new mongoose.Schema({
 
 // Backs the dashboard's "which courses does this customer own" query
 // (Milestone 3.1 Developer Plan, Module 3).
-coursePurchaseSchema.index({ userId: 1, courseId: 1 });
+// Unique, not just indexed: a user owns a course exactly once, no matter
+// how many checkout sessions or webhook retries produced that ownership.
+// Bug fixed 2026-11-15: a stale filter that also matched on stripeSessionId
+// let Stripe's webhook retries (minutes to a day apart, after our endpoint
+// kept erroring) each insert a new row for the same real purchase.
+coursePurchaseSchema.index({ userId: 1, courseId: 1 }, { unique: true });
 coursePurchaseSchema.index({ externalOrderId: 1 }, { unique: true, sparse: true });
 
 const CoursePurchase = (mongoose.models.CoursePurchase as mongoose.Model<unknown> | undefined)

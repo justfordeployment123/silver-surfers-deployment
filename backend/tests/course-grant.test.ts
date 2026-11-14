@@ -28,6 +28,10 @@ test('course purchases record their source and add-ons without forcing an order 
   const index = (CoursePurchase as any).schema.indexes().find(([fields]: any) => fields.externalOrderId === 1);
   assert.equal(index?.[1]?.unique, true);
   assert.equal(index?.[1]?.sparse, true);
+  // A user can own a course exactly once, regardless of how many checkout
+  // sessions or webhook retries produced that ownership (bug fix 2026-11-15).
+  const ownerIndex = (CoursePurchase as any).schema.indexes().find(([fields]: any) => fields.userId === 1 && fields.courseId === 1);
+  assert.equal(ownerIndex?.[1]?.unique, true);
 });
 
 test('pending grants require an email, item and unique order ID', () => {
@@ -60,13 +64,26 @@ test('a GHL grant upserts one purchase per user and course and starts empty prog
   assert.ok((progress.mock.calls[0].arguments[1] as any).$setOnInsert);
 });
 
-test('a Stripe grant keeps one purchase per checkout session', async (t) => {
+test('a Stripe grant keeps one purchase per user per course, not per checkout session', async (t) => {
+  // Bug found 2026-11-15, real account: Stripe retried a failed webhook for
+  // the same checkout session over 16 seconds to 24 hours, and a filter
+  // that included stripeSessionId let each retry insert a new purchase row
+  // for jackie@silversurfers.ai, showing AI Edge 7 times on her dashboard.
   t.after(() => mock.restoreAll());
   const purchase = mock.method(CoursePurchase, 'updateOne', async () => ({}));
   mock.method(CourseProgress, 'updateOne', async () => ({}));
   await grantCourse({ userId: USER_ID, courseId: COURSE_ID, source: 'stripe', stripeSessionId: 'cs_1', amountCents: 19700 });
-  assert.deepEqual(purchase.mock.calls[0].arguments[0], { userId: USER_ID, courseId: COURSE_ID, stripeSessionId: 'cs_1' });
-  assert.equal((purchase.mock.calls[0].arguments[1] as any).$setOnInsert.externalOrderId, undefined);
+  const [filter, update] = purchase.mock.calls[0].arguments as any[];
+  assert.deepEqual(filter, { userId: USER_ID, courseId: COURSE_ID });
+  assert.equal(update.$setOnInsert.stripeSessionId, 'cs_1');
+  assert.equal(update.$setOnInsert.externalOrderId, undefined);
+});
+
+test('a retried webhook racing a first-time grant is treated as already granted, not an error', async (t) => {
+  t.after(() => mock.restoreAll());
+  mock.method(CoursePurchase, 'updateOne', async () => { throw Object.assign(new Error('E11000 duplicate key'), { code: 11000 }); });
+  mock.method(CourseProgress, 'updateOne', async () => ({}));
+  await assert.doesNotReject(grantCourse({ userId: USER_ID, courseId: COURSE_ID, source: 'stripe', stripeSessionId: 'cs_1' }));
 });
 
 test('an add-on attaches only to an existing course purchase', async (t) => {

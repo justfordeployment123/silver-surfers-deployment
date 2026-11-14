@@ -42,8 +42,18 @@ export async function getMyCourses(request: Request, response: Response): Promis
     const progressDocs = await CourseProgress.find({ userId }).lean();
     const progressByCourseId = new Map(progressDocs.map((progress: any) => [String(progress.courseId), progress]));
 
+    // Bug found 2026-11-15: a now-fixed webhook retry bug left some
+    // accounts with more than one purchase row for the same course. Show
+    // each owned course once regardless, keeping its most recent purchase.
+    const seenCourseIds = new Set<string>();
     const courses = purchases
       .filter((purchase: any) => purchase.courseId)
+      .filter((purchase: any) => {
+        const courseId = String(purchase.courseId._id);
+        if (seenCourseIds.has(courseId)) return false;
+        seenCourseIds.add(courseId);
+        return true;
+      })
       .map((purchase: any) => {
         const course = purchase.courseId;
         const progress = progressByCourseId.get(String(course._id));

@@ -39,7 +39,11 @@ test('paid checkout grants exactly its course and preserves progress on webhook 
   const session={id:'cs_paid',mode:'payment',payment_status:'paid',amount_total:3700,metadata:{productType:'course',courseSlug:'test',userId:'user'}};
   await handleProductCheckoutCompleted(session as any);
   await handleProductCheckoutCompleted(session as any);
-  for (const call of purchase.mock.calls) assert.deepEqual(call.arguments[0],{userId:'user',courseId:'course-specific',stripeSessionId:'cs_paid'});
+  // Bug found 2026-11-15: filtering by stripeSessionId let Stripe's webhook
+  // retries (which resend the same session over hours) each insert a new
+  // purchase row. One row per user per course is the real identity.
+  for (const call of purchase.mock.calls) assert.deepEqual(call.arguments[0],{userId:'user',courseId:'course-specific'});
+  assert.equal(purchase.mock.calls[0].arguments[1].$setOnInsert.stripeSessionId,'cs_paid');
   for (const call of progress.mock.calls) {
     assert.deepEqual(call.arguments[0],{userId:'user',courseId:'course-specific'});
     assert.ok(call.arguments[1].$setOnInsert);

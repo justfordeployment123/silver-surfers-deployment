@@ -9,6 +9,10 @@ import PendingCourseGrant from '../../models/pending-course-grant.model.ts';
 
 const courseAccessLogger = logger.child('feature:course-access');
 
+function isDuplicateKeyError(error: unknown): boolean {
+  return (error as { code?: number })?.code === 11000;
+}
+
 export type CourseGrantSource = 'stripe' | 'ghl' | 'admin';
 export type CourseAddon = 'workbook';
 
@@ -24,10 +28,11 @@ interface GrantCourseInput {
 export async function grantCourse(input: GrantCourseInput): Promise<void> {
   const { userId, courseId, source, stripeSessionId, externalOrderId, amountCents } = input;
 
-  // Stripe keeps one purchase per checkout session (unchanged 3.1
-  // behaviour). Other sources keep one purchase per user and course, so a
-  // retried webhook or a second grant never creates a duplicate.
-  const filter = stripeSessionId ? { userId, courseId, stripeSessionId } : { userId, courseId };
+  // One purchase per user per course, full stop (bug fix 2026-11-15: see
+  // the unique index on course-purchase.model.ts for why stripeSessionId
+  // must never be part of this filter). The session/order id is only
+  // recorded on the one row that ends up existing, for support lookups.
+  const filter = { userId, courseId };
   const insert: Record<string, unknown> = {
     userId,
     courseId,
@@ -38,7 +43,14 @@ export async function grantCourse(input: GrantCourseInput): Promise<void> {
   if (stripeSessionId) insert.stripeSessionId = stripeSessionId;
   if (externalOrderId) insert.externalOrderId = externalOrderId;
 
-  await CoursePurchase.updateOne(filter, { $setOnInsert: insert }, { upsert: true });
+  try {
+    await CoursePurchase.updateOne(filter, { $setOnInsert: insert }, { upsert: true });
+  } catch (error) {
+    // Two deliveries racing the very first grant can both miss the match
+    // and both attempt an insert; the unique index rejects the loser, who
+    // can safely treat that as "already granted" instead of failing.
+    if (!isDuplicateKeyError(error)) throw error;
+  }
 
   // Created empty (not lazily on first page view, Module 5 of 3.1) so the
   // dashboard has something to render the instant access is granted.
