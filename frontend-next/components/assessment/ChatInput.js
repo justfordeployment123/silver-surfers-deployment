@@ -35,11 +35,20 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
   }[question.id] || [];
   const replyChoices = <div className="chat-option-list">{flexibleReplies.map(reply => <button key={reply} type="button" className="chat-option-btn" disabled={disabled} onClick={() => setValue(reply)}>{reply}</button>)}</div>;
 
+  async function send(text) {
+    const accepted = await onSubmit(text);
+    if (accepted === false) return;
+    setValue('');
+    setOtherValue('');
+    setSelected([]);
+    setMatrix({});
+  }
+
   function submitText(e) {
     e?.preventDefault();
     const trimmed = value.trim();
     if (!trimmed || disabled) return;
-    onSubmit(trimmed);
+    send(trimmed);
   }
 
   function handleComposerKeyDown(e) {
@@ -51,7 +60,7 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
 
   function submitDirect(text) {
     if (disabled || !text) return;
-    onSubmit(text);
+    send(text);
   }
 
   function submitSelect(e) {
@@ -60,10 +69,10 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
     if (value === 'Other (specify)') {
       const detail = otherValue.trim();
       if (!detail) return;
-      onSubmit(`Other: ${detail}`);
+      send(`Other: ${detail}`);
       return;
     }
-    onSubmit(value);
+    send(value);
   }
 
   function toggleMultiselect(label) {
@@ -117,19 +126,19 @@ export default function ChatInput({ question, answers = [], onSubmit, disabled }
     const painLabels = ['Mildly annoying', 'Somewhat annoying', 'Very annoying', 'Very painful', 'Actively holding the business back'];
     return <form className="chat-composer" onSubmit={event => {
       event.preventDefault();
-      if (!disabled) onSubmit(JSON.stringify(rows.map(label => ({ function: label, ...(matrix[label] || {}) }))));
+      if (!disabled) send(JSON.stringify(rows.map(label => { const row = { function: label, ...(matrix[label] || {}) }; if (question.id === 15 && row.satisfied === 'Yes') delete row.notes; return row; })));
     }}>
       {sharedStyle}
       {rows.map(label => <fieldset key={label} style={{border:'1px solid var(--sandd)',borderRadius:12,padding:16,margin:0}} disabled={disabled}>
         <legend>{label}</legend>
         {question.id === 15 && <label style={{display:'block',marginTop:10}}><input type="checkbox" checked={matrix[label]?.toolsUsed === 'No tool currently used'} onChange={event => setMatrix(current => ({...current,[label]:event.target.checked ? {toolsUsed:'No tool currently used'} : {toolsUsed:''}}))} /> No tool currently used</label>}
-        {columns.filter(column => question.id !== 15 || (matrix[label]?.toolsUsed !== 'No tool currently used' && (column.key !== 'notes' || matrix[label]?.satisfied === 'No'))).map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
-          {question.id === 15 && column.key === 'notes' ? 'What is not working well? Please explain.' : column.label}
+        {columns.filter(column => question.id !== 15 || (matrix[label]?.toolsUsed !== 'No tool currently used' && (column.key !== 'notes' || ['No', 'Uncertain'].includes(matrix[label]?.satisfied)))).map(column => <label key={column.key} style={{display:'block',marginTop:10}}>
+          {question.id === 15 && column.key === 'notes' ? (matrix[label]?.satisfied === 'No' ? 'What is not working well? Please explain.' : 'What is uncertain? (optional)') : column.label}
           <div className="chat-input-row">
-            {question.id === 15 && column.key === 'satisfied' ? <select required value={matrix[label]?.satisfied || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],satisfied:event.target.value,notes:''}}))}><option value="">Select satisfaction</option>{['Yes','No','Uncertain'].map(option => <option key={option}>{option}</option>)}</select> : column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
+            {question.id === 15 && column.key === 'satisfied' ? <select required value={matrix[label]?.satisfied || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],satisfied:event.target.value}}))}><option value="">Select satisfaction</option>{['Yes','No','Uncertain'].map(option => <option key={option}>{option}</option>)}</select> : column.key === 'pain' ? <select required value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))}>
               <option value="">Select a pain rating</option>
               {painLabels.map((text, index) => <option key={text} value={index + 1}>{index + 1} - {text}</option>)}
-            </select> : <input required type={column.key === 'hoursPerWeek' ? 'number' : 'text'} min={column.key === 'hoursPerWeek' ? 0 : undefined} max={column.key === 'hoursPerWeek' ? 168 : undefined} step={column.key === 'hoursPerWeek' ? 'any' : undefined} value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))} />}
+            </select> : <input required={!(question.id === 15 && column.key === 'notes' && matrix[label]?.satisfied !== 'No')} type={column.key === 'hoursPerWeek' ? 'number' : 'text'} min={column.key === 'hoursPerWeek' ? 0 : undefined} max={column.key === 'hoursPerWeek' ? 168 : undefined} step={column.key === 'hoursPerWeek' ? 'any' : undefined} value={matrix[label]?.[column.key] || ''} onChange={event => setMatrix(current => ({...current,[label]:{...current[label],[column.key]:event.target.value}}))} />}
           </div>
         </label>)}
       </fieldset>)}

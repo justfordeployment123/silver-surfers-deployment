@@ -119,10 +119,11 @@ function AssessmentContent() {
     setSending(false);
     if (result?.error) {
       setError(result.error);
-      return;
+      return false;
     }
     setAssessment(result.assessment);
     setCurrentQuestion(result.currentQuestion ?? null);
+    return true;
   }
 
   async function handleBack() {

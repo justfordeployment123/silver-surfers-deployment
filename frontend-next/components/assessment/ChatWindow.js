@@ -24,7 +24,7 @@ export default function ChatWindow({ transcript, currentQuestion, answerCount, a
     <div className="chat-window">
       <style>{`
         .chat-window { display: flex; flex-direction: column; height: 100%; }
-        .assessment-progress { margin-bottom: 16px; }
+        .assessment-progress { position: sticky; top: 64px; z-index: 5; margin: 0 -8px 16px; padding: 10px 8px 8px; background: var(--bg); border-bottom: 1px solid var(--sandd); }
         .assessment-progress-copy {
           display: flex;
           justify-content: space-between;
