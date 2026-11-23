@@ -71,7 +71,7 @@ function useProductCheckout(productKey) {
 // published with one. The native button stays disabled until the lookup
 // settles so nobody starts the wrong checkout mid-load.
 function useCourseCheckoutOverride(courseSlug) {
-  const [state, setState] = useState({ ready: !courseSlug, cta: null });
+  const [state, setState] = useState({ ready: !courseSlug, cta: null, price: '' });
 
   useEffect(() => {
     if (!courseSlug) return undefined;
@@ -80,7 +80,10 @@ function useCourseCheckoutOverride(courseSlug) {
       if (!active) return;
       const course = (result?.items || []).find((item) => item.slug === courseSlug);
       const cta = course ? courseCta(course) : null;
-      setState({ ready: true, cta: cta?.ghl ? cta : null });
+      const price = course?.priceCents > 0
+        ? new Intl.NumberFormat('en-US', { style: 'currency', currency: course.currency || 'usd' }).format(course.priceCents / 100)
+        : '';
+      setState({ ready: true, cta: cta?.ghl ? cta : null, price });
     });
     return () => { active = false; };
   }, [courseSlug]);
@@ -120,6 +123,12 @@ export default function ExploreProductCard({ product }) {
           display: flex;
           flex-direction: column;
           flex: 1;
+        }
+        .explore-card-price {
+          font-size: 20px;
+          font-weight: 700;
+          color: var(--ink);
+          margin-bottom: 8px;
         }
         .explore-card-tagline {
           font-size: 16px;
@@ -167,6 +176,7 @@ export default function ExploreProductCard({ product }) {
       <div className="explore-card-body">
         <span className="tag">{product.category.toUpperCase()}</span>
         <h3 className="h3">{product.name}</h3>
+        {override.price && <p className="explore-card-price">{override.price}</p>}
         {product.tagline && <p className="explore-card-tagline">{product.tagline}</p>}
         <p className="explore-card-desc">{product.description}</p>
 

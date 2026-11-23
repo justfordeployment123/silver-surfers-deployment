@@ -7,6 +7,8 @@ import ExploreProductCard from './ExploreProductCard';
 // Card images for courses that have their own artwork; others reuse AI Edge's.
 const COURSE_IMAGES = {
   'everyday-ai-for-business': '/explore/everyday-ai-for-business.svg',
+  'prompting-ai-for-business': '/explore/prompting-ai-for-business.svg',
+  'ai-agents-at-work': '/explore/ai-agents-at-work.svg',
 };
 
 export default function TrainingCourseCatalog() {
