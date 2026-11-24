@@ -6,6 +6,8 @@ import Course from '../../models/course.model.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
 import PendingCourseGrant from '../../models/pending-course-grant.model.ts';
 import User from '../../models/user.model.ts';
+import Assessment from '../../models/assessment.model.ts';
+import { grantAssessment } from '../assessments/assessment-access.service.ts';
 import { claimPendingGrants, grantAddon, grantCourse } from '../courses/course-access.service.ts';
 
 // Milestone 3.2 Developer Plan, Module 3. GoHighLevel order forms charge
@@ -14,7 +16,7 @@ import { claimPendingGrants, grantAddon, grantCourse } from '../courses/course-a
 // once per product bought ("course" or "workbook") to unlock access.
 
 const ghlLogger = logger.child('feature:ghl');
-const ITEMS = ['course', 'workbook'] as const;
+const ITEMS = ['course', 'workbook', 'assessment'] as const;
 type GhlItem = typeof ITEMS[number];
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -65,12 +67,17 @@ export async function handleGhlPurchase(request: Request, response: Response): P
 
   const problem = !EMAIL_PATTERN.test(email) ? 'A valid email is required.'
     : !orderId ? 'orderId is required.'
-      : !courseSlug ? 'courseSlug is required.'
-        : !ITEMS.includes(item) ? 'item must be "course" or "workbook".'
+      : !ITEMS.includes(item) ? 'item must be "course", "workbook" or "assessment".'
+        : item !== 'assessment' && !courseSlug ? 'courseSlug is required.'
           : null;
   if (problem) {
     ghlLogger.warn('GHL purchase webhook rejected: invalid payload.', { problem });
     response.status(400).json({ error: problem });
+    return;
+  }
+
+  if (item === 'assessment') {
+    await handleAssessmentPurchase({ email, orderId, body, response });
     return;
   }
 
@@ -130,6 +137,58 @@ export async function handleGhlPurchase(request: Request, response: Response): P
     response.json({ status: 'pending' });
   } catch (error) {
     ghlLogger.error('GHL purchase webhook failed.', { error: error instanceof Error ? error.message : String(error) });
+    response.status(500).json({ error: 'Failed to record purchase.' });
+  }
+}
+
+// The AI Readiness Assessment has no course: a paid order creates an
+// assessment for the buyer, or waits as a pending grant until they have a
+// verified account with the same email.
+async function handleAssessmentPurchase({ email, orderId, body, response }: {
+  email: string;
+  orderId: string;
+  body: Record<string, unknown>;
+  response: Response;
+}): Promise<void> {
+  try {
+    const externalOrderId = `ghl:${orderId}:assessment`;
+    if (await Assessment.exists({ externalOrderId }) || await PendingCourseGrant.exists({ externalOrderId })) {
+      ghlLogger.info('GHL assessment webhook duplicate ignored.', { externalOrderId });
+      response.json({ status: 'duplicate' });
+      return;
+    }
+
+    const amountCents = parseAmountCents(body.amount);
+    const user: any = await User.findOne({ email, verified: true }).lean();
+
+    if (user) {
+      const outcome = await grantAssessment({ userId: user._id, externalOrderId, amountCents });
+      ghlLogger.info('GHL assessment granted.', { externalOrderId, email: maskEmail(email), outcome });
+      response.json({ status: outcome === 'created' ? 'granted' : 'duplicate' });
+      return;
+    }
+
+    try {
+      await PendingCourseGrant.create({
+        email,
+        item: 'assessment',
+        source: 'ghl',
+        externalOrderId,
+        amountCents,
+        rawPayload: body,
+      });
+    } catch (error) {
+      if (isDuplicateKeyError(error)) {
+        response.json({ status: 'duplicate' });
+        return;
+      }
+      throw error;
+    }
+
+    ghlLogger.info('GHL assessment stored as pending grant.', { externalOrderId, email: maskEmail(email) });
+    response.json({ status: 'pending' });
+  } catch (error) {
+    ghlLogger.error('GHL assessment webhook failed.', { error: error instanceof Error ? error.message : String(error) });
     response.status(500).json({ error: 'Failed to record purchase.' });
   }
 }

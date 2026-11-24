@@ -6,8 +6,13 @@ import mongoose from 'mongoose';
 // an unverified account.
 const pendingCourseGrantSchema = new mongoose.Schema({
   email: { type: String, required: true, lowercase: true, trim: true, index: true },
-  courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
-  item: { type: String, enum: ['course', 'workbook'], required: true },
+  // An "assessment" grant is not tied to a course.
+  courseId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Course',
+    required: function requiredUnlessAssessment(this: { item?: string }) { return this.item !== 'assessment'; },
+  },
+  item: { type: String, enum: ['course', 'workbook', 'assessment'], required: true },
   source: { type: String, enum: ['ghl', 'admin'], default: 'ghl' },
   externalOrderId: { type: String, required: true },
   amountCents: { type: Number },

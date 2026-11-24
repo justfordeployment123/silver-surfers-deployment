@@ -74,9 +74,11 @@ const exploreProducts = [
     imageAlt: 'AI Readiness Assessment results shown on a tablet screen',
     cta: {
       label: 'Purchase Assessment',
-      // Milestone 3.1 native checkout. After payment, the assessment is
-      // added to the customer dashboard and can be started immediately.
-      productKey: 'ai-readiness-assessment',
+      // Sold through a GHL order form, like the trainings (client,
+      // 2026-11-24). The GHL workflow calls the purchase webhook with
+      // item "assessment", which adds it to the buyer's dashboard.
+      href: 'https://get.silversurfersinc.com/ai-readiness-assessment-checkout',
+      ghl: true,
       analyticsId: 'explore_ai_readiness_assessment',
     },
   },

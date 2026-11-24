@@ -2,6 +2,7 @@ import { logger } from '../../config/logger.ts';
 import CoursePurchase from '../../models/course-purchase.model.ts';
 import CourseProgress from '../../models/course-progress.model.ts';
 import PendingCourseGrant from '../../models/pending-course-grant.model.ts';
+import { grantAssessment } from '../assessments/assessment-access.service.ts';
 
 // Milestone 3.2 Developer Plan, Module 2. The single write path that
 // unlocks a course, shared by the Stripe webhook, the GHL webhook, admin
@@ -82,7 +83,9 @@ export async function claimPendingGrants(user: { _id?: unknown; id?: unknown; em
 
   let claimed = 0;
   for (const grant of grants) {
-    if (grant.item === 'course') {
+    if (grant.item === 'assessment') {
+      await grantAssessment({ userId, externalOrderId: grant.externalOrderId, amountCents: grant.amountCents });
+    } else if (grant.item === 'course') {
       await grantCourse({
         userId,
         courseId: grant.courseId,

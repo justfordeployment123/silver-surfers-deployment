@@ -77,6 +77,9 @@ const assessmentSchema = new mongoose.Schema({
   aiReport: { type: assessmentAiReportSchema, default: () => ({}) },
   adminReview: { type: assessmentAdminReviewSchema, default: () => ({}) },
   stripeSessionId: { type: String, index: true },
+  // Set when the assessment was bought through a GoHighLevel order form
+  // ("ghl:<orderId>:assessment"). Makes the webhook idempotent.
+  externalOrderId: { type: String },
   amount: { type: Number },
 }, { timestamps: true });
 
@@ -84,6 +87,10 @@ const assessmentSchema = new mongoose.Schema({
 // and the admin review queue's "pending_review first" listing (Module 13).
 assessmentSchema.index({ userId: 1, createdAt: -1 });
 assessmentSchema.index({ status: 1, createdAt: -1 });
+assessmentSchema.index(
+  { externalOrderId: 1 },
+  { unique: true, partialFilterExpression: { externalOrderId: { $type: 'string' } } },
+);
 assessmentSchema.index(
   { userId: 1, source: 1 },
   { unique: true, partialFilterExpression: { source: 'preview' } },
