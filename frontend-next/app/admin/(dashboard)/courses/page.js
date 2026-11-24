@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { adminCreateCourse, adminListCourses, adminUpdateCourse } from '../../../../lib/apiClient';
+import { API_BASE_URL, adminCreateCourse, adminDeleteCourseImage, adminListCourses, adminUpdateCourse, adminUploadCourseImage } from '../../../../lib/apiClient';
+import { courseImageSrc, validateImageFile } from '../../../../lib/courseImage';
 import CourseAccessPanel from '../../../../components/admin/CourseAccessPanel';
 
 const styles = `
@@ -29,6 +30,12 @@ export default function CourseManagementPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  // Card image: an existing course uploads as soon as a file is picked; a new
+  // course holds the file until the course itself is saved.
+  const [pendingImage, setPendingImage] = useState(null);
+  const [localPreview, setLocalPreview] = useState('');
+  const [imageBusy, setImageBusy] = useState(false);
+  const resetImage = () => { setPendingImage(null); setLocalPreview(''); };
 
   useEffect(() => { (async () => {
     const result = await adminListCourses();
@@ -45,12 +52,40 @@ export default function CourseManagementPage() {
   const dirty = useMemo(() => Boolean(draft && (!saved || JSON.stringify(draft) !== JSON.stringify(saved))), [draft, saved]);
   const newCourse = () => {
     if (dirty && !window.confirm('Discard your unsaved course changes?')) return;
-    setSelected('new'); setDraft({title:'',slug:'',description:'',stripePriceId:'',status:'draft',checkoutMethod:'stripe',ghlCheckoutUrl:'',ghlWorkbookUrl:'',displayPriceCents:null,modules:[]}); setSaved(null); setMessage(null);
+    resetImage(); setSelected('new'); setDraft({title:'',slug:'',description:'',stripePriceId:'',status:'draft',checkoutMethod:'stripe',ghlCheckoutUrl:'',ghlWorkbookUrl:'',displayPriceCents:null,modules:[]}); setSaved(null); setMessage(null);
   };
   const chooseCourse = (id) => {
     if (dirty && !window.confirm('Discard your unsaved course changes?')) return;
     const course = courses.find(item => item._id === id);
-    setSelected(id); setDraft(clone(course)); setSaved(clone(course)); setMessage(null);
+    resetImage(); setSelected(id); setDraft(clone(course)); setSaved(clone(course)); setMessage(null);
+  };
+  const patchImage = (fields) => {
+    setDraft(current => ({ ...current, ...fields })); setSaved(current => current ? { ...current, ...fields } : current);
+    setCourses(items => items.map(item => item._id === draft._id ? { ...item, ...fields } : item));
+  };
+  const pickImage = async (event) => {
+    const file = event.target.files?.[0]; event.target.value = '';
+    if (!file) return;
+    const problem = validateImageFile(file);
+    if (problem) { setMessage({ type: 'error', text: problem }); return; }
+    setMessage(null);
+    const preview = URL.createObjectURL(file);
+    if (!draft._id) { setPendingImage({ file, preview }); return; }
+    setImageBusy(true);
+    const result = await adminUploadCourseImage(draft._id, file);
+    setImageBusy(false);
+    if (result.error) { setMessage({ type: 'error', text: result.error }); return; }
+    patchImage({ imageUpdatedAt: result.imageUpdatedAt }); setLocalPreview(preview);
+    setMessage({ type: 'success', text: 'Card image uploaded.' });
+  };
+  const removeImage = async () => {
+    if (pendingImage) { resetImage(); return; }
+    if (!window.confirm('Remove the card image? The course will use the default image.')) return;
+    setImageBusy(true);
+    const result = await adminDeleteCourseImage(draft._id);
+    setImageBusy(false);
+    if (result.error) { setMessage({ type: 'error', text: result.error }); return; }
+    patchImage({ imageUpdatedAt: undefined }); setLocalPreview('');
   };
   const setCourse = (field, value) => setDraft(current => ({ ...current, [field]: value }));
   const setModule = (index, field, value) => setDraft(current => ({ ...current, modules: current.modules.map((item, i) => i === index ? { ...item, [field]: value } : item) }));
@@ -69,11 +104,17 @@ export default function CourseManagementPage() {
     const result = draft._id ? await adminUpdateCourse(draft._id,payload) : await adminCreateCourse(payload);
     if (result.error) setMessage({ type: 'error', text: result.error });
     else {
-      const updated = result.course;
+      let updated = result.course; let imageError = '';
+      if (pendingImage) {
+        const upload = await adminUploadCourseImage(updated._id, pendingImage.file);
+        if (upload.error) imageError = upload.error;
+        else { updated = { ...updated, imageUpdatedAt: upload.imageUpdatedAt }; setLocalPreview(pendingImage.preview); }
+        setPendingImage(null);
+      }
       setDraft(clone(updated)); setSaved(clone(updated));
       setSelected(updated._id);
       setCourses(items => items.some(item => item._id === updated._id) ? items.map(item => item._id === updated._id ? updated : item) : [...items,updated]);
-      setMessage({ type: 'success', text: updated.status === 'published' ? 'Course published. Customers can purchase it from Explore.' : 'Draft saved. It is hidden from the course catalog.' });
+      setMessage(imageError ? { type: 'error', text: `The course was saved, but the image could not be uploaded: ${imageError}` } : { type: 'success', text: updated.status === 'published' ? 'Course published. Customers can purchase it from Explore.' : 'Draft saved. It is hidden from the course catalog.' });
     }
     setSaving(false); window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -96,6 +137,12 @@ export default function CourseManagementPage() {
           <div className="acm-field"><label htmlFor="course-price">Stripe Price ID</label><input id="course-price" placeholder="price_..." value={draft.stripePriceId || ''} onChange={e => setCourse('stripePriceId',e.target.value)} /><small>Use an active one-time price. Amount and currency are read from Stripe when saved.</small></div>
           {draft.priceCents != null && <p>Stripe price: {new Intl.NumberFormat('en-US',{style:'currency',currency:draft.currency || 'usd'}).format(draft.priceCents/100)}</p>}
         </>}
+        <div className="acm-field">
+          <label htmlFor="course-image">Card image (shown on Explore)</label>
+          {(pendingImage?.preview || localPreview || (draft.imageUpdatedAt && draft.status === 'published')) ? <img alt="Course card preview" style={{maxWidth:280,borderRadius:8,border:'1px solid var(--sandd)'}} src={pendingImage?.preview || localPreview || courseImageSrc({slug:draft.slug,imageUrl:`/courses/${draft.slug}/image?v=${new Date(draft.imageUpdatedAt).getTime()}`},{},'',API_BASE_URL)} /> : <small>{draft.imageUpdatedAt ? 'An image is uploaded. It will show here once the course is published.' : 'No image yet. The default AI Edge image is used until you upload one.'}</small>}
+          <div className="acm-actions" style={{marginTop:8}}><input id="course-image" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={imageBusy} onChange={pickImage} />{(pendingImage || draft.imageUpdatedAt) && <button type="button" className="acm-btn" disabled={imageBusy} onClick={removeImage}>Remove image</button>}</div>
+          <small>PNG, JPEG, WebP or SVG, up to 5 MB.{!draft._id && ' The image uploads when you save the course.'}</small>
+        </div>
         <p>Build your course with 6-7 modules or as many as you need. Publishing requires a description, lesson content, and either a valid Stripe price or a GHL order form URL with a display price. Existing purchasers keep access if a course is returned to draft.</p>
       </div>
       {(draft.modules || []).map((module, mi) => <section className="acm-card" key={module.moduleId}>

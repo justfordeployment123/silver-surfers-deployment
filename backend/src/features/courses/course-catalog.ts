@@ -42,6 +42,10 @@ export function validateCoursePrice(price: any) {
   return { priceCents: price.unit_amount, currency: price.currency };
 }
 
+export function courseImageUrl(course: any) {
+  return course.imageUpdatedAt ? `/courses/${course.slug}/image?v=${new Date(course.imageUpdatedAt).getTime()}` : '';
+}
+
 export function publicCourse(course: any) {
   const ghl = course.checkoutMethod === 'ghl';
   return {
@@ -49,6 +53,7 @@ export function publicCourse(course: any) {
     checkoutMethod: ghl ? 'ghl' : 'stripe',
     checkoutUrl: ghl ? course.ghlCheckoutUrl || '' : '',
     workbookUrl: course.ghlWorkbookUrl || '',
+    imageUrl: courseImageUrl(course),
     priceCents: ghl ? course.displayPriceCents : course.priceCents,
     currency: ghl ? 'usd' : course.currency,
     moduleCount:course.modules?.length || 0,

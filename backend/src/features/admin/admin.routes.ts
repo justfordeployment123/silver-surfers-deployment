@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import express, { Router } from 'express';
 
 import AnalysisRecord from '../../models/analysis-record.model.ts';
 import BlogPost from '../../models/blog-post.model.ts';
@@ -30,6 +30,8 @@ import {
 } from './admin.controller.ts';
 import { addAccountStatusToScans, getUserIdsForAccountStatus, parseAccountStatusFilter } from './admin-account-status.ts';
 import { createAdminCourse, getAdminCourse, listAdminCourses, updateAdminCourse } from './admin-courses.controller.ts';
+import { deleteAdminCourseImage, uploadAdminCourseImage } from '../courses/course-image.controller.ts';
+import { MAX_COURSE_IMAGE_BYTES } from '../courses/course-image.ts';
 import { grantAdminCourseAccess, listAdminCourseAccess, revokeAdminCourseAccess } from './admin-course-access.controller.ts';
 
 const router = Router();
@@ -43,6 +45,10 @@ router.get('/courses', asyncHandler(listAdminCourses));
 router.post('/courses', asyncHandler(createAdminCourse));
 router.get('/courses/:idOrSlug', asyncHandler(getAdminCourse));
 router.put('/courses/:idOrSlug', asyncHandler(updateAdminCourse));
+// Course card image: raw bytes, parsed on this route only so the global JSON
+// limit is untouched. The 5 MB cap is enforced here and again in validation.
+router.put('/courses/:idOrSlug/image', express.raw({ type: ['image/*'], limit: MAX_COURSE_IMAGE_BYTES }), asyncHandler(uploadAdminCourseImage));
+router.delete('/courses/:idOrSlug/image', asyncHandler(deleteAdminCourseImage));
 // Milestone 3.2 Developer Plan, Module 5: manual course access by email.
 router.get('/courses/:idOrSlug/access', asyncHandler(listAdminCourseAccess));
 router.post('/courses/:idOrSlug/access', asyncHandler(grantAdminCourseAccess));

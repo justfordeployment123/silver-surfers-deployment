@@ -15,6 +15,7 @@ import axios from 'axios';
 // fallback chain into one canonical NEXT_PUBLIC_API_BASE_URL.
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000';
 const API_BASE = BACKEND_URL;
+export const API_BASE_URL = BACKEND_URL;
 
 // Create a single axios instance so we can attach auth headers automatically
 const api = axios.create({ baseURL: BACKEND_URL });
@@ -439,6 +440,13 @@ export const listPublishedCoursesCached = () => {
 };
 export const adminUpdateCourse = async (idOrSlug, payload) => {
   try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}`, payload); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+// Course card image: raw file bytes, sent with the file's own content type.
+export const adminUploadCourseImage = async (idOrSlug, file) => {
+  try { const res = await api.put(`/admin/courses/${encodeURIComponent(idOrSlug)}/image`, file, { headers: { 'Content-Type': file.type } }); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
+};
+export const adminDeleteCourseImage = async (idOrSlug) => {
+  try { const res = await api.delete(`/admin/courses/${encodeURIComponent(idOrSlug)}/image`); return res.data; } catch (e) { return { error: e.response?.data?.error || e.message }; }
 };
 // Milestone 3.2: manual course access by email (grant, revoke, list).
 export const adminListCourseAccess = async (idOrSlug) => {

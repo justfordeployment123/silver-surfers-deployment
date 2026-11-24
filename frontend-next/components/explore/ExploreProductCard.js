@@ -6,7 +6,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createProductCheckoutSession, listPublishedCoursesCached } from '../../lib/apiClient';
+import { API_BASE_URL, createProductCheckoutSession, listPublishedCoursesCached } from '../../lib/apiClient';
+import { courseImageSrc } from '../../lib/courseImage';
 import { courseCta } from '../../lib/courseArrival';
 import { trackAnalyticsEvent } from '../../lib/analytics';
 import { trackExploreClick } from '../../lib/trackExploreClick';
@@ -71,7 +72,7 @@ function useProductCheckout(productKey) {
 // published with one. The native button stays disabled until the lookup
 // settles so nobody starts the wrong checkout mid-load.
 function useCourseCheckoutOverride(courseSlug) {
-  const [state, setState] = useState({ ready: !courseSlug, cta: null, price: '' });
+  const [state, setState] = useState({ ready: !courseSlug, cta: null, price: '', image: '' });
 
   useEffect(() => {
     if (!courseSlug) return undefined;
@@ -83,7 +84,7 @@ function useCourseCheckoutOverride(courseSlug) {
       const price = course?.priceCents > 0
         ? new Intl.NumberFormat('en-US', { style: 'currency', currency: course.currency || 'usd' }).format(course.priceCents / 100)
         : '';
-      setState({ ready: true, cta: cta?.ghl ? cta : null, price });
+      setState({ ready: true, cta: cta?.ghl ? cta : null, price, image: course?.imageUrl ? courseImageSrc(course, {}, '', API_BASE_URL) : '' });
     });
     return () => { active = false; };
   }, [courseSlug]);
@@ -170,7 +171,7 @@ export default function ExploreProductCard({ product }) {
       <div className="card-bar" />
 
       <div className="explore-card-media">
-        <img src={product.image} alt={product.imageAlt} loading="lazy" />
+        <img src={override.image || product.image} alt={product.imageAlt} loading="lazy" />
       </div>
 
       <div className="explore-card-body">

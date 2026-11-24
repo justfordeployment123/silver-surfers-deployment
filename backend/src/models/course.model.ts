@@ -47,6 +47,8 @@ const courseSchema = new mongoose.Schema({
   ghlCheckoutUrl: { type: String, default: '' },
   ghlWorkbookUrl: { type: String, default: '' },
   displayPriceCents: { type: Number },
+  // Set when a card image has been uploaded (see CourseImage); also the cache-buster.
+  imageUpdatedAt: { type: Date },
 }, { timestamps: true });
 
 const Course = (mongoose.models.Course as mongoose.Model<unknown> | undefined)
