@@ -42,7 +42,8 @@ const STYLES = `
 .ac-inp { flex: 1; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
 .ac-inp::placeholder { color: rgba(255,255,255,0.75); }
 .ac-inp:focus { border-color: var(--t4); }
-.ac-sel { padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-sel { color-scheme: dark; padding: 8px 12px; border-radius: 8px; background: rgba(255,255,255,0.1); color: #fff; font-size: 16px; outline: none; border: 1px solid rgba(255,255,255,0.12); }
+.ac-sel option { background: #0F1D2C; color: #fff; }
 .ac-ref { padding: 8px 16px; border-radius: 8px; background: var(--t6); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; border: none; white-space: nowrap; }
 .ac-ref:hover { background: var(--t8); }
 .ac-card { padding: 16px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.1); transition: border-color .15s; }
@@ -371,12 +372,12 @@ function AccountContent() {
                                         className="ac-inp"
                                     />
                                     <select value={status} onChange={(e) => setStatus(e.target.value)} className="ac-sel">
-                                        <option value="all" className="text-black">All</option>
-                                        <option value="queued" className="text-black">Queued</option>
-                                        <option value="processing" className="text-black">Processing</option>
-                                        <option value="completed" className="text-black">Completed</option>
-                                        <option value="completed_with_warnings" className="text-black">Completed with warnings</option>
-                                        <option value="failed" className="text-black">Failed</option>
+                                        <option value="all">All</option>
+                                        <option value="queued">Queued</option>
+                                        <option value="processing">Processing</option>
+                                        <option value="completed">Completed</option>
+                                        <option value="completed_with_warnings">Completed with warnings</option>
+                                        <option value="failed">Failed</option>
                                     </select>
                                     <button onClick={load} className="ac-ref">Refresh</button>
                                 </div>
